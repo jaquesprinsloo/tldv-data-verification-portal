@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Copy, Upload } from "lucide-react";
+import { UserPlus, Trash2, Copy, Upload, Download } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -113,6 +113,24 @@ const EmployeeManagement = () => {
     });
   };
 
+  const handleDownloadTemplate = () => {
+    const csvContent = "employee_number,id_number\n";
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'employee_template.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Template Downloaded",
+      description: "CSV template downloaded successfully",
+    });
+  };
+
   const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -206,6 +224,14 @@ const EmployeeManagement = () => {
                 {loading ? "Adding..." : "Add Employee"}
               </Button>
               <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleDownloadTemplate}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Template
+                </Button>
                 <Input
                   ref={fileInputRef}
                   type="file"
