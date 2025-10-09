@@ -1,1 +1,15 @@
 project_id = "irvpnyxtdzwpnhtdpweu"
+
+[api]
+enabled = true
+port = 54321
+max_rows = 1000
+
+[functions.send-verification-email]
+verify_jwt = false
+
+[functions.send-reminder-emails]
+verify_jwt = false
+
+[functions.verify-geofence]
+verify_jwt = false

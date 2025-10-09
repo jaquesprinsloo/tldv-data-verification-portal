@@ -115,11 +115,30 @@ const EmployeeSubmissionForm = ({ employeeData, token }: EmployeeSubmissionFormP
     setLoading(true);
 
     try {
+      // Verify geofence
+      toast({
+        title: "Verifying Location",
+        description: "Checking if you are at the provided address...",
+      });
+
+      const { data: geofenceData, error: geofenceError } = await supabase.functions.invoke(
+        "verify-geofence",
+        {
+          body: {
+            address: formData.physicalAddress,
+            latitude: location.lat,
+            longitude: location.lng,
+          },
+        }
+      );
+
+      console.log("Geofence verification result:", geofenceData);
+
       // Upload photos
       const selfieUrl = await uploadFile(selfieFile, "employee-selfies", employeeData.id);
       const idUrl = await uploadFile(idFile, "employee-ids", employeeData.id);
 
-      // Create submission
+      // Create submission with geofence data
       const { data: submissionData, error: submissionError } = await supabase
         .from("submissions")
         .insert({
@@ -134,6 +153,12 @@ const EmployeeSubmissionForm = ({ employeeData, token }: EmployeeSubmissionFormP
           id_photo_url: idUrl,
           geolocation_lat: location.lat,
           geolocation_lng: location.lng,
+          geofence_verified: geofenceData?.verified || false,
+          geofence_distance_meters: geofenceData?.distance || null,
+          flagged: !geofenceData?.verified,
+          flag_reason: !geofenceData?.verified 
+            ? `Location verification failed. Distance from address: ${geofenceData?.distance || "unknown"}m (threshold: 100m)`
+            : null,
         })
         .select()
         .single();
@@ -153,11 +178,29 @@ const EmployeeSubmissionForm = ({ employeeData, token }: EmployeeSubmissionFormP
 
       if (nokError) throw nokError;
 
-      setSubmitted(true);
-      toast({
-        title: "Submission Successful",
-        description: "Your verification has been submitted successfully.",
+      // Send verification email
+      await supabase.functions.invoke("send-verification-email", {
+        body: {
+          email: formData.email,
+          name: `${formData.firstName} ${formData.lastName}`,
+          employeeNumber: formData.employeeNumber,
+        },
       });
+
+      setSubmitted(true);
+
+      if (!geofenceData?.verified) {
+        toast({
+          title: "Submission Received - Location Flagged",
+          description: `Your submission was recorded but flagged because you appear to be ${geofenceData?.distance}m from the provided address.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Submission Successful",
+          description: "Your verification has been submitted and location verified successfully.",
+        });
+      }
     } catch (error: any) {
       console.error("Submission error:", error);
       toast({
