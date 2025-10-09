@@ -335,9 +335,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_next_of_kin: {
+        Args: {
+          _address: string
+          _contact_number: string
+          _first_name: string
+          _last_name: string
+          _submission_id: string
+        }
+        Returns: string
+      }
+      check_submission_rate_limit: {
+        Args: { _employee_number: string }
+        Returns: boolean
+      }
       cleanup_old_audit_trail: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      create_verified_submission: {
+        Args: { submission_data: Json }
+        Returns: string
       }
       has_role: {
         Args: {

@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Camera, MapPin, Upload, CheckCircle } from "lucide-react";
+import { employeeSubmissionSchema } from "@/lib/validationSchemas";
 
 const EmployeeSubmissionForm = () => {
   const { toast } = useToast();
@@ -231,10 +232,14 @@ const EmployeeSubmissionForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.employeeNumber) {
+    // Validate form data with Zod
+    try {
+      employeeSubmissionSchema.parse(formData);
+    } catch (error: any) {
+      const firstError = error.errors[0];
       toast({
-        title: "Employee Number Required",
-        description: "Please enter your employee number",
+        title: "Validation Error",
+        description: firstError.message,
         variant: "destructive",
       });
       return;
@@ -253,16 +258,6 @@ const EmployeeSubmissionForm = () => {
       toast({
         title: "Documents Required",
         description: "Please upload both proof of residence and ID photo.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate next of kin fields
-    if (!formData.nextOfKinFirstName || !formData.nextOfKinLastName || !formData.nextOfKinContact || !formData.nextOfKinAddress) {
-      toast({
-        title: "Next of Kin Required",
-        description: "Please fill in all next of kin information before submitting.",
         variant: "destructive",
       });
       return;
@@ -336,64 +331,66 @@ const EmployeeSubmissionForm = () => {
       // Upload documents
       const proofUrl = await uploadFile(proofOfResidenceFile, "proof-of-residence", employeeId);
       const idUrl = await uploadFile(idFile, "employee-ids", employeeId);
-
-      // Create a known submission ID to avoid SELECT on anon inserts
-      const submissionId = crypto.randomUUID();
       
       // Determine status based on geofence
       const isGeofenceFlagged = geofenceData?.flagged || false;
       const submissionStatus = isGeofenceFlagged ? 'flagged' : 'pending';
       
-      // Create submission with geofence data
-      const { error: submissionError } = await supabase
-        .from("submissions")
-        .insert(
-          {
-            id: submissionId,
-            employee_id: employeeId,
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            id_number: formData.idNumber,
-            physical_address: physicalAddress,
-            house_number: formData.houseNumber || 'N/A',
-            floor_number: formData.floorNumber || 'N/A',
-            street_name: formData.streetName || 'N/A',
-            complex_name: formData.complexName || 'N/A',
-            suburb: formData.suburb || 'N/A',
-            city: formData.city || 'N/A',
-            province: formData.province || 'N/A',
-            postal_code: formData.postalCode || 'N/A',
-            email: formData.email,
-            contact_number: formData.contactNumber,
-            employee_number: formData.employeeNumber,
-            proof_of_residence_url: proofUrl,
-            id_photo_url: idUrl,
-            geolocation_lat: location.lat,
-            geolocation_lng: location.lng,
-            geofence_verified: geofenceData?.verified || false,
-            geofence_distance_meters: geofenceData?.distance || null,
-            flagged: isGeofenceFlagged,
-            flag_reason: isGeofenceFlagged
-              ? `Location verification failed. Distance from address: ${geofenceData?.distance || "unknown"}m (threshold: 15m)`
-              : null,
-            status: submissionStatus,
-            email_verified: true
-          } as any,
-          { returning: "minimal" } as any
-        );
+      // Create submission using secure function
+      const submissionData = {
+        employee_number: formData.employeeNumber,
+        id_number: formData.idNumber,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        contact_number: formData.contactNumber,
+        physical_address: physicalAddress,
+        house_number: formData.houseNumber || 'N/A',
+        floor_number: formData.floorNumber || 'N/A',
+        street_name: formData.streetName || 'N/A',
+        complex_name: formData.complexName || 'N/A',
+        suburb: formData.suburb || 'N/A',
+        city: formData.city || 'N/A',
+        province: formData.province || 'N/A',
+        postal_code: formData.postalCode || 'N/A',
+        geolocation_lat: location.lat.toString(),
+        geolocation_lng: location.lng.toString(),
+        geofence_verified: (geofenceData?.verified || false).toString(),
+        geofence_distance_meters: (geofenceData?.distance || null)?.toString(),
+        proof_of_residence_url: proofUrl,
+        id_photo_url: idUrl,
+        status: submissionStatus,
+        flagged: isGeofenceFlagged.toString()
+      };
 
-      if (submissionError) throw submissionError;
-
-      // Add next of kin
-      const { error: nokError } = await supabase
-        .from("next_of_kin")
-        .insert({
-          submission_id: submissionId,
-          first_name: formData.nextOfKinFirstName,
-          last_name: formData.nextOfKinLastName,
-          address: formData.nextOfKinAddress,
-          contact_number: formData.nextOfKinContact,
+      const { data: submissionId, error: submissionError } = await supabase
+        .rpc('create_verified_submission', {
+          submission_data: submissionData
         });
+
+      if (submissionError) {
+        console.error("Submission error:", submissionError);
+        if (submissionError.message.includes('rate limit')) {
+          toast({
+            title: "Rate Limit Exceeded",
+            description: "You've submitted too many times recently. Please wait and try again.",
+            variant: "destructive",
+          });
+        } else {
+          throw submissionError;
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Add next of kin using secure function
+      const { error: nokError } = await supabase.rpc('add_next_of_kin', {
+        _submission_id: submissionId,
+        _first_name: formData.nextOfKinFirstName,
+        _last_name: formData.nextOfKinLastName,
+        _contact_number: formData.nextOfKinContact,
+        _address: formData.nextOfKinAddress
+      });
 
       if (nokError) throw nokError;
 
