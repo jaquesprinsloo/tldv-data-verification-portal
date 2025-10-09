@@ -52,7 +52,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
     try {
       if (submission.proof_of_residence_url) {
         const { data } = await supabase.storage
-          .from('employee-selfies')
+          .from('proof-of-residence')
           .createSignedUrl(submission.proof_of_residence_url, 3600);
         setProofOfResidenceUrl(data?.signedUrl ?? null);
       } else {
@@ -160,7 +160,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
                 <span className="text-muted-foreground">Physical Address:</span>
                 <p className="font-medium">{submission.physical_address}</p>
               </div>
-              <div className="col-span-2 flex gap-4">
+              <div className="col-span-2">
                 <div className="flex items-center gap-2">
                   {submission.email_verified ? (
                     <CheckCircle className="h-4 w-4 text-green-600" />
@@ -169,16 +169,6 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
                   )}
                   <span className="text-sm">
                     Email {submission.email_verified ? 'Verified' : 'Not Verified'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {submission.whatsapp_verified ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  )}
-                  <span className="text-sm">
-                    WhatsApp {submission.whatsapp_verified ? 'Verified' : 'Not Verified'}
                   </span>
                 </div>
               </div>
@@ -262,8 +252,9 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
                   <img 
                     src={proofOfResidenceUrl} 
                     alt="Proof of residence document" 
-                    className="w-full h-48 object-cover rounded border"
+                    className="w-full h-48 object-cover rounded border cursor-pointer hover:opacity-80"
                     loading="lazy"
+                    onClick={() => window.open(proofOfResidenceUrl, '_blank')}
                   />
                 </div>
               )}
@@ -276,8 +267,9 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
                   <img 
                     src={idUrl} 
                     alt="Government ID document photo" 
-                    className="w-full h-48 object-cover rounded border"
+                    className="w-full h-48 object-cover rounded border cursor-pointer hover:opacity-80"
                     loading="lazy"
+                    onClick={() => window.open(idUrl, '_blank')}
                   />
                 </div>
               )}
