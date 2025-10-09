@@ -271,7 +271,7 @@ const EmployeeSubmissionForm = () => {
     setLoading(true);
 
     try {
-      // Verify employee number exists
+      // Verify employee number exists and matches ID number
       const { data: employeeData, error: employeeError } = await supabase
         .from("employees")
         .select("id, employee_number, id_number")
@@ -286,6 +286,34 @@ const EmployeeSubmissionForm = () => {
           description: "Employee number not found in the system. Please contact your administrator.",
           variant: "destructive",
         });
+        setLoading(false);
+        return;
+      }
+
+      // Check if ID number matches the employee record
+      if (employeeData.id_number !== formData.idNumber) {
+        // Check if the ID number exists for a different employee
+        const { data: idCheck } = await supabase
+          .from("employees")
+          .select("employee_number")
+          .eq("id_number", formData.idNumber)
+          .maybeSingle();
+
+        if (idCheck) {
+          // ID number exists but belongs to a different employee
+          toast({
+            title: "Incorrect Employee Number",
+            description: "The employee number you entered does not match the ID number provided. Please verify your employee number.",
+            variant: "destructive",
+          });
+        } else {
+          // ID number doesn't exist in the system
+          toast({
+            title: "Invalid ID Number",
+            description: "The ID number you entered does not match your employee record. Please verify your ID number.",
+            variant: "destructive",
+          });
+        }
         setLoading(false);
         return;
       }

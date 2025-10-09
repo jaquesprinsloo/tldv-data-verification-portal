@@ -87,10 +87,21 @@ const EmployeeManagement = () => {
     if (!employee.submission) {
       return { status: "awaiting_submission", label: "Awaiting Submission", variant: "outline" as const };
     }
-    if (employee.submission.status === "verified" || employee.submission.status === "approved") {
-      return { status: "approved", label: "Verified", variant: "default" as const };
+    
+    const submission = employee.submission;
+    
+    // Check if flagged
+    if (submission.flagged) {
+      return { status: "flagged", label: "Flagged", variant: "destructive" as const };
     }
-    return { status: "awaiting_status", label: "Awaiting Status Update", variant: "secondary" as const };
+    
+    // Check status
+    if (submission.status === "verified" || submission.status === "approved") {
+      return { status: "approved", label: "Verified", variant: "success" as const };
+    }
+    
+    // Pending status
+    return { status: "awaiting_status", label: "Pending", variant: "warning" as const };
   };
 
   const filteredEmployees = employees.filter((emp) => {
