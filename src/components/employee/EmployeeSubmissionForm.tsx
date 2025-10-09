@@ -82,11 +82,15 @@ const EmployeeSubmissionForm = () => {
 
   const uploadFile = async (file: File, bucket: string, userId: string) => {
     const fileExt = file.name.split('.').pop();
-    const fileName = `${userId}/${Date.now()}.${fileExt}`;
+    // Use timestamp and random string for anonymous uploads
+    const randomId = Math.random().toString(36).substring(2, 15);
+    const fileName = `${userId || randomId}/${Date.now()}.${fileExt}`;
     
     const { data, error } = await supabase.storage
       .from(bucket)
-      .upload(fileName, file);
+      .upload(fileName, file, {
+        upsert: false
+      });
 
     if (error) throw error;
     return fileName;
