@@ -65,9 +65,9 @@ const SubmissionsTable = ({ filterType = "all", onFilterChange }: SubmissionsTab
     switch (status) {
       case "verified":
       case "approved":
-        return <Badge variant="default" className="gap-1 bg-green-600"><CheckCircle className="h-3 w-3" /> Verified</Badge>;
+        return <Badge variant="success" className="gap-1"><CheckCircle className="h-3 w-3" /> Verified</Badge>;
       case "pending":
-        return <Badge variant="secondary">Pending</Badge>;
+        return <Badge variant="warning">Pending</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
