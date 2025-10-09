@@ -11,6 +11,7 @@ interface VerificationEmailRequest {
   name: string;
   employeeNumber: string;
   verificationToken: string;
+  appUrl: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -19,12 +20,11 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, name, employeeNumber, verificationToken }: VerificationEmailRequest = await req.json();
+    const { email, name, employeeNumber, verificationToken, appUrl }: VerificationEmailRequest = await req.json();
 
     console.log("Sending verification email to:", email);
     
-    const APP_URL = Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '.lovableproject.com') || '';
-    const verificationLink = `${APP_URL}/verify-email?token=${verificationToken}`;
+    const verificationLink = `${appUrl}/verify-email?token=${verificationToken}`;
 
     const GMAIL_EMAIL = Deno.env.get("GMAIL_EMAIL");
     const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");

@@ -430,6 +430,7 @@ const EmployeeSubmissionForm = () => {
           name: `${formData.firstName} ${formData.lastName}`,
           employeeNumber: formData.employeeNumber,
           verificationToken: verificationToken,
+          appUrl: window.location.origin,
         },
       }).catch(err => console.error("Email verification error:", err));
 
