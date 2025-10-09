@@ -43,22 +43,40 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
       const token = crypto.randomUUID();
 
       // Create invitation
-      const { error } = await supabase.from("employee_invitations").insert({
+      const { error: insertError } = await supabase.from("employee_invitations").insert({
         employee_id: employeeId,
         token: token,
         email: email,
       });
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
       // Generate invitation link
       const link = `${window.location.origin}/employee/login?token=${token}`;
       setInvitationLink(link);
 
-      toast({
-        title: "Invitation Created",
-        description: "Invitation link generated successfully",
+      // Send invitation email
+      const { error: emailError } = await supabase.functions.invoke("send-invitation-email", {
+        body: {
+          email: email,
+          employeeNumber: employeeNumber,
+          invitationLink: link,
+        },
       });
+
+      if (emailError) {
+        console.error("Failed to send email:", emailError);
+        toast({
+          title: "Invitation Created",
+          description: "Link generated but email failed to send. Please share the link manually.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Invitation Sent",
+          description: "Invitation email sent successfully",
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Failed to Create Invitation",

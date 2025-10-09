@@ -111,7 +111,7 @@ const EmployeeAuth = () => {
         }
       }
 
-      // Create auth account
+      // Try to create auth account
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: signupData.email,
         password: signupData.password,
@@ -119,6 +119,57 @@ const EmployeeAuth = () => {
           emailRedirectTo: `${window.location.origin}/employee/submit`,
         },
       });
+
+      // If user already exists, try to link them instead
+      if (authError?.message?.includes("User already registered")) {
+        // Try to sign in with the provided credentials
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email: signupData.email,
+          password: signupData.password,
+        });
+
+        if (signInError) {
+          toast({
+            title: "Account Already Exists",
+            description: "An account with this email already exists. Please log in instead or use a different email.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Link the signed-in user to the employee
+        const { data: employeeData } = await supabase.rpc("verify_employee_credentials", {
+          _employee_number: signupData.employeeNumber,
+          _id_number: signupData.idNumber,
+        });
+
+        if (employeeData?.[0]?.employee_id) {
+          const { error: linkError } = await supabase.rpc("link_employee_to_user", {
+            _employee_id: employeeData[0].employee_id,
+            _user_id: signInData.user.id,
+          });
+
+          if (linkError) {
+            toast({
+              title: "Link Failed",
+              description: "This employee account may already be linked to another user.",
+              variant: "destructive",
+            });
+            await supabase.auth.signOut();
+            setLoading(false);
+            return;
+          }
+        }
+
+        toast({
+          title: "Account Linked",
+          description: "Your existing account has been linked to your employee record",
+        });
+
+        navigate("/employee/submit");
+        return;
+      }
 
       if (authError) throw authError;
 
