@@ -158,38 +158,40 @@ const EmployeeSubmissionForm = () => {
       const selfieUrl = await uploadFile(selfieFile, "employee-selfies", employeeData.id);
       const idUrl = await uploadFile(idFile, "employee-ids", employeeData.id);
 
+      // Create a known submission ID to avoid SELECT on anon inserts
+      const submissionId = crypto.randomUUID();
       // Create submission with geofence data
-      const { data: submissionData, error: submissionError } = await supabase
+      const { error: submissionError } = await supabase
         .from("submissions")
-        .insert({
-          employee_id: employeeData.id,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          id_number: formData.idNumber,
-          physical_address: formData.physicalAddress,
-          email: formData.email,
-          employee_number: formData.employeeNumber,
-          selfie_photo_url: selfieUrl,
-          id_photo_url: idUrl,
-          geolocation_lat: location.lat,
-          geolocation_lng: location.lng,
-          geofence_verified: geofenceData?.verified || false,
-          geofence_distance_meters: geofenceData?.distance || null,
-          flagged: !geofenceData?.verified,
-          flag_reason: !geofenceData?.verified 
-            ? `Location verification failed. Distance from address: ${geofenceData?.distance || "unknown"}m (threshold: 100m)`
-            : null,
-        })
-        .select()
-        .single();
-
-      if (submissionError) throw submissionError;
+        .insert(
+          {
+            id: submissionId,
+            employee_id: employeeData.id,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            id_number: formData.idNumber,
+            physical_address: formData.physicalAddress,
+            email: formData.email,
+            employee_number: formData.employeeNumber,
+            selfie_photo_url: selfieUrl,
+            id_photo_url: idUrl,
+            geolocation_lat: location.lat,
+            geolocation_lng: location.lng,
+            geofence_verified: geofenceData?.verified || false,
+            geofence_distance_meters: geofenceData?.distance || null,
+            flagged: !geofenceData?.verified,
+            flag_reason: !geofenceData?.verified
+              ? `Location verification failed. Distance from address: ${geofenceData?.distance || "unknown"}m (threshold: 100m)`
+              : null,
+          } as any,
+          { returning: "minimal" } as any
+        );
 
       // Add next of kin
       const { error: nokError } = await supabase
         .from("next_of_kin")
         .insert({
-          submission_id: submissionData.id,
+          submission_id: submissionId,
           first_name: formData.nextOfKinFirstName,
           last_name: formData.nextOfKinLastName,
           address: formData.nextOfKinAddress,
