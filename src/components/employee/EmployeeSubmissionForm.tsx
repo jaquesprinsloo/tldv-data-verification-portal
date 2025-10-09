@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Camera, MapPin, Upload, CheckCircle } from "lucide-react";
 
 const EmployeeSubmissionForm = () => {
@@ -218,8 +219,7 @@ const EmployeeSubmissionForm = () => {
               ? `Location verification failed. Distance from address: ${geofenceData?.distance || "unknown"}m (threshold: 15m)`
               : null,
             status: submissionStatus,
-            email_verified: false,
-            whatsapp_verified: false
+            email_verified: true
           } as any,
           { returning: "minimal" } as any
         );
@@ -238,16 +238,6 @@ const EmployeeSubmissionForm = () => {
         });
 
       if (nokError) throw nokError;
-
-      // Send WhatsApp verification (fire and forget)
-      if (formData.contactNumber) {
-        supabase.functions.invoke('send-whatsapp-verification', {
-          body: { 
-            submissionId: submissionId,
-            contactNumber: formData.contactNumber
-          }
-        }).catch(err => console.error("WhatsApp verification error:", err));
-      }
 
       // Trigger AI document verification (fire and forget)
       if (proofUrl) {
@@ -293,7 +283,7 @@ const EmployeeSubmissionForm = () => {
       } else {
         toast({
           title: "Submission Successful",
-          description: "Your verification has been submitted. Check your WhatsApp for a verification link.",
+          description: "Your verification has been submitted. Check your email for confirmation.",
         });
       }
     } catch (error: any) {
@@ -335,73 +325,82 @@ const EmployeeSubmissionForm = () => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Personal Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold border-b pb-2">Personal Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="employeeNumber">Employee Number *</Label>
-                <Input
-                  id="employeeNumber"
-                  value={formData.employeeNumber}
-                  onChange={(e) => setFormData({ ...formData, employeeNumber: e.target.value })}
-                  required
-                  placeholder="Enter your employee number"
-                />
+          <Tabs defaultValue="employee" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="employee">Employee Information</TabsTrigger>
+              <TabsTrigger value="nextofkin">Next of Kin</TabsTrigger>
+            </TabsList>
+
+            {/* Employee Information Tab */}
+            <TabsContent value="employee" className="space-y-6 mt-6">
+              {/* Personal Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">Personal Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="employeeNumber">Employee Number *</Label>
+                    <Input
+                      id="employeeNumber"
+                      value={formData.employeeNumber}
+                      onChange={(e) => setFormData({ ...formData, employeeNumber: e.target.value })}
+                      required
+                      placeholder="Enter your employee number"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="idNumber">ID Number *</Label>
+                    <Input
+                      id="idNumber"
+                      value={formData.idNumber}
+                      onChange={(e) => setFormData({ ...formData, idNumber: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name *</Label>
+                    <Input
+                      id="firstName"
+                      value={formData.firstName}
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name *</Label>
+                    <Input
+                      id="lastName"
+                      value={formData.lastName}
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="email">Email Address *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="contactNumber">Contact Number *</Label>
+                    <Input
+                      id="contactNumber"
+                      type="tel"
+                      placeholder="e.g., +27821234567"
+                      value={formData.contactNumber}
+                      onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="idNumber">ID Number *</Label>
-                <Input
-                  id="idNumber"
-                  value={formData.idNumber}
-                  onChange={(e) => setFormData({ ...formData, idNumber: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name *</Label>
-                <Input
-                  id="firstName"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name *</Label>
-                <Input
-                  id="lastName"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="email">Email Address *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="contactNumber">Contact Number (WhatsApp) *</Label>
-                <Input
-                  id="contactNumber"
-                  type="tel"
-                  placeholder="e.g., +27821234567"
-                  value={formData.contactNumber}
-                  onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  Include country code (e.g., +27 for South Africa). You'll receive a verification link via WhatsApp.
-                </p>
-              </div>
-              <div className="md:col-span-2 space-y-4">
-                <h4 className="text-sm font-semibold">Current Physical Address *</h4>
+
+              {/* Address */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">Current Physical Address</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="houseNumber">House Number</Label>
@@ -474,134 +473,120 @@ const EmployeeSubmissionForm = () => {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Next of Kin */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold border-b pb-2">Next of Kin</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="nokFirstName">First Name *</Label>
-                <Input
-                  id="nokFirstName"
-                  value={formData.nextOfKinFirstName}
-                  onChange={(e) => setFormData({ ...formData, nextOfKinFirstName: e.target.value })}
-                  required
-                />
+              {/* Document Upload */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">Document Upload</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="proofOfResidence">Proof of Residence *</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="proofOfResidence"
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => handleFileChange(e, "proof")}
+                        required
+                        className="cursor-pointer"
+                      />
+                      <Upload className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    {proofOfResidenceFile && (
+                      <p className="text-sm text-green-600">✓ {proofOfResidenceFile.name}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="idPhoto">ID Photo *</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="idPhoto"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, "id")}
+                        required
+                        className="cursor-pointer"
+                      />
+                      <Camera className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    {idFile && (
+                      <p className="text-sm text-green-600">✓ {idFile.name}</p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="nokLastName">Last Name *</Label>
-                <Input
-                  id="nokLastName"
-                  value={formData.nextOfKinLastName}
-                  onChange={(e) => setFormData({ ...formData, nextOfKinLastName: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nokContact">Contact Number *</Label>
-                <Input
-                  id="nokContact"
-                  value={formData.nextOfKinContact}
-                  onChange={(e) => setFormData({ ...formData, nextOfKinContact: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="nokAddress">Address *</Label>
-                <Textarea
-                  id="nokAddress"
-                  value={formData.nextOfKinAddress}
-                  onChange={(e) => setFormData({ ...formData, nextOfKinAddress: e.target.value })}
-                  rows={2}
-                  required
-                />
-              </div>
-            </div>
-          </div>
 
-          {/* Document Uploads */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold border-b pb-2">Document Verification</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="proofOfResidence">Proof of Residence *</Label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Upload one of the following (not older than 3 months):
-                  <br />• Valid rental contract
-                  <br />• Municipal bill
-                  <br />• SAPS stamped address letter
-                  <br />Must show your name, ID number, and physical address
+              {/* Location Capture */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">Location Verification</h3>
+                <div className="flex items-center gap-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={captureLocation}
+                    className="flex items-center gap-2"
+                  >
+                    <MapPin className="h-4 w-4" />
+                    Capture Current Location
+                  </Button>
+                  {location && (
+                    <p className="text-sm text-green-600">
+                      ✓ Location captured ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
+                    </p>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  We need to verify that you are at the address you provided. Please make sure you are at your current physical address before capturing your location.
                 </p>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="proofOfResidence"
-                    type="file"
-                    accept="image/*,application/pdf"
-                    onChange={(e) => handleFileChange(e, "proof")}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => document.getElementById("proofOfResidence")?.click()}
-                    className="w-full"
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    {proofOfResidenceFile ? "Change Document" : "Upload Document"}
-                  </Button>
-                </div>
-                {proofOfResidenceFile && (
-                  <p className="text-sm text-muted-foreground">✓ {proofOfResidenceFile.name}</p>
-                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="idPhoto">ID Photo *</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="idPhoto"
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={(e) => handleFileChange(e, "id")}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => document.getElementById("idPhoto")?.click()}
-                    className="w-full"
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    {idFile ? "Change ID Photo" : "Upload ID Photo"}
-                  </Button>
-                </div>
-                {idFile && (
-                  <p className="text-sm text-muted-foreground">✓ {idFile.name}</p>
-                )}
-              </div>
-            </div>
-          </div>
+            </TabsContent>
 
-          {/* Location Capture */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold border-b pb-2">Location Verification</h3>
-            <Button
-              type="button"
-              onClick={captureLocation}
-              variant={location ? "secondary" : "default"}
-              className="w-full"
-            >
-              <MapPin className="mr-2 h-4 w-4" />
-              {location ? "Location Captured ✓" : "Capture Current Location"}
-            </Button>
-            {location && (
-              <p className="text-sm text-muted-foreground text-center">
-                Location: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
-              </p>
-            )}
-          </div>
+            {/* Next of Kin Tab */}
+            <TabsContent value="nextofkin" className="space-y-6 mt-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">Next of Kin Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinFirstName">First Name *</Label>
+                    <Input
+                      id="nextOfKinFirstName"
+                      value={formData.nextOfKinFirstName}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinFirstName: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinLastName">Last Name *</Label>
+                    <Input
+                      id="nextOfKinLastName"
+                      value={formData.nextOfKinLastName}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinLastName: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="nextOfKinContact">Contact Number *</Label>
+                    <Input
+                      id="nextOfKinContact"
+                      type="tel"
+                      value={formData.nextOfKinContact}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinContact: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="nextOfKinAddress">Physical Address *</Label>
+                    <Textarea
+                      id="nextOfKinAddress"
+                      value={formData.nextOfKinAddress}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinAddress: e.target.value })}
+                      required
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
 
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? "Submitting..." : "Submit Verification"}
