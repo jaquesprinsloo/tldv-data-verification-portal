@@ -48,8 +48,8 @@ export const employeeSubmissionSchema = z.object({
   
   physicalAddress: z.string()
     .trim()
-    .min(1, { message: "Physical address is required" })
-    .max(500, { message: "Address must be less than 500 characters" }),
+    .max(500, { message: "Address must be less than 500 characters" })
+    .optional(),
   
   houseNumber: z.string()
     .trim()
