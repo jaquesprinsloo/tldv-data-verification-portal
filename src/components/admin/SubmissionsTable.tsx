@@ -6,10 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, AlertTriangle, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
+import SubmissionDetailDialog from "./SubmissionDetailDialog";
 
 const SubmissionsTable = () => {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchSubmissions();
@@ -98,7 +101,14 @@ const SubmissionsTable = () => {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedSubmission(submission);
+                          setDetailDialogOpen(true);
+                        }}
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -109,6 +119,13 @@ const SubmissionsTable = () => {
           </Table>
         </div>
       </CardContent>
+
+      <SubmissionDetailDialog
+        submission={selectedSubmission}
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+        onUpdate={fetchSubmissions}
+      />
     </Card>
   );
 };
