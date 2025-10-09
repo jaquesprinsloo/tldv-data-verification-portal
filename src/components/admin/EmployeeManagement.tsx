@@ -115,12 +115,16 @@ const EmployeeManagement = () => {
   const handleDeleteEmployee = async () => {
     if (!employeeToDelete) return;
 
+    // Optimistic update: remove from UI immediately
+    const id = employeeToDelete;
+    setEmployees((prev) => prev.filter((e) => e.id !== id));
+
     try {
       // First delete all submissions associated with this employee
       const { error: submissionsError } = await supabase
         .from("submissions")
         .delete()
-        .eq("employee_id", employeeToDelete);
+        .eq("employee_id", id);
 
       if (submissionsError) throw submissionsError;
 
@@ -128,7 +132,7 @@ const EmployeeManagement = () => {
       const { error: employeeError } = await supabase
         .from("employees")
         .delete()
-        .eq("id", employeeToDelete);
+        .eq("id", id);
 
       if (employeeError) throw employeeError;
 
@@ -137,8 +141,11 @@ const EmployeeManagement = () => {
         description: "Employee and all associated submissions have been removed from the system",
       });
 
+      // Background refresh to ensure consistency
       fetchEmployees();
     } catch (error) {
+      // Revert by refetching if something failed
+      fetchEmployees();
       toast({
         title: "Error",
         description: "Failed to delete employee",
