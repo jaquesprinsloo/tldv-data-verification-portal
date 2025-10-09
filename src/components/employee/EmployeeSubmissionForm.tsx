@@ -60,7 +60,7 @@ const EmployeeSubmissionForm = () => {
           });
           toast({
             title: "Location Captured",
-            description: "Your current location has been recorded.",
+            description: `Location accuracy: ${Math.round(position.coords.accuracy)}m`,
           });
         },
         (error) => {
@@ -69,6 +69,11 @@ const EmployeeSubmissionForm = () => {
             description: "Unable to capture your location. Please enable location services.",
             variant: "destructive",
           });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
         }
       );
     } else {

@@ -127,6 +127,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                 <SelectContent>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
                   <SelectItem value="flagged">Flagged</SelectItem>
                 </SelectContent>
               </Select>
