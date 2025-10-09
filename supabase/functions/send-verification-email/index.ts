@@ -10,6 +10,7 @@ interface VerificationEmailRequest {
   email: string;
   name: string;
   employeeNumber: string;
+  verificationToken: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -18,9 +19,12 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, name, employeeNumber }: VerificationEmailRequest = await req.json();
+    const { email, name, employeeNumber, verificationToken }: VerificationEmailRequest = await req.json();
 
     console.log("Sending verification email to:", email);
+    
+    const APP_URL = Deno.env.get("SUPABASE_URL")?.replace('.supabase.co', '.lovableproject.com') || '';
+    const verificationLink = `${APP_URL}/verify-email?token=${verificationToken}`;
 
     const GMAIL_EMAIL = Deno.env.get("GMAIL_EMAIL");
     const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
@@ -60,16 +64,22 @@ const handler = async (req: Request): Promise<Response> => {
               <h1>TLDV - True Lie Detectors & Vetting</h1>
             </div>
             <div class="content">
-              <h2>Verification Received</h2>
+              <h2>Verify Your Email Address</h2>
               <p>Dear ${name},</p>
               <p>Thank you for submitting your verification details. We have successfully received your information for employee number <strong>${employeeNumber}</strong>.</p>
+              <p><strong>Important:</strong> Please verify your email address to complete your submission.</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${verificationLink}" style="background-color: #BC000A; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Verify Email Address</a>
+              </div>
+              <p style="font-size: 12px; color: #666;">If the button doesn't work, copy and paste this link into your browser:<br>
+              <a href="${verificationLink}" style="color: #BC000A;">${verificationLink}</a></p>
               <p>Your submission details:</p>
               <ul>
                 <li>Employee Number: ${employeeNumber}</li>
                 <li>Submission Date: ${new Date().toLocaleDateString()}</li>
                 <li>Next Renewal Due: ${new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toLocaleDateString()}</li>
               </ul>
-              <p><strong>Important:</strong> You will need to resubmit your verification in 6 months. We will send you reminder emails before the due date.</p>
+              <p><strong>Note:</strong> This verification link will expire in 7 days. You will need to resubmit your verification in 6 months.</p>
               <p>If you have any questions or concerns, please contact your administrator.</p>
             </div>
             <div class="footer">

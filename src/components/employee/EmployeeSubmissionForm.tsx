@@ -336,6 +336,9 @@ const EmployeeSubmissionForm = () => {
       const isGeofenceFlagged = geofenceData?.flagged || false;
       const submissionStatus = isGeofenceFlagged ? 'flagged' : 'pending';
       
+      // Generate verification token
+      const verificationToken = crypto.randomUUID();
+      
       // Create submission using secure function
       const submissionData = {
         employee_number: formData.employeeNumber,
@@ -360,7 +363,9 @@ const EmployeeSubmissionForm = () => {
         proof_of_residence_url: proofUrl,
         id_photo_url: idUrl,
         status: submissionStatus,
-        flagged: isGeofenceFlagged.toString()
+        flagged: isGeofenceFlagged.toString(),
+        verification_token: verificationToken,
+        verification_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
       };
 
       const { data: submissionId, error: submissionError } = await supabase
@@ -418,12 +423,13 @@ const EmployeeSubmissionForm = () => {
         }).catch(err => console.error("ID verification error:", err));
       }
 
-      // Send verification email (fire and forget)
+      // Send verification email with token (fire and forget)
       supabase.functions.invoke("send-verification-email", {
         body: {
           email: formData.email,
           name: `${formData.firstName} ${formData.lastName}`,
           employeeNumber: formData.employeeNumber,
+          verificationToken: verificationToken,
         },
       }).catch(err => console.error("Email verification error:", err));
 
