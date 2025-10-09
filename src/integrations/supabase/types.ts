@@ -172,7 +172,10 @@ export type Database = {
       }
       submissions: {
         Row: {
+          contact_number: string | null
           created_at: string
+          document_verification_details: Json | null
+          document_verification_status: string | null
           email: string
           employee_id: string
           employee_number: string
@@ -186,16 +189,24 @@ export type Database = {
           id: string
           id_number: string
           id_photo_url: string | null
+          id_verification_details: Json | null
+          id_verification_status: string | null
           last_name: string
           physical_address: string
           proof_of_residence_url: string | null
           status: Database["public"]["Enums"]["submission_status"] | null
           submission_timestamp: string
           updated_at: string
+          verification_token: string | null
+          verification_token_expires_at: string | null
           verified_at: string | null
+          whatsapp_verified: boolean | null
         }
         Insert: {
+          contact_number?: string | null
           created_at?: string
+          document_verification_details?: Json | null
+          document_verification_status?: string | null
           email: string
           employee_id: string
           employee_number: string
@@ -209,16 +220,24 @@ export type Database = {
           id?: string
           id_number: string
           id_photo_url?: string | null
+          id_verification_details?: Json | null
+          id_verification_status?: string | null
           last_name: string
           physical_address: string
           proof_of_residence_url?: string | null
           status?: Database["public"]["Enums"]["submission_status"] | null
           submission_timestamp?: string
           updated_at?: string
+          verification_token?: string | null
+          verification_token_expires_at?: string | null
           verified_at?: string | null
+          whatsapp_verified?: boolean | null
         }
         Update: {
+          contact_number?: string | null
           created_at?: string
+          document_verification_details?: Json | null
+          document_verification_status?: string | null
           email?: string
           employee_id?: string
           employee_number?: string
@@ -232,13 +251,18 @@ export type Database = {
           id?: string
           id_number?: string
           id_photo_url?: string | null
+          id_verification_details?: Json | null
+          id_verification_status?: string | null
           last_name?: string
           physical_address?: string
           proof_of_residence_url?: string | null
           status?: Database["public"]["Enums"]["submission_status"] | null
           submission_timestamp?: string
           updated_at?: string
+          verification_token?: string | null
+          verification_token_expires_at?: string | null
           verified_at?: string | null
+          whatsapp_verified?: boolean | null
         }
         Relationships: [
           {
