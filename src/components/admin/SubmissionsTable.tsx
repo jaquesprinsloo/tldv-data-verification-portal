@@ -20,13 +20,7 @@ const SubmissionsTable = () => {
     try {
       const { data, error } = await supabase
         .from("submissions")
-        .select(`
-          *,
-          employees (
-            employee_number,
-            stores (store_name)
-          )
-        `)
+        .select("*")
         .order("submission_timestamp", { ascending: false });
 
       if (error) throw error;
@@ -76,7 +70,6 @@ const SubmissionsTable = () => {
               <TableRow>
                 <TableHead>Employee #</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Store</TableHead>
                 <TableHead>Submission Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Geofence</TableHead>
@@ -86,7 +79,7 @@ const SubmissionsTable = () => {
             <TableBody>
               {submissions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     No submissions found
                   </TableCell>
                 </TableRow>
@@ -95,7 +88,6 @@ const SubmissionsTable = () => {
                   <TableRow key={submission.id}>
                     <TableCell className="font-medium">{submission.employee_number}</TableCell>
                     <TableCell>{submission.first_name} {submission.last_name}</TableCell>
-                    <TableCell>{submission.employees?.stores?.store_name || "N/A"}</TableCell>
                     <TableCell>{format(new Date(submission.submission_timestamp), "MMM dd, yyyy HH:mm")}</TableCell>
                     <TableCell>{getStatusBadge(submission.status, submission.flagged)}</TableCell>
                     <TableCell>
