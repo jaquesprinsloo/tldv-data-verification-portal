@@ -51,41 +51,79 @@ const EmployeeSubmissionForm = () => {
   };
 
   const captureLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const capturedLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          console.log('GPS coordinates captured:', capturedLocation);
-          console.log('Accuracy:', position.coords.accuracy, 'meters');
-          setLocation(capturedLocation);
-          toast({
-            title: "Location Captured",
-            description: `Location: ${capturedLocation.lat.toFixed(6)}, ${capturedLocation.lng.toFixed(6)} (±${Math.round(position.coords.accuracy)}m)`,
-          });
-        },
-        (error) => {
-          toast({
-            title: "Location Error",
-            description: "Unable to capture your location. Please enable location services.",
-            variant: "destructive",
-          });
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
-      );
-    } else {
+    // Check if geolocation is available
+    if (!navigator.geolocation) {
       toast({
-        title: "Not Supported",
+        title: "Error",
         description: "Geolocation is not supported by your browser.",
         variant: "destructive",
       });
+      return;
     }
+
+    // Check if we're in a secure context (HTTPS or localhost)
+    if (!window.isSecureContext) {
+      toast({
+        title: "Error",
+        description: "Location services require a secure connection (HTTPS).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Capturing Location...",
+      description: "Please wait while we get your precise location.",
+    });
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const capturedLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        console.log('GPS coordinates captured:', capturedLocation);
+        console.log('Accuracy:', position.coords.accuracy, 'meters');
+        console.log('Altitude:', position.coords.altitude);
+        console.log('Heading:', position.coords.heading);
+        console.log('Speed:', position.coords.speed);
+        
+        setLocation(capturedLocation);
+        toast({
+          title: "Location Captured",
+          description: `Location: ${capturedLocation.lat.toFixed(6)}, ${capturedLocation.lng.toFixed(6)} (±${Math.round(position.coords.accuracy)}m)`,
+        });
+      },
+      (error) => {
+        let errorMessage = "Unable to capture location.";
+        
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location permission denied. Please enable location access in your browser settings.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information is unavailable. Please check your device's location settings.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out. Please try again.";
+            break;
+          default:
+            errorMessage = `Location error: ${error.message}`;
+        }
+        
+        console.error('Geolocation error:', error);
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      }
+    );
   };
 
   const uploadFile = async (file: File, bucket: string, userId: string) => {
