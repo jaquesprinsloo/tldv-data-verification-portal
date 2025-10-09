@@ -80,7 +80,7 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <AdminHeader user={user} />
-      <main className="container mx-auto p-6 space-y-6">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
         <StatsOverview onSelectFilter={setFilter} activeFilter={filter} />
         
         <Tabs defaultValue="employees" className="w-full">
@@ -89,11 +89,11 @@ const AdminDashboard = () => {
             <TabsTrigger value="submissions">Submissions</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="employees" className="mt-6">
+          <TabsContent value="employees" className="mt-4 sm:mt-6">
             <EmployeeManagement />
           </TabsContent>
           
-          <TabsContent value="submissions" className="mt-6">
+          <TabsContent value="submissions" className="mt-4 sm:mt-6">
             <SubmissionsTable filterType={filter} onFilterChange={setFilter} />
           </TabsContent>
         </Tabs>
