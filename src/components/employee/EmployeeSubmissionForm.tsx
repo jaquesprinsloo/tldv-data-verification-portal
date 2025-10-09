@@ -26,15 +26,15 @@ const EmployeeSubmissionForm = () => {
     nextOfKinContact: "",
   });
 
-  const [selfieFile, setSelfieFile] = useState<File | null>(null);
+  const [proofOfResidenceFile, setProofOfResidenceFile] = useState<File | null>(null);
   const [idFile, setIdFile] = useState<File | null>(null);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "selfie" | "id") => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "proof" | "id") => {
     const file = e.target.files?.[0];
     if (file) {
-      if (type === "selfie") {
-        setSelfieFile(file);
+      if (type === "proof") {
+        setProofOfResidenceFile(file);
       } else {
         setIdFile(file);
       }
@@ -104,10 +104,10 @@ const EmployeeSubmissionForm = () => {
       return;
     }
 
-    if (!selfieFile || !idFile) {
+    if (!proofOfResidenceFile || !idFile) {
       toast({
-        title: "Photos Required",
-        description: "Please upload both selfie and ID photos.",
+        title: "Documents Required",
+        description: "Please upload both proof of residence and ID photo.",
         variant: "destructive",
       });
       return;
@@ -154,8 +154,8 @@ const EmployeeSubmissionForm = () => {
 
       console.log("Geofence verification result:", geofenceData);
 
-      // Upload photos
-      const selfieUrl = await uploadFile(selfieFile, "employee-selfies", employeeData.id);
+      // Upload documents
+      const proofUrl = await uploadFile(proofOfResidenceFile, "employee-selfies", employeeData.id);
       const idUrl = await uploadFile(idFile, "employee-ids", employeeData.id);
 
       // Create a known submission ID to avoid SELECT on anon inserts
@@ -173,7 +173,7 @@ const EmployeeSubmissionForm = () => {
             physical_address: formData.physicalAddress,
             email: formData.email,
             employee_number: formData.employeeNumber,
-            selfie_photo_url: selfieUrl,
+            proof_of_residence_url: proofUrl,
             id_photo_url: idUrl,
             geolocation_lat: location.lat,
             geolocation_lng: location.lng,
@@ -370,33 +370,39 @@ const EmployeeSubmissionForm = () => {
             </div>
           </div>
 
-          {/* Photo Uploads */}
+          {/* Document Uploads */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold border-b pb-2">Photo Verification</h3>
+            <h3 className="text-lg font-semibold border-b pb-2">Document Verification</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="selfie">Selfie Photo *</Label>
+                <Label htmlFor="proofOfResidence">Proof of Residence *</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Upload one of the following (not older than 3 months):
+                  <br />• Valid rental contract
+                  <br />• Municipal bill
+                  <br />• SAPS stamped address letter
+                  <br />Must show your name, ID number, and physical address
+                </p>
                 <div className="flex items-center gap-2">
                   <Input
-                    id="selfie"
+                    id="proofOfResidence"
                     type="file"
-                    accept="image/*"
-                    capture="user"
-                    onChange={(e) => handleFileChange(e, "selfie")}
+                    accept="image/*,application/pdf"
+                    onChange={(e) => handleFileChange(e, "proof")}
                     className="hidden"
                   />
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => document.getElementById("selfie")?.click()}
+                    onClick={() => document.getElementById("proofOfResidence")?.click()}
                     className="w-full"
                   >
-                    <Camera className="mr-2 h-4 w-4" />
-                    {selfieFile ? "Change Selfie" : "Take Selfie"}
+                    <Upload className="mr-2 h-4 w-4" />
+                    {proofOfResidenceFile ? "Change Document" : "Upload Document"}
                   </Button>
                 </div>
-                {selfieFile && (
-                  <p className="text-sm text-muted-foreground">✓ {selfieFile.name}</p>
+                {proofOfResidenceFile && (
+                  <p className="text-sm text-muted-foreground">✓ {proofOfResidenceFile.name}</p>
                 )}
               </div>
               <div className="space-y-2">

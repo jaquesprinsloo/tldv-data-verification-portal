@@ -188,7 +188,7 @@ export type Database = {
           id_photo_url: string | null
           last_name: string
           physical_address: string
-          selfie_photo_url: string | null
+          proof_of_residence_url: string | null
           status: Database["public"]["Enums"]["submission_status"] | null
           submission_timestamp: string
           updated_at: string
@@ -211,7 +211,7 @@ export type Database = {
           id_photo_url?: string | null
           last_name: string
           physical_address: string
-          selfie_photo_url?: string | null
+          proof_of_residence_url?: string | null
           status?: Database["public"]["Enums"]["submission_status"] | null
           submission_timestamp?: string
           updated_at?: string
@@ -234,7 +234,7 @@ export type Database = {
           id_photo_url?: string | null
           last_name?: string
           physical_address?: string
-          selfie_photo_url?: string | null
+          proof_of_residence_url?: string | null
           status?: Database["public"]["Enums"]["submission_status"] | null
           submission_timestamp?: string
           updated_at?: string

@@ -15,10 +15,13 @@ interface Employee {
   created_at: string;
 }
 
+type FilterType = "all" | "recent" | "older";
+
 const EmployeeManagement = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [formData, setFormData] = useState({
     employeeNumber: "",
     idNumber: "",
@@ -43,6 +46,20 @@ const EmployeeManagement = () => {
       console.error("Error fetching employees:", error);
     }
   };
+
+  const filteredEmployees = employees.filter((emp) => {
+    if (activeFilter === "all") return true;
+    
+    const createdDate = new Date(emp.created_at);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    if (activeFilter === "recent") {
+      return createdDate >= thirtyDaysAgo;
+    } else {
+      return createdDate < thirtyDaysAgo;
+    }
+  });
 
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,6 +292,29 @@ const EmployeeManagement = () => {
           </div>
         </CardHeader>
         <CardContent>
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant={activeFilter === "all" ? "default" : "outline"}
+              onClick={() => setActiveFilter("all")}
+              size="sm"
+            >
+              All ({employees.length})
+            </Button>
+            <Button
+              variant={activeFilter === "recent" ? "default" : "outline"}
+              onClick={() => setActiveFilter("recent")}
+              size="sm"
+            >
+              Recent (30 days)
+            </Button>
+            <Button
+              variant={activeFilter === "older" ? "default" : "outline"}
+              onClick={() => setActiveFilter("older")}
+              size="sm"
+            >
+              Older (30+ days)
+            </Button>
+          </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -286,14 +326,16 @@ const EmployeeManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {employees.length === 0 ? (
+                {filteredEmployees.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center text-muted-foreground">
-                      No employees found. Add your first employee above.
+                      {employees.length === 0 
+                        ? "No employees found. Add your first employee above."
+                        : "No employees match this filter."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  employees.map((employee) => (
+                  filteredEmployees.map((employee) => (
                     <TableRow key={employee.id}>
                       <TableCell className="font-medium">
                         {employee.employee_number}

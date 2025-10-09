@@ -19,7 +19,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
   const [status, setStatus] = useState(submission?.status || "pending");
   const [nextOfKin, setNextOfKin] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
+  const [proofOfResidenceUrl, setProofOfResidenceUrl] = useState<string | null>(null);
   const [idUrl, setIdUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,7 +28,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
       fetchNextOfKin();
       generateSignedUrls();
     } else {
-      setSelfieUrl(null);
+      setProofOfResidenceUrl(null);
       setIdUrl(null);
     }
   }, [submission, open]);
@@ -48,13 +48,13 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
   const generateSignedUrls = async () => {
     if (!submission) return;
     try {
-      if (submission.selfie_photo_url) {
+      if (submission.proof_of_residence_url) {
         const { data } = await supabase.storage
           .from('employee-selfies')
-          .createSignedUrl(submission.selfie_photo_url, 3600);
-        setSelfieUrl(data?.signedUrl ?? null);
+          .createSignedUrl(submission.proof_of_residence_url, 3600);
+        setProofOfResidenceUrl(data?.signedUrl ?? null);
       } else {
-        setSelfieUrl(null);
+        setProofOfResidenceUrl(null);
       }
       if (submission.id_photo_url) {
         const { data } = await supabase.storage
@@ -217,16 +217,19 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
             </div>
           </div>
 
-          {/* Photos */}
+          {/* Documents */}
           <div className="border rounded-lg p-4 space-y-3">
-            <h3 className="font-semibold">Uploaded Photos</h3>
+            <h3 className="font-semibold">Uploaded Documents</h3>
             <div className="grid grid-cols-2 gap-4">
-              {selfieUrl && (
+              {proofOfResidenceUrl && (
                 <div>
-                  <p className="text-sm text-muted-foreground mb-2">Selfie Photo</p>
+                  <p className="text-sm text-muted-foreground mb-2">Proof of Residence</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Should show name, ID number, and physical address
+                  </p>
                   <img 
-                    src={selfieUrl} 
-                    alt="Employee selfie photo" 
+                    src={proofOfResidenceUrl} 
+                    alt="Proof of residence document" 
                     className="w-full h-48 object-cover rounded border"
                     loading="lazy"
                   />
@@ -235,6 +238,9 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
               {idUrl && (
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">ID Photo</p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    For verification of name, surname, and ID number
+                  </p>
                   <img 
                     src={idUrl} 
                     alt="Government ID document photo" 
