@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      employee_invitations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string
+          employee_id: string
+          expires_at: string
+          id: string
+          token: string
+          used: boolean
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email: string
+          employee_id: string
+          expires_at?: string
+          id?: string
+          token: string
+          used?: boolean
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          employee_id?: string
+          expires_at?: string
+          id?: string
+          token?: string
+          used?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_invitations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           created_at: string
@@ -363,6 +404,18 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      link_employee_to_user: {
+        Args: { _employee_id: string; _user_id: string }
+        Returns: boolean
+      }
+      validate_invitation_token: {
+        Args: { _employee_number: string; _id_number: string; _token: string }
+        Returns: {
+          email: string
+          employee_id: string
+          is_valid: boolean
+        }[]
       }
       verify_employee_credentials: {
         Args: { _employee_number: string; _id_number: string }

@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Copy, Upload, Download, Eye } from "lucide-react";
+import { UserPlus, Trash2, Copy, Upload, Download, Eye, Mail } from "lucide-react";
+import InviteEmployeeDialog from "./InviteEmployeeDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +40,8 @@ const EmployeeManagement = () => {
   const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [employeeToInvite, setEmployeeToInvite] = useState<{ id: string; number: string } | null>(null);
   const [formData, setFormData] = useState({
     employeeNumber: "",
     idNumber: "",
@@ -304,6 +307,11 @@ const EmployeeManagement = () => {
     }
   };
 
+  const handleInviteEmployee = (employeeId: string, employeeNumber: string) => {
+    setEmployeeToInvite({ id: employeeId, number: employeeNumber });
+    setInviteDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -480,6 +488,14 @@ const EmployeeManagement = () => {
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handleInviteEmployee(employee.id, employee.employee_number)}
+                              title="Invite to portal"
+                            >
+                              <Mail className="h-4 w-4 text-primary" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => openDeleteDialog(employee.id)}
                               title="Delete employee"
                             >
@@ -521,6 +537,15 @@ const EmployeeManagement = () => {
         onUpdate={fetchEmployees}
         readOnly={selectedSubmission?.status === "verified"}
       />
+
+      {employeeToInvite && (
+        <InviteEmployeeDialog
+          employeeId={employeeToInvite.id}
+          employeeNumber={employeeToInvite.number}
+          open={inviteDialogOpen}
+          onOpenChange={setInviteDialogOpen}
+        />
+      )}
     </div>
   );
 };
