@@ -73,32 +73,49 @@ const EmployeeSubmissionForm = () => {
 
     toast({
       title: "Capturing Location...",
-      description: "Getting your precise GPS coordinates. This may take up to 30 seconds...",
+      description: "Getting your precise GPS coordinates. This may take up to 30 seconds. Please ensure you are outdoors or near a window for best results.",
     });
+
+    const MAX_ACCEPTABLE_ACCURACY = 20; // meters - must be better than geofence threshold
 
     // Try high accuracy first with longer timeout
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        const accuracy = position.coords.accuracy;
         const capturedLocation = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
+        
         console.log('GPS coordinates captured (high accuracy):', capturedLocation);
-        console.log('Accuracy:', position.coords.accuracy, 'meters');
+        console.log('Accuracy:', accuracy, 'meters');
         console.log('Altitude:', position.coords.altitude);
+        console.log('Altitude Accuracy:', position.coords.altitudeAccuracy);
         console.log('Heading:', position.coords.heading);
         console.log('Speed:', position.coords.speed);
+        console.log('Timestamp:', new Date(position.timestamp).toISOString());
+        
+        // Validate accuracy
+        if (accuracy > MAX_ACCEPTABLE_ACCURACY) {
+          toast({
+            title: "Poor GPS Accuracy",
+            description: `Current accuracy is ±${Math.round(accuracy)}m. For geofence verification (15m), accuracy must be ±${MAX_ACCEPTABLE_ACCURACY}m or better. Please move to a location with better GPS signal (outdoors, near window) and try again.`,
+            variant: "destructive",
+          });
+          console.warn('GPS accuracy too poor:', accuracy, 'meters. Needs to be under', MAX_ACCEPTABLE_ACCURACY);
+          return;
+        }
         
         setLocation(capturedLocation);
         toast({
-          title: "Location Captured",
-          description: `Location: ${capturedLocation.lat.toFixed(6)}, ${capturedLocation.lng.toFixed(6)} (±${Math.round(position.coords.accuracy)}m)`,
+          title: "Location Captured ✓",
+          description: `Lat: ${capturedLocation.lat.toFixed(6)}, Lng: ${capturedLocation.lng.toFixed(6)}\nAccuracy: ±${Math.round(accuracy)}m (Excellent for 15m geofence)`,
         });
       },
       (error) => {
         console.error('High accuracy geolocation failed:', error);
         
-        // If high accuracy fails with timeout, try with lower accuracy
+        // If high accuracy fails with timeout, try with lower accuracy as fallback
         if (error.code === error.TIMEOUT) {
           toast({
             title: "Retrying...",
@@ -107,17 +124,31 @@ const EmployeeSubmissionForm = () => {
           
           navigator.geolocation.getCurrentPosition(
             (position) => {
+              const accuracy = position.coords.accuracy;
               const capturedLocation = {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
               };
+              
               console.log('GPS coordinates captured (standard accuracy):', capturedLocation);
-              console.log('Accuracy:', position.coords.accuracy, 'meters');
+              console.log('Accuracy:', accuracy, 'meters');
+              console.log('Timestamp:', new Date(position.timestamp).toISOString());
+              
+              // Validate accuracy even for fallback
+              if (accuracy > MAX_ACCEPTABLE_ACCURACY) {
+                toast({
+                  title: "Poor GPS Accuracy",
+                  description: `Current accuracy is ±${Math.round(accuracy)}m. For geofence verification (15m), accuracy must be ±${MAX_ACCEPTABLE_ACCURACY}m or better. Please move outdoors or near a window for better GPS signal.`,
+                  variant: "destructive",
+                });
+                console.warn('GPS accuracy too poor:', accuracy, 'meters. Needs to be under', MAX_ACCEPTABLE_ACCURACY);
+                return;
+              }
               
               setLocation(capturedLocation);
               toast({
-                title: "Location Captured",
-                description: `Location: ${capturedLocation.lat.toFixed(6)}, ${capturedLocation.lng.toFixed(6)} (±${Math.round(position.coords.accuracy)}m)`,
+                title: "Location Captured ✓",
+                description: `Lat: ${capturedLocation.lat.toFixed(6)}, Lng: ${capturedLocation.lng.toFixed(6)}\nAccuracy: ±${Math.round(accuracy)}m`,
               });
             },
             (fallbackError) => {
@@ -125,13 +156,13 @@ const EmployeeSubmissionForm = () => {
               
               switch(fallbackError.code) {
                 case fallbackError.PERMISSION_DENIED:
-                  errorMessage = "Location permission denied. Please enable location access in your browser settings.";
+                  errorMessage = "Location permission denied. Please enable location access in your browser and device settings.";
                   break;
                 case fallbackError.POSITION_UNAVAILABLE:
-                  errorMessage = "Location information is unavailable. Please check your device's location settings.";
+                  errorMessage = "Location information is unavailable. Please check your device's GPS settings and ensure you have a clear view of the sky.";
                   break;
                 case fallbackError.TIMEOUT:
-                  errorMessage = "Location request timed out. Try moving to a location with better GPS signal.";
+                  errorMessage = "Location request timed out. Please move outdoors or near a window and ensure GPS is enabled on your device.";
                   break;
                 default:
                   errorMessage = `Location error: ${fallbackError.message}`;
@@ -146,7 +177,7 @@ const EmployeeSubmissionForm = () => {
             },
             {
               enableHighAccuracy: false,
-              timeout: 10000,
+              timeout: 15000,
               maximumAge: 0
             }
           );
@@ -156,10 +187,10 @@ const EmployeeSubmissionForm = () => {
           
           switch(error.code) {
             case error.PERMISSION_DENIED:
-              errorMessage = "Location permission denied. Please enable location access in your browser settings.";
+              errorMessage = "Location permission denied. Please enable location access in your browser and device settings.";
               break;
             case error.POSITION_UNAVAILABLE:
-              errorMessage = "Location information is unavailable. Please check your device's location settings.";
+              errorMessage = "Location information is unavailable. Please check your device's GPS settings and ensure you have a clear view of the sky.";
               break;
             default:
               errorMessage = `Location error: ${error.message}`;
