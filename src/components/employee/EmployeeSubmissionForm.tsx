@@ -73,16 +73,17 @@ const EmployeeSubmissionForm = () => {
 
     toast({
       title: "Capturing Location...",
-      description: "Please wait while we get your precise location.",
+      description: "Getting your precise GPS coordinates. This may take up to 30 seconds...",
     });
 
+    // Try high accuracy first with longer timeout
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const capturedLocation = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
-        console.log('GPS coordinates captured:', capturedLocation);
+        console.log('GPS coordinates captured (high accuracy):', capturedLocation);
         console.log('Accuracy:', position.coords.accuracy, 'meters');
         console.log('Altitude:', position.coords.altitude);
         console.log('Heading:', position.coords.heading);
@@ -95,32 +96,86 @@ const EmployeeSubmissionForm = () => {
         });
       },
       (error) => {
-        let errorMessage = "Unable to capture location.";
+        console.error('High accuracy geolocation failed:', error);
         
-        switch(error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = "Location permission denied. Please enable location access in your browser settings.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information is unavailable. Please check your device's location settings.";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out. Please try again.";
-            break;
-          default:
-            errorMessage = `Location error: ${error.message}`;
+        // If high accuracy fails with timeout, try with lower accuracy
+        if (error.code === error.TIMEOUT) {
+          toast({
+            title: "Retrying...",
+            description: "High accuracy timed out. Trying with standard accuracy...",
+          });
+          
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const capturedLocation = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+              };
+              console.log('GPS coordinates captured (standard accuracy):', capturedLocation);
+              console.log('Accuracy:', position.coords.accuracy, 'meters');
+              
+              setLocation(capturedLocation);
+              toast({
+                title: "Location Captured",
+                description: `Location: ${capturedLocation.lat.toFixed(6)}, ${capturedLocation.lng.toFixed(6)} (±${Math.round(position.coords.accuracy)}m)`,
+              });
+            },
+            (fallbackError) => {
+              let errorMessage = "Unable to capture location.";
+              
+              switch(fallbackError.code) {
+                case fallbackError.PERMISSION_DENIED:
+                  errorMessage = "Location permission denied. Please enable location access in your browser settings.";
+                  break;
+                case fallbackError.POSITION_UNAVAILABLE:
+                  errorMessage = "Location information is unavailable. Please check your device's location settings.";
+                  break;
+                case fallbackError.TIMEOUT:
+                  errorMessage = "Location request timed out. Try moving to a location with better GPS signal.";
+                  break;
+                default:
+                  errorMessage = `Location error: ${fallbackError.message}`;
+              }
+              
+              console.error('Fallback geolocation error:', fallbackError);
+              toast({
+                title: "Error",
+                description: errorMessage,
+                variant: "destructive",
+              });
+            },
+            {
+              enableHighAccuracy: false,
+              timeout: 10000,
+              maximumAge: 0
+            }
+          );
+        } else {
+          // Handle other errors
+          let errorMessage = "Unable to capture location.";
+          
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = "Location permission denied. Please enable location access in your browser settings.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "Location information is unavailable. Please check your device's location settings.";
+              break;
+            default:
+              errorMessage = `Location error: ${error.message}`;
+          }
+          
+          console.error('Geolocation error:', error);
+          toast({
+            title: "Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
         }
-        
-        console.error('Geolocation error:', error);
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
-        });
       },
       {
         enableHighAccuracy: true,
-        timeout: 15000,
+        timeout: 30000,
         maximumAge: 0
       }
     );
