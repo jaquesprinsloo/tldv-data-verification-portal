@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Copy, Upload, Download } from "lucide-react";
+import { UserPlus, Trash2, Copy, Upload, Download, Eye } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,23 +18,27 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import SubmissionDetailDialog from "./SubmissionDetailDialog";
 
-interface Employee {
+interface EmployeeWithSubmission {
   id: string;
   employee_number: string;
   id_number: string;
   created_at: string;
+  submission?: any;
 }
 
-type FilterType = "all" | "recent" | "older";
+type FilterType = "all" | "approved" | "awaiting_status" | "awaiting_submission";
 
 const EmployeeManagement = () => {
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<EmployeeWithSubmission[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     employeeNumber: "",
     idNumber: "",
@@ -47,30 +52,51 @@ const EmployeeManagement = () => {
 
   const fetchEmployees = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch employees with their submissions
+      const { data: employeesData, error: employeesError } = await supabase
         .from("employees")
         .select("id, employee_number, id_number, created_at")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setEmployees(data || []);
+      if (employeesError) throw employeesError;
+
+      // Fetch all submissions
+      const { data: submissionsData, error: submissionsError } = await supabase
+        .from("submissions")
+        .select("*")
+        .order("submission_timestamp", { ascending: false });
+
+      if (submissionsError) throw submissionsError;
+
+      // Map submissions to employees (one submission per employee)
+      const employeesWithSubmissions = (employeesData || []).map((emp) => {
+        const submission = submissionsData?.find((sub) => sub.employee_id === emp.id);
+        return {
+          ...emp,
+          submission: submission || null,
+        };
+      });
+
+      setEmployees(employeesWithSubmissions);
     } catch (error) {
       console.error("Error fetching employees:", error);
     }
   };
 
+  const getEmployeeStatus = (employee: EmployeeWithSubmission) => {
+    if (!employee.submission) {
+      return { status: "awaiting_submission", label: "Awaiting Submission", variant: "outline" as const };
+    }
+    if (employee.submission.status === "verified" || employee.submission.status === "approved") {
+      return { status: "approved", label: "Verified", variant: "default" as const };
+    }
+    return { status: "awaiting_status", label: "Awaiting Status Update", variant: "secondary" as const };
+  };
+
   const filteredEmployees = employees.filter((emp) => {
     if (activeFilter === "all") return true;
-    
-    const createdDate = new Date(emp.created_at);
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    if (activeFilter === "recent") {
-      return createdDate >= thirtyDaysAgo;
-    } else {
-      return createdDate < thirtyDaysAgo;
-    }
+    const { status } = getEmployeeStatus(emp);
+    return status === activeFilter;
   });
 
   const handleAddEmployee = async (e: React.FormEvent) => {
@@ -115,12 +141,10 @@ const EmployeeManagement = () => {
   const handleDeleteEmployee = async () => {
     if (!employeeToDelete) return;
 
-    // Optimistic update: remove from UI immediately
     const id = employeeToDelete;
     setEmployees((prev) => prev.filter((e) => e.id !== id));
 
     try {
-      // First delete all submissions associated with this employee
       const { error: submissionsError } = await supabase
         .from("submissions")
         .delete()
@@ -128,7 +152,6 @@ const EmployeeManagement = () => {
 
       if (submissionsError) throw submissionsError;
 
-      // Then delete the employee
       const { error: employeeError } = await supabase
         .from("employees")
         .delete()
@@ -141,10 +164,8 @@ const EmployeeManagement = () => {
         description: "Employee and all associated submissions have been removed from the system",
       });
 
-      // Background refresh to ensure consistency
       fetchEmployees();
     } catch (error) {
-      // Revert by refetching if something failed
       fetchEmployees();
       toast({
         title: "Error",
@@ -193,7 +214,6 @@ const EmployeeManagement = () => {
       const text = await file.text();
       const lines = text.split('\n').filter(line => line.trim());
       
-      // Skip header row if it exists
       const hasHeader = lines[0].toLowerCase().includes('employee') || lines[0].toLowerCase().includes('id');
       const dataLines = hasHeader ? lines.slice(1) : lines;
       
@@ -229,6 +249,13 @@ const EmployeeManagement = () => {
       });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleViewSubmission = (employee: EmployeeWithSubmission) => {
+    if (employee.submission) {
+      setSelectedSubmission(employee.submission);
+      setDetailDialogOpen(true);
     }
   };
 
@@ -318,7 +345,7 @@ const EmployeeManagement = () => {
             <div>
               <CardTitle>Employee List</CardTitle>
               <CardDescription>
-                Manage employee records in the system
+                View employee records and submission statuses
               </CardDescription>
             </div>
             <Button onClick={handleCopySubmissionLink} variant="outline">
@@ -334,21 +361,28 @@ const EmployeeManagement = () => {
               onClick={() => setActiveFilter("all")}
               size="sm"
             >
-              All ({employees.length})
+              All
             </Button>
             <Button
-              variant={activeFilter === "recent" ? "default" : "outline"}
-              onClick={() => setActiveFilter("recent")}
+              variant={activeFilter === "approved" ? "default" : "outline"}
+              onClick={() => setActiveFilter("approved")}
               size="sm"
             >
-              Recent (30 days)
+              Approved
             </Button>
             <Button
-              variant={activeFilter === "older" ? "default" : "outline"}
-              onClick={() => setActiveFilter("older")}
+              variant={activeFilter === "awaiting_status" ? "default" : "outline"}
+              onClick={() => setActiveFilter("awaiting_status")}
               size="sm"
             >
-              Older (30+ days)
+              Awaiting Status Update
+            </Button>
+            <Button
+              variant={activeFilter === "awaiting_submission" ? "default" : "outline"}
+              onClick={() => setActiveFilter("awaiting_submission")}
+              size="sm"
+            >
+              Awaiting Submission
             </Button>
           </div>
           <div className="overflow-x-auto">
@@ -357,6 +391,7 @@ const EmployeeManagement = () => {
                 <TableRow>
                   <TableHead>Employee #</TableHead>
                   <TableHead>ID Number</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Added Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -364,34 +399,52 @@ const EmployeeManagement = () => {
               <TableBody>
                 {filteredEmployees.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                       {employees.length === 0 
                         ? "No employees found. Add your first employee above."
                         : "No employees match this filter."}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredEmployees.map((employee) => (
-                    <TableRow key={employee.id}>
-                      <TableCell className="font-medium">
-                        {employee.employee_number}
-                      </TableCell>
-                      <TableCell>{employee.id_number}</TableCell>
-                      <TableCell>
-                        {new Date(employee.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openDeleteDialog(employee.id)}
-                          title="Delete employee"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filteredEmployees.map((employee) => {
+                    const { label, variant } = getEmployeeStatus(employee);
+                    return (
+                      <TableRow key={employee.id}>
+                        <TableCell className="font-medium">
+                          {employee.employee_number}
+                        </TableCell>
+                        <TableCell>{employee.id_number}</TableCell>
+                        <TableCell>
+                          <Badge variant={variant}>{label}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(employee.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            {employee.submission && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewSubmission(employee)}
+                                title="View submission details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openDeleteDialog(employee.id)}
+                              title="Delete employee"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -415,6 +468,14 @@ const EmployeeManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SubmissionDetailDialog
+        submission={selectedSubmission}
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+        onUpdate={fetchEmployees}
+        readOnly={selectedSubmission?.status === "verified"}
+      />
     </div>
   );
 };

@@ -53,11 +53,8 @@ const SubmissionsTable = ({ filterType = "all", onFilterChange }: SubmissionsTab
   };
 
   const filteredSubmissions = submissions.filter((submission) => {
-    if (activeFilter === "all") return true;
-    if (activeFilter === "verified") return submission.status === "verified" || submission.status === "approved";
-    if (activeFilter === "flagged") return submission.flagged || (submission.geofence_distance_meters && submission.geofence_distance_meters > 15);
-    if (activeFilter === "pending") return submission.status === "pending";
-    return true;
+    // Only show pending submissions - verified ones move to employee list
+    return submission.status === "pending";
   });
 
   const getStatusBadge = (status: string, flagged: boolean) => {
@@ -89,39 +86,7 @@ const SubmissionsTable = ({ filterType = "all", onFilterChange }: SubmissionsTab
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Submissions</CardTitle>
-          <div className="flex gap-2">
-            <Button
-              variant={activeFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleFilterChange("all")}
-            >
-              All
-            </Button>
-            <Button
-              variant={activeFilter === "verified" ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleFilterChange("verified")}
-            >
-              Verified
-            </Button>
-            <Button
-              variant={activeFilter === "flagged" ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleFilterChange("flagged")}
-            >
-              Flagged
-            </Button>
-            <Button
-              variant={activeFilter === "pending" ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleFilterChange("pending")}
-            >
-              Pending
-            </Button>
-          </div>
-        </div>
+        <CardTitle>Pending Submissions</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">

@@ -13,9 +13,10 @@ interface SubmissionDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: () => void;
+  readOnly?: boolean;
 }
 
-const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: SubmissionDetailDialogProps) => {
+const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, readOnly = false }: SubmissionDetailDialogProps) => {
   const [status, setStatus] = useState(submission?.status || "pending");
   const [nextOfKin, setNextOfKin] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -91,6 +92,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
       setStatus(newStatus);
       toast.success("Status updated successfully");
       onUpdate();
+      onOpenChange(false); // Close dialog after successful update
     } catch (error) {
       console.error("Error updating status:", error);
       toast.error("Failed to update status");
@@ -115,19 +117,21 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
 
         <div className="space-y-6">
           {/* Status Update */}
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium">Update Status:</label>
-            <Select value={status} onValueChange={handleStatusUpdate} disabled={loading}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="flagged">Flagged</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {!readOnly && (
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-medium">Update Status:</label>
+              <Select value={status} onValueChange={handleStatusUpdate} disabled={loading}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="flagged">Flagged</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Employee Information */}
           <div className="border rounded-lg p-4 space-y-3">
