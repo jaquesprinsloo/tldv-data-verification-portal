@@ -8,11 +8,19 @@ import { Eye, AlertTriangle, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import SubmissionDetailDialog from "./SubmissionDetailDialog";
 
-const SubmissionsTable = () => {
+type FilterType = "all" | "verified" | "flagged" | "pending";
+
+interface SubmissionsTableProps {
+  filterType?: FilterType;
+  onFilterChange?: (filter: FilterType) => void;
+}
+
+const SubmissionsTable = ({ filterType = "all", onFilterChange }: SubmissionsTableProps) => {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterType>(filterType);
 
   useEffect(() => {
     fetchSubmissions();
@@ -34,6 +42,19 @@ const SubmissionsTable = () => {
       setLoading(false);
     }
   };
+
+  const handleFilterChange = (filter: FilterType) => {
+    setActiveFilter(filter);
+    onFilterChange?.(filter);
+  };
+
+  const filteredSubmissions = submissions.filter((submission) => {
+    if (activeFilter === "all") return true;
+    if (activeFilter === "verified") return submission.status === "verified" || submission.status === "approved";
+    if (activeFilter === "flagged") return submission.flagged || (submission.geofence_distance_meters && submission.geofence_distance_meters > 15);
+    if (activeFilter === "pending") return submission.status === "pending";
+    return true;
+  });
 
   const getStatusBadge = (status: string, flagged: boolean) => {
     if (flagged) {
@@ -64,7 +85,39 @@ const SubmissionsTable = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent Submissions</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Submissions</CardTitle>
+          <div className="flex gap-2">
+            <Button
+              variant={activeFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleFilterChange("all")}
+            >
+              All
+            </Button>
+            <Button
+              variant={activeFilter === "verified" ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleFilterChange("verified")}
+            >
+              Verified
+            </Button>
+            <Button
+              variant={activeFilter === "flagged" ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleFilterChange("flagged")}
+            >
+              Flagged
+            </Button>
+            <Button
+              variant={activeFilter === "pending" ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleFilterChange("pending")}
+            >
+              Pending
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -80,14 +133,14 @@ const SubmissionsTable = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {submissions.length === 0 ? (
+              {filteredSubmissions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground">
                     No submissions found
                   </TableCell>
                 </TableRow>
               ) : (
-                submissions.map((submission) => (
+                filteredSubmissions.map((submission) => (
                   <TableRow key={submission.id}>
                     <TableCell className="font-medium">{submission.employee_number}</TableCell>
                     <TableCell>{submission.first_name} {submission.last_name}</TableCell>
@@ -131,3 +184,4 @@ const SubmissionsTable = () => {
 };
 
 export default SubmissionsTable;
+export type { FilterType };

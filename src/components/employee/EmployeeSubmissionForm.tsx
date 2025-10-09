@@ -179,9 +179,9 @@ const EmployeeSubmissionForm = () => {
             geolocation_lng: location.lng,
             geofence_verified: geofenceData?.verified || false,
             geofence_distance_meters: geofenceData?.distance || null,
-            flagged: !geofenceData?.verified,
-            flag_reason: !geofenceData?.verified
-              ? `Location verification failed. Distance from address: ${geofenceData?.distance || "unknown"}m (threshold: 100m)`
+            flagged: geofenceData?.flagged || false,
+            flag_reason: geofenceData?.flagged
+              ? `Location verification failed. Distance from address: ${geofenceData?.distance || "unknown"}m (threshold: 15m)`
               : null,
           } as any,
           { returning: "minimal" } as any

@@ -195,7 +195,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Selfie Photo</p>
                   <img 
-                    src={submission.selfie_photo_url} 
+                    src={supabase.storage.from('employee-selfies').getPublicUrl(submission.selfie_photo_url).data.publicUrl} 
                     alt="Selfie" 
                     className="w-full h-48 object-cover rounded border"
                   />
@@ -205,7 +205,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">ID Photo</p>
                   <img 
-                    src={submission.id_photo_url} 
+                    src={supabase.storage.from('employee-ids').getPublicUrl(submission.id_photo_url).data.publicUrl} 
                     alt="ID" 
                     className="w-full h-48 object-cover rounded border"
                   />
