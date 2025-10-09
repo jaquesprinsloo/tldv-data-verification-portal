@@ -5,7 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import AdminHeader from "@/components/admin/AdminHeader";
 import SubmissionsTable from "@/components/admin/SubmissionsTable";
 import StatsOverview from "@/components/admin/StatsOverview";
+import EmployeeManagement from "@/components/admin/EmployeeManagement";
 import { User } from "@supabase/supabase-js";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -79,7 +81,21 @@ const AdminDashboard = () => {
       <AdminHeader user={user} />
       <main className="container mx-auto p-6 space-y-6">
         <StatsOverview />
-        <SubmissionsTable />
+        
+        <Tabs defaultValue="employees" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="employees">Employees</TabsTrigger>
+            <TabsTrigger value="submissions">Submissions</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="employees" className="mt-6">
+            <EmployeeManagement />
+          </TabsContent>
+          
+          <TabsContent value="submissions" className="mt-6">
+            <SubmissionsTable />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
