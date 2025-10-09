@@ -122,6 +122,16 @@ const EmployeeSubmissionForm = () => {
       return;
     }
 
+    // Validate next of kin fields
+    if (!formData.nextOfKinFirstName || !formData.nextOfKinLastName || !formData.nextOfKinContact || !formData.nextOfKinAddress) {
+      toast({
+        title: "Next of Kin Required",
+        description: "Please fill in all next of kin information before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
