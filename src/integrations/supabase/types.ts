@@ -17,54 +17,35 @@ export type Database = {
       employees: {
         Row: {
           created_at: string
-          email_verified: boolean | null
           employee_number: string
           id: string
           id_number: string
           last_submission_date: string | null
-          link_expires_at: string | null
           next_renewal_date: string | null
-          store_id: string | null
-          unique_link_token: string
           updated_at: string
           user_id: string | null
         }
         Insert: {
           created_at?: string
-          email_verified?: boolean | null
           employee_number: string
           id?: string
           id_number: string
           last_submission_date?: string | null
-          link_expires_at?: string | null
           next_renewal_date?: string | null
-          store_id?: string | null
-          unique_link_token: string
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           created_at?: string
-          email_verified?: boolean | null
           employee_number?: string
           id?: string
           id_number?: string
           last_submission_date?: string | null
-          link_expires_at?: string | null
           next_renewal_date?: string | null
-          store_id?: string | null
-          unique_link_token?: string
           updated_at?: string
           user_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "employees_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "employees_user_id_fkey"
             columns: ["user_id"]
