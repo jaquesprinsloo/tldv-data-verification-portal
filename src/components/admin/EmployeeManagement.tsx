@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Copy } from "lucide-react";
+import { UserPlus, Trash2, Copy, Upload } from "lucide-react";
 
 interface Employee {
   id: string;
@@ -18,10 +18,12 @@ interface Employee {
 const EmployeeManagement = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     employeeNumber: "",
     idNumber: "",
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -111,6 +113,54 @@ const EmployeeManagement = () => {
     });
   };
 
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      // Skip header row if it exists
+      const hasHeader = lines[0].toLowerCase().includes('employee') || lines[0].toLowerCase().includes('id');
+      const dataLines = hasHeader ? lines.slice(1) : lines;
+      
+      const employeesToInsert = dataLines.map(line => {
+        const [employeeNumber, idNumber] = line.split(',').map(s => s.trim());
+        return { employee_number: employeeNumber, id_number: idNumber };
+      }).filter(emp => emp.employee_number && emp.id_number);
+
+      if (employeesToInsert.length === 0) {
+        throw new Error("No valid employee data found in CSV");
+      }
+
+      const { error } = await supabase
+        .from("employees")
+        .insert(employeesToInsert);
+
+      if (error) throw error;
+
+      toast({
+        title: "Employees Added",
+        description: `Successfully added ${employeesToInsert.length} employees`,
+      });
+
+      fetchEmployees();
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error: any) {
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload CSV",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -151,10 +201,35 @@ const EmployeeManagement = () => {
                 />
               </div>
             </div>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Adding..." : "Add Employee"}
-            </Button>
+            <div className="flex gap-4">
+              <Button type="submit" disabled={loading}>
+                {loading ? "Adding..." : "Add Employee"}
+              </Button>
+              <div className="flex items-center gap-2">
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleCSVUpload}
+                  disabled={uploading}
+                  className="hidden"
+                  id="csv-upload"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {uploading ? "Uploading..." : "Upload CSV"}
+                </Button>
+              </div>
+            </div>
           </form>
+          <p className="text-sm text-muted-foreground mt-2">
+            CSV format: employee_number, id_number (one per line)
+          </p>
         </CardContent>
       </Card>
 
