@@ -54,13 +54,16 @@ const EmployeeSubmissionForm = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setLocation({
+          const capturedLocation = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
-          });
+          };
+          console.log('GPS coordinates captured:', capturedLocation);
+          console.log('Accuracy:', position.coords.accuracy, 'meters');
+          setLocation(capturedLocation);
           toast({
             title: "Location Captured",
-            description: `Location accuracy: ${Math.round(position.coords.accuracy)}m`,
+            description: `Location: ${capturedLocation.lat.toFixed(6)}, ${capturedLocation.lng.toFixed(6)} (±${Math.round(position.coords.accuracy)}m)`,
           });
         },
         (error) => {
