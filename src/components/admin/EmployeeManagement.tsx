@@ -7,6 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, Trash2, Copy, Upload, Download } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Employee {
   id: string;
@@ -22,6 +32,8 @@ const EmployeeManagement = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     employeeNumber: "",
     idNumber: "",
@@ -95,20 +107,34 @@ const EmployeeManagement = () => {
     }
   };
 
-  const handleDeleteEmployee = async (employeeId: string) => {
-    if (!confirm("Are you sure you want to delete this employee?")) return;
+  const openDeleteDialog = (employeeId: string) => {
+    setEmployeeToDelete(employeeId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteEmployee = async () => {
+    if (!employeeToDelete) return;
 
     try {
-      const { error } = await supabase
+      // First delete all submissions associated with this employee
+      const { error: submissionsError } = await supabase
+        .from("submissions")
+        .delete()
+        .eq("employee_id", employeeToDelete);
+
+      if (submissionsError) throw submissionsError;
+
+      // Then delete the employee
+      const { error: employeeError } = await supabase
         .from("employees")
         .delete()
-        .eq("id", employeeId);
+        .eq("id", employeeToDelete);
 
-      if (error) throw error;
+      if (employeeError) throw employeeError;
 
       toast({
         title: "Employee Deleted",
-        description: "Employee has been removed from the system",
+        description: "Employee and all associated submissions have been removed from the system",
       });
 
       fetchEmployees();
@@ -118,6 +144,9 @@ const EmployeeManagement = () => {
         description: "Failed to delete employee",
         variant: "destructive",
       });
+    } finally {
+      setDeleteDialogOpen(false);
+      setEmployeeToDelete(null);
     }
   };
 
@@ -348,7 +377,7 @@ const EmployeeManagement = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDeleteEmployee(employee.id)}
+                          onClick={() => openDeleteDialog(employee.id)}
                           title="Delete employee"
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -362,6 +391,23 @@ const EmployeeManagement = () => {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Employee</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this employee? This will permanently remove the employee and all their submitted information from the system. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEmployee}>
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
