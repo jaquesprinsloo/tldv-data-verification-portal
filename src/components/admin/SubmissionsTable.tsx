@@ -26,6 +26,10 @@ const SubmissionsTable = ({ filterType = "all", onFilterChange }: SubmissionsTab
     fetchSubmissions();
   }, []);
 
+  useEffect(() => {
+    setActiveFilter(filterType);
+  }, [filterType]);
+
   const fetchSubmissions = async () => {
     setLoading(true);
     try {

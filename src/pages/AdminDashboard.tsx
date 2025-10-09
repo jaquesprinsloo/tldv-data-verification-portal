@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AdminHeader from "@/components/admin/AdminHeader";
-import SubmissionsTable from "@/components/admin/SubmissionsTable";
+import SubmissionsTable, { type FilterType } from "@/components/admin/SubmissionsTable";
 import StatsOverview from "@/components/admin/StatsOverview";
 import EmployeeManagement from "@/components/admin/EmployeeManagement";
 import { User } from "@supabase/supabase-js";
@@ -14,6 +14,7 @@ const AdminDashboard = () => {
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<FilterType>("all");
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -80,7 +81,7 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-background">
       <AdminHeader user={user} />
       <main className="container mx-auto p-6 space-y-6">
-        <StatsOverview />
+        <StatsOverview onSelectFilter={setFilter} activeFilter={filter} />
         
         <Tabs defaultValue="employees" className="w-full">
           <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -93,7 +94,7 @@ const AdminDashboard = () => {
           </TabsContent>
           
           <TabsContent value="submissions" className="mt-6">
-            <SubmissionsTable />
+            <SubmissionsTable filterType={filter} onFilterChange={setFilter} />
           </TabsContent>
         </Tabs>
       </main>

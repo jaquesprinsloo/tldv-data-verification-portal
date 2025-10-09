@@ -19,11 +19,17 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
   const [status, setStatus] = useState(submission?.status || "pending");
   const [nextOfKin, setNextOfKin] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
+  const [idUrl, setIdUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (submission && open) {
       setStatus(submission.status);
       fetchNextOfKin();
+      generateSignedUrls();
+    } else {
+      setSelfieUrl(null);
+      setIdUrl(null);
     }
   }, [submission, open]);
 
@@ -37,6 +43,30 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
       .single();
     
     setNextOfKin(data);
+  };
+
+  const generateSignedUrls = async () => {
+    if (!submission) return;
+    try {
+      if (submission.selfie_photo_url) {
+        const { data } = await supabase.storage
+          .from('employee-selfies')
+          .createSignedUrl(submission.selfie_photo_url, 3600);
+        setSelfieUrl(data?.signedUrl ?? null);
+      } else {
+        setSelfieUrl(null);
+      }
+      if (submission.id_photo_url) {
+        const { data } = await supabase.storage
+          .from('employee-ids')
+          .createSignedUrl(submission.id_photo_url, 3600);
+        setIdUrl(data?.signedUrl ?? null);
+      } else {
+        setIdUrl(null);
+      }
+    } catch (e) {
+      console.error('Error creating signed URLs:', e);
+    }
   };
 
   const handleStatusUpdate = async (newStatus: string) => {
@@ -191,23 +221,25 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
           <div className="border rounded-lg p-4 space-y-3">
             <h3 className="font-semibold">Uploaded Photos</h3>
             <div className="grid grid-cols-2 gap-4">
-              {submission.selfie_photo_url && (
+              {selfieUrl && (
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">Selfie Photo</p>
                   <img 
-                    src={supabase.storage.from('employee-selfies').getPublicUrl(submission.selfie_photo_url).data.publicUrl} 
-                    alt="Selfie" 
+                    src={selfieUrl} 
+                    alt="Employee selfie photo" 
                     className="w-full h-48 object-cover rounded border"
+                    loading="lazy"
                   />
                 </div>
               )}
-              {submission.id_photo_url && (
+              {idUrl && (
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">ID Photo</p>
                   <img 
-                    src={supabase.storage.from('employee-ids').getPublicUrl(submission.id_photo_url).data.publicUrl} 
-                    alt="ID" 
+                    src={idUrl} 
+                    alt="Government ID document photo" 
                     className="w-full h-48 object-cover rounded border"
+                    loading="lazy"
                   />
                 </div>
               )}
