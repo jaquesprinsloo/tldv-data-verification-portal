@@ -46,7 +46,10 @@ export const employeeSubmissionSchema = z.object({
     .trim()
     .regex(phoneRegex, { message: "Invalid phone number. Use format: 0123456789 or +27123456789" }),
   
-  physicalAddress: addressSchema,
+  physicalAddress: z.string()
+    .trim()
+    .min(1, { message: "Physical address is required" })
+    .max(500, { message: "Address must be less than 500 characters" }),
   
   houseNumber: z.string()
     .trim()
