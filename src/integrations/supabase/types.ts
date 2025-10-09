@@ -346,6 +346,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      verify_employee_credentials: {
+        Args: { _employee_number: string; _id_number: string }
+        Returns: {
+          employee_id: string
+          is_valid: boolean
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "employee"

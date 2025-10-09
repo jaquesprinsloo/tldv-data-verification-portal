@@ -271,52 +271,36 @@ const EmployeeSubmissionForm = () => {
     setLoading(true);
 
     try {
-      // Verify employee number exists and matches ID number
-      const { data: employeeData, error: employeeError } = await supabase
-        .from("employees")
-        .select("id, employee_number, id_number")
-        .eq("employee_number", formData.employeeNumber)
-        .maybeSingle();
+      // Use the secure function to verify employee credentials
+      const { data: verificationResult, error: verificationError } = await supabase
+        .rpc('verify_employee_credentials', {
+          _employee_number: formData.employeeNumber,
+          _id_number: formData.idNumber
+        });
 
-      if (employeeError) throw employeeError;
-
-      if (!employeeData) {
+      if (verificationError) {
+        console.error("Error verifying employee credentials:", verificationError);
         toast({
-          title: "Invalid Employee Number",
-          description: "Employee number not found in the system. Please contact your administrator.",
+          title: "Verification Error",
+          description: "Unable to verify employee credentials. Please try again.",
           variant: "destructive",
         });
         setLoading(false);
         return;
       }
 
-      // Check if ID number matches the employee record
-      if (employeeData.id_number !== formData.idNumber) {
-        // Check if the ID number exists for a different employee
-        const { data: idCheck } = await supabase
-          .from("employees")
-          .select("employee_number")
-          .eq("id_number", formData.idNumber)
-          .maybeSingle();
-
-        if (idCheck) {
-          // ID number exists but belongs to a different employee
-          toast({
-            title: "Incorrect Employee Number",
-            description: "The employee number you entered does not match the ID number provided. Please verify your employee number.",
-            variant: "destructive",
-          });
-        } else {
-          // ID number doesn't exist in the system
-          toast({
-            title: "Invalid ID Number",
-            description: "The ID number you entered does not match your employee record. Please verify your ID number.",
-            variant: "destructive",
-          });
-        }
+      // Check if credentials are valid
+      if (!verificationResult || verificationResult.length === 0 || !verificationResult[0]?.is_valid) {
+        toast({
+          title: "Invalid Credentials",
+          description: "The employee number and ID number combination is not valid. Please verify your details.",
+          variant: "destructive",
+        });
         setLoading(false);
         return;
       }
+
+      const employeeId = verificationResult[0].employee_id;
 
       // Build full address from components
       const physicalAddress = [
@@ -350,8 +334,8 @@ const EmployeeSubmissionForm = () => {
       console.log("Geofence verification result:", geofenceData);
 
       // Upload documents
-      const proofUrl = await uploadFile(proofOfResidenceFile, "proof-of-residence", employeeData.id);
-      const idUrl = await uploadFile(idFile, "employee-ids", employeeData.id);
+      const proofUrl = await uploadFile(proofOfResidenceFile, "proof-of-residence", employeeId);
+      const idUrl = await uploadFile(idFile, "employee-ids", employeeId);
 
       // Create a known submission ID to avoid SELECT on anon inserts
       const submissionId = crypto.randomUUID();
@@ -366,7 +350,7 @@ const EmployeeSubmissionForm = () => {
         .insert(
           {
             id: submissionId,
-            employee_id: employeeData.id,
+            employee_id: employeeId,
             first_name: formData.firstName,
             last_name: formData.lastName,
             id_number: formData.idNumber,
