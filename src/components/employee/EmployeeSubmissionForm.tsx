@@ -76,7 +76,7 @@ const EmployeeSubmissionForm = () => {
       description: "Getting your precise GPS coordinates. This may take up to 30 seconds. Please ensure you are outdoors or near a window for best results.",
     });
 
-    const MAX_ACCEPTABLE_ACCURACY = 20; // meters - must be better than geofence threshold
+    const MAX_ACCEPTABLE_ACCURACY = 70; // meters - allow margin above 50m geofence threshold
 
     // Try high accuracy first with longer timeout
     navigator.geolocation.getCurrentPosition(
@@ -99,7 +99,7 @@ const EmployeeSubmissionForm = () => {
         if (accuracy > MAX_ACCEPTABLE_ACCURACY) {
           toast({
             title: "Poor GPS Accuracy",
-            description: `Current accuracy is ±${Math.round(accuracy)}m. For geofence verification (15m), accuracy must be ±${MAX_ACCEPTABLE_ACCURACY}m or better. Please move to a location with better GPS signal (outdoors, near window) and try again.`,
+            description: `Current accuracy is ±${Math.round(accuracy)}m. For geofence verification (50m), accuracy must be ±${MAX_ACCEPTABLE_ACCURACY}m or better. Please move to a location with better GPS signal (outdoors, near window) and try again.`,
             variant: "destructive",
           });
           console.warn('GPS accuracy too poor:', accuracy, 'meters. Needs to be under', MAX_ACCEPTABLE_ACCURACY);
@@ -109,7 +109,7 @@ const EmployeeSubmissionForm = () => {
         setLocation(capturedLocation);
         toast({
           title: "Location Captured ✓",
-          description: `Lat: ${capturedLocation.lat.toFixed(6)}, Lng: ${capturedLocation.lng.toFixed(6)}\nAccuracy: ±${Math.round(accuracy)}m (Excellent for 15m geofence)`,
+          description: `Lat: ${capturedLocation.lat.toFixed(6)}, Lng: ${capturedLocation.lng.toFixed(6)}\nAccuracy: ±${Math.round(accuracy)}m (Good for 50m geofence)`,
         });
       },
       (error) => {
@@ -138,7 +138,7 @@ const EmployeeSubmissionForm = () => {
               if (accuracy > MAX_ACCEPTABLE_ACCURACY) {
                 toast({
                   title: "Poor GPS Accuracy",
-                  description: `Current accuracy is ±${Math.round(accuracy)}m. For geofence verification (15m), accuracy must be ±${MAX_ACCEPTABLE_ACCURACY}m or better. Please move outdoors or near a window for better GPS signal.`,
+                  description: `Current accuracy is ±${Math.round(accuracy)}m. For geofence verification (50m), accuracy must be ±${MAX_ACCEPTABLE_ACCURACY}m or better. Please move outdoors or near a window for better GPS signal.`,
                   variant: "destructive",
                 });
                 console.warn('GPS accuracy too poor:', accuracy, 'meters. Needs to be under', MAX_ACCEPTABLE_ACCURACY);

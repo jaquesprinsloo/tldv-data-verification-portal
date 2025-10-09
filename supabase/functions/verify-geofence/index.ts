@@ -77,8 +77,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Distance:", distance, "meters");
 
-    // Geofence threshold: 15 meters
-    const GEOFENCE_THRESHOLD = 15;
+    // Geofence threshold: 50 meters
+    const GEOFENCE_THRESHOLD = 50;
     const verified = distance <= GEOFENCE_THRESHOLD;
     const flagged = distance > GEOFENCE_THRESHOLD;
 
