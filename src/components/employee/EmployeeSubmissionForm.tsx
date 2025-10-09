@@ -20,6 +20,7 @@ const EmployeeSubmissionForm = () => {
     idNumber: "",
     physicalAddress: "",
     email: "",
+    contactNumber: "",
     nextOfKinFirstName: "",
     nextOfKinLastName: "",
     nextOfKinAddress: "",
@@ -155,7 +156,7 @@ const EmployeeSubmissionForm = () => {
       console.log("Geofence verification result:", geofenceData);
 
       // Upload documents
-      const proofUrl = await uploadFile(proofOfResidenceFile, "employee-selfies", employeeData.id);
+      const proofUrl = await uploadFile(proofOfResidenceFile, "proof-of-residence", employeeData.id);
       const idUrl = await uploadFile(idFile, "employee-ids", employeeData.id);
 
       // Create a known submission ID to avoid SELECT on anon inserts
@@ -172,6 +173,7 @@ const EmployeeSubmissionForm = () => {
             id_number: formData.idNumber,
             physical_address: formData.physicalAddress,
             email: formData.email,
+            contact_number: formData.contactNumber,
             employee_number: formData.employeeNumber,
             proof_of_residence_url: proofUrl,
             id_photo_url: idUrl,
@@ -187,6 +189,8 @@ const EmployeeSubmissionForm = () => {
           { returning: "minimal" } as any
         );
 
+      if (submissionError) throw submissionError;
+
       // Add next of kin
       const { error: nokError } = await supabase
         .from("next_of_kin")
@@ -199,6 +203,40 @@ const EmployeeSubmissionForm = () => {
         });
 
       if (nokError) throw nokError;
+
+      // Send WhatsApp verification
+      if (formData.contactNumber) {
+        await supabase.functions.invoke('send-whatsapp-verification', {
+          body: { 
+            submissionId: submissionId,
+            contactNumber: formData.contactNumber
+          }
+        });
+      }
+
+      // Trigger AI document verification
+      if (proofUrl) {
+        await supabase.functions.invoke('verify-document', {
+          body: { 
+            submissionId: submissionId,
+            documentUrl: proofUrl,
+            physicalAddress: formData.physicalAddress
+          }
+        });
+      }
+
+      // Trigger AI ID verification
+      if (idUrl) {
+        await supabase.functions.invoke('verify-id-photo', {
+          body: { 
+            submissionId: submissionId,
+            idPhotoUrl: idUrl,
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            idNumber: formData.idNumber
+          }
+        });
+      }
 
       // Send verification email
       await supabase.functions.invoke("send-verification-email", {
@@ -220,7 +258,7 @@ const EmployeeSubmissionForm = () => {
       } else {
         toast({
           title: "Submission Successful",
-          description: "Your verification has been submitted and location verified successfully.",
+          description: "Your verification has been submitted. Check your WhatsApp for a verification link.",
         });
       }
     } catch (error: any) {
@@ -312,6 +350,20 @@ const EmployeeSubmissionForm = () => {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
                 />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="contactNumber">Contact Number (WhatsApp) *</Label>
+                <Input
+                  id="contactNumber"
+                  type="tel"
+                  placeholder="e.g., +27821234567"
+                  value={formData.contactNumber}
+                  onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Include country code (e.g., +27 for South Africa). You'll receive a verification link via WhatsApp.
+                </p>
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="physicalAddress">Current Physical Address *</Label>

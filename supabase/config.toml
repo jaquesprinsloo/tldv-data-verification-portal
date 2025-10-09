@@ -13,3 +13,15 @@ verify_jwt = false
 
 [functions.verify-geofence]
 verify_jwt = false
+
+[functions.send-whatsapp-verification]
+verify_jwt = false
+
+[functions.verify-whatsapp-token]
+verify_jwt = false
+
+[functions.verify-document]
+verify_jwt = false
+
+[functions.verify-id-photo]
+verify_jwt = false
