@@ -115,6 +115,40 @@ const EmployeeManagement = () => {
     setLoading(true);
 
     try {
+      // Check if employee number already exists
+      const { data: existingEmployee } = await supabase
+        .from("employees")
+        .select("employee_number")
+        .eq("employee_number", formData.employeeNumber)
+        .maybeSingle();
+
+      if (existingEmployee) {
+        toast({
+          title: "Duplicate Employee Number",
+          description: "This employee number already exists in the system.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Check if ID number already exists
+      const { data: existingId } = await supabase
+        .from("employees")
+        .select("id_number")
+        .eq("id_number", formData.idNumber)
+        .maybeSingle();
+
+      if (existingId) {
+        toast({
+          title: "Duplicate ID Number",
+          description: "This ID number already exists in the system.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase
         .from("employees")
         .insert([
