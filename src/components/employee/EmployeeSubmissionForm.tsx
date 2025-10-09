@@ -18,9 +18,16 @@ const EmployeeSubmissionForm = () => {
     firstName: "",
     lastName: "",
     idNumber: "",
-    physicalAddress: "",
     email: "",
     contactNumber: "",
+    houseNumber: "",
+    floorNumber: "",
+    streetName: "",
+    complexName: "",
+    suburb: "",
+    city: "",
+    province: "",
+    postalCode: "",
     nextOfKinFirstName: "",
     nextOfKinLastName: "",
     nextOfKinAddress: "",
@@ -136,6 +143,18 @@ const EmployeeSubmissionForm = () => {
         return;
       }
 
+      // Build full address from components
+      const physicalAddress = [
+        formData.houseNumber,
+        formData.floorNumber,
+        formData.streetName,
+        formData.complexName,
+        formData.suburb,
+        formData.city,
+        formData.province,
+        formData.postalCode
+      ].filter(Boolean).join(", ");
+
       // Verify geofence
       toast({
         title: "Verifying Location",
@@ -146,7 +165,7 @@ const EmployeeSubmissionForm = () => {
         "verify-geofence",
         {
           body: {
-            address: formData.physicalAddress,
+            address: physicalAddress,
             latitude: location.lat,
             longitude: location.lng,
           },
@@ -161,6 +180,11 @@ const EmployeeSubmissionForm = () => {
 
       // Create a known submission ID to avoid SELECT on anon inserts
       const submissionId = crypto.randomUUID();
+      
+      // Determine status based on geofence
+      const isGeofenceFlagged = geofenceData?.flagged || false;
+      const submissionStatus = isGeofenceFlagged ? 'flagged' : 'pending';
+      
       // Create submission with geofence data
       const { error: submissionError } = await supabase
         .from("submissions")
@@ -171,7 +195,15 @@ const EmployeeSubmissionForm = () => {
             first_name: formData.firstName,
             last_name: formData.lastName,
             id_number: formData.idNumber,
-            physical_address: formData.physicalAddress,
+            physical_address: physicalAddress,
+            house_number: formData.houseNumber || 'N/A',
+            floor_number: formData.floorNumber || 'N/A',
+            street_name: formData.streetName || 'N/A',
+            complex_name: formData.complexName || 'N/A',
+            suburb: formData.suburb || 'N/A',
+            city: formData.city || 'N/A',
+            province: formData.province || 'N/A',
+            postal_code: formData.postalCode || 'N/A',
             email: formData.email,
             contact_number: formData.contactNumber,
             employee_number: formData.employeeNumber,
@@ -181,10 +213,13 @@ const EmployeeSubmissionForm = () => {
             geolocation_lng: location.lng,
             geofence_verified: geofenceData?.verified || false,
             geofence_distance_meters: geofenceData?.distance || null,
-            flagged: geofenceData?.flagged || false,
-            flag_reason: geofenceData?.flagged
+            flagged: isGeofenceFlagged,
+            flag_reason: isGeofenceFlagged
               ? `Location verification failed. Distance from address: ${geofenceData?.distance || "unknown"}m (threshold: 15m)`
               : null,
+            status: submissionStatus,
+            email_verified: false,
+            whatsapp_verified: false
           } as any,
           { returning: "minimal" } as any
         );
@@ -204,30 +239,30 @@ const EmployeeSubmissionForm = () => {
 
       if (nokError) throw nokError;
 
-      // Send WhatsApp verification
+      // Send WhatsApp verification (fire and forget)
       if (formData.contactNumber) {
-        await supabase.functions.invoke('send-whatsapp-verification', {
+        supabase.functions.invoke('send-whatsapp-verification', {
           body: { 
             submissionId: submissionId,
             contactNumber: formData.contactNumber
           }
-        });
+        }).catch(err => console.error("WhatsApp verification error:", err));
       }
 
-      // Trigger AI document verification
+      // Trigger AI document verification (fire and forget)
       if (proofUrl) {
-        await supabase.functions.invoke('verify-document', {
+        supabase.functions.invoke('verify-document', {
           body: { 
             submissionId: submissionId,
             documentUrl: proofUrl,
-            physicalAddress: formData.physicalAddress
+            physicalAddress: physicalAddress
           }
-        });
+        }).catch(err => console.error("Document verification error:", err));
       }
 
-      // Trigger AI ID verification
+      // Trigger AI ID verification (fire and forget)
       if (idUrl) {
-        await supabase.functions.invoke('verify-id-photo', {
+        supabase.functions.invoke('verify-id-photo', {
           body: { 
             submissionId: submissionId,
             idPhotoUrl: idUrl,
@@ -235,17 +270,17 @@ const EmployeeSubmissionForm = () => {
             lastName: formData.lastName,
             idNumber: formData.idNumber
           }
-        });
+        }).catch(err => console.error("ID verification error:", err));
       }
 
-      // Send verification email
-      await supabase.functions.invoke("send-verification-email", {
+      // Send verification email (fire and forget)
+      supabase.functions.invoke("send-verification-email", {
         body: {
           email: formData.email,
           name: `${formData.firstName} ${formData.lastName}`,
           employeeNumber: formData.employeeNumber,
         },
-      });
+      }).catch(err => console.error("Email verification error:", err));
 
       setSubmitted(true);
 
@@ -365,15 +400,79 @@ const EmployeeSubmissionForm = () => {
                   Include country code (e.g., +27 for South Africa). You'll receive a verification link via WhatsApp.
                 </p>
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="physicalAddress">Current Physical Address *</Label>
-                <Textarea
-                  id="physicalAddress"
-                  value={formData.physicalAddress}
-                  onChange={(e) => setFormData({ ...formData, physicalAddress: e.target.value })}
-                  rows={3}
-                  required
-                />
+              <div className="md:col-span-2 space-y-4">
+                <h4 className="text-sm font-semibold">Current Physical Address *</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="houseNumber">House Number</Label>
+                    <Input
+                      id="houseNumber"
+                      value={formData.houseNumber}
+                      onChange={(e) => setFormData({ ...formData, houseNumber: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="floorNumber">Floor Number</Label>
+                    <Input
+                      id="floorNumber"
+                      value={formData.floorNumber}
+                      onChange={(e) => setFormData({ ...formData, floorNumber: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="streetName">Street Name *</Label>
+                    <Input
+                      id="streetName"
+                      value={formData.streetName}
+                      onChange={(e) => setFormData({ ...formData, streetName: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="complexName">Complex Name</Label>
+                    <Input
+                      id="complexName"
+                      value={formData.complexName}
+                      onChange={(e) => setFormData({ ...formData, complexName: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="suburb">Suburb *</Label>
+                    <Input
+                      id="suburb"
+                      value={formData.suburb}
+                      onChange={(e) => setFormData({ ...formData, suburb: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City *</Label>
+                    <Input
+                      id="city"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="province">Province *</Label>
+                    <Input
+                      id="province"
+                      value={formData.province}
+                      onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="postalCode">Postal Code *</Label>
+                    <Input
+                      id="postalCode"
+                      value={formData.postalCode}
+                      onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

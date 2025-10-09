@@ -172,20 +172,25 @@ export type Database = {
       }
       submissions: {
         Row: {
+          city: string | null
+          complex_name: string | null
           contact_number: string | null
           created_at: string
           document_verification_details: Json | null
           document_verification_status: string | null
           email: string
+          email_verified: boolean | null
           employee_id: string
           employee_number: string
           first_name: string
           flag_reason: string | null
           flagged: boolean | null
+          floor_number: string | null
           geofence_distance_meters: number | null
           geofence_verified: boolean | null
           geolocation_lat: number | null
           geolocation_lng: number | null
+          house_number: string | null
           id: string
           id_number: string
           id_photo_url: string | null
@@ -193,30 +198,40 @@ export type Database = {
           id_verification_status: string | null
           last_name: string
           physical_address: string
+          postal_code: string | null
           proof_of_residence_url: string | null
+          province: string | null
           status: Database["public"]["Enums"]["submission_status"] | null
+          street_name: string | null
           submission_timestamp: string
+          suburb: string | null
           updated_at: string
+          verification_method: string | null
           verification_token: string | null
           verification_token_expires_at: string | null
           verified_at: string | null
           whatsapp_verified: boolean | null
         }
         Insert: {
+          city?: string | null
+          complex_name?: string | null
           contact_number?: string | null
           created_at?: string
           document_verification_details?: Json | null
           document_verification_status?: string | null
           email: string
+          email_verified?: boolean | null
           employee_id: string
           employee_number: string
           first_name: string
           flag_reason?: string | null
           flagged?: boolean | null
+          floor_number?: string | null
           geofence_distance_meters?: number | null
           geofence_verified?: boolean | null
           geolocation_lat?: number | null
           geolocation_lng?: number | null
+          house_number?: string | null
           id?: string
           id_number: string
           id_photo_url?: string | null
@@ -224,30 +239,40 @@ export type Database = {
           id_verification_status?: string | null
           last_name: string
           physical_address: string
+          postal_code?: string | null
           proof_of_residence_url?: string | null
+          province?: string | null
           status?: Database["public"]["Enums"]["submission_status"] | null
+          street_name?: string | null
           submission_timestamp?: string
+          suburb?: string | null
           updated_at?: string
+          verification_method?: string | null
           verification_token?: string | null
           verification_token_expires_at?: string | null
           verified_at?: string | null
           whatsapp_verified?: boolean | null
         }
         Update: {
+          city?: string | null
+          complex_name?: string | null
           contact_number?: string | null
           created_at?: string
           document_verification_details?: Json | null
           document_verification_status?: string | null
           email?: string
+          email_verified?: boolean | null
           employee_id?: string
           employee_number?: string
           first_name?: string
           flag_reason?: string | null
           flagged?: boolean | null
+          floor_number?: string | null
           geofence_distance_meters?: number | null
           geofence_verified?: boolean | null
           geolocation_lat?: number | null
           geolocation_lng?: number | null
+          house_number?: string | null
           id?: string
           id_number?: string
           id_photo_url?: string | null
@@ -255,10 +280,15 @@ export type Database = {
           id_verification_status?: string | null
           last_name?: string
           physical_address?: string
+          postal_code?: string | null
           proof_of_residence_url?: string | null
+          province?: string | null
           status?: Database["public"]["Enums"]["submission_status"] | null
+          street_name?: string | null
           submission_timestamp?: string
+          suburb?: string | null
           updated_at?: string
+          verification_method?: string | null
           verification_token?: string | null
           verification_token_expires_at?: string | null
           verified_at?: string | null

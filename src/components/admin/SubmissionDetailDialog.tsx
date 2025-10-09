@@ -24,7 +24,9 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
 
   useEffect(() => {
     if (submission && open) {
-      setStatus(submission.status);
+      // Map database status to UI status (verified -> approved for display)
+      const displayStatus = submission.status === "verified" ? "approved" : submission.status;
+      setStatus(displayStatus);
       fetchNextOfKin();
       generateSignedUrls();
     } else {
@@ -72,11 +74,15 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
   const handleStatusUpdate = async (newStatus: string) => {
     setLoading(true);
     try {
+      // Map "approved" to "verified" in the database
+      const dbStatus = newStatus === "approved" ? "verified" : newStatus;
+      
       const { error } = await supabase
         .from("submissions")
         .update({ 
-          status: newStatus as any,
-          verified_at: newStatus === "verified" ? new Date().toISOString() : null
+          status: dbStatus as any,
+          verified_at: dbStatus === "verified" ? new Date().toISOString() : null,
+          flagged: dbStatus === "flagged"
         })
         .eq("id", submission.id);
 
@@ -117,8 +123,8 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="verified">Verified</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="flagged">Flagged</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -146,9 +152,35 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate }: Su
                 <span className="text-muted-foreground">Email:</span>
                 <p className="font-medium">{submission.email}</p>
               </div>
+              <div>
+                <span className="text-muted-foreground">Contact:</span>
+                <p className="font-medium">{submission.contact_number || 'N/A'}</p>
+              </div>
               <div className="col-span-2">
                 <span className="text-muted-foreground">Physical Address:</span>
                 <p className="font-medium">{submission.physical_address}</p>
+              </div>
+              <div className="col-span-2 flex gap-4">
+                <div className="flex items-center gap-2">
+                  {submission.email_verified ? (
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  )}
+                  <span className="text-sm">
+                    Email {submission.email_verified ? 'Verified' : 'Not Verified'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {submission.whatsapp_verified ? (
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  )}
+                  <span className="text-sm">
+                    WhatsApp {submission.whatsapp_verified ? 'Verified' : 'Not Verified'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
