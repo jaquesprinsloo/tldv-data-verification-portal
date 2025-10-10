@@ -12,9 +12,31 @@ const VerifyEmail = () => {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const verifyEmail = async () => {
+    const handleRequest = async () => {
       const token = searchParams.get("token");
+      const action = searchParams.get("action");
+      const employeeId = searchParams.get("employeeId");
 
+      // Handle renewal request
+      if (action === "renewal-request" && employeeId) {
+        try {
+          const { error } = await supabase.functions.invoke('request-renewal-invitation', {
+            body: { employeeId },
+          });
+
+          if (error) throw error;
+
+          setVerificationStatus("success");
+          setMessage("Your renewal request has been sent to the admin team. You will receive an invitation email shortly.");
+        } catch (error) {
+          console.error("Renewal request error:", error);
+          setVerificationStatus("error");
+          setMessage("Failed to submit renewal request. Please try again or contact support.");
+        }
+        return;
+      }
+
+      // Handle email verification
       if (!token) {
         setVerificationStatus("error");
         setMessage("Invalid verification link. No token provided.");
@@ -22,33 +44,52 @@ const VerifyEmail = () => {
       }
 
       try {
-        // Update the submission to mark email as verified
-        const { data, error } = await supabase
+        // Find submission with this token and check expiry
+        const { data: submission, error: fetchError } = await supabase
+          .from("submissions")
+          .select("id, verification_token_expires_at, email_verified")
+          .eq("verification_token", token)
+          .single();
+
+        if (fetchError || !submission) {
+          setVerificationStatus("error");
+          setMessage("Invalid or expired verification link.");
+          return;
+        }
+
+        // Check if already verified
+        if (submission.email_verified) {
+          setVerificationStatus("success");
+          setMessage("Your email has already been verified. Your submission is awaiting admin review.");
+          return;
+        }
+
+        // Check if token is expired
+        if (new Date(submission.verification_token_expires_at) < new Date()) {
+          setVerificationStatus("error");
+          setMessage("This verification link has expired (7 days). Please contact support for a new link.");
+          return;
+        }
+
+        // Update submission to mark email as verified and nullify token
+        const { error: updateError } = await supabase
           .from("submissions")
           .update({ 
             email_verified: true,
-            verified_at: new Date().toISOString()
+            verified_at: new Date().toISOString(),
+            verification_token: null, // Deactivate link after use
           })
-          .eq("verification_token", token)
-          .gt("verification_token_expires_at", new Date().toISOString())
-          .select("employee_number, first_name, last_name")
-          .single();
+          .eq("id", submission.id);
 
-        if (error) {
-          console.error("Verification error:", error);
-          setVerificationStatus("error");
-          setMessage("Verification failed. The link may be invalid or expired.");
-          return;
-        }
-
-        if (!data) {
-          setVerificationStatus("error");
-          setMessage("Verification link is invalid or has expired.");
-          return;
-        }
+        if (updateError) throw updateError;
 
         setVerificationStatus("success");
-        setMessage(`Email verified successfully! Your submission is now complete and awaiting processing.`);
+        setMessage("Email verified successfully! Your submission is now complete and awaiting admin review.");
+        
+        // Redirect to home after 3 seconds
+        setTimeout(() => {
+          navigate("/");
+        }, 3000);
       } catch (error) {
         console.error("Verification error:", error);
         setVerificationStatus("error");
@@ -56,8 +97,8 @@ const VerifyEmail = () => {
       }
     };
 
-    verifyEmail();
-  }, [searchParams]);
+    handleRequest();
+  }, [searchParams, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
@@ -66,19 +107,21 @@ const VerifyEmail = () => {
           {verificationStatus === "loading" && (
             <>
               <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto mb-6" />
-              <h2 className="text-2xl font-bold mb-4">Verifying Your Email</h2>
-              <p className="text-muted-foreground">Please wait while we verify your email address...</p>
+              <h2 className="text-2xl font-bold mb-4">Processing Request</h2>
+              <p className="text-muted-foreground">Please wait while we process your request...</p>
             </>
           )}
 
           {verificationStatus === "success" && (
             <>
               <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-6" />
-              <h2 className="text-2xl font-bold mb-4 text-green-600">Email Verified!</h2>
+              <h2 className="text-2xl font-bold mb-4 text-green-600">Success!</h2>
               <p className="text-muted-foreground mb-6">{message}</p>
-              <p className="text-sm text-muted-foreground mb-6">
-                Your submission is now in the queue for admin review. You will be notified of any status updates.
-              </p>
+              {searchParams.get("action") !== "renewal-request" && (
+                <p className="text-sm text-muted-foreground mb-6">
+                  Redirecting you to the homepage in 3 seconds...
+                </p>
+              )}
               <Button onClick={() => navigate("/")} className="mt-4">
                 Return to Home
               </Button>
@@ -88,7 +131,7 @@ const VerifyEmail = () => {
           {verificationStatus === "error" && (
             <>
               <XCircle className="h-16 w-16 text-destructive mx-auto mb-6" />
-              <h2 className="text-2xl font-bold mb-4 text-destructive">Verification Failed</h2>
+              <h2 className="text-2xl font-bold mb-4 text-destructive">Request Failed</h2>
               <p className="text-muted-foreground mb-6">{message}</p>
               <Button onClick={() => navigate("/")} variant="outline" className="mt-4">
                 Return to Home

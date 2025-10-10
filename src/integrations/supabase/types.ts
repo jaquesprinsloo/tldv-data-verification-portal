@@ -24,6 +24,7 @@ export type Database = {
           id: string
           token: string
           used: boolean
+          used_at: string | null
         }
         Insert: {
           created_at?: string
@@ -34,6 +35,7 @@ export type Database = {
           id?: string
           token: string
           used?: boolean
+          used_at?: string | null
         }
         Update: {
           created_at?: string
@@ -44,6 +46,7 @@ export type Database = {
           id?: string
           token?: string
           used?: boolean
+          used_at?: string | null
         }
         Relationships: [
           {
@@ -58,9 +61,13 @@ export type Database = {
       employees: {
         Row: {
           created_at: string
+          dismissal_reason: string | null
+          dismissed_at: string | null
           employee_number: string
+          employment_status: Database["public"]["Enums"]["employment_status"]
           id: string
           id_number: string
+          last_reminder_sent: string | null
           last_submission_date: string | null
           next_renewal_date: string | null
           updated_at: string
@@ -68,9 +75,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dismissal_reason?: string | null
+          dismissed_at?: string | null
           employee_number: string
+          employment_status?: Database["public"]["Enums"]["employment_status"]
           id?: string
           id_number: string
+          last_reminder_sent?: string | null
           last_submission_date?: string | null
           next_renewal_date?: string | null
           updated_at?: string
@@ -78,9 +89,13 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dismissal_reason?: string | null
+          dismissed_at?: string | null
           employee_number?: string
+          employment_status?: Database["public"]["Enums"]["employment_status"]
           id?: string
           id_number?: string
+          last_reminder_sent?: string | null
           last_submission_date?: string | null
           next_renewal_date?: string | null
           updated_at?: string
@@ -134,6 +149,50 @@ export type Database = {
           },
         ]
       }
+      popia_acceptances: {
+        Row: {
+          accepted_at: string
+          created_at: string
+          declaration_text: string
+          device_info: Json | null
+          employee_id: string
+          gps_latitude: number | null
+          gps_longitude: number | null
+          id: string
+          ip_address: string
+        }
+        Insert: {
+          accepted_at?: string
+          created_at?: string
+          declaration_text: string
+          device_info?: Json | null
+          employee_id: string
+          gps_latitude?: number | null
+          gps_longitude?: number | null
+          id?: string
+          ip_address: string
+        }
+        Update: {
+          accepted_at?: string
+          created_at?: string
+          declaration_text?: string
+          device_info?: Json | null
+          employee_id?: string
+          gps_latitude?: number | null
+          gps_longitude?: number | null
+          id?: string
+          ip_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "popia_acceptances_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -157,6 +216,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      renewal_requests: {
+        Row: {
+          created_at: string
+          employee_id: string
+          id: string
+          processed_at: string | null
+          processed_by: string | null
+          requested_at: string
+          requested_via: string
+          status: Database["public"]["Enums"]["renewal_request_status"]
+        }
+        Insert: {
+          created_at?: string
+          employee_id: string
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          requested_at?: string
+          requested_via?: string
+          status?: Database["public"]["Enums"]["renewal_request_status"]
+        }
+        Update: {
+          created_at?: string
+          employee_id?: string
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          requested_at?: string
+          requested_via?: string
+          status?: Database["public"]["Enums"]["renewal_request_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stores: {
         Row: {
@@ -427,6 +527,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "employee"
+      employment_status: "active" | "dismissed" | "suspended" | "resigned"
+      renewal_request_status: "pending" | "sent" | "cancelled"
       submission_status: "pending" | "verified" | "flagged" | "approved"
     }
     CompositeTypes: {
@@ -556,6 +658,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "employee"],
+      employment_status: ["active", "dismissed", "suspended", "resigned"],
+      renewal_request_status: ["pending", "sent", "cancelled"],
       submission_status: ["pending", "verified", "flagged", "approved"],
     },
   },

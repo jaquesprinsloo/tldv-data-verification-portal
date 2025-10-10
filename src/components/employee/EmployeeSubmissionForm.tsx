@@ -16,10 +16,10 @@ const EmployeeSubmissionForm = () => {
   const [submitted, setSubmitted] = useState(false);
 
   const [formData, setFormData] = useState({
-    employeeNumber: "",
+    employeeNumber: sessionStorage.getItem('employeeNumber') || "",
     firstName: "",
     lastName: "",
-    idNumber: "",
+    idNumber: sessionStorage.getItem('idNumber') || "",
     email: "",
     contactNumber: "",
     houseNumber: "",

@@ -28,3 +28,6 @@ verify_jwt = true
 
 [functions.send-invitation-email]
 verify_jwt = true
+
+[functions.request-renewal-invitation]
+verify_jwt = false

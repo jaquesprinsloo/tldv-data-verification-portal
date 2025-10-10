@@ -21,15 +21,29 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     console.log("Starting reminder email process...");
 
-    // Get employees whose renewal is due within 30 days and haven't submitted recently
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    // Fetch employees who need reminders:
+    // - 2 months (60 days) after last submission
+    // - Last reminder was more than 7 days ago (or never sent)
+    // - Employment status is 'active'
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     const { data: employees, error } = await supabase
       .from("employees")
-      .select("*, submissions!inner(*)")
-      .lt("next_renewal_date", thirtyDaysFromNow.toISOString())
-      .order("next_renewal_date", { ascending: true });
+      .select(`
+        id, 
+        employee_number, 
+        last_submission_date,
+        last_reminder_sent,
+        employment_status,
+        submissions!inner(email)
+      `)
+      .eq("employment_status", "active")
+      .lte("last_submission_date", sixtyDaysAgo.toISOString())
+      .or(`last_reminder_sent.is.null,last_reminder_sent.lte.${sevenDaysAgo.toISOString()}`);
 
     if (error) {
       console.error("Error fetching employees:", error);
@@ -38,41 +52,51 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Found ${employees?.length || 0} employees needing reminders`);
 
-    const emailPromises = employees?.map(async (employee: any) => {
-      const daysUntilDue = Math.ceil(
-        (new Date(employee.next_renewal_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-      );
+    let successCount = 0;
+    let failureCount = 0;
 
-      // Get the most recent submission to get employee details
-      const latestSubmission = employee.submissions[0];
+    for (const employee of employees || []) {
+      try {
+        const submission = employee.submissions?.[0];
+        
+        if (!submission?.email) {
+          console.log(`No email found for employee ${employee.employee_number}`);
+          failureCount++;
+          continue;
+        }
 
-      const urgencyLevel = daysUntilDue <= 7 ? "URGENT" : "REMINDER";
-      
-      return resend.emails.send({
-        from: "TLDV <onboarding@resend.dev>",
-        to: [latestSubmission?.email || ""],
-        subject: `${urgencyLevel}: TLDV Verification Renewal Due`,
-        html: `
+        // Calculate months since last submission
+        const monthsSinceSubmission = Math.floor(
+          (Date.now() - new Date(employee.last_submission_date).getTime()) /
+            (1000 * 60 * 60 * 24 * 30)
+        );
+
+        // Generate renewal request link using edge function
+        const renewalRequestLink = `${supabaseUrl.replace('.supabase.co', '.lovableproject.com')}/verify-email?action=renewal-request&employeeId=${employee.id}`;
+
+        // Send reminder email using Resend
+        const emailHtml = `
           <!DOCTYPE html>
           <html>
             <head>
               <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #272727; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #272727; max-width: 600px; margin: 0 auto; }
+                .container { padding: 20px; }
                 .header { background-color: #BC000A; padding: 20px; text-align: center; }
                 .header h1 { color: white; margin: 0; font-family: 'Poppins', sans-serif; }
                 .content { background-color: #f9f9f9; padding: 30px; border-radius: 5px; margin-top: 20px; }
-                .urgent { background-color: #EE0115; color: white; padding: 15px; border-radius: 5px; margin: 20px 0; }
                 .button { 
                   background-color: #EE0115; 
-                  color: white; 
-                  padding: 12px 30px; 
+                  color: white !important; 
+                  padding: 15px 30px; 
                   text-decoration: none; 
                   border-radius: 5px; 
                   display: inline-block;
                   margin: 20px 0;
+                  font-weight: bold;
                 }
-                .footer { text-align: center; margin-top: 30px; color: #60615C; font-size: 12px; }
+                .info-box { background-color: #fff; padding: 15px; border-left: 4px solid #EE0115; margin: 20px 0; }
+                .footer { text-align: center; margin-top: 30px; color: #60615C; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
               </style>
             </head>
             <body>
@@ -81,39 +105,79 @@ const handler = async (req: Request): Promise<Response> => {
                   <h1>TLDV - True Lie Detectors & Vetting</h1>
                 </div>
                 <div class="content">
-                  ${daysUntilDue <= 7 ? '<div class="urgent"><strong>⚠️ URGENT REMINDER</strong></div>' : ''}
-                  <h2>Verification Renewal Required</h2>
-                  <p>Dear ${latestSubmission?.first_name || "Employee"},</p>
-                  <p>This is a ${daysUntilDue <= 7 ? 'URGENT ' : ''}reminder that your TLDV verification is due for renewal.</p>
-                  <p><strong>Days until due: ${daysUntilDue}</strong></p>
-                  <p>Employee Number: <strong>${employee.employee_number}</strong></p>
-                  <p>Renewal Due Date: <strong>${new Date(employee.next_renewal_date).toLocaleDateString()}</strong></p>
-                  <p>Please use your unique link to submit your updated verification details as soon as possible.</p>
-                  <a href="${supabaseUrl.replace('https://', 'https://6e52349a-5d62-46e3-b921-2d922d50b72e.lovableproject.com')}/employee/${employee.unique_link_token}" class="button">Submit Verification Now</a>
-                  <p>If you have any questions, please contact your administrator immediately.</p>
+                  <h2>Verification Renewal Reminder</h2>
+                  <p>Dear Employee,</p>
+                  <p>It has been <strong>${monthsSinceSubmission} month(s)</strong> since your last verification submission.</p>
+                  
+                  <div class="info-box">
+                    <p style="margin: 5px 0;"><strong>Employee Number:</strong> ${employee.employee_number}</p>
+                    <p style="margin: 5px 0;"><strong>Last Submission:</strong> ${new Date(employee.last_submission_date).toLocaleDateString()}</p>
+                    <p style="margin: 5px 0;"><strong>Renewal Due:</strong> Every 3 months</p>
+                  </div>
+
+                  <p>As per company policy, verification submissions must be renewed every 3 months to maintain your active status.</p>
+                  
+                  <div style="margin: 30px 0; padding: 20px; background-color: #fff; border-radius: 5px; border: 2px solid #EE0115;">
+                    <p style="margin: 0 0 15px 0; font-size: 16px;"><strong>Need a New Invitation Link?</strong></p>
+                    <p style="margin: 0 0 15px 0;">Click the button below to request a renewal invitation from the admin team:</p>
+                    <center>
+                      <a href="${renewalRequestLink}" class="button">Request Renewal Invitation</a>
+                    </center>
+                    <p style="margin: 15px 0 0 0; font-size: 12px; color: #666;">
+                      This will notify the admin team, who will send you a new invitation link for submission.
+                    </p>
+                  </div>
+
+                  <p><strong>Important:</strong> Reminders are sent weekly until your verification is renewed.</p>
+
+                  <p>If you have any questions, please contact the HR department.</p>
+
+                  <p>Best regards,<br>The TLDV Verification Team</p>
                 </div>
                 <div class="footer">
                   <p>&copy; ${new Date().getFullYear()} TLDV - True Lie Detectors & Vetting. All rights reserved.</p>
+                  <p>You are receiving this email because you are an employee requiring periodic verification.</p>
                 </div>
               </div>
             </body>
           </html>
-        `,
-      });
-    }) || [];
+        `;
 
-    const results = await Promise.allSettled(emailPromises);
-    const successful = results.filter(r => r.status === "fulfilled").length;
-    const failed = results.filter(r => r.status === "rejected").length;
+        const { error: emailError } = await resend.emails.send({
+          from: "TLDV Verification <onboarding@resend.dev>",
+          to: [submission.email],
+          subject: "Verification Renewal Reminder - Action Required",
+          html: emailHtml,
+        });
 
-    console.log(`Reminder emails sent: ${successful} successful, ${failed} failed`);
+        if (emailError) {
+          console.error(`Failed to send email to ${submission.email}:`, emailError);
+          failureCount++;
+        } else {
+          console.log(`Reminder sent to ${submission.email}`);
+          
+          // Update last_reminder_sent timestamp
+          await supabase
+            .from("employees")
+            .update({ last_reminder_sent: new Date().toISOString() })
+            .eq("id", employee.id);
+          
+          successCount++;
+        }
+      } catch (employeeError) {
+        console.error(`Error processing employee ${employee.employee_number}:`, employeeError);
+        failureCount++;
+      }
+    }
+
+    console.log(`Reminder emails: ${successCount} successful, ${failureCount} failed`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        sent: successful, 
-        failed,
-        message: `Sent ${successful} reminder emails` 
+        sent: successCount, 
+        failed: failureCount,
+        message: `Sent ${successCount} reminder emails` 
       }),
       {
         status: 200,
