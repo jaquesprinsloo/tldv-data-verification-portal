@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { FileText, Users, ClipboardCheck } from "lucide-react";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
+import tldvIcon from "@/assets/tldv-icon.jpg";
 
 const AdminPortalDashboard = () => {
   const navigate = useNavigate();
@@ -32,8 +33,8 @@ const AdminPortalDashboard = () => {
 
     checkAuth();
 
-    // Animation timer - matches full animation sequence
-    const timer = setTimeout(() => setIsAnimating(false), 2500);
+    // Animation timer - matches full animation sequence (2s scanline + 2s black + 1.5s icon + 1s heartbeat + 1s text = 7.5s)
+    const timer = setTimeout(() => setIsAnimating(false), 7500);
     return () => clearTimeout(timer);
   }, [navigate]);
 
@@ -65,17 +66,17 @@ const AdminPortalDashboard = () => {
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* TV Switch-on Animation with Logo Sequence */}
       <div
-        className={`fixed inset-0 bg-black z-50 flex items-center justify-center ${
+        className={`fixed inset-0 bg-black z-50 transition-opacity duration-1000 ${
           isAnimating 
             ? "opacity-100" 
             : "opacity-0 pointer-events-none"
         }`}
       >
-        {/* TV Scanline Effect */}
+        {/* TV Scanline Effect (0s - 2s) */}
         <div 
           className="absolute inset-0 flex items-center justify-center"
           style={{ 
-            animation: isAnimating ? 'scanline 0.5s ease-out' : 'none',
+            animation: isAnimating ? 'scanline 2s ease-out' : 'none',
           }}
         >
           <div className="w-1 h-full bg-white/80" 
@@ -85,40 +86,55 @@ const AdminPortalDashboard = () => {
           />
         </div>
 
-        {/* Face appears first (0.5s - 0.8s) */}
+        {/* Red circle with face icon appears middle left (4s - 4.5s) */}
         <div 
-          className="absolute"
+          className="absolute left-[20%] top-1/2 -translate-y-1/2"
           style={{
-            animation: isAnimating ? 'faceAppear 0.3s ease-out 0.5s both' : 'none',
+            animation: isAnimating ? 'iconAppear 0.5s ease-out 4s both' : 'none',
           }}
         >
-          <div className="w-32 h-32 rounded-full bg-black flex items-center justify-center">
-            <div className="w-4 h-4 bg-white rounded-full mb-4"></div>
-          </div>
+          <img src={tldvIcon} alt="TLDV Icon" className="w-32 h-32" />
         </div>
 
-        {/* Red circle with heartbeat (0.8s - 1.7s) */}
+        {/* Heartbeat line moving right (4.5s - 5.5s) */}
         <div 
-          className="absolute"
+          className="absolute left-[20%] top-1/2 -translate-y-1/2"
           style={{
-            animation: isAnimating ? 'circleAppear 0.2s ease-out 0.8s both, heartbeat 0.3s ease-in-out 1s 3' : 'none',
+            animation: isAnimating ? 'heartbeatLine 1s ease-out 4.5s both' : 'none',
           }}
         >
-          <div className="w-40 h-40 rounded-full border-4 border-red-600 flex items-center justify-center">
-            <div className="w-32 h-32 rounded-full bg-black flex items-center justify-center">
-              <div className="w-4 h-4 bg-white rounded-full mb-4"></div>
-            </div>
-          </div>
+          <svg width="400" height="100" className="ml-16">
+            <polyline 
+              points="0,50 50,50 70,20 90,80 110,50 400,50" 
+              fill="none" 
+              stroke="#ef4444" 
+              strokeWidth="3"
+              style={{
+                strokeDasharray: '1000',
+                strokeDashoffset: '1000',
+                animation: isAnimating ? 'drawLine 1s ease-out 4.5s forwards' : 'none',
+              }}
+            />
+          </svg>
         </div>
 
-        {/* TLDV Text appears (1.7s onwards) */}
+        {/* TLDV Text appears (5.5s - 6s) */}
         <div 
-          className="absolute flex flex-col items-center"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
           style={{
-            animation: isAnimating ? 'textAppear 0.5s ease-out 1.7s both' : 'none',
+            animation: isAnimating ? 'tldvAppear 0.5s ease-out 5.5s both' : 'none',
           }}
         >
           <h1 className="text-6xl font-bold text-white mb-2 tracking-wider">TLDV</h1>
+        </div>
+
+        {/* Subtitle fades in (6s - 6.5s) */}
+        <div 
+          className="absolute top-[55%] left-1/2 -translate-x-1/2 flex flex-col items-center"
+          style={{
+            animation: isAnimating ? 'subtitleFade 0.5s ease-out 6s both' : 'none',
+          }}
+        >
           <p className="text-white text-lg tracking-widest">True Lie Detectors & Vetting</p>
         </div>
       </div>
@@ -173,7 +189,7 @@ const AdminPortalDashboard = () => {
             transform: translateX(-100vw);
             opacity: 0;
           }
-          50% {
+          10% {
             opacity: 1;
           }
           100% {
@@ -182,7 +198,7 @@ const AdminPortalDashboard = () => {
           }
         }
 
-        @keyframes faceAppear {
+        @keyframes iconAppear {
           0% {
             opacity: 0;
             transform: scale(0.5);
@@ -193,34 +209,38 @@ const AdminPortalDashboard = () => {
           }
         }
 
-        @keyframes circleAppear {
+        @keyframes heartbeatLine {
           0% {
             opacity: 0;
-            transform: scale(0.8);
           }
           100% {
             opacity: 1;
-            transform: scale(1);
           }
         }
 
-        @keyframes heartbeat {
-          0%, 100% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.1);
+        @keyframes drawLine {
+          to {
+            strokeDashoffset: 0;
           }
         }
 
-        @keyframes textAppear {
+        @keyframes tldvAppear {
           0% {
             opacity: 0;
-            transform: translateY(20px);
+            transform: translate(-50%, -50%) translateX(-20px);
           }
           100% {
             opacity: 1;
-            transform: translateY(0);
+            transform: translate(-50%, -50%) translateX(0);
+          }
+        }
+
+        @keyframes subtitleFade {
+          0% {
+            opacity: 0;
+          }
+          100% {
+            opacity: 1;
           }
         }
       `}</style>
