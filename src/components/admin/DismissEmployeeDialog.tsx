@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 
 interface DismissEmployeeDialogProps {
@@ -27,7 +28,7 @@ export function DismissEmployeeDialog({
 }: DismissEmployeeDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [employmentStatus, setEmploymentStatus] = useState<string>(statusType);
+  const [employmentStatus, setEmploymentStatus] = useState<Database['public']['Enums']['employment_status']>(statusType);
   const [dismissalDate, setDismissalDate] = useState(new Date().toISOString().split('T')[0]);
   const [reason, setReason] = useState("");
   const [document, setDocument] = useState<File | null>(null);
@@ -62,7 +63,7 @@ export function DismissEmployeeDialog({
       const { error } = await supabase
         .from('employees')
         .update({
-          employment_status: employmentStatus as any,
+          employment_status: employmentStatus,
           dismissed_at: dismissalDate,
           dismissal_reason: reason,
           dismissal_document_url: documentUrl,
@@ -105,7 +106,10 @@ export function DismissEmployeeDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="employmentStatus">Employment Status</Label>
-            <Select value={employmentStatus} onValueChange={setEmploymentStatus}>
+            <Select 
+              value={employmentStatus} 
+              onValueChange={(value) => setEmploymentStatus(value as Database['public']['Enums']['employment_status'])}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select status" />
               </SelectTrigger>
