@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { FileText, Users, ClipboardCheck } from "lucide-react";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
-import tldvIcon from "@/assets/tldv-icon.jpg";
 
 const AdminPortalDashboard = () => {
   const navigate = useNavigate();
@@ -33,8 +32,8 @@ const AdminPortalDashboard = () => {
 
     checkAuth();
 
-    // Animation timer - matches full animation sequence (2s scanline + 2s black + 1.5s icon + 1s heartbeat + 1s text = 7.5s)
-    const timer = setTimeout(() => setIsAnimating(false), 7500);
+    // Animation timer - matches full animation sequence (2s scanline + 2s logo fade in + 1.5s hold + 1s fade out = 6.5s)
+    const timer = setTimeout(() => setIsAnimating(false), 6500);
     return () => clearTimeout(timer);
   }, [navigate]);
 
@@ -44,29 +43,29 @@ const AdminPortalDashboard = () => {
       description: "Manage employees, submissions, and invitations",
       icon: Users,
       path: "/admin/data-employee-management",
-      color: "from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30"
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10"
     },
     {
       title: "Polygraph & Vetting",
       description: "Book appointments and request vetting",
       icon: ClipboardCheck,
       path: "/admin/polygraph-vetting",
-      color: "from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30"
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10"
     },
     {
       title: "Reports & Accounts",
       description: "View reports and accounts",
       icon: FileText,
       path: "/admin/reports-accounts",
-      color: "from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30"
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10"
     }
   ];
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
+    <div className="min-h-screen bg-black relative overflow-hidden">
       {/* TV Switch-on Animation with Logo Sequence */}
       <div
-        className={`fixed inset-0 bg-black z-50 transition-opacity duration-1000 ${
+        className={`fixed inset-0 bg-black z-50 ${
           isAnimating 
             ? "opacity-100" 
             : "opacity-0 pointer-events-none"
@@ -87,94 +86,44 @@ const AdminPortalDashboard = () => {
           />
         </div>
 
-        {/* Red circle with face icon appears middle left (4s - 4.5s) */}
+        {/* Full Logo fades in (2s - 4s), holds (4s - 5.5s), fades out (5.5s - 6.5s) */}
         <div 
-          className="absolute left-[20%] top-1/2 -translate-y-1/2"
+          className="absolute inset-0 flex flex-col items-center justify-center"
           style={{
-            animation: isAnimating ? 'iconAppear 0.5s ease-out 4s both' : 'none',
+            animation: isAnimating ? 'logoSequence 4.5s ease-in-out 2s both' : 'none',
           }}
         >
-          <img src={tldvIcon} alt="TLDV Icon" className="w-32 h-32" />
-        </div>
-
-        {/* Heartbeat line moving right (4.5s - 5.5s) */}
-        <div 
-          className="absolute left-[20%] top-1/2 -translate-y-1/2"
-          style={{
-            animation: isAnimating ? 'heartbeatLine 1s ease-out 4.5s both' : 'none',
-          }}
-        >
-          <svg width="400" height="100" className="ml-16">
-            <polyline 
-              points="0,50 50,50 70,20 90,80 110,50 400,50" 
-              fill="none" 
-              stroke="#ef4444" 
-              strokeWidth="3"
-              style={{
-                strokeDasharray: '1000',
-                strokeDashoffset: '1000',
-                animation: isAnimating ? 'drawLine 1s ease-out 4.5s forwards' : 'none',
-              }}
-            />
-          </svg>
-        </div>
-
-        {/* TLDV Text appears (5.5s - 6s) */}
-        <div 
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-          style={{
-            animation: isAnimating ? 'tldvAppear 0.5s ease-out 5.5s both' : 'none',
-          }}
-        >
-          <h1 className="text-6xl font-bold text-white mb-2 tracking-wider">TLDV</h1>
-        </div>
-
-        {/* Subtitle fades in (6s - 6.5s) */}
-        <div 
-          className="absolute top-[55%] left-1/2 -translate-x-1/2 flex flex-col items-center"
-          style={{
-            animation: isAnimating ? 'subtitleFade 0.5s ease-out 6s both' : 'none',
-          }}
-        >
-          <p className="text-white text-lg tracking-widest">True Lie Detectors & Vetting</p>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className={`transition-all duration-1000 delay-700 ${
-        isAnimating ? "opacity-0 scale-95" : "opacity-100 scale-100"
-      }`}>
-        {/* Header with Full Width Blended Logo */}
-        <div className="relative w-full h-64 mb-8 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-background/50 to-background"></div>
           <img 
             src={tldvLogo} 
             alt="TLDV Logo" 
-            className="w-full h-full object-contain opacity-20 animate-scale-in"
+            className="w-1/2 max-w-2xl object-contain"
           />
-          <h1 className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-foreground animate-fade-in" style={{ animationDelay: '0.2s' }}>
+          <h1 className="text-4xl font-bold text-white mt-12 tracking-wider">
             Management Portal
           </h1>
         </div>
+      </div>
 
-        {/* Portal Cards */}
+      {/* Main Content - Portals */}
+      <div className={`min-h-screen flex items-center justify-center transition-all duration-1000 ${
+        isAnimating ? "opacity-0" : "opacity-100"
+      }`}>
         <div className="container mx-auto px-4 max-w-6xl">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in" style={{ animationDelay: '0.6s' }}>
-            {portals.map((portal, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {portals.map((portal) => (
               <Card
                 key={portal.path}
                 onClick={() => navigate(portal.path)}
-                className={`p-8 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl bg-gradient-to-br ${portal.color} border-2 animate-fade-in`}
-                style={{ animationDelay: `${0.8 + index * 0.2}s` }}
+                className={`p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-gradient-to-br ${portal.color} border border-red-600/20 hover:border-red-600/40 backdrop-blur-sm`}
               >
                 <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="p-4 rounded-full bg-background/50">
-                    <portal.icon className="w-12 h-12 text-primary" />
+                  <div className="p-4 rounded-full bg-red-600/10 border border-red-600/20">
+                    <portal.icon className="w-12 h-12 text-red-500" />
                   </div>
-                  <h2 className="text-2xl font-bold text-foreground">
+                  <h2 className="text-2xl font-bold text-white">
                     {portal.title}
                   </h2>
-                  <p className="text-muted-foreground">
+                  <p className="text-gray-300">
                     {portal.description}
                   </p>
                 </div>
@@ -202,49 +151,22 @@ const AdminPortalDashboard = () => {
           }
         }
 
-        @keyframes iconAppear {
+        @keyframes logoSequence {
           0% {
             opacity: 0;
-            transform: scale(0.5);
+            transform: scale(0.95);
           }
-          100% {
+          10% {
             opacity: 1;
             transform: scale(1);
           }
-        }
-
-        @keyframes heartbeatLine {
-          0% {
-            opacity: 0;
+          80% {
+            opacity: 1;
+            transform: scale(1);
           }
           100% {
-            opacity: 1;
-          }
-        }
-
-        @keyframes drawLine {
-          to {
-            strokeDashoffset: 0;
-          }
-        }
-
-        @keyframes tldvAppear {
-          0% {
             opacity: 0;
-            transform: translate(-50%, -50%) translateX(-20px);
-          }
-          100% {
-            opacity: 1;
-            transform: translate(-50%, -50%) translateX(0);
-          }
-        }
-
-        @keyframes subtitleFade {
-          0% {
-            opacity: 0;
-          }
-          100% {
-            opacity: 1;
+            transform: scale(1.05);
           }
         }
       `}</style>
