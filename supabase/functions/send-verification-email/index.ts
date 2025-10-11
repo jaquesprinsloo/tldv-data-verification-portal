@@ -53,15 +53,16 @@ const handler = async (req: Request): Promise<Response> => {
             body { font-family: Arial, sans-serif; line-height: 1.6; color: #272727; }
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .header { background-color: #BC000A; padding: 20px; text-align: center; }
-            .header h1 { color: white; margin: 0; font-family: 'Poppins', sans-serif; }
+            .header h1 { color: white; margin: 0; font-family: Arial, sans-serif; }
             .content { background-color: #f9f9f9; padding: 30px; border-radius: 5px; margin-top: 20px; }
+            .button { display: inline-block; padding: 15px 30px; background-color: #BC000A; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; }
             .footer { text-align: center; margin-top: 30px; color: #60615C; font-size: 12px; }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h1>TLDV - True Lie Detectors & Vetting</h1>
+              <h1>Employee Verification Portal</h1>
             </div>
             <div class="content">
               <h2>Verify Your Email Address</h2>
@@ -69,9 +70,9 @@ const handler = async (req: Request): Promise<Response> => {
               <p>Thank you for submitting your verification details. We have successfully received your information for employee number <strong>${employeeNumber}</strong>.</p>
               <p><strong>Important:</strong> Please verify your email address to complete your submission.</p>
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${verificationLink}" style="background-color: #BC000A; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Verify Email Address</a>
+                <a href="${verificationLink}" class="button">Verify Email Address</a>
               </div>
-              <p style="font-size: 12px; color: #666;">If the button doesn't work, copy and paste this link into your browser:<br>
+              <p style="font-size: 12px; color: #666;">If the button does not work, copy and paste this link into your browser:<br>
               <a href="${verificationLink}" style="color: #BC000A;">${verificationLink}</a></p>
               <p>Your submission details:</p>
               <ul>
@@ -84,7 +85,7 @@ const handler = async (req: Request): Promise<Response> => {
               <p>If you have any questions or concerns, please contact your administrator.</p>
             </div>
             <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} TLDV - True Lie Detectors & Vetting. All rights reserved.</p>
+              <p>&copy; ${new Date().getFullYear()} Employee Verification Portal. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -94,7 +95,7 @@ const handler = async (req: Request): Promise<Response> => {
     await client.send({
       from: GMAIL_EMAIL,
       to: email,
-      subject: "TLDV - Verification Submission Received",
+      subject: "Employee Verification Portal - Verify Your Email",
       content: htmlContent,
       html: htmlContent,
     });
