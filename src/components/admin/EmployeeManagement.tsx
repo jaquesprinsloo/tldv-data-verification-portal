@@ -353,53 +353,39 @@ const EmployeeManagement = () => {
   };
 
   const handleUpdateDesignation = async (employeeId: string, designation: string) => {
-    try {
-      const updateValue = designation === "none" ? null : designation;
-      const { error } = await supabase
-        .from('employees')
-        .update({ designation: updateValue as any })
-        .eq('id', employeeId);
+    const updateValue = designation === "none" ? null : designation;
+    const { error } = await supabase
+      .from('employees')
+      .update({ designation: updateValue as any })
+      .eq('id', employeeId);
 
-      if (error) throw error;
-
-      toast({
-        title: "Designation Updated",
-        description: "Employee designation has been updated.",
-      });
-
-      fetchEmployees();
-    } catch (error) {
+    if (error) {
       console.error('Error updating designation:', error);
       toast({
         title: "Error",
         description: "Failed to update designation.",
         variant: "destructive",
       });
+    } else {
+      fetchEmployees();
     }
   };
 
   const handleUpdateStore = async (employeeId: string, storeId: string) => {
-    try {
-      const { error } = await supabase
-        .from('employees')
-        .update({ store_id: storeId === "none" ? null : storeId })
-        .eq('id', employeeId);
+    const { error } = await supabase
+      .from('employees')
+      .update({ store_id: storeId === "none" ? null : storeId })
+      .eq('id', employeeId);
 
-      if (error) throw error;
-
-      toast({
-        title: "Store Updated",
-        description: "Employee store assignment has been updated.",
-      });
-
-      fetchEmployees();
-    } catch (error) {
+    if (error) {
       console.error('Error updating store:', error);
       toast({
         title: "Error",
         description: "Failed to update store assignment.",
         variant: "destructive",
       });
+    } else {
+      fetchEmployees();
     }
   };
 
@@ -540,26 +526,28 @@ const EmployeeManagement = () => {
                 Awaiting Submission
               </Button>
             </div>
-            <div className="flex gap-2 items-center ml-auto">
-              <Label className="text-sm">Store:</Label>
-              <Select value={storeFilter} onValueChange={setStoreFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="All Stores" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Stores</SelectItem>
-                  {stores.map((store) => (
-                    <SelectItem key={store.id} value={store.id}>
-                      {store.store_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="sm" onClick={() => setStoreManagementOpen(true)}>
-                <Store className="h-4 w-4 mr-2" />
-                Manage Stores
-              </Button>
-            </div>
+            {activeFilter === "approved" && (
+              <div className="flex gap-2 items-center ml-auto">
+                <Label className="text-sm">Store:</Label>
+                <Select value={storeFilter} onValueChange={setStoreFilter}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="All Stores" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Stores</SelectItem>
+                    {stores.map((store) => (
+                      <SelectItem key={store.id} value={store.id}>
+                        {store.store_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" onClick={() => setStoreManagementOpen(true)}>
+                  <Store className="h-4 w-4 mr-2" />
+                  Manage Stores
+                </Button>
+              </div>
+            )}
           </div>
           <div className="overflow-x-auto">
             <Table>
@@ -567,8 +555,8 @@ const EmployeeManagement = () => {
                 <TableRow>
                   <TableHead>Employee #</TableHead>
                   <TableHead>ID Number</TableHead>
-                  <TableHead>Designation</TableHead>
-                  <TableHead>Store</TableHead>
+                  {activeFilter === "approved" && <TableHead>Designation</TableHead>}
+                  {activeFilter === "approved" && <TableHead>Store</TableHead>}
                   <TableHead>Status</TableHead>
                   <TableHead>Added Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -597,60 +585,64 @@ const EmployeeManagement = () => {
                           {employee.employee_number}
                         </TableCell>
                         <TableCell>{employee.id_number}</TableCell>
-                        <TableCell>
-                          <Select
-                            value={employee.designation || "none"}
-                            onValueChange={(value) => handleUpdateDesignation(employee.id, value)}
-                          >
-                            <SelectTrigger className="w-[180px]">
-                              <SelectValue placeholder="Select designation" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">No Designation</SelectItem>
-                              <SelectItem value="team_leader">Team Leader</SelectItem>
-                              <SelectItem value="fdo">FDO</SelectItem>
-                              <SelectItem value="manager">Manager</SelectItem>
-                              <SelectItem value="assistant_manager">Assistant Manager</SelectItem>
-                              <SelectItem value="buyer">Buyer</SelectItem>
-                              <SelectItem value="sales_person">Sales Person</SelectItem>
-                              <SelectItem value="cashier">Cashier</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
+                        {activeFilter === "approved" && (
+                          <TableCell>
                             <Select
-                              value={employee.store_id || "none"}
-                              onValueChange={(value) => handleUpdateStore(employee.id, value)}
+                              value={employee.designation || "none"}
+                              onValueChange={(value) => handleUpdateDesignation(employee.id, value)}
                             >
                               <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Select store" />
+                                <SelectValue placeholder="Select designation" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="none">No Store</SelectItem>
-                                {stores.map((store) => (
-                                  <SelectItem key={store.id} value={store.id}>
-                                    {store.store_name}
-                                  </SelectItem>
-                                ))}
+                                <SelectItem value="none">No Designation</SelectItem>
+                                <SelectItem value="team_leader">Team Leader</SelectItem>
+                                <SelectItem value="fdo">FDO</SelectItem>
+                                <SelectItem value="manager">Manager</SelectItem>
+                                <SelectItem value="assistant_manager">Assistant Manager</SelectItem>
+                                <SelectItem value="buyer">Buyer</SelectItem>
+                                <SelectItem value="sales_person">Sales Person</SelectItem>
+                                <SelectItem value="cashier">Cashier</SelectItem>
                               </SelectContent>
                             </Select>
-                            {isLeaderOrFDO && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenMultiStore(employee.id, employeeName)}
-                                title="Assign multiple stores"
+                          </TableCell>
+                        )}
+                        {activeFilter === "approved" && (
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={employee.store_id || "none"}
+                                onValueChange={(value) => handleUpdateStore(employee.id, value)}
                               >
-                                <Users className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
+                                <SelectTrigger className="w-[180px]">
+                                  <SelectValue placeholder="Select store" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">No Store</SelectItem>
+                                  {stores.map((store) => (
+                                    <SelectItem key={store.id} value={store.id}>
+                                      {store.store_name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {isLeaderOrFDO && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenMultiStore(employee.id, employeeName)}
+                                  title="Assign multiple stores"
+                                >
+                                  <Users className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <div className="flex flex-col gap-1">
                             <Badge variant={variant}>{label}</Badge>
-                            {employee.employment_status === 'active' && variant === "success" && (
+                            {activeFilter === "approved" && (employee.employment_status === 'active' || !employee.employment_status) && variant === "success" && (
                               <div className="flex gap-1">
                                 <Button
                                   variant="outline"

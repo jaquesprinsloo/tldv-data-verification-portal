@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Upload } from "lucide-react";
 
 interface DismissEmployeeDialogProps {
   open: boolean;
@@ -27,6 +27,7 @@ export function DismissEmployeeDialog({
 }: DismissEmployeeDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [employmentStatus, setEmploymentStatus] = useState<string>(statusType);
   const [dismissalDate, setDismissalDate] = useState(new Date().toISOString().split('T')[0]);
   const [reason, setReason] = useState("");
   const [document, setDocument] = useState<File | null>(null);
@@ -61,7 +62,7 @@ export function DismissEmployeeDialog({
       const { error } = await supabase
         .from('employees')
         .update({
-          employment_status: statusType,
+          employment_status: employmentStatus,
           dismissed_at: dismissalDate,
           dismissal_reason: reason,
           dismissal_document_url: documentUrl,
@@ -72,7 +73,7 @@ export function DismissEmployeeDialog({
 
       toast({
         title: "Status Updated",
-        description: `Employee has been marked as ${statusType}.`,
+        description: `Employee status has been updated to ${employmentStatus}.`,
       });
 
       onSuccess();
@@ -94,17 +95,31 @@ export function DismissEmployeeDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {statusType === 'dismissed' ? 'Dismiss' : 'Retrench'} Employee
+            Update Employee Status
           </DialogTitle>
           <DialogDescription>
-            Record the {statusType === 'dismissed' ? 'dismissal' : 'retrenchment'} of {employeeName}
+            Update the employment status for {employeeName}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="employmentStatus">Employment Status</Label>
+            <Select value={employmentStatus} onValueChange={setEmploymentStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="employed">Employed</SelectItem>
+                <SelectItem value="dismissed">Dismissed</SelectItem>
+                <SelectItem value="retrenched">Retrenched</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="dismissalDate">
-              Date of {statusType === 'dismissed' ? 'Dismissal' : 'Retrenchment'}
+              Date of Status Change
             </Label>
             <Input
               id="dismissalDate"
