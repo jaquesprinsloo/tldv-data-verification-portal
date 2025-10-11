@@ -537,7 +537,7 @@ const EmployeeManagement = () => {
                   onChange={handleCSVUpload}
                   disabled={uploading}
                   className="hidden"
-                  id="csv-upload"
+                  id="employee-csv-upload"
                 />
                 <Button
                   type="button"
