@@ -114,11 +114,11 @@ const AdminPortalDashboard = () => {
               <Card
                 key={portal.path}
                 onClick={() => navigate(portal.path)}
-                className={`p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-2 border-red-600 hover:border-red-500 hover:shadow-[0_0_30px_rgba(239,68,68,0.3)]`}
+                className={`p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-[3px] border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)]`}
               >
                 <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="p-4 rounded-full bg-red-600/20 border border-red-600">
-                    <portal.icon className="w-12 h-12 text-red-500" />
+                  <div className="p-6 rounded-full bg-red-600/30 border-2 border-red-600 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
+                    <portal.icon className="w-16 h-16 text-red-500" strokeWidth={2.5} />
                   </div>
                   <h2 className="text-2xl font-bold text-white">
                     {portal.title}
