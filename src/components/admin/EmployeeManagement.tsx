@@ -6,9 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Copy, Upload, Download, Eye, Mail } from "lucide-react";
+import { UserPlus, Trash2, Copy, Upload, Download, Eye, Mail, Store, Users } from "lucide-react";
 import InviteEmployeeDialog from "./InviteEmployeeDialog";
+import { DismissEmployeeDialog } from "./DismissEmployeeDialog";
+import { StoreManagementDialog } from "./StoreManagementDialog";
+import { MultiStoreAssignmentDialog } from "./MultiStoreAssignmentDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,22 +30,35 @@ interface EmployeeWithSubmission {
   employee_number: string;
   id_number: string;
   created_at: string;
+  employment_status: string;
+  designation: string | null;
+  store_id: string | null;
+  dismissed_at: string | null;
+  dismissal_reason: string | null;
   submission?: any;
+  store?: { store_name: string; store_code: string } | null;
 }
 
 type FilterType = "all" | "approved" | "awaiting_status" | "awaiting_submission";
 
 const EmployeeManagement = () => {
   const [employees, setEmployees] = useState<EmployeeWithSubmission[]>([]);
+  const [stores, setStores] = useState<Array<{ id: string; store_name: string; store_code: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [storeFilter, setStoreFilter] = useState<string>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [employeeToInvite, setEmployeeToInvite] = useState<{ id: string; number: string } | null>(null);
+  const [dismissDialogOpen, setDismissDialogOpen] = useState(false);
+  const [employeeToDismiss, setEmployeeToDismiss] = useState<{ id: string; name: string; type: "dismissed" | "retrenched" } | null>(null);
+  const [storeManagementOpen, setStoreManagementOpen] = useState(false);
+  const [multiStoreDialogOpen, setMultiStoreDialogOpen] = useState(false);
+  const [employeeForMultiStore, setEmployeeForMultiStore] = useState<{ id: string; name: string } | null>(null);
   const [formData, setFormData] = useState({
     employeeNumber: "",
     idNumber: "",
@@ -51,19 +68,29 @@ const EmployeeManagement = () => {
 
   useEffect(() => {
     fetchEmployees();
+    fetchStores();
   }, []);
 
   const fetchEmployees = async () => {
     try {
-      // Fetch employees with their submissions
       const { data: employeesData, error: employeesError } = await supabase
         .from("employees")
-        .select("id, employee_number, id_number, created_at")
+        .select(`
+          id, 
+          employee_number, 
+          id_number, 
+          created_at, 
+          employment_status,
+          designation,
+          store_id,
+          dismissed_at,
+          dismissal_reason,
+          store:stores(store_name, store_code)
+        `)
         .order("created_at", { ascending: false });
 
       if (employeesError) throw employeesError;
 
-      // Fetch all submissions
       const { data: submissionsData, error: submissionsError } = await supabase
         .from("submissions")
         .select("*")
@@ -71,7 +98,6 @@ const EmployeeManagement = () => {
 
       if (submissionsError) throw submissionsError;
 
-      // Map submissions to employees (one submission per employee)
       const employeesWithSubmissions = (employeesData || []).map((emp) => {
         const submission = submissionsData?.find((sub) => sub.employee_id === emp.id);
         return {
@@ -84,6 +110,20 @@ const EmployeeManagement = () => {
     } catch (error) {
       console.error("Error fetching employees:", error);
     }
+  };
+
+  const fetchStores = async () => {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('*')
+      .order('store_name');
+
+    if (error) {
+      console.error('Error fetching stores:', error);
+      return;
+    }
+
+    setStores(data || []);
   };
 
   const getEmployeeStatus = (employee: EmployeeWithSubmission) => {
@@ -108,9 +148,9 @@ const EmployeeManagement = () => {
   };
 
   const filteredEmployees = employees.filter((emp) => {
-    if (activeFilter === "all") return true;
-    const { status } = getEmployeeStatus(emp);
-    return status === activeFilter;
+    const statusMatch = activeFilter === "all" || getEmployeeStatus(emp).status === activeFilter;
+    const storeMatch = storeFilter === "all" || emp.store_id === storeFilter;
+    return statusMatch && storeMatch;
   });
 
   const handleAddEmployee = async (e: React.FormEvent) => {
@@ -312,6 +352,67 @@ const EmployeeManagement = () => {
     setInviteDialogOpen(true);
   };
 
+  const handleUpdateDesignation = async (employeeId: string, designation: string) => {
+    try {
+      const updateValue = designation === "none" ? null : designation;
+      const { error } = await supabase
+        .from('employees')
+        .update({ designation: updateValue as any })
+        .eq('id', employeeId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Designation Updated",
+        description: "Employee designation has been updated.",
+      });
+
+      fetchEmployees();
+    } catch (error) {
+      console.error('Error updating designation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update designation.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdateStore = async (employeeId: string, storeId: string) => {
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .update({ store_id: storeId === "none" ? null : storeId })
+        .eq('id', employeeId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Store Updated",
+        description: "Employee store assignment has been updated.",
+      });
+
+      fetchEmployees();
+    } catch (error) {
+      console.error('Error updating store:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update store assignment.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDismissEmployee = (employeeId: string, employeeName: string, type: "dismissed" | "retrenched") => {
+    setEmployeeToDismiss({ id: employeeId, name: employeeName, type });
+    setDismissDialogOpen(true);
+  };
+
+  const handleOpenMultiStore = (employeeId: string, employeeName: string) => {
+    setEmployeeForMultiStore({ id: employeeId, name: employeeName });
+    setMultiStoreDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -408,35 +509,57 @@ const EmployeeManagement = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2 mb-4">
-            <Button
-              variant={activeFilter === "all" ? "default" : "outline"}
-              onClick={() => setActiveFilter("all")}
-              size="sm"
-            >
-              All
-            </Button>
-            <Button
-              variant={activeFilter === "approved" ? "default" : "outline"}
-              onClick={() => setActiveFilter("approved")}
-              size="sm"
-            >
-              Approved
-            </Button>
-            <Button
-              variant={activeFilter === "awaiting_status" ? "default" : "outline"}
-              onClick={() => setActiveFilter("awaiting_status")}
-              size="sm"
-            >
-              Awaiting Status Update
-            </Button>
-            <Button
-              variant={activeFilter === "awaiting_submission" ? "default" : "outline"}
-              onClick={() => setActiveFilter("awaiting_submission")}
-              size="sm"
-            >
-              Awaiting Submission
-            </Button>
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <div className="flex gap-2">
+              <Button
+                variant={activeFilter === "all" ? "default" : "outline"}
+                onClick={() => setActiveFilter("all")}
+                size="sm"
+              >
+                All
+              </Button>
+              <Button
+                variant={activeFilter === "approved" ? "default" : "outline"}
+                onClick={() => setActiveFilter("approved")}
+                size="sm"
+              >
+                Approved
+              </Button>
+              <Button
+                variant={activeFilter === "awaiting_status" ? "default" : "outline"}
+                onClick={() => setActiveFilter("awaiting_status")}
+                size="sm"
+              >
+                Awaiting Status Update
+              </Button>
+              <Button
+                variant={activeFilter === "awaiting_submission" ? "default" : "outline"}
+                onClick={() => setActiveFilter("awaiting_submission")}
+                size="sm"
+              >
+                Awaiting Submission
+              </Button>
+            </div>
+            <div className="flex gap-2 items-center ml-auto">
+              <Label className="text-sm">Store:</Label>
+              <Select value={storeFilter} onValueChange={setStoreFilter}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="All Stores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Stores</SelectItem>
+                  {stores.map((store) => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.store_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" onClick={() => setStoreManagementOpen(true)}>
+                <Store className="h-4 w-4 mr-2" />
+                Manage Stores
+              </Button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <Table>
@@ -444,15 +567,17 @@ const EmployeeManagement = () => {
                 <TableRow>
                   <TableHead>Employee #</TableHead>
                   <TableHead>ID Number</TableHead>
+                  <TableHead>Designation</TableHead>
+                  <TableHead>Store</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Added Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+               <TableBody>
                 {filteredEmployees.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
                       {employees.length === 0 
                         ? "No employees found. Add your first employee above."
                         : "No employees match this filter."}
@@ -461,6 +586,11 @@ const EmployeeManagement = () => {
                 ) : (
                   filteredEmployees.map((employee) => {
                     const { label, variant } = getEmployeeStatus(employee);
+                    const employeeName = employee.submission 
+                      ? `${employee.submission.first_name} ${employee.submission.last_name}`
+                      : employee.employee_number;
+                    const isLeaderOrFDO = employee.designation === 'team_leader' || employee.designation === 'fdo';
+                    
                     return (
                       <TableRow key={employee.id}>
                         <TableCell className="font-medium">
@@ -468,7 +598,79 @@ const EmployeeManagement = () => {
                         </TableCell>
                         <TableCell>{employee.id_number}</TableCell>
                         <TableCell>
-                          <Badge variant={variant}>{label}</Badge>
+                          <Select
+                            value={employee.designation || "none"}
+                            onValueChange={(value) => handleUpdateDesignation(employee.id, value)}
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Select designation" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No Designation</SelectItem>
+                              <SelectItem value="team_leader">Team Leader</SelectItem>
+                              <SelectItem value="fdo">FDO</SelectItem>
+                              <SelectItem value="manager">Manager</SelectItem>
+                              <SelectItem value="assistant_manager">Assistant Manager</SelectItem>
+                              <SelectItem value="buyer">Buyer</SelectItem>
+                              <SelectItem value="sales_person">Sales Person</SelectItem>
+                              <SelectItem value="cashier">Cashier</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={employee.store_id || "none"}
+                              onValueChange={(value) => handleUpdateStore(employee.id, value)}
+                            >
+                              <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Select store" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No Store</SelectItem>
+                                {stores.map((store) => (
+                                  <SelectItem key={store.id} value={store.id}>
+                                    {store.store_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {isLeaderOrFDO && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenMultiStore(employee.id, employeeName)}
+                                title="Assign multiple stores"
+                              >
+                                <Users className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant={variant}>{label}</Badge>
+                            {employee.employment_status === 'active' && variant === "success" && (
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-xs"
+                                  onClick={() => handleDismissEmployee(employee.id, employeeName, "dismissed")}
+                                >
+                                  Dismiss
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-xs"
+                                  onClick={() => handleDismissEmployee(employee.id, employeeName, "retrenched")}
+                                >
+                                  Retrench
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {new Date(employee.created_at).toLocaleDateString()}
@@ -544,6 +746,32 @@ const EmployeeManagement = () => {
           employeeNumber={employeeToInvite.number}
           open={inviteDialogOpen}
           onOpenChange={setInviteDialogOpen}
+        />
+      )}
+
+      {employeeToDismiss && (
+        <DismissEmployeeDialog
+          open={dismissDialogOpen}
+          onOpenChange={setDismissDialogOpen}
+          employeeId={employeeToDismiss.id}
+          employeeName={employeeToDismiss.name}
+          statusType={employeeToDismiss.type}
+          onSuccess={fetchEmployees}
+        />
+      )}
+
+      <StoreManagementDialog
+        open={storeManagementOpen}
+        onOpenChange={setStoreManagementOpen}
+      />
+
+      {employeeForMultiStore && (
+        <MultiStoreAssignmentDialog
+          open={multiStoreDialogOpen}
+          onOpenChange={setMultiStoreDialogOpen}
+          employeeId={employeeForMultiStore.id}
+          employeeName={employeeForMultiStore.name}
+          onSuccess={fetchEmployees}
         />
       )}
     </div>

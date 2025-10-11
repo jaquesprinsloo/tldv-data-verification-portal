@@ -64,9 +64,50 @@ export type Database = {
           },
         ]
       }
+      employee_store_assignments: {
+        Row: {
+          assigned_at: string
+          created_at: string
+          employee_id: string
+          id: string
+          store_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          store_id: string
+        }
+        Update: {
+          assigned_at?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_store_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_store_assignments_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           created_at: string
+          designation: Database["public"]["Enums"]["designation_type"] | null
+          dismissal_document_url: string | null
           dismissal_reason: string | null
           dismissed_at: string | null
           employee_number: string
@@ -76,11 +117,14 @@ export type Database = {
           last_reminder_sent: string | null
           last_submission_date: string | null
           next_renewal_date: string | null
+          store_id: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
           created_at?: string
+          designation?: Database["public"]["Enums"]["designation_type"] | null
+          dismissal_document_url?: string | null
           dismissal_reason?: string | null
           dismissed_at?: string | null
           employee_number: string
@@ -90,11 +134,14 @@ export type Database = {
           last_reminder_sent?: string | null
           last_submission_date?: string | null
           next_renewal_date?: string | null
+          store_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           created_at?: string
+          designation?: Database["public"]["Enums"]["designation_type"] | null
+          dismissal_document_url?: string | null
           dismissal_reason?: string | null
           dismissed_at?: string | null
           employee_number?: string
@@ -104,10 +151,18 @@ export type Database = {
           last_reminder_sent?: string | null
           last_submission_date?: string | null
           next_renewal_date?: string | null
+          store_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "employees_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "employees_user_id_fkey"
             columns: ["user_id"]
@@ -508,6 +563,18 @@ export type Database = {
         Args: { submission_data: Json }
         Returns: string
       }
+      get_employees_by_store: {
+        Args: { _store_id: string }
+        Returns: {
+          designation: Database["public"]["Enums"]["designation_type"]
+          employee_id: string
+          employee_number: string
+          employment_status: Database["public"]["Enums"]["employment_status"]
+          full_name: string
+          id_number: string
+          is_primary_assignment: boolean
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -537,7 +604,20 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "employee"
-      employment_status: "active" | "dismissed" | "suspended" | "resigned"
+      designation_type:
+        | "team_leader"
+        | "fdo"
+        | "manager"
+        | "assistant_manager"
+        | "buyer"
+        | "sales_person"
+        | "cashier"
+      employment_status:
+        | "active"
+        | "dismissed"
+        | "suspended"
+        | "resigned"
+        | "retrenched"
       renewal_request_status: "pending" | "sent" | "cancelled"
       submission_status: "pending" | "verified" | "flagged" | "approved"
     }
@@ -668,7 +748,22 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "employee"],
-      employment_status: ["active", "dismissed", "suspended", "resigned"],
+      designation_type: [
+        "team_leader",
+        "fdo",
+        "manager",
+        "assistant_manager",
+        "buyer",
+        "sales_person",
+        "cashier",
+      ],
+      employment_status: [
+        "active",
+        "dismissed",
+        "suspended",
+        "resigned",
+        "retrenched",
+      ],
       renewal_request_status: ["pending", "sent", "cancelled"],
       submission_status: ["pending", "verified", "flagged", "approved"],
     },

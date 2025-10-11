@@ -24,13 +24,14 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
   const [proofOfResidenceUrl, setProofOfResidenceUrl] = useState<string | null>(null);
   const [idUrl, setIdUrl] = useState<string | null>(null);
   const [popiaDialogOpen, setPopiaDialogOpen] = useState(false);
+  const [employeeDetails, setEmployeeDetails] = useState<any>(null);
 
   useEffect(() => {
     if (submission && open) {
-      // Map database status to UI status (verified -> approved for display)
       const displayStatus = submission.status === "verified" ? "approved" : submission.status;
       setStatus(displayStatus);
       fetchNextOfKin();
+      fetchEmployeeDetails();
       generateSignedUrls();
     } else {
       setProofOfResidenceUrl(null);
@@ -48,6 +49,25 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
       .single();
     
     setNextOfKin(data);
+  };
+
+  const fetchEmployeeDetails = async () => {
+    if (!submission?.employee_id) return;
+    
+    const { data } = await supabase
+      .from("employees")
+      .select(`
+        designation,
+        employment_status,
+        dismissed_at,
+        dismissal_reason,
+        dismissal_document_url,
+        store:stores(store_name, store_code)
+      `)
+      .eq("id", submission.employee_id)
+      .single();
+    
+    setEmployeeDetails(data);
   };
 
   const generateSignedUrls = async () => {
@@ -173,6 +193,54 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                 <span className="text-muted-foreground">Contact:</span>
                 <p className="font-medium">{submission.contact_number || 'N/A'}</p>
               </div>
+              {employeeDetails?.designation && (
+                <div>
+                  <span className="text-muted-foreground">Designation:</span>
+                  <p className="font-medium capitalize">
+                    {employeeDetails.designation.replace(/_/g, ' ')}
+                  </p>
+                </div>
+              )}
+              {employeeDetails?.store && (
+                <div>
+                  <span className="text-muted-foreground">Store:</span>
+                  <p className="font-medium">
+                    {employeeDetails.store.store_name} ({employeeDetails.store.store_code})
+                  </p>
+                </div>
+              )}
+              {employeeDetails?.employment_status && (
+                <div>
+                  <span className="text-muted-foreground">Employment Status:</span>
+                  <p className="font-medium capitalize">
+                    {employeeDetails.employment_status}
+                  </p>
+                </div>
+              )}
+              {employeeDetails?.dismissed_at && (
+                <div className="col-span-2 border-t pt-3">
+                  <span className="text-muted-foreground">Date of Dismissal/Retrenchment:</span>
+                  <p className="font-medium">{format(new Date(employeeDetails.dismissed_at), 'PPP')}</p>
+                  {employeeDetails.dismissal_reason && (
+                    <div className="mt-2">
+                      <span className="text-muted-foreground">Reason:</span>
+                      <p className="font-medium">{employeeDetails.dismissal_reason}</p>
+                    </div>
+                  )}
+                  {employeeDetails.dismissal_document_url && (
+                    <div className="mt-2">
+                      <a 
+                        href={employeeDetails.dismissal_document_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary underline"
+                      >
+                        View Supporting Document
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="col-span-2">
                 <span className="text-muted-foreground">Physical Address:</span>
                 <p className="font-medium">{submission.physical_address}</p>

@@ -1,0 +1,271 @@
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { Upload, Download, Plus, Trash2 } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+interface Store {
+  id: string;
+  store_name: string;
+  store_code: string;
+}
+
+interface StoreManagementDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDialogProps) {
+  const { toast } = useToast();
+  const [stores, setStores] = useState<Store[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [storeName, setStoreName] = useState("");
+  const [storeCode, setStoreCode] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      fetchStores();
+    }
+  }, [open]);
+
+  const fetchStores = async () => {
+    const { data, error } = await supabase
+      .from('stores')
+      .select('*')
+      .order('store_name');
+
+    if (error) {
+      console.error('Error fetching stores:', error);
+      return;
+    }
+
+    setStores(data || []);
+  };
+
+  const handleAddStore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('stores')
+        .insert({ store_name: storeName, store_code: storeCode });
+
+      if (error) throw error;
+
+      toast({
+        title: "Store Added",
+        description: `${storeName} has been added successfully.`,
+      });
+
+      setStoreName("");
+      setStoreCode("");
+      fetchStores();
+    } catch (error) {
+      console.error('Error adding store:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add store. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteStore = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this store?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('stores')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Store Deleted",
+        description: "Store has been removed successfully.",
+      });
+
+      fetchStores();
+    } catch (error) {
+      console.error('Error deleting store:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete store. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+
+      const storeNameIndex = headers.findIndex(h => h.toLowerCase().includes('store name'));
+      const storeCodeIndex = headers.findIndex(h => h.toLowerCase().includes('store code'));
+
+      if (storeNameIndex === -1) {
+        throw new Error('CSV must contain a "Store Name" column');
+      }
+
+      const storesToInsert = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        
+        const values = lines[i].split(',').map(v => v.trim());
+        const name = values[storeNameIndex];
+        const code = storeCodeIndex !== -1 ? values[storeCodeIndex] : `STORE${i}`;
+
+        if (name) {
+          storesToInsert.push({ store_name: name, store_code: code });
+        }
+      }
+
+      const { error } = await supabase
+        .from('stores')
+        .insert(storesToInsert);
+
+      if (error) throw error;
+
+      toast({
+        title: "Stores Imported",
+        description: `Successfully imported ${storesToInsert.length} stores.`,
+      });
+
+      fetchStores();
+    } catch (error) {
+      console.error('Error importing CSV:', error);
+      toast({
+        title: "Import Error",
+        description: error instanceof Error ? error.message : "Failed to import stores.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const csv = 'Store Name,Store Code\n"Example Store 1","STORE001"\n"Example Store 2","STORE002"';
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'store_import_template.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Manage Stores</DialogTitle>
+          <DialogDescription>
+            Add stores manually or import from CSV
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleDownloadTemplate}>
+              <Download className="mr-2 h-4 w-4" />
+              Download Template
+            </Button>
+            <Label htmlFor="csv-upload" className="cursor-pointer">
+              <Button variant="outline" asChild>
+                <span>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import CSV
+                </span>
+              </Button>
+              <Input
+                id="csv-upload"
+                type="file"
+                accept=".csv"
+                onChange={handleCSVUpload}
+                className="hidden"
+              />
+            </Label>
+          </div>
+
+          <form onSubmit={handleAddStore} className="flex gap-2">
+            <div className="flex-1">
+              <Input
+                placeholder="Store Name"
+                value={storeName}
+                onChange={(e) => setStoreName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex-1">
+              <Input
+                placeholder="Store Code"
+                value={storeCode}
+                onChange={(e) => setStoreCode(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" disabled={loading}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add
+            </Button>
+          </form>
+
+          <div className="border rounded-md">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Store Name</TableHead>
+                  <TableHead>Store Code</TableHead>
+                  <TableHead className="w-20">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stores.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-muted-foreground">
+                      No stores added yet
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  stores.map((store) => (
+                    <TableRow key={store.id}>
+                      <TableCell>{store.store_name}</TableCell>
+                      <TableCell>{store.store_code}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteStore(store.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
