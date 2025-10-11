@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Download, Plus, Trash2 } from "lucide-react";
+import { Upload, Download, Plus, Trash2, FileText } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StoreDetailsDialog } from "./StoreDetailsDialog";
 
 interface Store {
   id: string;
@@ -25,6 +26,8 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
   const [loading, setLoading] = useState(false);
   const [storeName, setStoreName] = useState("");
   const [storeCode, setStoreCode] = useState("");
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedStore, setSelectedStore] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -245,7 +248,7 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
               <TableHeader>
                 <TableRow>
                   <TableHead>Store Name</TableHead>
-                  <TableHead className="w-20">Actions</TableHead>
+                  <TableHead className="w-32">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -260,13 +263,27 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
                     <TableRow key={store.id}>
                       <TableCell>{store.store_name}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteStore(store.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSelectedStore({ id: store.id, name: store.store_name });
+                              setDetailsDialogOpen(true);
+                            }}
+                            title="Store Details"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteStore(store.id)}
+                            title="Delete Store"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -276,6 +293,15 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
           </div>
         </div>
       </DialogContent>
+
+      {selectedStore && (
+        <StoreDetailsDialog
+          open={detailsDialogOpen}
+          onOpenChange={setDetailsDialogOpen}
+          storeId={selectedStore.id}
+          storeName={selectedStore.name}
+        />
+      )}
     </Dialog>
   );
 }

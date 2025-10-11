@@ -321,22 +321,46 @@ export type Database = {
       }
       stores: {
         Row: {
+          center_mall_name: string | null
+          contact_number: string | null
           created_at: string
           id: string
+          postal_code: string | null
+          province: string | null
+          shop_number: string | null
           store_code: string
           store_name: string
+          street_name: string | null
+          street_number: string | null
+          town: string | null
         }
         Insert: {
+          center_mall_name?: string | null
+          contact_number?: string | null
           created_at?: string
           id?: string
+          postal_code?: string | null
+          province?: string | null
+          shop_number?: string | null
           store_code: string
           store_name: string
+          street_name?: string | null
+          street_number?: string | null
+          town?: string | null
         }
         Update: {
+          center_mall_name?: string | null
+          contact_number?: string | null
           created_at?: string
           id?: string
+          postal_code?: string | null
+          province?: string | null
+          shop_number?: string | null
           store_code?: string
           store_name?: string
+          street_name?: string | null
+          street_number?: string | null
+          town?: string | null
         }
         Relationships: []
       }
