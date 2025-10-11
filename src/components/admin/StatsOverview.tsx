@@ -39,7 +39,7 @@ const StatsOverview = ({ onSelectFilter, activeFilter = "all" }: StatsOverviewPr
   }, []);
 
   return (
-    <div className="sticky top-24 z-10 bg-background pb-4 pt-4">
+    <div className="sticky top-24 z-10 bg-background pb-4 pt-4 shadow-sm">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card
           className={cn(
