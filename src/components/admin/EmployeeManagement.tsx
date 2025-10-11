@@ -47,6 +47,7 @@ type FilterType = "all" | "approved" | "awaiting_status" | "awaiting_submission"
 const EmployeeManagement = () => {
   const [employees, setEmployees] = useState<EmployeeWithSubmission[]>([]);
   const [stores, setStores] = useState<Array<{ id: string; store_name: string; store_code: string }>>([]);
+  const [multiStoreAssignments, setMultiStoreAssignments] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
@@ -106,6 +107,19 @@ const EmployeeManagement = () => {
         .order("submission_timestamp", { ascending: false });
 
       if (submissionsError) throw submissionsError;
+
+      // Fetch multi-store assignments
+      const { data: assignmentsData } = await supabase
+        .from("employee_store_assignments")
+        .select("employee_id, store_id");
+
+      // Count store assignments per employee
+      const assignmentCounts = new Map<string, number>();
+      assignmentsData?.forEach(assignment => {
+        const count = assignmentCounts.get(assignment.employee_id) || 0;
+        assignmentCounts.set(assignment.employee_id, count + 1);
+      });
+      setMultiStoreAssignments(assignmentCounts);
 
       const employeesWithSubmissions = (employeesData || []).map((emp) => {
         const submission = submissionsData?.find((sub) => sub.employee_id === emp.id);
@@ -710,31 +724,49 @@ const EmployeeManagement = () => {
                         {activeFilter === "approved" && (
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <Select
-                                value={employee.store_id || "none"}
-                                onValueChange={(value) => handleUpdateStore(employee.id, value)}
-                              >
-                                <SelectTrigger className="w-[180px]">
-                                  <SelectValue placeholder="Select store" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none">No Store</SelectItem>
-                                  {stores.map((store) => (
-                                    <SelectItem key={store.id} value={store.id}>
-                                      {store.store_name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              {isLeaderOrFDO && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenMultiStore(employee.id, employeeName)}
-                                  title="Assign multiple stores"
-                                >
-                                  <Users className="h-4 w-4" />
-                                </Button>
+                              {isLeaderOrFDO && multiStoreAssignments.get(employee.id) && multiStoreAssignments.get(employee.id)! > 1 ? (
+                                <>
+                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+                                    Multi-Store
+                                  </Badge>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleOpenMultiStore(employee.id, employeeName)}
+                                    title="Manage store assignments"
+                                  >
+                                    <Users className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <Select
+                                    value={employee.store_id || "none"}
+                                    onValueChange={(value) => handleUpdateStore(employee.id, value)}
+                                  >
+                                    <SelectTrigger className="w-[180px]">
+                                      <SelectValue placeholder="Select store" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">No Store</SelectItem>
+                                      {stores.map((store) => (
+                                        <SelectItem key={store.id} value={store.id}>
+                                          {store.store_name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  {isLeaderOrFDO && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleOpenMultiStore(employee.id, employeeName)}
+                                      title="Assign multiple stores"
+                                    >
+                                      <Users className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </>
                               )}
                             </div>
                           </TableCell>
