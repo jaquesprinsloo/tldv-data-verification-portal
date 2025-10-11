@@ -618,6 +618,7 @@ export type Database = {
         | "suspended"
         | "resigned"
         | "retrenched"
+        | "employed"
       renewal_request_status: "pending" | "sent" | "cancelled"
       submission_status: "pending" | "verified" | "flagged" | "approved"
     }
@@ -763,6 +764,7 @@ export const Constants = {
         "suspended",
         "resigned",
         "retrenched",
+        "employed",
       ],
       renewal_request_status: ["pending", "sent", "cancelled"],
       submission_status: ["pending", "verified", "flagged", "approved"],

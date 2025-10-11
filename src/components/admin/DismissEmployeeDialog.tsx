@@ -62,7 +62,7 @@ export function DismissEmployeeDialog({
       const { error } = await supabase
         .from('employees')
         .update({
-          employment_status: employmentStatus,
+          employment_status: employmentStatus as any,
           dismissed_at: dismissalDate,
           dismissal_reason: reason,
           dismissal_document_url: documentUrl,
