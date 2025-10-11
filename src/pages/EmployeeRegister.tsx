@@ -19,6 +19,7 @@ const EmployeeRegister = () => {
   const [validatingToken, setValidatingToken] = useState(true);
   const [step, setStep] = useState<'register' | 'popia'>('register');
   const [employeeId, setEmployeeId] = useState<string>("");
+  const [invitationMethod, setInvitationMethod] = useState<string>("email");
   
   const [formData, setFormData] = useState({
     employeeNumber: "",
@@ -29,17 +30,49 @@ const EmployeeRegister = () => {
   const token = searchParams.get("token");
 
   useEffect(() => {
-    if (!token) {
-      toast({
-        title: "Invalid Link",
-        description: "This invitation link is invalid",
-        variant: "destructive",
-      });
-      navigate("/");
-      return;
-    }
-    setValidatingToken(false);
+    const validateToken = async () => {
+      if (!token) {
+        toast({
+          title: "Invalid Link",
+          description: "This invitation link is invalid",
+          variant: "destructive",
+        });
+        navigate("/");
+        return;
+      }
+
+      // Fetch invitation method from the invitation
+      try {
+        const { data, error } = await supabase
+          .from("employee_invitations")
+          .select("invitation_method")
+          .eq("token", token)
+          .single();
+
+        if (!error && data) {
+          setInvitationMethod(data.invitation_method || "email");
+        }
+      } catch (error) {
+        console.error("Error fetching invitation method:", error);
+      }
+
+      setValidatingToken(false);
+    };
+
+    validateToken();
   }, [token, navigate, toast]);
+
+  const getOTPHelperText = () => {
+    switch (invitationMethod) {
+      case "whatsapp":
+        return "Enter the 6-digit OTP sent to you via WhatsApp";
+      case "qr_coupon":
+        return "Enter the 6-digit OTP from your QR code coupon";
+      case "email":
+      default:
+        return "Enter the 6-digit OTP from your email";
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -224,11 +257,11 @@ const EmployeeRegister = () => {
                 maxLength={6}
                 value={formData.otp}
                 onChange={handleInputChange}
-                placeholder="Enter the 6-digit OTP from your email"
+                placeholder="Enter the 6-digit OTP"
                 className="font-mono text-lg tracking-widest"
               />
               <p className="text-xs text-muted-foreground">
-                Check your email for the 6-digit code
+                {getOTPHelperText()}
               </p>
             </div>
 

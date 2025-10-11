@@ -25,15 +25,28 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [invitationLink, setInvitationLink] = useState("");
   const [otp, setOtp] = useState("");
   const [invitationMethod, setInvitationMethod] = useState<"email" | "whatsapp" | "qr_coupon">("email");
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState("");
 
   const generateInvitation = async () => {
-    if (!email) {
+    // Validate based on invitation method
+    if (invitationMethod === "email" && !email) {
       toast({
         title: "Email Required",
-        description: "Please enter an email address",
+        description: "Please enter an email address for email invitations",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (invitationMethod === "whatsapp" && !phoneNumber) {
+      toast({
+        title: "Phone Number Required",
+        description: "Please enter a phone number for WhatsApp invitations",
         variant: "destructive",
       });
       return;
@@ -49,7 +62,7 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
       const { error: insertError } = await supabase.from("employee_invitations").insert({
         employee_id: employeeId,
         token: token,
-        email: email,
+        email: invitationMethod === "email" ? email : (phoneNumber || email),
         otp: otp,
         invitation_method: invitationMethod,
       });
@@ -61,27 +74,46 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
       setInvitationLink(link);
       setOtp(otp);
 
-      // Send invitation email
-      const { error: emailError } = await supabase.functions.invoke("send-invitation-email", {
-        body: {
-          email: email,
-          employeeNumber: employeeNumber,
-          invitationLink: link,
-          otp: otp,
-        },
-      });
+      // Handle different invitation methods
+      if (invitationMethod === "email") {
+        // Send invitation email
+        const { error: emailError } = await supabase.functions.invoke("send-invitation-email", {
+          body: {
+            email: email,
+            employeeNumber: employeeNumber,
+            invitationLink: link,
+            otp: otp,
+          },
+        });
 
-      if (emailError) {
-        console.error("Failed to send email:", emailError);
+        if (emailError) {
+          console.error("Failed to send email:", emailError);
+          toast({
+            title: "Invitation Created",
+            description: "Link generated but email failed to send. Please share the link and OTP manually.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Invitation Sent",
+            description: "Invitation email sent successfully",
+          });
+        }
+      } else if (invitationMethod === "qr_coupon") {
+        // Generate QR code
+        const QRCode = (await import("qrcode")).default;
+        const qrDataUrl = await QRCode.toDataURL(link, { width: 300, margin: 2 });
+        setQrCodeDataUrl(qrDataUrl);
+        setShowQRCode(true);
+        
+        toast({
+          title: "QR Code Generated",
+          description: "QR code is ready. You can save or print it.",
+        });
+      } else if (invitationMethod === "whatsapp") {
         toast({
           title: "Invitation Created",
-          description: "Link generated but email failed to send. Please share the link and OTP manually.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Invitation Sent",
-          description: "Invitation email sent successfully",
+          description: "Share the link and OTP via WhatsApp manually",
         });
       }
     } catch (error: any) {
@@ -113,10 +145,99 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
 
   const handleClose = () => {
     setEmail("");
+    setPhoneNumber("");
     setInvitationLink("");
     setOtp("");
     setInvitationMethod("email");
+    setShowQRCode(false);
+    setQrCodeDataUrl("");
     onOpenChange(false);
+  };
+
+  const handlePrintQR = () => {
+    if (!qrCodeDataUrl) return;
+    
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Employee Invitation QR Code</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              margin: 0;
+              background: #f5f5f5;
+            }
+            .coupon {
+              background: white;
+              padding: 40px;
+              border-radius: 10px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              text-align: center;
+              max-width: 400px;
+            }
+            h1 { color: #333; margin-bottom: 10px; font-size: 24px; }
+            .qr-code { margin: 20px 0; }
+            .otp {
+              font-size: 32px;
+              font-weight: bold;
+              letter-spacing: 4px;
+              color: #2563eb;
+              margin: 20px 0;
+              padding: 15px;
+              background: #eff6ff;
+              border-radius: 5px;
+            }
+            .info {
+              margin: 20px 0;
+              padding: 15px;
+              background: #f9f9f9;
+              border-radius: 5px;
+            }
+            @media print {
+              body { background: white; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="coupon">
+            <h1>Employee Portal Invitation</h1>
+            <p style="color: #666; margin-bottom: 20px;">Scan the QR code or use the details below</p>
+            
+            <div class="qr-code">
+              <img src="${qrCodeDataUrl}" alt="QR Code" />
+            </div>
+            
+            <div class="otp">${otp}</div>
+            <p style="color: #666; font-size: 14px; margin-top: -10px;">6-Digit OTP</p>
+            
+            <div class="info">
+              <p><strong>Employee Number:</strong> ${employeeNumber}</p>
+            </div>
+            
+            <button class="no-print" onclick="window.print()" style="
+              margin-top: 20px;
+              padding: 10px 20px;
+              background: #2563eb;
+              color: white;
+              border: none;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+            ">Print Coupon</button>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   return (
@@ -145,17 +266,55 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
             </select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Employee Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="employee@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading || !!invitationLink}
-            />
-          </div>
+          {invitationMethod === "email" && (
+            <div className="space-y-2">
+              <Label htmlFor="email">Employee Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="employee@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading || !!invitationLink}
+              />
+            </div>
+          )}
+
+          {invitationMethod === "whatsapp" && (
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+27821234567"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                disabled={loading || !!invitationLink}
+              />
+            </div>
+          )}
+
+          {showQRCode && qrCodeDataUrl && (
+            <div className="space-y-2 border rounded-lg p-4 bg-muted">
+              <Label>QR Code</Label>
+              <div className="flex flex-col items-center gap-4">
+                <img src={qrCodeDataUrl} alt="QR Code" className="w-64 h-64" />
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => {
+                    const link = document.createElement('a');
+                    link.download = `invitation-qr-${employeeNumber}.png`;
+                    link.href = qrCodeDataUrl;
+                    link.click();
+                  }}>
+                    Save QR Code
+                  </Button>
+                  <Button type="button" variant="outline" onClick={handlePrintQR}>
+                    Print Coupon
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {invitationLink && (
             <>

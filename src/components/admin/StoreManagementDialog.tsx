@@ -51,9 +51,12 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
     setLoading(true);
 
     try {
+      // Generate store code from store name if not provided
+      const code = storeCode || storeName.toUpperCase().replace(/\s+/g, '_').substring(0, 20);
+      
       const { error } = await supabase
         .from('stores')
-        .insert({ store_name: storeName, store_code: storeCode });
+        .insert({ store_name: storeName, store_code: code });
 
       if (error) throw error;
 
@@ -115,11 +118,10 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
       const lines = text.split('\n');
       const headers = lines[0].split(',').map(h => h.trim());
 
-      const storeNameIndex = headers.findIndex(h => h.toLowerCase().includes('store name'));
-      const storeCodeIndex = headers.findIndex(h => h.toLowerCase().includes('store code'));
-
+      const storeNameIndex = headers.findIndex(h => h.toLowerCase().includes('store name') || h.toLowerCase() === 'name');
+      
       if (storeNameIndex === -1) {
-        throw new Error('CSV must contain a "Store Name" column');
+        throw new Error('CSV must contain a "Store Name" or "Name" column');
       }
 
       const storesToInsert = [];
@@ -129,7 +131,9 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
         
         const values = lines[i].split(',').map(v => v.trim());
         const name = values[storeNameIndex];
-        const code = storeCodeIndex !== -1 ? values[storeCodeIndex] : `STORE${i}`;
+        
+        // Generate store code from name
+        const code = name.toUpperCase().replace(/\s+/g, '_').substring(0, 20);
 
         if (name) {
           storesToInsert.push({ store_name: name, store_code: code });
@@ -162,7 +166,7 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
   };
 
   const handleDownloadTemplate = () => {
-    const csv = 'Store Name,Store Code\n"Example Store 1","STORE001"\n"Example Store 2","STORE002"';
+    const csv = 'Store Name\n"Example Store 1"\n"Example Store 2"';
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -214,14 +218,6 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
                 required
               />
             </div>
-            <div className="flex-1">
-              <Input
-                placeholder="Store Code"
-                value={storeCode}
-                onChange={(e) => setStoreCode(e.target.value)}
-                required
-              />
-            </div>
             <Button type="submit" disabled={loading}>
               <Plus className="mr-2 h-4 w-4" />
               Add
@@ -233,14 +229,13 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
               <TableHeader>
                 <TableRow>
                   <TableHead>Store Name</TableHead>
-                  <TableHead>Store Code</TableHead>
                   <TableHead className="w-20">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {stores.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground">
+                    <TableCell colSpan={2} className="text-center text-muted-foreground">
                       No stores added yet
                     </TableCell>
                   </TableRow>
@@ -248,7 +243,6 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
                   stores.map((store) => (
                     <TableRow key={store.id}>
                       <TableCell>{store.store_name}</TableCell>
-                      <TableCell>{store.store_code}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"

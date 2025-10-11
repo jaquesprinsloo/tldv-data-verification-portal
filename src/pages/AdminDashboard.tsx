@@ -8,6 +8,7 @@ import StatsOverview from "@/components/admin/StatsOverview";
 import EmployeeManagement from "@/components/admin/EmployeeManagement";
 import RenewalRequests from "@/components/admin/RenewalRequests";
 import InvitationsList from "@/components/admin/InvitationsList";
+import FlaggedEmployees from "@/components/admin/FlaggedEmployees";
 import { User } from "@supabase/supabase-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -86,9 +87,10 @@ const AdminDashboard = () => {
         <StatsOverview onSelectFilter={setFilter} activeFilter={filter} />
         
         <Tabs defaultValue="employees" className="w-full">
-          <TabsList className="grid w-full max-w-3xl grid-cols-4">
+          <TabsList className="grid w-full max-w-4xl grid-cols-5">
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="submissions">Submissions</TabsTrigger>
+            <TabsTrigger value="flagged">Flagged</TabsTrigger>
             <TabsTrigger value="renewals">Renewals</TabsTrigger>
             <TabsTrigger value="invitations">Invitations</TabsTrigger>
           </TabsList>
@@ -99,6 +101,10 @@ const AdminDashboard = () => {
           
           <TabsContent value="submissions" className="mt-4 sm:mt-6">
             <SubmissionsTable filterType={filter} onFilterChange={setFilter} />
+          </TabsContent>
+          
+          <TabsContent value="flagged" className="mt-4 sm:mt-6">
+            <FlaggedEmployees />
           </TabsContent>
           
           <TabsContent value="renewals" className="mt-4 sm:mt-6">

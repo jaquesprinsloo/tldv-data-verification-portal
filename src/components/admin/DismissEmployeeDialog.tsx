@@ -47,13 +47,13 @@ export function DismissEmployeeDialog({
         const filePath = `${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('proof-of-residence')
+          .from('dismissal-documents')
           .upload(filePath, document);
 
         if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = supabase.storage
-          .from('proof-of-residence')
+          .from('dismissal-documents')
           .getPublicUrl(filePath);
 
         documentUrl = publicUrl;
