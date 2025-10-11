@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +22,7 @@ const AdminDashboard = () => {
   const [filter, setFilter] = useState<FilterType>("all");
   const [activeTab, setActiveTab] = useState("employees");
   const [employeeFilter, setEmployeeFilter] = useState<EmployeeFilterType>("all");
+  const employeeTabRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -76,6 +77,11 @@ const AdminDashboard = () => {
   const handleStatClick = (filterType: EmployeeFilterType) => {
     setEmployeeFilter(filterType);
     setActiveTab("employees");
+    
+    // Scroll to employee tab after a short delay to ensure tab switch completes
+    setTimeout(() => {
+      employeeTabRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   };
 
   if (loading) {
@@ -104,7 +110,7 @@ const AdminDashboard = () => {
             <TabsTrigger value="invitations">Invitations</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="employees" className="mt-4 sm:mt-6">
+          <TabsContent value="employees" className="mt-4 sm:mt-6" ref={employeeTabRef}>
             <EmployeeManagement filterType={employeeFilter} />
           </TabsContent>
           
