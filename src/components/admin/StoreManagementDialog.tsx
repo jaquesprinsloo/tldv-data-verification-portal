@@ -192,13 +192,7 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
               <Download className="mr-2 h-4 w-4" />
               Download Template
             </Button>
-            <Label htmlFor="csv-upload" className="cursor-pointer">
-              <Button variant="outline" asChild>
-                <span>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import CSV
-                </span>
-              </Button>
+            <div>
               <Input
                 id="csv-upload"
                 type="file"
@@ -206,7 +200,13 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
                 onChange={handleCSVUpload}
                 className="hidden"
               />
-            </Label>
+              <Label htmlFor="csv-upload">
+                <Button variant="outline" type="button" className="cursor-pointer">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import CSV
+                </Button>
+              </Label>
+            </div>
           </div>
 
           <form onSubmit={handleAddStore} className="flex gap-2">
