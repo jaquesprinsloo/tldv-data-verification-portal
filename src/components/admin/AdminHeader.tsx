@@ -2,8 +2,9 @@ import { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LogOut, ShieldCheck } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import tldvLogo from "@/assets/tldv-logo.jpg";
 
 interface AdminHeaderProps {
   user: User | null;
@@ -27,11 +28,11 @@ const AdminHeader = ({ user }: AdminHeaderProps) => {
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-primary flex items-center justify-center">
-              <ShieldCheck className="h-6 w-6" />
+            <div className="h-12 w-12 rounded-full overflow-hidden flex-shrink-0">
+              <img src={tldvLogo} alt="TLDV Logo" className="h-full w-full object-cover" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold font-poppins">TLDV Admin Portal</h1>
+              <h1 className="text-2xl font-bold font-poppins">Data & Employee Management Portal</h1>
               <p className="text-sm text-white/90">Employee Verification Management</p>
             </div>
           </div>
