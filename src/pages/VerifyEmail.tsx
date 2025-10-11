@@ -27,7 +27,7 @@ const VerifyEmail = () => {
           if (error) throw error;
 
           setVerificationStatus("success");
-          setMessage("Your renewal request has been sent to the admin team. You will receive an invitation email shortly.");
+          setMessage("Your renewal request has been sent to the admin team. You will receive an invitation email shortly to continue your 6-month verification renewal.");
         } catch (error) {
           console.error("Renewal request error:", error);
           setVerificationStatus("error");
@@ -84,7 +84,7 @@ const VerifyEmail = () => {
         if (updateError) throw updateError;
 
         setVerificationStatus("success");
-        setMessage("Email verified successfully! Your submission is now complete and awaiting admin review.");
+        setMessage("Email verified successfully! Your submission to the Employee Verification Portal is complete and awaiting admin review. Remember: verification renewals are required every 6 months.");
         
         // Redirect to home after 3 seconds
         setTimeout(() => {

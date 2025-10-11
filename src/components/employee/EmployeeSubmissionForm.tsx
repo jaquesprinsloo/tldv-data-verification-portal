@@ -457,18 +457,35 @@ const EmployeeSubmissionForm = () => {
           <CheckCircle className="h-16 w-16 text-primary mx-auto mb-6" />
           <h2 className="text-2xl font-bold mb-4">Submission Complete!</h2>
           <p className="text-muted-foreground mb-6">
-            Your verification has been submitted successfully. You will receive a confirmation email shortly at the email address you provided.
+            Your verification has been submitted successfully to the <strong>Employee Verification Portal</strong>.
           </p>
-          <div className="bg-muted p-4 rounded-lg mb-6">
-            <h3 className="font-semibold mb-2">Important: Renewal Process</h3>
+          
+          <div className="bg-primary/10 p-4 rounded-lg mb-6 border-2 border-primary">
+            <h3 className="font-semibold mb-2 text-primary">📧 Check Your Email</h3>
             <p className="text-sm text-muted-foreground">
-              You will need to resubmit your verification every <strong>6 months</strong>. 
-              We will send you a reminder email when your renewal is due.
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Your next renewal date: <strong>{new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toLocaleDateString()}</strong>
+              A confirmation email has been sent to verify your email address. Please check your inbox and click the verification link to complete your submission.
             </p>
           </div>
+
+          <div className="bg-muted p-4 rounded-lg mb-6">
+            <h3 className="font-semibold mb-2">📅 Important: Renewal Process</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              You will need to resubmit your verification every <strong>6 months</strong> to maintain your active status.
+            </p>
+            <p className="text-sm text-muted-foreground mb-3">
+              <strong>Next Renewal Date:</strong><br />
+              {new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              <strong>Reminder Emails:</strong> Starting 1 month before your renewal is due (at 5 months), we will send you weekly reminder emails with instructions to request a new invitation link.
+            </p>
+          </div>
+          
           <p className="text-xs text-muted-foreground">
             Please check your email inbox (and spam folder) for the verification email from TLDV.
           </p>

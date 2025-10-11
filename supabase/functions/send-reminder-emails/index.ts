@@ -1,10 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.74.0";
-import { Resend } from "https://esm.sh/resend@4.0.0";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const GMAIL_EMAIL = Deno.env.get("GMAIL_EMAIL")!;
+const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD")!;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -22,11 +23,11 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Starting reminder email process...");
 
     // Fetch employees who need reminders:
-    // - 2 months (60 days) after last submission
+    // - 5 months (150 days) after last submission (1 month before 6-month renewal)
     // - Last reminder was more than 7 days ago (or never sent)
     // - Employment status is 'active'
-    const sixtyDaysAgo = new Date();
-    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+    const oneHundredFiftyDaysAgo = new Date();
+    oneHundredFiftyDaysAgo.setDate(oneHundredFiftyDaysAgo.getDate() - 150);
 
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -42,7 +43,7 @@ const handler = async (req: Request): Promise<Response> => {
         submissions!inner(email)
       `)
       .eq("employment_status", "active")
-      .lte("last_submission_date", sixtyDaysAgo.toISOString())
+      .lte("last_submission_date", oneHundredFiftyDaysAgo.toISOString())
       .or(`last_reminder_sent.is.null,last_reminder_sent.lte.${sevenDaysAgo.toISOString()}`);
 
     if (error) {
@@ -71,84 +72,93 @@ const handler = async (req: Request): Promise<Response> => {
             (1000 * 60 * 60 * 24 * 30)
         );
 
-        // Generate renewal request link using edge function
+        // Generate renewal request link
         const renewalRequestLink = `${supabaseUrl.replace('.supabase.co', '.lovableproject.com')}/verify-email?action=renewal-request&employeeId=${employee.id}`;
 
-        // Send reminder email using Resend
+        // Send reminder email using Gmail SMTP
         const emailHtml = `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #272727; max-width: 600px; margin: 0 auto; }
-                .container { padding: 20px; }
-                .header { background-color: #BC000A; padding: 20px; text-align: center; }
-                .header h1 { color: white; margin: 0; font-family: 'Poppins', sans-serif; }
-                .content { background-color: #f9f9f9; padding: 30px; border-radius: 5px; margin-top: 20px; }
-                .button { 
-                  background-color: #EE0115; 
-                  color: white !important; 
-                  padding: 15px 30px; 
-                  text-decoration: none; 
-                  border-radius: 5px; 
-                  display: inline-block;
-                  margin: 20px 0;
-                  font-weight: bold;
-                }
-                .info-box { background-color: #fff; padding: 15px; border-left: 4px solid #EE0115; margin: 20px 0; }
-                .footer { text-align: center; margin-top: 30px; color: #60615C; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="header">
-                  <h1>TLDV - True Lie Detectors & Vetting</h1>
-                </div>
-                <div class="content">
-                  <h2>Verification Renewal Reminder</h2>
-                  <p>Dear Employee,</p>
-                  <p>It has been <strong>${monthsSinceSubmission} month(s)</strong> since your last verification submission.</p>
-                  
-                  <div class="info-box">
-                    <p style="margin: 5px 0;"><strong>Employee Number:</strong> ${employee.employee_number}</p>
-                    <p style="margin: 5px 0;"><strong>Last Submission:</strong> ${new Date(employee.last_submission_date).toLocaleDateString()}</p>
-                    <p style="margin: 5px 0;"><strong>Renewal Due:</strong> Every 3 months</p>
-                  </div>
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #272727; max-width: 600px; margin: 0 auto; }
+    .container { padding: 20px; }
+    .header { background-color: #BC000A; padding: 20px; text-align: center; }
+    .header h1 { color: white; margin: 0; font-family: 'Poppins', sans-serif; }
+    .content { background-color: #f9f9f9; padding: 30px; border-radius: 5px; margin-top: 20px; }
+    .button { background-color: #EE0115; color: white !important; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; font-weight: bold; }
+    .info-box { background-color: #fff; padding: 15px; border-left: 4px solid #EE0115; margin: 20px 0; }
+    .footer { text-align: center; margin-top: 30px; color: #60615C; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Employee Verification Portal</h1>
+    </div>
+    <div class="content">
+      <h2>Verification Renewal Reminder</h2>
+      <p>Dear Employee,</p>
+      <p>It has been <strong>${monthsSinceSubmission} month(s)</strong> since your last verification submission.</p>
+      
+      <div class="info-box">
+        <p style="margin: 5px 0;"><strong>Employee Number:</strong> ${employee.employee_number}</p>
+        <p style="margin: 5px 0;"><strong>Last Submission:</strong> ${new Date(employee.last_submission_date).toLocaleDateString()}</p>
+        <p style="margin: 5px 0;"><strong>Renewal Due:</strong> Every 6 months</p>
+      </div>
 
-                  <p>As per company policy, verification submissions must be renewed every 3 months to maintain your active status.</p>
-                  
-                  <div style="margin: 30px 0; padding: 20px; background-color: #fff; border-radius: 5px; border: 2px solid #EE0115;">
-                    <p style="margin: 0 0 15px 0; font-size: 16px;"><strong>Need a New Invitation Link?</strong></p>
-                    <p style="margin: 0 0 15px 0;">Click the button below to request a renewal invitation from the admin team:</p>
-                    <center>
-                      <a href="${renewalRequestLink}" class="button">Request Renewal Invitation</a>
-                    </center>
-                    <p style="margin: 15px 0 0 0; font-size: 12px; color: #666;">
-                      This will notify the admin team, who will send you a new invitation link for submission.
-                    </p>
-                  </div>
+      <p>As per company policy, verification submissions must be renewed every 6 months to maintain your active status.</p>
+      
+      <div style="margin: 30px 0; padding: 20px; background-color: #fff; border-radius: 5px; border: 2px solid #EE0115;">
+        <p style="margin: 0 0 15px 0; font-size: 16px;"><strong>Need a New Invitation Link?</strong></p>
+        <p style="margin: 0 0 15px 0;">Click the button below to request a renewal invitation from the admin team:</p>
+        <center>
+          <a href="${renewalRequestLink}" class="button">Request Renewal Invitation</a>
+        </center>
+        <p style="margin: 15px 0 0 0; font-size: 12px; color: #666;">
+          This will notify the admin team, who will send you a new invitation link for submission.
+        </p>
+      </div>
 
-                  <p><strong>Important:</strong> Reminders are sent weekly until your verification is renewed.</p>
+      <p><strong>Important:</strong> Weekly reminders are sent starting 1 month before your renewal is due until your verification is renewed.</p>
 
-                  <p>If you have any questions, please contact the HR department.</p>
+      <p>If you have any questions, please contact the HR department.</p>
 
-                  <p>Best regards,<br>The TLDV Verification Team</p>
-                </div>
-                <div class="footer">
-                  <p>&copy; ${new Date().getFullYear()} TLDV - True Lie Detectors & Vetting. All rights reserved.</p>
-                  <p>You are receiving this email because you are an employee requiring periodic verification.</p>
-                </div>
-              </div>
-            </body>
-          </html>
+      <p>Best regards,<br>The Employee Verification Team</p>
+    </div>
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Employee Verification Portal. All rights reserved.</p>
+      <p>You are receiving this email because you are an employee requiring periodic verification.</p>
+    </div>
+  </div>
+</body>
+</html>
         `;
 
-        const { error: emailError } = await resend.emails.send({
-          from: "TLDV Verification <onboarding@resend.dev>",
-          to: [submission.email],
+        // Initialize Gmail SMTP client
+        const client = new SMTPClient({
+          connection: {
+            hostname: "smtp.gmail.com",
+            port: 465,
+            tls: true,
+            auth: {
+              username: GMAIL_EMAIL,
+              password: GMAIL_APP_PASSWORD,
+            },
+          },
+        });
+
+        await client.send({
+          from: GMAIL_EMAIL,
+          to: submission.email,
           subject: "Verification Renewal Reminder - Action Required",
+          content: "auto",
           html: emailHtml,
         });
+
+        await client.close();
+
+        const emailError = null; // No error if we reach here
 
         if (emailError) {
           console.error(`Failed to send email to ${submission.email}:`, emailError);

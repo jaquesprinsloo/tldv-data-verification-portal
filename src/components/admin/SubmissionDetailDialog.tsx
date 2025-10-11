@@ -3,10 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle, AlertTriangle, MapPin, User, Phone, Home, Calendar } from "lucide-react";
+import { CheckCircle, AlertTriangle, MapPin, User, Phone, Home, Calendar, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import POPIAViewDialog from "./POPIAViewDialog";
 
 interface SubmissionDetailDialogProps {
   submission: any;
@@ -22,6 +23,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
   const [loading, setLoading] = useState(false);
   const [proofOfResidenceUrl, setProofOfResidenceUrl] = useState<string | null>(null);
   const [idUrl, setIdUrl] = useState<string | null>(null);
+  const [popiaDialogOpen, setPopiaDialogOpen] = useState(false);
 
   useEffect(() => {
     if (submission && open) {
@@ -116,23 +118,33 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Status Update */}
-          {!readOnly && (
-            <div className="flex items-center gap-4">
-              <label className="text-sm font-medium">Update Status:</label>
-              <Select value={status} onValueChange={handleStatusUpdate} disabled={loading}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="flagged">Flagged</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          {/* Status Update and POPIA Button */}
+          <div className="flex items-center justify-between gap-4">
+            {!readOnly && (
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium">Update Status:</label>
+                <Select value={status} onValueChange={handleStatusUpdate} disabled={loading}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="flagged">Flagged</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <Button 
+              variant="outline" 
+              onClick={() => setPopiaDialogOpen(true)}
+              className="ml-auto"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              View POPIA Declaration
+            </Button>
+          </div>
 
           {/* Employee Information */}
           <div className="border rounded-lg p-4 space-y-3">
@@ -299,6 +311,13 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
             )}
           </div>
         </div>
+
+        {/* POPIA View Dialog */}
+        <POPIAViewDialog 
+          employeeId={submission.employee_id}
+          open={popiaDialogOpen}
+          onOpenChange={setPopiaDialogOpen}
+        />
       </DialogContent>
     </Dialog>
   );
