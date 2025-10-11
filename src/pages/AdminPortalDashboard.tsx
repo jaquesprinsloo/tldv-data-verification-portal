@@ -109,6 +109,9 @@ const AdminPortalDashboard = () => {
         isAnimating ? "opacity-0" : "opacity-100"
       }`}>
         <div className="container mx-auto px-4 max-w-6xl">
+          <h1 className="text-4xl font-bold text-white text-center mb-12">
+            Portal Selection
+          </h1>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {portals.map((portal) => (
               <Card
