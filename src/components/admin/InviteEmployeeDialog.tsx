@@ -26,6 +26,8 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [invitationLink, setInvitationLink] = useState("");
+  const [otp, setOtp] = useState("");
+  const [invitationMethod, setInvitationMethod] = useState<"email" | "whatsapp" | "qr_coupon">("email");
 
   const generateInvitation = async () => {
     if (!email) {
@@ -49,6 +51,7 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
         token: token,
         email: email,
         otp: otp,
+        invitation_method: invitationMethod,
       });
 
       if (insertError) throw insertError;
@@ -56,6 +59,7 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
       // Generate invitation link
       const link = `${window.location.origin}/employee/register?token=${token}`;
       setInvitationLink(link);
+      setOtp(otp);
 
       // Send invitation email
       const { error: emailError } = await supabase.functions.invoke("send-invitation-email", {
@@ -99,9 +103,19 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
     });
   };
 
+  const copyOtp = () => {
+    navigator.clipboard.writeText(otp);
+    toast({
+      title: "OTP Copied",
+      description: "OTP copied to clipboard",
+    });
+  };
+
   const handleClose = () => {
     setEmail("");
     setInvitationLink("");
+    setOtp("");
+    setInvitationMethod("email");
     onOpenChange(false);
   };
 
@@ -116,6 +130,21 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="method">Invitation Method</Label>
+            <select
+              id="method"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              value={invitationMethod}
+              onChange={(e) => setInvitationMethod(e.target.value as "email" | "whatsapp" | "qr_coupon")}
+              disabled={loading || !!invitationLink}
+            >
+              <option value="email">Email</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="qr_coupon">QR Code Coupon</option>
+            </select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="email">Employee Email</Label>
             <Input
@@ -134,10 +163,13 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
                 <Label>6-Digit OTP</Label>
                 <div className="flex gap-2">
                   <Input 
-                    value={invitationLink ? invitationLink.split('otp=')[1] || "Check database" : ""} 
+                    value={otp} 
                     readOnly 
                     className="font-mono text-lg font-bold text-center"
                   />
+                  <Button type="button" variant="outline" size="sm" onClick={copyOtp}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Employee will use this OTP along with their credentials

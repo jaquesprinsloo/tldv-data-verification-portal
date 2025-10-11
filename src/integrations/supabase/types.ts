@@ -22,6 +22,7 @@ export type Database = {
           employee_id: string
           expires_at: string
           id: string
+          invitation_method: string | null
           otp: string | null
           token: string
           used: boolean
@@ -34,6 +35,7 @@ export type Database = {
           employee_id: string
           expires_at?: string
           id?: string
+          invitation_method?: string | null
           otp?: string | null
           token: string
           used?: boolean
@@ -46,6 +48,7 @@ export type Database = {
           employee_id?: string
           expires_at?: string
           id?: string
+          invitation_method?: string | null
           otp?: string | null
           token?: string
           used?: boolean
