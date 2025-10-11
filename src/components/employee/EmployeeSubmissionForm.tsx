@@ -413,13 +413,14 @@ const EmployeeSubmissionForm = () => {
       }
 
       // Send verification email with token (fire and forget)
+      const appUrl = `https://${window.location.hostname}`;
       supabase.functions.invoke("send-verification-email", {
         body: {
           email: formData.email,
           name: `${formData.firstName} ${formData.lastName}`,
           employeeNumber: formData.employeeNumber,
           verificationToken: verificationToken,
-          appUrl: window.location.origin,
+          appUrl: appUrl,
         },
       }).catch(err => console.error("Email verification error:", err));
 
