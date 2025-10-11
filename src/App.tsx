@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import EmployeeAuth from "./pages/EmployeeAuth";
+import EmployeeRegister from "./pages/EmployeeRegister";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
@@ -22,6 +23,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/employee/login" element={<EmployeeAuth />} />
+          <Route path="/employee/register" element={<EmployeeRegister />} />
           <Route path="/employee/submit" element={<EmployeeDashboard />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />

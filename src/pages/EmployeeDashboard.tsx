@@ -16,28 +16,34 @@ const EmployeeDashboard = () => {
 
   const checkAuth = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Check if employee credentials are in sessionStorage (OTP-based flow)
+      const employeeId = sessionStorage.getItem('employeeId');
+      const employeeNumber = sessionStorage.getItem('employeeNumber');
+      const idNumber = sessionStorage.getItem('idNumber');
       
-      if (!session) {
+      if (!employeeId || !employeeNumber || !idNumber) {
         navigate("/employee/login");
         return;
       }
 
-      // Verify user has employee record
+      // Verify employee exists and is active
       const { data: employeeData, error } = await supabase
         .from("employees")
-        .select("id")
-        .eq("user_id", session.user.id)
+        .select("id, employment_status")
+        .eq("id", employeeId)
+        .eq("employee_number", employeeNumber)
+        .eq("id_number", idNumber)
         .single();
 
-      if (error || !employeeData) {
-        await supabase.auth.signOut();
+      if (error || !employeeData || employeeData.employment_status !== 'active') {
+        sessionStorage.clear();
         navigate("/employee/login");
         return;
       }
 
       setIsAuthorized(true);
     } catch (error) {
+      sessionStorage.clear();
       navigate("/employee/login");
     } finally {
       setLoading(false);

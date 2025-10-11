@@ -22,6 +22,7 @@ export type Database = {
           employee_id: string
           expires_at: string
           id: string
+          otp: string | null
           token: string
           used: boolean
           used_at: string | null
@@ -33,6 +34,7 @@ export type Database = {
           employee_id: string
           expires_at?: string
           id?: string
+          otp?: string | null
           token: string
           used?: boolean
           used_at?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           employee_id?: string
           expires_at?: string
           id?: string
+          otp?: string | null
           token?: string
           used?: boolean
           used_at?: string | null
@@ -485,6 +488,10 @@ export type Database = {
           _submission_id: string
         }
         Returns: string
+      }
+      can_access_submission: {
+        Args: { _employee_id: string }
+        Returns: boolean
       }
       check_submission_rate_limit: {
         Args: { _employee_number: string }

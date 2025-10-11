@@ -11,6 +11,7 @@ interface InvitationEmailRequest {
   email: string;
   employeeNumber: string;
   invitationLink: string;
+  otp: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -19,7 +20,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, employeeNumber, invitationLink }: InvitationEmailRequest = await req.json();
+    const { email, employeeNumber, invitationLink, otp }: InvitationEmailRequest = await req.json();
 
     console.log(`Sending invitation email to ${email} for employee ${employeeNumber}`);
 
@@ -32,17 +33,26 @@ const handler = async (req: Request): Promise<Response> => {
       body: JSON.stringify({
         from: "TLDV Portal <onboarding@resend.dev>",
         to: [email],
-        subject: "You're invited to the Employee Portal",
+        subject: "Your Employee Portal Invitation",
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #333;">Welcome to the Employee Portal</h1>
-            <p>You've been invited to create an account for employee #${employeeNumber}.</p>
-            <p>Click the link below to complete your registration:</p>
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #333;">Welcome to TLDV Employee Portal</h1>
+            <p>You've been invited to register for the TLDV Employee Portal.</p>
+            <p><strong>Employee Number:</strong> ${employeeNumber}</p>
+            
+            <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0 0 10px 0; color: #666;">Your 6-Digit OTP:</p>
+              <p style="font-size: 32px; font-weight: bold; color: #4F46E5; letter-spacing: 8px; margin: 0; text-align: center;">${otp}</p>
+            </div>
+            
+            <p>Click the button below to complete your registration:</p>
             <a href="${invitationLink}" 
                style="display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 6px; margin: 16px 0;">
-              Create Your Account
+              Complete Registration
             </a>
-            <p style="color: #666; font-size: 14px;">This invitation link will expire in 7 days.</p>
+            
+            <p style="color: #666; font-size: 14px; margin-top: 20px;"><strong>Important:</strong> You will need to enter the 6-digit OTP shown above when you register.</p>
+            <p style="color: #666; font-size: 14px;">This invitation and OTP will expire in 7 days.</p>
             <p style="color: #666; font-size: 14px;">If you didn't expect this invitation, you can safely ignore this email.</p>
           </div>
         `,

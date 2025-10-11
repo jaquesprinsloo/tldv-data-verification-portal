@@ -39,20 +39,22 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
 
     setLoading(true);
     try {
-      // Generate unique token
+      // Generate unique token and OTP
       const token = crypto.randomUUID();
+      const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
 
       // Create invitation
       const { error: insertError } = await supabase.from("employee_invitations").insert({
         employee_id: employeeId,
         token: token,
         email: email,
+        otp: otp,
       });
 
       if (insertError) throw insertError;
 
       // Generate invitation link
-      const link = `${window.location.origin}/employee/login?token=${token}`;
+      const link = `${window.location.origin}/employee/register?token=${token}`;
       setInvitationLink(link);
 
       // Send invitation email
@@ -61,6 +63,7 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
           email: email,
           employeeNumber: employeeNumber,
           invitationLink: link,
+          otp: otp,
         },
       });
 
@@ -68,7 +71,7 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
         console.error("Failed to send email:", emailError);
         toast({
           title: "Invitation Created",
-          description: "Link generated but email failed to send. Please share the link manually.",
+          description: "Link generated but email failed to send. Please share the link and OTP manually.",
           variant: "destructive",
         });
       } else {
