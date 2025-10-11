@@ -76,7 +76,8 @@ const AdminPortalDashboard = () => {
         <div 
           className="absolute inset-0 flex items-center justify-center"
           style={{ 
-            animation: isAnimating ? 'scanline 2s ease-out' : 'none',
+            animation: isAnimating ? 'scanline 2s ease-out forwards' : 'none',
+            opacity: 0,
           }}
         >
           <div className="w-1 h-full bg-white/80" 
@@ -190,6 +191,9 @@ const AdminPortalDashboard = () => {
             opacity: 0;
           }
           10% {
+            opacity: 1;
+          }
+          90% {
             opacity: 1;
           }
           100% {
