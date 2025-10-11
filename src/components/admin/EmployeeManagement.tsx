@@ -8,11 +8,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Copy, Upload, Download, Eye, Mail, Store, Users } from "lucide-react";
+import { UserPlus, Trash2, Copy, Upload, Download, Eye, Mail, Store, Users, Briefcase } from "lucide-react";
 import InviteEmployeeDialog from "./InviteEmployeeDialog";
 import { DismissEmployeeDialog } from "./DismissEmployeeDialog";
 import { StoreManagementDialog } from "./StoreManagementDialog";
 import { MultiStoreAssignmentDialog } from "./MultiStoreAssignmentDialog";
+import { EmploymentDetailsDialog } from "./EmploymentDetailsDialog";
+import { BulkEmploymentStatusDialog } from "./BulkEmploymentStatusDialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +62,11 @@ const EmployeeManagement = () => {
   const [storeManagementOpen, setStoreManagementOpen] = useState(false);
   const [multiStoreDialogOpen, setMultiStoreDialogOpen] = useState(false);
   const [employeeForMultiStore, setEmployeeForMultiStore] = useState<{ id: string; name: string } | null>(null);
+  const [employmentDetailsOpen, setEmploymentDetailsOpen] = useState(false);
+  const [selectedEmployeeDetails, setSelectedEmployeeDetails] = useState<any>(null);
+  const [bulkStatusDialogOpen, setBulkStatusDialogOpen] = useState(false);
+  const [bulkStatusType, setBulkStatusType] = useState<"employed" | "dismissed" | "retrenched">("employed");
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState({
     employeeNumber: "",
     idNumber: "",
@@ -399,6 +407,49 @@ const EmployeeManagement = () => {
     setMultiStoreDialogOpen(true);
   };
 
+  const handleOpenEmploymentDetails = (employee: EmployeeWithSubmission) => {
+    setSelectedEmployeeDetails({
+      designation: employee.designation,
+      employment_status: employee.employment_status || 'active',
+      dismissed_at: employee.dismissed_at,
+      dismissal_reason: employee.dismissal_reason,
+      dismissal_document_url: null,
+      store: employee.store,
+    });
+    setEmploymentDetailsOpen(true);
+  };
+
+  const toggleEmployeeSelection = (employeeId: string) => {
+    const newSelection = new Set(selectedEmployeeIds);
+    if (newSelection.has(employeeId)) {
+      newSelection.delete(employeeId);
+    } else {
+      newSelection.add(employeeId);
+    }
+    setSelectedEmployeeIds(newSelection);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedEmployeeIds.size === filteredEmployees.length) {
+      setSelectedEmployeeIds(new Set());
+    } else {
+      setSelectedEmployeeIds(new Set(filteredEmployees.map(emp => emp.id)));
+    }
+  };
+
+  const handleBulkStatusUpdate = (status: "employed" | "dismissed" | "retrenched") => {
+    if (selectedEmployeeIds.size === 0) {
+      toast({
+        title: "No Selection",
+        description: "Please select at least one employee",
+        variant: "destructive",
+      });
+      return;
+    }
+    setBulkStatusType(status);
+    setBulkStatusDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -495,7 +546,7 @@ const EmployeeManagement = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-2 mb-4 flex-wrap">
+          <div className="flex gap-2 mb-4 flex-wrap items-center justify-between w-full">
             <div className="flex gap-2">
               <Button
                 variant={activeFilter === "all" ? "default" : "outline"}
@@ -548,11 +599,46 @@ const EmployeeManagement = () => {
                 </Button>
               </div>
             )}
+            {activeFilter === "approved" && selectedEmployeeIds.size > 0 && (
+              <div className="flex gap-2">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={() => handleBulkStatusUpdate("employed")}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Mark as Employed ({selectedEmployeeIds.size})
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={() => handleBulkStatusUpdate("dismissed")}
+                >
+                  Mark as Dismissed ({selectedEmployeeIds.size})
+                </Button>
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={() => handleBulkStatusUpdate("retrenched")}
+                  className="bg-yellow-600 hover:bg-yellow-700"
+                >
+                  Mark as Retrenched ({selectedEmployeeIds.size})
+                </Button>
+              </div>
+            )}
           </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
+                  {activeFilter === "approved" && (
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedEmployeeIds.size === filteredEmployees.length && filteredEmployees.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </TableHead>
+                  )}
                   <TableHead>Employee #</TableHead>
                   <TableHead>ID Number</TableHead>
                   {activeFilter === "approved" && <TableHead>Designation</TableHead>}
@@ -581,6 +667,14 @@ const EmployeeManagement = () => {
                     
                     return (
                       <TableRow key={employee.id}>
+                        {activeFilter === "approved" && (
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedEmployeeIds.has(employee.id)}
+                              onCheckedChange={() => toggleEmployeeSelection(employee.id)}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell className="font-medium">
                           {employee.employee_number}
                         </TableCell>
@@ -669,6 +763,16 @@ const EmployeeManagement = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            {activeFilter === "approved" && variant === "success" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenEmploymentDetails(employee)}
+                                title="View employment details"
+                              >
+                                <Briefcase className="h-4 w-4" />
+                              </Button>
+                            )}
                             {employee.submission && (
                               <Button
                                 variant="ghost"
@@ -766,6 +870,23 @@ const EmployeeManagement = () => {
           onSuccess={fetchEmployees}
         />
       )}
+
+      <EmploymentDetailsDialog
+        open={employmentDetailsOpen}
+        onOpenChange={setEmploymentDetailsOpen}
+        employeeDetails={selectedEmployeeDetails}
+      />
+
+      <BulkEmploymentStatusDialog
+        open={bulkStatusDialogOpen}
+        onOpenChange={setBulkStatusDialogOpen}
+        employeeIds={Array.from(selectedEmployeeIds)}
+        statusType={bulkStatusType}
+        onSuccess={() => {
+          setSelectedEmployeeIds(new Set());
+          fetchEmployees();
+        }}
+      />
     </div>
   );
 };
