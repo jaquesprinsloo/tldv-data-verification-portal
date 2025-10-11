@@ -115,10 +115,20 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
 
     try {
       const text = await file.text();
-      const lines = text.split('\n');
+      console.log('CSV file content:', text);
+      
+      const lines = text.split('\n').filter(line => line.trim());
+      console.log('Lines:', lines);
+      
       const headers = lines[0].split(',').map(h => h.trim());
+      console.log('Headers:', headers);
 
-      const storeNameIndex = headers.findIndex(h => h.toLowerCase().includes('store name') || h.toLowerCase() === 'name');
+      const storeNameIndex = headers.findIndex(h => 
+        h.toLowerCase().includes('store') && h.toLowerCase().includes('name') || 
+        h.toLowerCase() === 'name'
+      );
+      
+      console.log('Store name index:', storeNameIndex);
       
       if (storeNameIndex === -1) {
         throw new Error('CSV must contain a "Store Name" or "Name" column');
@@ -132,12 +142,17 @@ export function StoreManagementDialog({ open, onOpenChange }: StoreManagementDia
         const values = lines[i].split(',').map(v => v.trim());
         const name = values[storeNameIndex];
         
-        // Generate store code from name
-        const code = name.toUpperCase().replace(/\s+/g, '_').substring(0, 20);
-
         if (name) {
+          // Generate store code from name
+          const code = name.toUpperCase().replace(/\s+/g, '_').substring(0, 20);
           storesToInsert.push({ store_name: name, store_code: code });
         }
+      }
+
+      console.log('Stores to insert:', storesToInsert);
+
+      if (storesToInsert.length === 0) {
+        throw new Error('No valid stores found in CSV');
       }
 
       const { error } = await supabase
