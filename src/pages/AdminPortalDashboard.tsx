@@ -32,8 +32,8 @@ const AdminPortalDashboard = () => {
 
     checkAuth();
 
-    // Animation timer
-    const timer = setTimeout(() => setIsAnimating(false), 1500);
+    // Animation timer - matches full animation sequence
+    const timer = setTimeout(() => setIsAnimating(false), 2500);
     return () => clearTimeout(timer);
   }, [navigate]);
 
@@ -43,43 +43,83 @@ const AdminPortalDashboard = () => {
       description: "Manage employees, submissions, and invitations",
       icon: Users,
       path: "/admin/data-employee-management",
-      color: "from-blue-500/20 to-blue-600/20 hover:from-blue-500/30 hover:to-blue-600/30"
+      color: "from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30"
     },
     {
       title: "Polygraph & Vetting",
-      description: "Access polygraph tests and vetting procedures",
+      description: "Book appointments and request vetting",
       icon: ClipboardCheck,
       path: "/admin/polygraph-vetting",
-      color: "from-purple-500/20 to-purple-600/20 hover:from-purple-500/30 hover:to-purple-600/30"
+      color: "from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30"
     },
     {
       title: "Reports & Accounts",
-      description: "View reports and manage accounts",
+      description: "View reports and accounts",
       icon: FileText,
       path: "/admin/reports-accounts",
-      color: "from-green-500/20 to-green-600/20 hover:from-green-500/30 hover:to-green-600/30"
+      color: "from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30"
     }
   ];
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* TV Switch-on Animation Overlay */}
+      {/* TV Switch-on Animation with Logo Sequence */}
       <div
-        className={`fixed inset-0 bg-black z-50 transition-all duration-1000 ${
+        className={`fixed inset-0 bg-black z-50 flex items-center justify-center ${
           isAnimating 
             ? "opacity-100" 
             : "opacity-0 pointer-events-none"
         }`}
       >
-        <div className={`absolute inset-0 flex items-center justify-center transition-all duration-700 ${
-          isAnimating ? "scale-100 opacity-100" : "scale-150 opacity-0"
-        }`}>
-          <div className="w-1 h-full bg-white/80 animate-pulse" 
+        {/* TV Scanline Effect */}
+        <div 
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ 
+            animation: isAnimating ? 'scanline 0.5s ease-out' : 'none',
+          }}
+        >
+          <div className="w-1 h-full bg-white/80" 
                style={{ 
-                 animation: isAnimating ? 'scanline 0.5s ease-out' : 'none',
                  boxShadow: '0 0 20px rgba(255,255,255,0.8)'
                }} 
           />
+        </div>
+
+        {/* Face appears first (0.5s - 0.8s) */}
+        <div 
+          className="absolute"
+          style={{
+            animation: isAnimating ? 'faceAppear 0.3s ease-out 0.5s both' : 'none',
+          }}
+        >
+          <div className="w-32 h-32 rounded-full bg-black flex items-center justify-center">
+            <div className="w-4 h-4 bg-white rounded-full mb-4"></div>
+          </div>
+        </div>
+
+        {/* Red circle with heartbeat (0.8s - 1.7s) */}
+        <div 
+          className="absolute"
+          style={{
+            animation: isAnimating ? 'circleAppear 0.2s ease-out 0.8s both, heartbeat 0.3s ease-in-out 1s 3' : 'none',
+          }}
+        >
+          <div className="w-40 h-40 rounded-full border-4 border-red-600 flex items-center justify-center">
+            <div className="w-32 h-32 rounded-full bg-black flex items-center justify-center">
+              <div className="w-4 h-4 bg-white rounded-full mb-4"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* TLDV Text appears (1.7s onwards) */}
+        <div 
+          className="absolute flex flex-col items-center"
+          style={{
+            animation: isAnimating ? 'textAppear 0.5s ease-out 1.7s both' : 'none',
+          }}
+        >
+          <h1 className="text-6xl font-bold text-white mb-2 tracking-wider">TLDV</h1>
+          <p className="text-white text-lg tracking-widest">True Lie Detectors & Vetting</p>
         </div>
       </div>
 
@@ -87,19 +127,17 @@ const AdminPortalDashboard = () => {
       <div className={`transition-all duration-1000 delay-700 ${
         isAnimating ? "opacity-0 scale-95" : "opacity-100 scale-100"
       }`}>
-        {/* Header with Logo */}
-        <div className="flex flex-col items-center pt-12 pb-8 animate-fade-in">
+        {/* Header with Full Width Blended Logo */}
+        <div className="relative w-full h-64 mb-8 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-background/50 to-background"></div>
           <img 
             src={tldvLogo} 
             alt="TLDV Logo" 
-            className="h-24 mb-6 animate-scale-in"
+            className="w-full h-full object-contain opacity-20 animate-scale-in"
           />
-          <h1 className="text-4xl font-bold text-foreground mb-2 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-            TLDV Admin Portal
+          <h1 className="absolute inset-0 flex items-center justify-center text-5xl font-bold text-foreground animate-fade-in" style={{ animationDelay: '0.2s' }}>
+            Management Portal
           </h1>
-          <p className="text-xl text-muted-foreground animate-fade-in" style={{ animationDelay: '0.4s' }}>
-            Industry Leaders in Lie Detection & Vetting
-          </p>
         </div>
 
         {/* Portal Cards */}
@@ -141,6 +179,48 @@ const AdminPortalDashboard = () => {
           100% {
             transform: translateX(100vw);
             opacity: 0;
+          }
+        }
+
+        @keyframes faceAppear {
+          0% {
+            opacity: 0;
+            transform: scale(0.5);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes circleAppear {
+          0% {
+            opacity: 0;
+            transform: scale(0.8);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes heartbeat {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.1);
+          }
+        }
+
+        @keyframes textAppear {
+          0% {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
           }
         }
       `}</style>
