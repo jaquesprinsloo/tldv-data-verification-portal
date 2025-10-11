@@ -42,17 +42,28 @@ interface EmployeeWithSubmission {
   store?: { store_name: string; store_code: string } | null;
 }
 
-type FilterType = "all" | "approved" | "awaiting_status" | "awaiting_submission";
+type FilterType = "all" | "approved" | "awaiting_status" | "awaiting_submission" | "flagged";
+type ExternalFilterType = "all" | "verified" | "flagged" | "pending";
 
-const EmployeeManagement = () => {
+interface EmployeeManagementProps {
+  filterType?: ExternalFilterType;
+}
+
+const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => {
   const [employees, setEmployees] = useState<EmployeeWithSubmission[]>([]);
   const [stores, setStores] = useState<Array<{ id: string; store_name: string; store_code: string }>>([]);
   const [multiStoreAssignments, setMultiStoreAssignments] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [storeFilter, setStoreFilter] = useState<string>("all");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  
+  // Map external filter to internal filter
+  const activeFilter: FilterType = 
+    filterType === "all" ? "all" :
+    filterType === "verified" ? "approved" :
+    filterType === "flagged" ? "flagged" :
+    "awaiting_status"; // pending maps to awaiting_status
   const [employeeToDelete, setEmployeeToDelete] = useState<string | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -574,36 +585,6 @@ const EmployeeManagement = () => {
         </CardHeader>
         <CardContent>
           <div className="flex gap-2 mb-4 flex-wrap items-center justify-between w-full">
-            <div className="flex gap-2">
-              <Button
-                variant={activeFilter === "all" ? "default" : "outline"}
-                onClick={() => setActiveFilter("all")}
-                size="sm"
-              >
-                All
-              </Button>
-              <Button
-                variant={activeFilter === "approved" ? "default" : "outline"}
-                onClick={() => setActiveFilter("approved")}
-                size="sm"
-              >
-                Approved
-              </Button>
-              <Button
-                variant={activeFilter === "awaiting_status" ? "default" : "outline"}
-                onClick={() => setActiveFilter("awaiting_status")}
-                size="sm"
-              >
-                Awaiting Status Update
-              </Button>
-              <Button
-                variant={activeFilter === "awaiting_submission" ? "default" : "outline"}
-                onClick={() => setActiveFilter("awaiting_submission")}
-                size="sm"
-              >
-                Awaiting Submission
-              </Button>
-            </div>
             {activeFilter === "approved" && (
               <div className="flex gap-2 items-center ml-auto">
                 <Label className="text-sm">Store:</Label>

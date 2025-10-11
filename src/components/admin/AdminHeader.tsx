@@ -33,7 +33,6 @@ const AdminHeader = ({ user }: AdminHeaderProps) => {
             </div>
             <div>
               <h1 className="text-2xl font-bold font-poppins">Data & Employee Management Portal</h1>
-              <p className="text-sm text-white/90">Employee Verification Management</p>
             </div>
           </div>
           <div className="flex items-center gap-4">

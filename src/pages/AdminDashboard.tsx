@@ -12,12 +12,16 @@ import FlaggedEmployees from "@/components/admin/FlaggedEmployees";
 import { User } from "@supabase/supabase-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+type EmployeeFilterType = "all" | "verified" | "flagged" | "pending";
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>("all");
+  const [activeTab, setActiveTab] = useState("employees");
+  const [employeeFilter, setEmployeeFilter] = useState<EmployeeFilterType>("all");
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -69,6 +73,11 @@ const AdminDashboard = () => {
     };
   }, [navigate, toast]);
 
+  const handleStatClick = (filterType: EmployeeFilterType) => {
+    setEmployeeFilter(filterType);
+    setActiveTab("employees");
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -84,9 +93,9 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-background">
       <AdminHeader user={user} />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        <StatsOverview onSelectFilter={setFilter} activeFilter={filter} />
+        <StatsOverview onSelectFilter={handleStatClick} activeFilter={employeeFilter} />
         
-        <Tabs defaultValue="employees" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full max-w-4xl grid-cols-5">
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="submissions">Submissions</TabsTrigger>
@@ -96,7 +105,7 @@ const AdminDashboard = () => {
           </TabsList>
           
           <TabsContent value="employees" className="mt-4 sm:mt-6">
-            <EmployeeManagement />
+            <EmployeeManagement filterType={employeeFilter} />
           </TabsContent>
           
           <TabsContent value="submissions" className="mt-4 sm:mt-6">
