@@ -3,11 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle, AlertTriangle, MapPin, User, Phone, Home, Calendar, FileText } from "lucide-react";
+import { CheckCircle, AlertTriangle, MapPin, User, Phone, Home, Calendar, FileText, Briefcase } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import POPIAViewDialog from "./POPIAViewDialog";
+import { EmploymentDetailsDialog } from "./EmploymentDetailsDialog";
 
 interface SubmissionDetailDialogProps {
   submission: any;
@@ -24,6 +25,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
   const [proofOfResidenceUrl, setProofOfResidenceUrl] = useState<string | null>(null);
   const [idUrl, setIdUrl] = useState<string | null>(null);
   const [popiaDialogOpen, setPopiaDialogOpen] = useState(false);
+  const [employmentDetailsOpen, setEmploymentDetailsOpen] = useState(false);
   const [employeeDetails, setEmployeeDetails] = useState<any>(null);
 
   useEffect(() => {
@@ -138,7 +140,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Status Update and POPIA Button */}
+          {/* Status Update and Action Buttons */}
           <div className="flex items-center justify-between gap-4">
             {!readOnly && (
               <div className="flex items-center gap-4">
@@ -156,14 +158,24 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                 </Select>
               </div>
             )}
-            <Button 
-              variant="outline" 
-              onClick={() => setPopiaDialogOpen(true)}
-              className="ml-auto"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              View POPIA Declaration
-            </Button>
+            <div className="flex gap-2 ml-auto">
+              <Button 
+                variant="outline" 
+                onClick={() => setPopiaDialogOpen(true)}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                View POPIA Declaration
+              </Button>
+              {employeeDetails && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setEmploymentDetailsOpen(true)}
+                >
+                  <Briefcase className="h-4 w-4 mr-2" />
+                  Employment Details
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Employee Information */}
@@ -385,6 +397,13 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
           employeeId={submission.employee_id}
           open={popiaDialogOpen}
           onOpenChange={setPopiaDialogOpen}
+        />
+
+        {/* Employment Details Dialog */}
+        <EmploymentDetailsDialog
+          open={employmentDetailsOpen}
+          onOpenChange={setEmploymentDetailsOpen}
+          employeeDetails={employeeDetails}
         />
       </DialogContent>
     </Dialog>

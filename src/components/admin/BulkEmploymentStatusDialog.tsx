@@ -114,17 +114,19 @@ export function BulkEmploymentStatusDialog({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="reason">Reason</Label>
-            <Textarea
-              id="reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Provide the reason for this decision..."
-              required
-              rows={4}
-            />
-          </div>
+          {statusType !== 'employed' && (
+            <div className="space-y-2">
+              <Label htmlFor="reason">Reason</Label>
+              <Textarea
+                id="reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Provide the reason for this decision..."
+                required
+                rows={4}
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="document">Supporting Document (Optional)</Label>

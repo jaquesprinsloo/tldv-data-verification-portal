@@ -67,6 +67,7 @@ const EmployeeManagement = () => {
   const [bulkStatusDialogOpen, setBulkStatusDialogOpen] = useState(false);
   const [bulkStatusType, setBulkStatusType] = useState<"employed" | "dismissed" | "retrenched">("employed");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(new Set());
+  const [updatingStatusEmployeeId, setUpdatingStatusEmployeeId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     employeeNumber: "",
     idNumber: "",
@@ -733,46 +734,68 @@ const EmployeeManagement = () => {
                             </div>
                           </TableCell>
                         )}
-                        <TableCell>
-                          <div className="flex flex-col gap-1">
+                         <TableCell>
+                          <div className="flex flex-col gap-2">
                             <Badge variant={variant}>{label}</Badge>
-                            {activeFilter === "approved" && (employee.employment_status === 'active' || !employee.employment_status) && variant === "success" && (
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-6 text-xs"
-                                  onClick={() => handleDismissEmployee(employee.id, employeeName, "dismissed")}
-                                >
-                                  Dismiss
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-6 text-xs"
-                                  onClick={() => handleDismissEmployee(employee.id, employeeName, "retrenched")}
-                                >
-                                  Retrench
-                                </Button>
-                              </div>
+                            {activeFilter === "approved" && variant === "success" && (
+                              updatingStatusEmployeeId === employee.id ? (
+                                employee.employment_status === 'active' ? (
+                                  <Badge variant="success">Employed</Badge>
+                                ) : employee.employment_status === 'dismissed' ? (
+                                  <Badge variant="destructive">Dismissed</Badge>
+                                ) : employee.employment_status === 'retrenched' ? (
+                                  <Badge variant="warning">Retrenched</Badge>
+                                ) : null
+                              ) : (
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-green-600 text-green-600 hover:bg-green-600 hover:text-white h-6 text-xs"
+                                    onClick={() => {
+                                      setUpdatingStatusEmployeeId(employee.id);
+                                      handleBulkStatusUpdate("employed");
+                                      setSelectedEmployeeIds(new Set([employee.id]));
+                                    }}
+                                  >
+                                    Employed
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-destructive text-destructive hover:bg-destructive hover:text-white h-6 text-xs"
+                                    onClick={() => {
+                                      setUpdatingStatusEmployeeId(employee.id);
+                                      setBulkStatusType('dismissed');
+                                      setBulkStatusDialogOpen(true);
+                                      setSelectedEmployeeIds(new Set([employee.id]));
+                                    }}
+                                  >
+                                    Dismissed
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-yellow-600 text-yellow-600 hover:bg-yellow-600 hover:text-white h-6 text-xs"
+                                    onClick={() => {
+                                      setUpdatingStatusEmployeeId(employee.id);
+                                      setBulkStatusType('retrenched');
+                                      setBulkStatusDialogOpen(true);
+                                      setSelectedEmployeeIds(new Set([employee.id]));
+                                    }}
+                                  >
+                                    Retrenched
+                                  </Button>
+                                </div>
+                              )
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
                           {new Date(employee.created_at).toLocaleDateString()}
                         </TableCell>
-                        <TableCell className="text-right">
+                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            {activeFilter === "approved" && variant === "success" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenEmploymentDetails(employee)}
-                                title="View employment details"
-                              >
-                                <Briefcase className="h-4 w-4" />
-                              </Button>
-                            )}
                             {employee.submission && (
                               <Button
                                 variant="ghost"
@@ -879,11 +902,17 @@ const EmployeeManagement = () => {
 
       <BulkEmploymentStatusDialog
         open={bulkStatusDialogOpen}
-        onOpenChange={setBulkStatusDialogOpen}
+        onOpenChange={(open) => {
+          setBulkStatusDialogOpen(open);
+          if (!open) {
+            setUpdatingStatusEmployeeId(null);
+          }
+        }}
         employeeIds={Array.from(selectedEmployeeIds)}
         statusType={bulkStatusType}
         onSuccess={() => {
           setSelectedEmployeeIds(new Set());
+          setUpdatingStatusEmployeeId(null);
           fetchEmployees();
         }}
       />
