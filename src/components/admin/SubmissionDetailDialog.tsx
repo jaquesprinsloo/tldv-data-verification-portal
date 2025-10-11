@@ -400,11 +400,12 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
         />
 
         {/* Employment Details Dialog */}
-        <EmploymentDetailsDialog
-          open={employmentDetailsOpen}
-          onOpenChange={setEmploymentDetailsOpen}
-          employeeDetails={employeeDetails}
-        />
+          <EmploymentDetailsDialog
+            open={employmentDetailsOpen}
+            onOpenChange={setEmploymentDetailsOpen}
+            employeeId={submission.employee_id}
+            employeeDetails={employeeDetails}
+          />
       </DialogContent>
     </Dialog>
   );

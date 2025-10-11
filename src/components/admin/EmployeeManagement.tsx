@@ -410,6 +410,7 @@ const EmployeeManagement = () => {
 
   const handleOpenEmploymentDetails = (employee: EmployeeWithSubmission) => {
     setSelectedEmployeeDetails({
+      id: employee.id,
       designation: employee.designation,
       employment_status: employee.employment_status || 'active',
       dismissed_at: employee.dismissed_at,
@@ -900,6 +901,7 @@ const EmployeeManagement = () => {
       <EmploymentDetailsDialog
         open={employmentDetailsOpen}
         onOpenChange={setEmploymentDetailsOpen}
+        employeeId={selectedEmployeeDetails?.id || ""}
         employeeDetails={selectedEmployeeDetails}
       />
 
