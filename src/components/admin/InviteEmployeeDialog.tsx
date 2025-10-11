@@ -129,18 +129,34 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
           </div>
 
           {invitationLink && (
-            <div className="space-y-2">
-              <Label>Invitation Link</Label>
-              <div className="flex gap-2">
-                <Input value={invitationLink} readOnly className="font-mono text-xs" />
-                <Button type="button" variant="outline" size="sm" onClick={copyLink}>
-                  <Copy className="h-4 w-4" />
-                </Button>
+            <>
+              <div className="space-y-2">
+                <Label>6-Digit OTP</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    value={invitationLink ? invitationLink.split('otp=')[1] || "Check database" : ""} 
+                    readOnly 
+                    className="font-mono text-lg font-bold text-center"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Employee will use this OTP along with their credentials
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                This link expires in 7 days. Share it securely with the employee.
-              </p>
-            </div>
+              
+              <div className="space-y-2">
+                <Label>Invitation Link</Label>
+                <div className="flex gap-2">
+                  <Input value={invitationLink} readOnly className="font-mono text-xs" />
+                  <Button type="button" variant="outline" size="sm" onClick={copyLink}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This link and OTP expire in 7 days. Share securely with the employee.
+                </p>
+              </div>
+            </>
           )}
         </div>
 

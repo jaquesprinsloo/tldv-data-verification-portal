@@ -17,9 +17,9 @@ const EmployeeDashboard = () => {
   const checkAuth = async () => {
     try {
       // Check if employee credentials are in sessionStorage (OTP-based flow)
-      const employeeId = sessionStorage.getItem('employeeId');
-      const employeeNumber = sessionStorage.getItem('employeeNumber');
-      const idNumber = sessionStorage.getItem('idNumber');
+      const employeeId = sessionStorage.getItem('employee_id');
+      const employeeNumber = sessionStorage.getItem('employee_number');
+      const idNumber = sessionStorage.getItem('id_number');
       
       if (!employeeId || !employeeNumber || !idNumber) {
         navigate("/employee/login");

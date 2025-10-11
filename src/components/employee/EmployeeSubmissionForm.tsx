@@ -14,12 +14,13 @@ const EmployeeSubmissionForm = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [employeeId, setEmployeeId] = useState("");
 
   const [formData, setFormData] = useState({
-    employeeNumber: sessionStorage.getItem('employeeNumber') || "",
+    employeeNumber: sessionStorage.getItem('employee_number') || "",
     firstName: "",
     lastName: "",
-    idNumber: sessionStorage.getItem('idNumber') || "",
+    idNumber: sessionStorage.getItem('id_number') || "",
     email: "",
     contactNumber: "",
     houseNumber: "",
@@ -34,6 +35,14 @@ const EmployeeSubmissionForm = () => {
     nextOfKinLastName: "",
     nextOfKinAddress: "",
     nextOfKinContact: "",
+  });
+
+  // Load employee ID from sessionStorage
+  useState(() => {
+    const storedEmployeeId = sessionStorage.getItem("employee_id");
+    if (storedEmployeeId) {
+      setEmployeeId(storedEmployeeId);
+    }
   });
 
   const [proofOfResidenceFile, setProofOfResidenceFile] = useState<File | null>(null);
@@ -266,36 +275,16 @@ const EmployeeSubmissionForm = () => {
     setLoading(true);
 
     try {
-      // Use the secure function to verify employee credentials
-      const { data: verificationResult, error: verificationError } = await supabase
-        .rpc('verify_employee_credentials', {
-          _employee_number: formData.employeeNumber,
-          _id_number: formData.idNumber
-        });
-
-      if (verificationError) {
-        console.error("Error verifying employee credentials:", verificationError);
+      // Use employee ID from sessionStorage (already validated during registration)
+      if (!employeeId) {
         toast({
-          title: "Verification Error",
-          description: "Unable to verify employee credentials. Please try again.",
+          title: "Session Error",
+          description: "Your session has expired. Please log in again.",
           variant: "destructive",
         });
         setLoading(false);
         return;
       }
-
-      // Check if credentials are valid
-      if (!verificationResult || verificationResult.length === 0 || !verificationResult[0]?.is_valid) {
-        toast({
-          title: "Invalid Credentials",
-          description: "The employee number and ID number combination is not valid. Please verify your details.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      const employeeId = verificationResult[0].employee_id;
 
       // Build full address from components
       const physicalAddress = [
