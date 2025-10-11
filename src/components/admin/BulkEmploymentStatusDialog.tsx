@@ -114,14 +114,14 @@ export function BulkEmploymentStatusDialog({
             />
           </div>
 
-          {statusType !== 'employed' && (
+          {statusType === 'dismissed' && (
             <div className="space-y-2">
               <Label htmlFor="reason">Reason</Label>
               <Textarea
                 id="reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Provide the reason for this decision..."
+                placeholder="Provide the reason for dismissal..."
                 required
                 rows={4}
               />

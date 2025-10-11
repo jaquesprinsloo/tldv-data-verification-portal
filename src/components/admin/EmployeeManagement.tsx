@@ -67,7 +67,7 @@ const EmployeeManagement = () => {
   const [bulkStatusDialogOpen, setBulkStatusDialogOpen] = useState(false);
   const [bulkStatusType, setBulkStatusType] = useState<"employed" | "dismissed" | "retrenched">("employed");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(new Set());
-  const [updatingStatusEmployeeId, setUpdatingStatusEmployeeId] = useState<string | null>(null);
+  const [employeeStatuses, setEmployeeStatuses] = useState<Map<string, string>>(new Map());
   const [formData, setFormData] = useState({
     employeeNumber: "",
     idNumber: "",
@@ -452,10 +452,14 @@ const EmployeeManagement = () => {
   };
 
   const handleStatusUpdate = (employeeId: string, status: "employed" | "dismissed" | "retrenched") => {
-    setUpdatingStatusEmployeeId(employeeId);
     setSelectedEmployeeIds(new Set([employeeId]));
     setBulkStatusType(status);
     setBulkStatusDialogOpen(true);
+  };
+
+  const handleStatusSuccess = () => {
+    fetchEmployees();
+    setSelectedEmployeeIds(new Set());
   };
 
   return (
@@ -618,13 +622,6 @@ const EmployeeManagement = () => {
                   Mark as Employed ({selectedEmployeeIds.size})
                 </Button>
                 <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  onClick={() => handleBulkStatusUpdate("dismissed")}
-                >
-                  Mark as Dismissed ({selectedEmployeeIds.size})
-                </Button>
-                <Button 
                   variant="default" 
                   size="sm" 
                   onClick={() => handleBulkStatusUpdate("retrenched")}
@@ -745,14 +742,17 @@ const EmployeeManagement = () => {
                           <div className="flex flex-col gap-2">
                             <Badge variant={variant}>{label}</Badge>
                             {activeFilter === "approved" && variant === "success" && (
-                              updatingStatusEmployeeId === employee.id ? (
+                              (employee.employment_status === 'employed' || 
+                               employee.employment_status === 'active' || 
+                               employee.employment_status === 'dismissed' || 
+                               employee.employment_status === 'retrenched') ? (
                                 <Badge 
-                                  variant={
+                                  className={
                                     employee.employment_status === 'employed' || employee.employment_status === 'active'
-                                      ? 'default'
+                                      ? 'bg-green-600 hover:bg-green-700'
                                       : employee.employment_status === 'dismissed'
-                                      ? 'destructive'
-                                      : 'warning'
+                                      ? 'bg-red-600 hover:bg-red-700'
+                                      : 'bg-yellow-600 hover:bg-yellow-700'
                                   }
                                 >
                                   {employee.employment_status === 'employed' || employee.employment_status === 'active'
@@ -762,32 +762,34 @@ const EmployeeManagement = () => {
                                     : 'Retrenched'}
                                 </Badge>
                               ) : (
-                                <div className="flex gap-1">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="border-green-600 text-green-600 hover:bg-green-600 hover:text-white h-6 text-xs"
-                                    onClick={() => handleStatusUpdate(employee.id, 'employed')}
-                                  >
-                                    Employed
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="border-destructive text-destructive hover:bg-destructive hover:text-white h-6 text-xs"
-                                    onClick={() => handleStatusUpdate(employee.id, 'dismissed')}
-                                  >
-                                    Dismissed
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="border-yellow-600 text-yellow-600 hover:bg-yellow-600 hover:text-white h-6 text-xs"
-                                    onClick={() => handleStatusUpdate(employee.id, 'retrenched')}
-                                  >
-                                    Retrenched
-                                  </Button>
-                                </div>
+                                employee.employment_status !== 'dismissed' && (
+                                  <div className="flex gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-green-600 text-green-600 hover:bg-green-600 hover:text-white h-6 text-xs"
+                                      onClick={() => handleStatusUpdate(employee.id, 'employed')}
+                                    >
+                                      Employed
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-destructive text-destructive hover:bg-destructive hover:text-white h-6 text-xs"
+                                      onClick={() => handleStatusUpdate(employee.id, 'dismissed')}
+                                    >
+                                      Dismissed
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-yellow-600 text-yellow-600 hover:bg-yellow-600 hover:text-white h-6 text-xs"
+                                      onClick={() => handleStatusUpdate(employee.id, 'retrenched')}
+                                    >
+                                      Retrenched
+                                    </Button>
+                                  </div>
+                                )
                               )
                             )}
                           </div>
@@ -903,15 +905,10 @@ const EmployeeManagement = () => {
 
       <BulkEmploymentStatusDialog
         open={bulkStatusDialogOpen}
-        onOpenChange={(open) => {
-          setBulkStatusDialogOpen(open);
-        }}
+        onOpenChange={setBulkStatusDialogOpen}
         employeeIds={Array.from(selectedEmployeeIds)}
         statusType={bulkStatusType}
-        onSuccess={() => {
-          setSelectedEmployeeIds(new Set());
-          fetchEmployees();
-        }}
+        onSuccess={handleStatusSuccess}
       />
     </div>
   );
