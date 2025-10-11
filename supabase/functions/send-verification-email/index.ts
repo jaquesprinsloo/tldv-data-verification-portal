@@ -79,7 +79,8 @@ const handler = async (req: Request): Promise<Response> => {
                 <li>Submission Date: ${new Date().toLocaleDateString()}</li>
                 <li>Next Renewal Due: ${new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toLocaleDateString()}</li>
               </ul>
-              <p><strong>Note:</strong> This verification link will expire in 7 days. You will need to resubmit your verification in 6 months.</p>
+              <p><strong>Renewal Process:</strong> You will need to resubmit your verification every 6 months. You will receive a reminder email when your renewal is due.</p>
+              <p><strong>Note:</strong> This verification link will expire in 7 days.</p>
               <p>If you have any questions or concerns, please contact your administrator.</p>
             </div>
             <div class="footer">

@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-
-const resendApiKey = Deno.env.get("RESEND_API_KEY");
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,51 +23,89 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Sending invitation email to ${email} for employee ${employeeNumber}`);
 
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "TLDV Portal <onboarding@resend.dev>",
-        to: [email],
-        subject: "Your Employee Portal Invitation",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #333;">Welcome to TLDV Employee Portal</h1>
-            <p>You've been invited to register for the TLDV Employee Portal.</p>
-            <p><strong>Employee Number:</strong> ${employeeNumber}</p>
-            
-            <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 0 0 10px 0; color: #666;">Your 6-Digit OTP:</p>
-              <p style="font-size: 32px; font-weight: bold; color: #4F46E5; letter-spacing: 8px; margin: 0; text-align: center;">${otp}</p>
-            </div>
-            
-            <p>Click the button below to complete your registration:</p>
-            <a href="${invitationLink}" 
-               style="display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 6px; margin: 16px 0;">
-              Complete Registration
-            </a>
-            
-            <p style="color: #666; font-size: 14px; margin-top: 20px;"><strong>Important:</strong> You will need to enter the 6-digit OTP shown above when you register.</p>
-            <p style="color: #666; font-size: 14px;">This invitation and OTP will expire in 7 days.</p>
-            <p style="color: #666; font-size: 14px;">If you didn't expect this invitation, you can safely ignore this email.</p>
-          </div>
-        `,
-      }),
-    });
+    const GMAIL_EMAIL = Deno.env.get("GMAIL_EMAIL");
+    const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
 
-    if (!emailResponse.ok) {
-      const errorData = await emailResponse.json();
-      console.error("Error sending email:", errorData);
-      throw new Error(errorData.message || "Failed to send email");
+    if (!GMAIL_EMAIL || !GMAIL_APP_PASSWORD) {
+      throw new Error("Gmail credentials not configured");
     }
 
-    const data = await emailResponse.json();
-    console.log("Email sent successfully:", data);
+    const client = new SMTPClient({
+      connection: {
+        hostname: "smtp.gmail.com",
+        port: 465,
+        tls: true,
+        auth: {
+          username: GMAIL_EMAIL,
+          password: GMAIL_APP_PASSWORD,
+        },
+      },
+    });
 
-    return new Response(JSON.stringify({ success: true, messageId: data.id }), {
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #272727; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #BC000A; padding: 20px; text-align: center; }
+            .header h1 { color: white; margin: 0; font-family: 'Poppins', sans-serif; }
+            .content { background-color: #f9f9f9; padding: 30px; border-radius: 5px; margin-top: 20px; }
+            .otp-box { background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
+            .otp { font-size: 32px; font-weight: bold; color: #BC000A; letter-spacing: 8px; margin: 10px 0; }
+            .button { display: inline-block; padding: 15px 30px; background-color: #BC000A; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 30px; color: #60615C; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>TLDV - True Lie Detectors & Vetting</h1>
+            </div>
+            <div class="content">
+              <h2>Welcome to TLDV Employee Portal</h2>
+              <p>You've been invited to register for the TLDV Employee Portal.</p>
+              <p><strong>Employee Number:</strong> ${employeeNumber}</p>
+              
+              <div class="otp-box">
+                <p style="margin: 0 0 10px 0; color: #666;">Your 6-Digit OTP:</p>
+                <p class="otp">${otp}</p>
+              </div>
+              
+              <p style="text-align: center;">
+                <a href="${invitationLink}" class="button">Complete Registration</a>
+              </p>
+              
+              <p style="font-size: 12px; color: #666;">If the button doesn't work, copy and paste this link into your browser:<br>
+              <a href="${invitationLink}" style="color: #BC000A;">${invitationLink}</a></p>
+              
+              <p><strong>Important:</strong> You will need to enter the 6-digit OTP shown above when you register.</p>
+              <p><strong>Renewal Process:</strong> After completing your registration and verification, you will need to renew your information every 6 months.</p>
+              <p style="color: #666; font-size: 14px;">This invitation and OTP will expire in 7 days.</p>
+              <p style="color: #666; font-size: 14px;">If you didn't expect this invitation, you can safely ignore this email.</p>
+            </div>
+            <div class="footer">
+              <p>&copy; ${new Date().getFullYear()} TLDV - True Lie Detectors & Vetting. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    await client.send({
+      from: GMAIL_EMAIL,
+      to: email,
+      subject: "TLDV - Your Employee Portal Invitation",
+      content: htmlContent,
+      html: htmlContent,
+    });
+
+    await client.close();
+
+    console.log("Email sent successfully to:", email);
+
+    return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",

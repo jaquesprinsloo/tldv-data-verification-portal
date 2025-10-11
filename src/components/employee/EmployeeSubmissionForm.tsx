@@ -457,10 +457,20 @@ const EmployeeSubmissionForm = () => {
           <CheckCircle className="h-16 w-16 text-primary mx-auto mb-6" />
           <h2 className="text-2xl font-bold mb-4">Submission Complete!</h2>
           <p className="text-muted-foreground mb-6">
-            Your verification has been submitted successfully. You will receive a confirmation email shortly.
+            Your verification has been submitted successfully. You will receive a confirmation email shortly at the email address you provided.
           </p>
-          <p className="text-sm text-muted-foreground">
-            Please remember to resubmit your verification in 6 months.
+          <div className="bg-muted p-4 rounded-lg mb-6">
+            <h3 className="font-semibold mb-2">Important: Renewal Process</h3>
+            <p className="text-sm text-muted-foreground">
+              You will need to resubmit your verification every <strong>6 months</strong>. 
+              We will send you a reminder email when your renewal is due.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Your next renewal date: <strong>{new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toLocaleDateString()}</strong>
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Please check your email inbox (and spam folder) for the verification email from TLDV.
           </p>
         </CardContent>
       </Card>

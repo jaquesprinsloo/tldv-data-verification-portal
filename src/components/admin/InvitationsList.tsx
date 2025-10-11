@@ -4,8 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Download, QrCode } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Copy, Download, QrCode, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import QRCode from "qrcode";
 
 interface Invitation {
@@ -28,6 +40,9 @@ const InvitationsList = () => {
   const { toast } = useToast();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedInvitations, setSelectedInvitations] = useState<Set<string>>(new Set());
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
 
   useEffect(() => {
     fetchInvitations();
@@ -219,20 +234,99 @@ const InvitationsList = () => {
     return <Badge variant={variants[method] || "default"}>{method.replace("_", " ").toUpperCase()}</Badge>;
   };
 
+  const toggleSelection = (invitationId: string) => {
+    const newSelection = new Set(selectedInvitations);
+    if (newSelection.has(invitationId)) {
+      newSelection.delete(invitationId);
+    } else {
+      newSelection.add(invitationId);
+    }
+    setSelectedInvitations(newSelection);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedInvitations.size === invitations.length) {
+      setSelectedInvitations(new Set());
+    } else {
+      setSelectedInvitations(new Set(invitations.map(inv => inv.id)));
+    }
+  };
+
+  const handleDeleteClick = () => {
+    if (selectedInvitations.size === 0) {
+      toast({
+        title: "No Selection",
+        description: "Please select at least one invitation to delete",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowDeleteDialog(true);
+  };
+
+  const handleDelete = async () => {
+    if (adminPassword !== "Admin123") {
+      toast({
+        title: "Access Denied",
+        description: "Incorrect administrator password",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("employee_invitations")
+        .delete()
+        .in("id", Array.from(selectedInvitations));
+
+      if (error) throw error;
+
+      toast({
+        title: "Deleted",
+        description: `${selectedInvitations.size} invitation(s) deleted successfully`,
+      });
+
+      setSelectedInvitations(new Set());
+      setAdminPassword("");
+      setShowDeleteDialog(false);
+      fetchInvitations();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center p-8">Loading invitations...</div>;
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Employee Invitations</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Employee #</TableHead>
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Employee Invitations</CardTitle>
+          {selectedInvitations.size > 0 && (
+            <Button variant="destructive" onClick={handleDeleteClick}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Selected ({selectedInvitations.size})
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedInvitations.size === invitations.length && invitations.length > 0}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                </TableHead>
+                <TableHead>Employee #</TableHead>
               <TableHead>ID Number</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>OTP</TableHead>
@@ -245,6 +339,12 @@ const InvitationsList = () => {
           <TableBody>
             {invitations.map((invitation) => (
               <TableRow key={invitation.id}>
+                <TableCell>
+                  <Checkbox
+                    checked={selectedInvitations.has(invitation.id)}
+                    onCheckedChange={() => toggleSelection(invitation.id)}
+                  />
+                </TableCell>
                 <TableCell className="font-mono">{invitation.employees.employee_number}</TableCell>
                 <TableCell className="font-mono text-xs">{invitation.employees.id_number}</TableCell>
                 <TableCell>{invitation.email}</TableCell>
@@ -302,6 +402,31 @@ const InvitationsList = () => {
         </Table>
       </CardContent>
     </Card>
+
+    <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+          <AlertDialogDescription>
+            You are about to delete {selectedInvitations.size} invitation(s). This action cannot be undone.
+            Please enter the administrator password to confirm.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="my-4">
+          <Input
+            type="password"
+            placeholder="Enter administrator password"
+            value={adminPassword}
+            onChange={(e) => setAdminPassword(e.target.value)}
+          />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setAdminPassword("")}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>
   );
 };
 
