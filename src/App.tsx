@@ -29,7 +29,7 @@ const App = () => (
           <Route path="/employee/register" element={<EmployeeRegister />} />
           <Route path="/employee/submit" element={<EmployeeDashboard />} />
           <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin/dashboard" element={<AdminPortalDashboard />} />
+          <Route path="/admin/portal" element={<AdminPortalDashboard />} />
           <Route path="/admin/data-employee-management" element={<DataEmployeeManagement />} />
           <Route path="/admin/polygraph-vetting" element={<PolygraphVetting />} />
           <Route path="/admin/reports-accounts" element={<ReportsAccounts />} />
