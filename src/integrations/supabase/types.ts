@@ -254,6 +254,39 @@ export type Database = {
           },
         ]
       }
+      profile_requests: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          request_type: Database["public"]["Enums"]["request_type"]
+          sender_user_id: string
+          status: Database["public"]["Enums"]["request_status"]
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          request_type: Database["public"]["Enums"]["request_type"]
+          sender_user_id: string
+          status?: Database["public"]["Enums"]["request_status"]
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          request_type?: Database["public"]["Enums"]["request_type"]
+          sender_user_id?: string
+          status?: Database["public"]["Enums"]["request_status"]
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -315,6 +348,38 @@ export type Database = {
             columns: ["employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      request_replies: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          request_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          request_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          request_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "request_replies_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "profile_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -599,6 +664,10 @@ export type Database = {
           is_primary_assignment: boolean
         }[]
       }
+      get_master_admin_email: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -648,6 +717,12 @@ export type Database = {
         | "retrenched"
         | "employed"
       renewal_request_status: "pending" | "sent" | "cancelled"
+      request_status: "pending" | "in_progress" | "replied" | "closed"
+      request_type:
+        | "data_management"
+        | "polygraph_vetting"
+        | "reports_accounts"
+        | "general"
       submission_status: "pending" | "verified" | "flagged" | "approved"
     }
     CompositeTypes: {
@@ -795,6 +870,13 @@ export const Constants = {
         "employed",
       ],
       renewal_request_status: ["pending", "sent", "cancelled"],
+      request_status: ["pending", "in_progress", "replied", "closed"],
+      request_type: [
+        "data_management",
+        "polygraph_vetting",
+        "reports_accounts",
+        "general",
+      ],
       submission_status: ["pending", "verified", "flagged", "approved"],
     },
   },

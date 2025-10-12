@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { FileText, Users, ClipboardCheck } from "lucide-react";
+import { FileText, Users, ClipboardCheck, Mail } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { SendRequestDialog } from "@/components/admin/SendRequestDialog";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
+import { useQuery } from "@tanstack/react-query";
 
 const AdminPortalDashboard = () => {
   const navigate = useNavigate();
@@ -12,6 +15,19 @@ const AdminPortalDashboard = () => {
   const [userName, setUserName] = useState("");
 
   const [isMasterAdmin, setIsMasterAdmin] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+
+  const { data: pendingRequests } = useQuery({
+    queryKey: ['pending-requests-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('profile_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      return count || 0;
+    },
+    enabled: isMasterAdmin
+  });
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -20,6 +36,8 @@ const AdminPortalDashboard = () => {
         navigate("/admin/login");
         return;
       }
+
+      setCurrentUserId(session.user.id);
 
       const { data: roleData } = await supabase
         .from("user_roles")
@@ -72,28 +90,39 @@ const AdminPortalDashboard = () => {
       description: "Manage employees, submissions, and invitations",
       icon: Users,
       path: "/",
-      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10"
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: null
     },
     {
       title: "Polygraph & Vetting",
       description: "Book appointments and request vetting",
       icon: ClipboardCheck,
       path: "/admin/polygraph-vetting",
-      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10"
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: null
     },
     {
       title: "Reports & Accounts",
       description: "View reports and accounts",
       icon: FileText,
       path: "/admin/reports-accounts",
-      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10"
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: null
     },
     ...(isMasterAdmin ? [{
       title: "Profile Management",
       description: "Create and manage admin profiles",
       icon: Users,
       path: "/admin/profile-management",
-      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10"
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: null
+    }, {
+      title: "Request Inbox",
+      description: "View and respond to profile requests",
+      icon: Mail,
+      path: "/admin/request-inbox",
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: pendingRequests
     }] : [])
   ];
 
@@ -182,12 +211,15 @@ const AdminPortalDashboard = () => {
         isAnimating ? "opacity-0" : "opacity-100"
       }`}>
         <div className="container mx-auto px-4 max-w-6xl relative">
-          <button
-            onClick={handleSignOut}
-            className="absolute top-0 right-4 px-6 py-3 bg-red-600/20 border-2 border-red-600 text-white rounded-lg hover:bg-red-600/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] transition-all duration-300"
-          >
-            Sign Out
-          </button>
+          <div className="absolute top-0 right-4 flex gap-3">
+            {!isMasterAdmin && <SendRequestDialog />}
+            <button
+              onClick={handleSignOut}
+              className="px-6 py-3 bg-red-600/20 border-2 border-red-600 text-white rounded-lg hover:bg-red-600/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] transition-all duration-300"
+            >
+              Sign Out
+            </button>
+          </div>
           
           <h1 className="text-4xl font-bold text-white text-center mb-12">
             {isMasterAdmin ? "Master Profile - Portal Selection" : "Portal Selection"}
@@ -197,8 +229,13 @@ const AdminPortalDashboard = () => {
               <Card
                 key={portal.path}
                 onClick={() => navigate(portal.path)}
-                className={`p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-[3px] border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)]`}
+                className={`p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-[3px] border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)] relative`}
               >
+                {portal.badge !== null && portal.badge !== undefined && portal.badge > 0 && (
+                  <Badge className="absolute top-4 right-4 bg-red-600 text-white">
+                    {portal.badge}
+                  </Badge>
+                )}
                 <div className="flex flex-col items-center text-center space-y-4">
                   <div className="p-6 rounded-full bg-red-600/30 border-2 border-red-600 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
                     <portal.icon className="w-16 h-16 text-red-500" strokeWidth={2.5} />
