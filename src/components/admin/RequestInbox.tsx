@@ -297,8 +297,16 @@ export const RequestInbox = () => {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400">
-                Select a request to view details
+              <div className="flex flex-col items-center justify-center h-full space-y-4">
+                <p className="text-gray-400">Select a request to view details</p>
+                <Button
+                  onClick={() => navigate('/admin/portal')}
+                  variant="outline"
+                  className="border-red-600 text-red-600 hover:bg-red-600/10"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Main Portal
+                </Button>
               </div>
             )}
           </Card>
