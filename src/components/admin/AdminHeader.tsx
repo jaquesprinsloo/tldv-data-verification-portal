@@ -5,9 +5,11 @@ import tldvLogo from "@/assets/tldv-logo.jpg";
 
 interface AdminHeaderProps {
   user: User | null;
+  showUserDetails?: boolean;
+  showMainPortalButton?: boolean;
 }
 
-const AdminHeader = ({ user }: AdminHeaderProps) => {
+const AdminHeader = ({ user, showUserDetails = true, showMainPortalButton = true }: AdminHeaderProps) => {
   const navigate = useNavigate();
 
   const handleMainPortal = () => {
@@ -28,17 +30,21 @@ const AdminHeader = ({ user }: AdminHeaderProps) => {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="text-right hidden md:block">
-                <p className="text-sm font-medium">{user?.email}</p>
-                <p className="text-xs text-white/70">Administrator</p>
-              </div>
-              <button
-                onClick={handleMainPortal}
-                className="bg-black border-[3px] border-red-600 text-white px-6 py-2 rounded-lg hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] transition-all duration-500 flex items-center gap-2 font-medium"
-              >
-                <Home className="h-4 w-4" />
-                Main Portal
-              </button>
+              {showUserDetails && (
+                <div className="text-right hidden md:block">
+                  <p className="text-sm font-medium">{user?.email}</p>
+                  <p className="text-xs text-white/70">Administrator</p>
+                </div>
+              )}
+              {showMainPortalButton && (
+                <button
+                  onClick={handleMainPortal}
+                  className="bg-black border-[3px] border-red-600 text-white px-6 py-2 rounded-lg hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] transition-all duration-500 flex items-center gap-2 font-medium"
+                >
+                  <Home className="h-4 w-4" />
+                  Main Portal
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -68,7 +68,7 @@ const Home = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader user={user} />
+      <AdminHeader user={user} showUserDetails={false} showMainPortalButton={false} />
       
       <main className="container mx-auto px-6 py-12">
         <div className="text-center mb-12">
