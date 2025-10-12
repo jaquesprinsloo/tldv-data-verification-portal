@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Mail, MailOpen, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Mail, MailOpen, Clock, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
 
 interface Request {
   id: string;
@@ -33,6 +34,7 @@ export const RequestInbox = () => {
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [replyMessage, setReplyMessage] = useState("");
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: requests, isLoading } = useQuery({
     queryKey: ['profile-requests'],
@@ -108,6 +110,7 @@ export const RequestInbox = () => {
     onSuccess: () => {
       toast.success("Reply sent successfully!");
       setReplyMessage("");
+      setSelectedRequest(null);
       queryClient.invalidateQueries({ queryKey: ['profile-requests'] });
       queryClient.invalidateQueries({ queryKey: ['request-replies'] });
     },
@@ -178,7 +181,17 @@ export const RequestInbox = () => {
             <h2 className="text-xl font-bold text-white mb-4">All Requests</h2>
             <div className="space-y-3">
               {requests?.length === 0 ? (
-                <p className="text-gray-400 text-sm">No requests yet</p>
+                <div className="space-y-4">
+                  <p className="text-gray-400 text-sm">No requests yet</p>
+                  <Button
+                    onClick={() => navigate('/admin/portal')}
+                    variant="outline"
+                    className="w-full border-red-600 text-red-600 hover:bg-red-600/10"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Main Portal
+                  </Button>
+                </div>
               ) : (
                 requests?.map((request) => (
                   <div
