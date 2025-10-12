@@ -16,45 +16,66 @@ const AdminLogin = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      // Check if user has admin or master_admin role
-      const { data: roleData, error: roleError } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.user.id)
-        .in("role", ["admin", "master_admin"]);
-
-      if (roleError || !roleData || roleData.length === 0) {
-        await supabase.auth.signOut();
-        toast({
-          title: "Access Denied",
-          description: "You do not have administrator privileges.",
-          variant: "destructive",
+      if (isSignUp) {
+        // Sign up flow
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/admin/portal`
+          }
         });
-        return;
-      }
 
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully logged in.",
-      });
-      navigate("/admin/portal");
+        if (error) throw error;
+
+        toast({
+          title: "Account Created!",
+          description: "Please contact your administrator to assign admin privileges.",
+        });
+        setIsSignUp(false);
+      } else {
+        // Login flow
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) throw error;
+
+        // Check if user has admin or master_admin role
+        const { data: roleData, error: roleError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", data.user.id)
+          .in("role", ["admin", "master_admin"]);
+
+        if (roleError || !roleData || roleData.length === 0) {
+          await supabase.auth.signOut();
+          toast({
+            title: "Access Denied",
+            description: "You do not have administrator privileges.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        toast({
+          title: "Welcome back!",
+          description: "You have successfully logged in.",
+        });
+        navigate("/admin/portal");
+      }
     } catch (error: any) {
       toast({
-        title: "Login Failed",
-        description: error.message || "Invalid email or password.",
+        title: isSignUp ? "Sign Up Failed" : "Login Failed",
+        description: error.message || "Please check your credentials.",
         variant: "destructive",
       });
     } finally {
@@ -77,10 +98,12 @@ const AdminLogin = () => {
         >
           <CardHeader className="text-center">
             <CardTitle className="text-3xl font-bold text-white">Admin Portal</CardTitle>
-            <CardDescription className="text-gray-300">Enter your credentials to access the portal</CardDescription>
+            <CardDescription className="text-gray-300">
+              {isSignUp ? "Create your admin account" : "Enter your credentials to access the portal"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleAuth} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-white">Email Address</Label>
                 <Input
@@ -117,7 +140,15 @@ const AdminLogin = () => {
                 </div>
               </div>
               <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white" disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
+                {loading ? (isSignUp ? "Creating Account..." : "Signing in...") : (isSignUp ? "Sign Up" : "Sign In")}
+              </Button>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                className="w-full text-white hover:text-red-500" 
+                onClick={() => setIsSignUp(!isSignUp)}
+              >
+                {isSignUp ? "Already have an account? Sign In" : "Need an account? Sign Up"}
               </Button>
             </form>
           </CardContent>
