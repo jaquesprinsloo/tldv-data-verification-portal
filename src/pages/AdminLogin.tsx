@@ -29,15 +29,14 @@ const AdminLogin = () => {
 
       if (error) throw error;
 
-      // Check if user has admin role
+      // Check if user has admin or master_admin role
       const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", data.user.id)
-        .eq("role", "admin")
-        .single();
+        .in("role", ["admin", "master_admin"]);
 
-      if (roleError || !roleData) {
+      if (roleError || !roleData || roleData.length === 0) {
         await supabase.auth.signOut();
         toast({
           title: "Access Denied",
@@ -51,7 +50,7 @@ const AdminLogin = () => {
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
-      navigate("/admin/dashboard");
+      navigate("/admin/portal");
     } catch (error: any) {
       toast({
         title: "Login Failed",

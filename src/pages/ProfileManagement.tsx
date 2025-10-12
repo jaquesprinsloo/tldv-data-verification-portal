@@ -23,7 +23,7 @@ const ProfileManagement = () => {
         .single();
 
       if (!roleData) {
-        navigate("/admin/dashboard");
+        navigate("/admin/portal");
       }
     };
 
@@ -34,7 +34,7 @@ const ProfileManagement = () => {
     <div>
       <div className="absolute top-4 left-4">
         <Button
-          onClick={() => navigate("/admin/dashboard")}
+          onClick={() => navigate("/admin/portal")}
           variant="outline"
           className="border-red-600 text-white hover:bg-red-600/20"
         >
