@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { FileText, Users, ClipboardCheck, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { SendRequestDialog } from "@/components/admin/SendRequestDialog";
+import { NotificationsDialog } from "@/components/admin/NotificationsDialog";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
 import { useQuery } from "@tanstack/react-query";
 
@@ -212,7 +212,7 @@ const AdminPortalDashboard = () => {
       }`}>
         <div className="container mx-auto px-4 max-w-6xl relative">
           <div className="absolute top-0 right-4 flex gap-3">
-            {!isMasterAdmin && <SendRequestDialog />}
+            {!isMasterAdmin && <NotificationsDialog />}
             <button
               onClick={handleSignOut}
               className="px-6 py-3 bg-red-600/20 border-2 border-red-600 text-white rounded-lg hover:bg-red-600/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] transition-all duration-300"
