@@ -71,7 +71,11 @@ const AdminLogin = () => {
           alt="TLDV Logo" 
           className="h-32 mb-8 animate-fade-in"
         />
-        <Card className="w-full bg-black border-[3px] border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)] transition-all duration-500">
+        <Card 
+          className={`w-full bg-black border-[3px] border-red-600 transition-all duration-500 ${
+            !loading ? 'hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] hover:animate-[pulse-glow_2s_ease-in-out_infinite]' : ''
+          }`}
+        >
           <CardHeader className="text-center">
             <CardTitle className="text-3xl font-bold text-white">Admin Portal</CardTitle>
             <CardDescription className="text-gray-300">Enter your credentials to access the portal</CardDescription>
@@ -120,6 +124,17 @@ const AdminLogin = () => {
           </CardContent>
         </Card>
       </div>
+
+      <style>{`
+        @keyframes pulse-glow {
+          0%, 100% {
+            box-shadow: 0 0 60px rgba(239, 68, 68, 0.7);
+          }
+          50% {
+            box-shadow: 0 0 80px rgba(239, 68, 68, 0.9), 0 0 120px rgba(239, 68, 68, 0.5);
+          }
+        }
+      `}</style>
     </div>
   );
 };
