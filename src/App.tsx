@@ -12,6 +12,7 @@ import AdminPortalDashboard from "./pages/AdminPortalDashboard";
 import DataEmployeeManagement from "./pages/DataEmployeeManagement";
 import PolygraphVetting from "./pages/PolygraphVetting";
 import ReportsAccounts from "./pages/ReportsAccounts";
+import ProfileManagement from "./pages/ProfileManagement";
 import NotFound from "./pages/NotFound";
 import VerifyEmail from "./pages/VerifyEmail";
 
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/admin/data-employee-management" element={<DataEmployeeManagement />} />
           <Route path="/admin/polygraph-vetting" element={<PolygraphVetting />} />
           <Route path="/admin/reports-accounts" element={<ReportsAccounts />} />
+          <Route path="/admin/profile-management" element={<ProfileManagement />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

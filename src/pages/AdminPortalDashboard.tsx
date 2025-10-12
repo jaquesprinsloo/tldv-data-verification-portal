@@ -11,6 +11,8 @@ const AdminPortalDashboard = () => {
   const [isExiting, setIsExiting] = useState(false);
   const [userName, setUserName] = useState("");
 
+  const [isMasterAdmin, setIsMasterAdmin] = useState(false);
+
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -23,14 +25,17 @@ const AdminPortalDashboard = () => {
         .from("user_roles")
         .select("role")
         .eq("user_id", session.user.id)
-        .eq("role", "admin")
-        .single();
+        .in("role", ["admin", "master_admin"]);
 
-      if (!roleData) {
+      if (!roleData || roleData.length === 0) {
         await supabase.auth.signOut();
         navigate("/admin/login");
         return;
       }
+
+      // Check if user is master admin
+      const isMaster = roleData.some(r => r.role === "master_admin");
+      setIsMasterAdmin(isMaster);
 
       // Fetch user profile for name
       const { data: profileData } = await supabase
@@ -82,7 +87,14 @@ const AdminPortalDashboard = () => {
       icon: FileText,
       path: "/admin/reports-accounts",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10"
-    }
+    },
+    ...(isMasterAdmin ? [{
+      title: "Profile Management",
+      description: "Create and manage admin profiles",
+      icon: Users,
+      path: "/admin/profile-management",
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10"
+    }] : [])
   ];
 
   return (
@@ -178,9 +190,9 @@ const AdminPortalDashboard = () => {
           </button>
           
           <h1 className="text-4xl font-bold text-white text-center mb-12">
-            Portal Selection
+            {isMasterAdmin ? "Master Profile - Portal Selection" : "Portal Selection"}
           </h1>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className={`grid grid-cols-1 ${isMasterAdmin ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'} gap-6`}>
             {portals.map((portal) => (
               <Card
                 key={portal.path}

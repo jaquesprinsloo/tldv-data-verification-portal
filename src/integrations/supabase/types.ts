@@ -606,6 +606,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_master_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       link_employee_to_user: {
         Args: { _employee_id: string; _user_id: string }
         Returns: boolean
