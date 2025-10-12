@@ -11,8 +11,6 @@ import InvitationsList from "@/components/admin/InvitationsList";
 import FlaggedEmployees from "@/components/admin/FlaggedEmployees";
 import { User } from "@supabase/supabase-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 
 type EmployeeFilterType = "all" | "verified" | "flagged" | "pending";
 
@@ -101,14 +99,6 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-background">
       <AdminHeader user={user} />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/admin/portal")}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Portal Selection
-        </Button>
         <StatsOverview onSelectFilter={handleStatClick} activeFilter={employeeFilter} />
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
