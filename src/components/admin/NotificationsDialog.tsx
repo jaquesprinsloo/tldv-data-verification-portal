@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Bell, Clock, MailOpen, CheckCircle } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Bell, Clock, MailOpen, CheckCircle, Send } from "lucide-react";
 
 interface Request {
   id: string;
@@ -24,6 +26,8 @@ interface Request {
 
 interface Reply {
   id: string;
+  request_id: string;
+  user_id: string;
   message: string;
   created_at: string;
 }
@@ -31,12 +35,17 @@ interface Reply {
 export const NotificationsDialog = () => {
   const [open, setOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+  const [replyMessage, setReplyMessage] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const queryClient = useQueryClient();
 
   const { data: requests } = useQuery({
     queryKey: ['my-requests'],
     queryFn: async () => {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) return [];
+
+      setCurrentUserId(userData.user.id);
 
       const { data, error } = await supabase
         .from('profile_requests')
@@ -65,6 +74,34 @@ export const NotificationsDialog = () => {
       return data as Reply[];
     },
     enabled: !!selectedRequest
+  });
+
+  const sendReplyMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedRequest || !replyMessage.trim()) return;
+
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from('request_replies')
+        .insert({
+          request_id: selectedRequest.id,
+          user_id: userData.user.id,
+          message: replyMessage.trim()
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Reply sent successfully!");
+      setReplyMessage("");
+      queryClient.invalidateQueries({ queryKey: ['request-replies'] });
+    },
+    onError: (error: any) => {
+      console.error("Error sending reply:", error);
+      toast.error(error.message || "Failed to send reply");
+    }
   });
 
   const unreadCount = requests?.filter(r => r.status === 'replied').length || 0;
@@ -168,21 +205,46 @@ export const NotificationsDialog = () => {
                 {/* Replies */}
                 {replies && replies.length > 0 && (
                   <div className="space-y-3">
-                    <h4 className="text-white font-semibold">Master Profile Replies</h4>
-                    {replies.map((reply) => (
-                      <Card key={reply.id} className="p-4 bg-green-600/10 border border-green-600/30">
-                        <p className="text-white text-sm whitespace-pre-wrap mb-2">{reply.message}</p>
-                        <p className="text-gray-400 text-xs">
-                          Replied: {new Date(reply.created_at).toLocaleString()}
-                        </p>
-                      </Card>
-                    ))}
+                    <h4 className="text-white font-semibold">Conversation</h4>
+                    {replies.map((reply) => {
+                      const isFromUser = reply.user_id === currentUserId;
+                      return (
+                        <Card 
+                          key={reply.id} 
+                          className={`p-4 ${
+                            isFromUser 
+                              ? 'bg-blue-600/10 border border-blue-600/30' 
+                              : 'bg-green-600/10 border border-green-600/30'
+                          }`}
+                        >
+                          <p className="text-gray-400 text-xs mb-2">
+                            {isFromUser ? 'You' : 'Master Profile'} • {new Date(reply.created_at).toLocaleString()}
+                          </p>
+                          <p className="text-white text-sm whitespace-pre-wrap">{reply.message}</p>
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
 
-                {replies && replies.length === 0 && (
-                  <p className="text-gray-400 text-sm italic">No replies yet</p>
-                )}
+                {/* Reply Form */}
+                <div className="space-y-3">
+                  <h4 className="text-white font-semibold">Send Reply</h4>
+                  <Textarea
+                    value={replyMessage}
+                    onChange={(e) => setReplyMessage(e.target.value)}
+                    placeholder="Type your reply here..."
+                    className="bg-black border-red-600 text-white min-h-[100px]"
+                  />
+                  <Button
+                    onClick={() => sendReplyMutation.mutate()}
+                    disabled={!replyMessage.trim() || sendReplyMutation.isPending}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    {sendReplyMutation.isPending ? "Sending..." : "Send Reply"}
+                  </Button>
+                </div>
               </div>
             ) : (
               <p className="text-gray-400 text-sm">Select a request to view details</p>
