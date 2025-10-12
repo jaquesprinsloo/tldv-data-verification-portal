@@ -8,6 +8,7 @@ import tldvLogo from "@/assets/tldv-logo-primary.png";
 const AdminPortalDashboard = () => {
   const navigate = useNavigate();
   const [isAnimating, setIsAnimating] = useState(true);
+  const [isExiting, setIsExiting] = useState(false);
   const [userName, setUserName] = useState("");
 
   useEffect(() => {
@@ -49,6 +50,16 @@ const AdminPortalDashboard = () => {
     const timer = setTimeout(() => setIsAnimating(false), 6500);
     return () => clearTimeout(timer);
   }, [navigate]);
+
+  const handleSignOut = async () => {
+    setIsExiting(true);
+    
+    // Wait for exit animation to complete
+    setTimeout(async () => {
+      await supabase.auth.signOut();
+      navigate("/admin/login");
+    }, 2000);
+  };
 
   const portals = [
     {
@@ -125,11 +136,47 @@ const AdminPortalDashboard = () => {
         </div>
       </div>
 
+      {/* Exit Portal Animation */}
+      <div
+        className={`fixed inset-0 bg-black z-50 transition-opacity duration-500 ${
+          isExiting 
+            ? "opacity-100" 
+            : "opacity-0 pointer-events-none"
+        }`}
+      >
+        <div 
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ 
+            animation: isExiting ? 'portalExit 2s ease-in-out forwards' : 'none',
+          }}
+        >
+          <div className="relative">
+            <div 
+              className="w-96 h-96 rounded-full border-4 border-red-600"
+              style={{
+                boxShadow: '0 0 60px rgba(239,68,68,0.8), inset 0 0 60px rgba(239,68,68,0.5)',
+                animation: isExiting ? 'portalShrink 2s ease-in-out forwards' : 'none',
+              }}
+            />
+            <p className="absolute inset-0 flex items-center justify-center text-white text-2xl font-bold">
+              Exiting Portal...
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Main Content - Portals */}
       <div className={`min-h-screen flex items-center justify-center transition-all duration-1000 ${
         isAnimating ? "opacity-0" : "opacity-100"
       }`}>
-        <div className="container mx-auto px-4 max-w-6xl">
+        <div className="container mx-auto px-4 max-w-6xl relative">
+          <button
+            onClick={handleSignOut}
+            className="absolute top-0 right-4 px-6 py-3 bg-red-600/20 border-2 border-red-600 text-white rounded-lg hover:bg-red-600/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] transition-all duration-300"
+          >
+            Sign Out
+          </button>
+          
           <h1 className="text-4xl font-bold text-white text-center mb-12">
             Portal Selection
           </h1>
@@ -191,6 +238,33 @@ const AdminPortalDashboard = () => {
           100% {
             opacity: 0;
             transform: scale(1.05);
+          }
+        }
+
+        @keyframes portalExit {
+          0% {
+            opacity: 0;
+          }
+          20% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 1;
+          }
+        }
+
+        @keyframes portalShrink {
+          0% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.2);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(0);
+            opacity: 0;
           }
         }
       `}</style>
