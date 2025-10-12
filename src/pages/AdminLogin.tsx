@@ -64,22 +64,22 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-black p-4">
       <div className="flex flex-col items-center w-full max-w-md">
         <img 
           src={tldvLogo} 
           alt="TLDV Logo" 
           className="h-32 mb-8 animate-fade-in"
         />
-        <Card className="w-full">
+        <Card className="w-full bg-black border-[3px] border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)] transition-all duration-500">
           <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-bold">Admin Portal</CardTitle>
-            <CardDescription>Enter your credentials to access the portal</CardDescription>
+            <CardTitle className="text-3xl font-bold text-white">Admin Portal</CardTitle>
+            <CardDescription className="text-gray-300">Enter your credentials to access the portal</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email" className="text-white">Email Address</Label>
                 <Input
                   id="email"
                   type="email"
@@ -88,10 +88,11 @@ const AdminLogin = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={loading}
+                  className="bg-black/50 border-red-600/50 text-white placeholder:text-gray-500 focus:border-red-500"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-white">Password</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -101,17 +102,18 @@ const AdminLogin = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     disabled={loading}
+                    className="bg-black/50 border-red-600/50 text-white placeholder:text-gray-500 focus:border-red-500"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white" disabled={loading}>
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
