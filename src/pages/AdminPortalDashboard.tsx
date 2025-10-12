@@ -45,8 +45,8 @@ const AdminPortalDashboard = () => {
 
     checkAuth();
 
-    // Animation timer - matches full animation sequence (2s scanline + 2s logo fade in + 1.5s hold + 1s fade out = 6.5s)
-    const timer = setTimeout(() => setIsAnimating(false), 6500);
+    // Animation timer - scanline (2s) + welcome message (3s) + transition (0.5s) = 5.5s
+    const timer = setTimeout(() => setIsAnimating(false), 5500);
     return () => clearTimeout(timer);
   }, [navigate]);
 
@@ -99,29 +99,26 @@ const AdminPortalDashboard = () => {
           />
         </div>
 
-        {/* Full Logo fades in (2s - 4s), holds (4s - 5.5s), fades out (5.5s - 6.5s) */}
+        {/* Welcome Message Animation (2s - 5s) */}
         <div 
-          className="absolute inset-0 flex flex-col items-center justify-center"
+          className="absolute inset-0 flex flex-col items-center justify-center px-4"
           style={{
-            animation: isAnimating ? 'logoSequence 4.5s ease-in-out 2s both' : 'none',
+            animation: isAnimating ? 'welcomeSequence 3s ease-in-out 2s both' : 'none',
           }}
         >
-          <img 
-            src={tldvLogo} 
-            alt="TLDV Logo" 
-            className="w-1/2 max-w-2xl object-contain"
-          />
-          {userName && (
-            <h2 className="text-3xl font-semibold text-red-500 mt-8 tracking-wide">
-              Welcome, {userName}
-            </h2>
-          )}
-          <h1 className="text-4xl font-bold text-white mt-4 tracking-wider">
-            Management Portal
-          </h1>
-          <p className="text-xl text-gray-400 mt-6 italic">
-            "Excellence in every detail"
-          </p>
+          <div className="text-center max-w-3xl">
+            <h1 className="text-6xl font-bold text-white mb-6 tracking-tight">
+              Welcome{userName ? `, ${userName}` : ''}
+            </h1>
+            <div className="space-y-4">
+              <p className="text-2xl text-red-500 font-semibold tracking-wide">
+                Your Trusted Partner in Excellence
+              </p>
+              <p className="text-xl text-gray-300 italic">
+                Innovation meets precision in every decision
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -175,22 +172,22 @@ const AdminPortalDashboard = () => {
           }
         }
 
-        @keyframes logoSequence {
+        @keyframes welcomeSequence {
           0% {
             opacity: 0;
-            transform: scale(0.95);
+            transform: translateY(20px) scale(0.95);
           }
-          10% {
+          15% {
             opacity: 1;
-            transform: scale(1);
+            transform: translateY(0) scale(1);
           }
-          80% {
+          85% {
             opacity: 1;
-            transform: scale(1);
+            transform: translateY(0) scale(1);
           }
           100% {
             opacity: 0;
-            transform: scale(1.05);
+            transform: translateY(-20px) scale(1.05);
           }
         }
       `}</style>
