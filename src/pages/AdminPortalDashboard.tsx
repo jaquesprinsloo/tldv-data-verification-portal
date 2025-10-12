@@ -8,6 +8,7 @@ import tldvLogo from "@/assets/tldv-logo-primary.png";
 const AdminPortalDashboard = () => {
   const navigate = useNavigate();
   const [isAnimating, setIsAnimating] = useState(true);
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -27,6 +28,18 @@ const AdminPortalDashboard = () => {
       if (!roleData) {
         await supabase.auth.signOut();
         navigate("/admin/login");
+        return;
+      }
+
+      // Fetch user profile for name
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", session.user.id)
+        .single();
+
+      if (profileData?.full_name) {
+        setUserName(profileData.full_name);
       }
     };
 
@@ -98,9 +111,17 @@ const AdminPortalDashboard = () => {
             alt="TLDV Logo" 
             className="w-1/2 max-w-2xl object-contain"
           />
-          <h1 className="text-4xl font-bold text-white mt-12 tracking-wider">
+          {userName && (
+            <h2 className="text-3xl font-semibold text-red-500 mt-8 tracking-wide">
+              Welcome, {userName}
+            </h2>
+          )}
+          <h1 className="text-4xl font-bold text-white mt-4 tracking-wider">
             Management Portal
           </h1>
+          <p className="text-xl text-gray-400 mt-6 italic">
+            "Excellence in every detail"
+          </p>
         </div>
       </div>
 
