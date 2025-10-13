@@ -47,7 +47,7 @@ const EmployeeRegister = () => {
           .from("employee_invitations")
           .select("invitation_method")
           .eq("token", token)
-          .single();
+          .maybeSingle();
 
         if (!error && data) {
           setInvitationMethod(data.invitation_method || "email");
@@ -111,7 +111,7 @@ const EmployeeRegister = () => {
         .eq("token", token)
         .eq("otp", formData.otp)
         .eq("used", false)
-        .single();
+        .maybeSingle();
 
       if (invitationError || !invitation) {
         throw new Error("Invalid or expired invitation link or OTP");
@@ -156,7 +156,7 @@ const EmployeeRegister = () => {
         .from("popia_acceptances")
         .select("id")
         .eq("employee_id", employee.id)
-        .single();
+        .maybeSingle();
 
       if (popiaData) {
         // POPIA already accepted, go directly to submission
