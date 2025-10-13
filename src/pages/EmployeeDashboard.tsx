@@ -4,46 +4,60 @@ import { supabase } from "@/integrations/supabase/client";
 import EmployeeSubmissionForm from "@/components/employee/EmployeeSubmissionForm";
 import TLDVHeader from "@/components/employee/TLDVHeader";
 import { Loader2 } from "lucide-react";
+import type { Session } from "@supabase/supabase-js";
 
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    checkAuth();
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        if (!session) {
+          navigate("/employee/login");
+        } else {
+          checkEmployeeAccess(session);
+        }
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (!session) {
+        navigate("/employee/login");
+        setLoading(false);
+      } else {
+        checkEmployeeAccess(session);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const checkAuth = async () => {
+  const checkEmployeeAccess = async (session: Session) => {
     try {
-      // Check if employee credentials are in sessionStorage (OTP-based flow)
-      const employeeId = sessionStorage.getItem('employee_id');
-      const employeeNumber = sessionStorage.getItem('employee_number');
-      const idNumber = sessionStorage.getItem('id_number');
-      
-      if (!employeeId || !employeeNumber || !idNumber) {
-        navigate("/employee/login");
-        return;
-      }
-
-      // Verify employee exists and is active
+      // Verify employee exists, is active, and linked to this auth user
       const { data: employeeData, error } = await supabase
         .from("employees")
         .select("id, employment_status")
-        .eq("id", employeeId)
-        .eq("employee_number", employeeNumber)
-        .eq("id_number", idNumber)
+        .eq("user_id", session.user.id)
+        .eq("employment_status", "active")
         .single();
 
-      if (error || !employeeData || employeeData.employment_status !== 'active') {
-        sessionStorage.clear();
+      if (error || !employeeData) {
+        await supabase.auth.signOut();
         navigate("/employee/login");
         return;
       }
 
       setIsAuthorized(true);
     } catch (error) {
-      sessionStorage.clear();
+      await supabase.auth.signOut();
       navigate("/employee/login");
     } finally {
       setLoading(false);

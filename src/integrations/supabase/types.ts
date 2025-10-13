@@ -708,6 +708,22 @@ export type Database = {
           is_valid: boolean
         }[]
       }
+      validate_invitation_token_and_create_user: {
+        Args: {
+          _email: string
+          _employee_number: string
+          _id_number: string
+          _otp: string
+          _password: string
+          _token: string
+        }
+        Returns: {
+          email: string
+          employee_id: string
+          is_valid: boolean
+          user_created: boolean
+        }[]
+      }
       verify_employee_credentials: {
         Args: { _employee_number: string; _id_number: string }
         Returns: {

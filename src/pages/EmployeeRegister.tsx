@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import TLDVHeader from "@/components/employee/TLDVHeader";
 import POPIADeclaration from "@/components/employee/POPIADeclaration";
+import type { Session } from "@supabase/supabase-js";
 
 const EmployeeRegister = () => {
   const navigate = useNavigate();
@@ -25,6 +26,8 @@ const EmployeeRegister = () => {
     employeeNumber: "",
     idNumber: "",
     otp: "",
+    password: "",
+    confirmPassword: "",
   });
 
   const token = searchParams.get("token");
@@ -84,7 +87,7 @@ const EmployeeRegister = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.employeeNumber || !formData.idNumber || !formData.otp) {
+    if (!formData.employeeNumber || !formData.idNumber || !formData.otp || !formData.password) {
       toast({
         title: "Missing Information",
         description: "Please fill in all fields",
@@ -102,23 +105,78 @@ const EmployeeRegister = () => {
       return;
     }
 
+    if (formData.password.length < 6) {
+      toast({
+        title: "Weak Password",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      toast({
+        title: "Password Mismatch",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      // Use the database function to validate everything at once
+      // Validate invitation and get employee details
       const { data: validationResult, error: validationError } = await supabase
-        .rpc('validate_invitation_token', {
+        .rpc('validate_invitation_token_and_create_user', {
           _token: token,
           _employee_number: formData.employeeNumber,
           _id_number: formData.idNumber,
-          _otp: formData.otp
+          _otp: formData.otp,
+          _email: "",  // Will be populated by function
+          _password: formData.password
         })
         .single();
 
       if (validationError || !validationResult || !validationResult.is_valid) {
-        throw new Error("Invalid invitation link, OTP, or employee credentials");
+        throw new Error("Invalid credentials or invitation");
       }
 
       const employeeId = validationResult.employee_id;
+      const email = validationResult.email;
+
+      // If user needs to be created, sign them up with Supabase Auth
+      if (validationResult.user_created) {
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: email,
+          password: formData.password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/employee/submit`,
+            data: {
+              employee_id: employeeId,
+            }
+          }
+        });
+
+        if (signUpError) throw signUpError;
+
+        // Link the employee to the auth user
+        if (signUpData.user) {
+          const { error: updateError } = await supabase
+            .from('employees')
+            .update({ user_id: signUpData.user.id })
+            .eq('id', employeeId);
+
+          if (updateError) throw updateError;
+        }
+      } else {
+        // User already exists, sign them in
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: formData.password,
+        });
+
+        if (signInError) throw signInError;
+      }
 
       // Check if POPIA already accepted
       const { data: popiaData } = await supabase
@@ -129,9 +187,6 @@ const EmployeeRegister = () => {
 
       if (popiaData) {
         // POPIA already accepted, go directly to submission
-        sessionStorage.setItem("employee_id", employeeId);
-        sessionStorage.setItem("employee_number", formData.employeeNumber);
-        sessionStorage.setItem("id_number", formData.idNumber);
         navigate("/employee/submit");
       } else {
         // Show POPIA declaration
@@ -152,10 +207,7 @@ const EmployeeRegister = () => {
   };
 
   const handlePOPIAAccept = () => {
-    // Store credentials in sessionStorage
-    sessionStorage.setItem("employee_id", employeeId);
-    sessionStorage.setItem("employee_number", formData.employeeNumber);
-    sessionStorage.setItem("id_number", formData.idNumber);
+    // After POPIA acceptance, navigate to dashboard (user is already authenticated)
     navigate("/employee/submit");
   };
 
@@ -234,9 +286,40 @@ const EmployeeRegister = () => {
               </p>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="password">Create Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                required
+                minLength={6}
+                value={formData.password}
+                onChange={handleInputChange}
+                placeholder="Create a secure password"
+              />
+              <p className="text-xs text-muted-foreground">
+                Minimum 6 characters
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                minLength={6}
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                placeholder="Re-enter your password"
+              />
+            </div>
+
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Continue to Portal
+              Create Account & Continue
             </Button>
           </form>
         </CardContent>

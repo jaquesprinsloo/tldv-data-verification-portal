@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -17,10 +17,10 @@ const EmployeeSubmissionForm = () => {
   const [employeeId, setEmployeeId] = useState("");
 
   const [formData, setFormData] = useState({
-    employeeNumber: sessionStorage.getItem('employee_number') || "",
+    employeeNumber: "",
     firstName: "",
     lastName: "",
-    idNumber: sessionStorage.getItem('id_number') || "",
+    idNumber: "",
     email: "",
     contactNumber: "",
     houseNumber: "",
@@ -37,13 +37,30 @@ const EmployeeSubmissionForm = () => {
     nextOfKinContact: "",
   });
 
-  // Load employee ID from sessionStorage
-  useState(() => {
-    const storedEmployeeId = sessionStorage.getItem("employee_id");
-    if (storedEmployeeId) {
-      setEmployeeId(storedEmployeeId);
-    }
-  });
+  // Load employee data from authenticated session
+  useEffect(() => {
+    const loadEmployeeData = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('id, employee_number, id_number')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (employee) {
+        setEmployeeId(employee.id);
+        setFormData(prev => ({
+          ...prev,
+          employeeNumber: employee.employee_number,
+          idNumber: employee.id_number
+        }));
+      }
+    };
+
+    loadEmployeeData();
+  }, []);
 
   const [proofOfResidenceFile, setProofOfResidenceFile] = useState<File | null>(null);
   const [idFile, setIdFile] = useState<File | null>(null);

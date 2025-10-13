@@ -31,6 +31,31 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Processing renewal request for employee:', employeeId);
 
+    // SECURITY: Rate limiting - check if employee has requested recently
+    const { data: recentRequests, error: recentError } = await supabase
+      .from('renewal_requests')
+      .select('created_at')
+      .eq('employee_id', employeeId)
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
+      .order('created_at', { ascending: false });
+
+    if (recentError) {
+      console.error('Error checking recent requests:', recentError);
+      return new Response(
+        JSON.stringify({ error: 'Database error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Allow max 3 requests per day per employee
+    if (recentRequests && recentRequests.length >= 3) {
+      console.log(`Rate limit exceeded for employee ${employeeId}`);
+      return new Response(
+        JSON.stringify({ error: 'Rate limit exceeded. Please try again tomorrow.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Check if employee exists and is active
     const { data: employee, error: employeeError } = await supabase
       .from('employees')
