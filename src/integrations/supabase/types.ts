@@ -684,7 +684,14 @@ export type Database = {
         Returns: boolean
       }
       validate_invitation_token: {
-        Args: { _employee_number: string; _id_number: string; _token: string }
+        Args:
+          | {
+              _employee_number: string
+              _id_number: string
+              _otp: string
+              _token: string
+            }
+          | { _employee_number: string; _id_number: string; _token: string }
         Returns: {
           email: string
           employee_id: string

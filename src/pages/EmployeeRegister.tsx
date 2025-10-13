@@ -104,69 +104,38 @@ const EmployeeRegister = () => {
 
     setLoading(true);
     try {
-      // Validate the invitation token, OTP, and employee credentials
-      const { data: invitation, error: invitationError } = await supabase
-        .from("employee_invitations")
-        .select("*, employees(*)")
-        .eq("token", token)
-        .eq("otp", formData.otp)
-        .eq("used", false)
-        .maybeSingle();
-
-      if (invitationError || !invitation) {
-        throw new Error("Invalid or expired invitation link or OTP");
-      }
-
-      // Check if invitation is expired
-      if (new Date(invitation.expires_at) < new Date()) {
-        throw new Error("This invitation link has expired");
-      }
-
-      // Validate employee credentials
-      const employee = invitation.employees;
-      if (!employee) {
-        throw new Error("Employee record not found");
-      }
-
-      if (
-        employee.employee_number !== formData.employeeNumber ||
-        employee.id_number !== formData.idNumber
-      ) {
-        throw new Error("Employee credentials do not match");
-      }
-
-      // Check if employee is active
-      if (employee.employment_status !== 'active') {
-        throw new Error("Employee account is not active");
-      }
-
-      // Mark invitation as used
-      const { error: updateError } = await supabase
-        .from("employee_invitations")
-        .update({ 
-          used: true,
-          used_at: new Date().toISOString()
+      // Use the database function to validate everything at once
+      const { data: validationResult, error: validationError } = await supabase
+        .rpc('validate_invitation_token', {
+          _token: token,
+          _employee_number: formData.employeeNumber,
+          _id_number: formData.idNumber,
+          _otp: formData.otp
         })
-        .eq("id", invitation.id);
+        .single();
 
-      if (updateError) throw updateError;
+      if (validationError || !validationResult || !validationResult.is_valid) {
+        throw new Error("Invalid invitation link, OTP, or employee credentials");
+      }
+
+      const employeeId = validationResult.employee_id;
 
       // Check if POPIA already accepted
       const { data: popiaData } = await supabase
         .from("popia_acceptances")
         .select("id")
-        .eq("employee_id", employee.id)
+        .eq("employee_id", employeeId)
         .maybeSingle();
 
       if (popiaData) {
         // POPIA already accepted, go directly to submission
-        sessionStorage.setItem("employee_id", employee.id);
-        sessionStorage.setItem("employee_number", employee.employee_number);
-        sessionStorage.setItem("id_number", employee.id_number);
+        sessionStorage.setItem("employee_id", employeeId);
+        sessionStorage.setItem("employee_number", formData.employeeNumber);
+        sessionStorage.setItem("id_number", formData.idNumber);
         navigate("/employee/submit");
       } else {
         // Show POPIA declaration
-        setEmployeeId(employee.id);
+        setEmployeeId(employeeId);
         setStep('popia');
       }
 
