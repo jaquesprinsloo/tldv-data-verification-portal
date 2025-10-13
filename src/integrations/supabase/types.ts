@@ -21,8 +21,10 @@ export type Database = {
           email: string
           employee_id: string
           expires_at: string
+          failed_attempts: number
           id: string
           invitation_method: string | null
+          locked_until: string | null
           otp: string | null
           token: string
           used: boolean
@@ -34,8 +36,10 @@ export type Database = {
           email: string
           employee_id: string
           expires_at?: string
+          failed_attempts?: number
           id?: string
           invitation_method?: string | null
+          locked_until?: string | null
           otp?: string | null
           token: string
           used?: boolean
@@ -47,8 +51,10 @@ export type Database = {
           email?: string
           employee_id?: string
           expires_at?: string
+          failed_attempts?: number
           id?: string
           invitation_method?: string | null
+          locked_until?: string | null
           otp?: string | null
           token?: string
           used?: boolean
@@ -643,6 +649,10 @@ export type Database = {
       check_submission_rate_limit: {
         Args: { _employee_number: string }
         Returns: boolean
+      }
+      cleanup_expired_invitation_locks: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       cleanup_old_audit_trail: {
         Args: Record<PropertyKey, never>
