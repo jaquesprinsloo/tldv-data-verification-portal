@@ -150,6 +150,12 @@ const EmployeeRegister = () => {
 
       if (signInError) throw signInError;
 
+      // Wait for session to be established before navigating
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Failed to establish session");
+      }
+
       // Navigate to submission page (POPIA will be handled there if needed)
       navigate("/employee/submit");
 
