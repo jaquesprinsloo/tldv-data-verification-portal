@@ -123,26 +123,23 @@ const EmployeeRegister = () => {
 
     setLoading(true);
     try {
-      // Validate invitation and get employee details
-      const { data: validationResult, error: validationError } = await supabase
-        .rpc('validate_invitation_token_and_create_user', {
-          _token: token,
-          _employee_number: formData.employeeNumber,
-          _id_number: formData.idNumber,
-          _otp: formData.otp,
-          _email: "",  // Will be populated by function
-          _password: formData.password
-        })
-        .single();
+      // Call edge function to handle registration
+      const { data, error } = await supabase.functions.invoke('complete-employee-registration', {
+        body: {
+          token,
+          employeeNumber: formData.employeeNumber,
+          idNumber: formData.idNumber,
+          otp: formData.otp,
+          password: formData.password
+        }
+      });
 
-      if (validationError || !validationResult || !validationResult.is_valid) {
-        throw new Error("Invalid credentials or invitation");
-      }
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      const employeeId = validationResult.employee_id;
-      const email = validationResult.email;
+      const { email } = data;
 
-      // Sign in using the email returned by validation (user may have been created server-side)
+      // Sign in with the credentials
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: email,
         password: formData.password,
@@ -150,11 +147,16 @@ const EmployeeRegister = () => {
 
       if (signInError) throw signInError;
 
-      // Wait for session to be established before navigating
+      // Wait for session to be established
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error("Failed to establish session");
       }
+
+      toast({
+        title: "Registration Successful",
+        description: "Welcome! Redirecting to POPIA declaration...",
+      });
 
       // Navigate to submission page (POPIA will be handled there if needed)
       navigate("/employee/submit");

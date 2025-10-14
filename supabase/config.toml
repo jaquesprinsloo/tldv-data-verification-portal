@@ -31,3 +31,6 @@ verify_jwt = true
 
 [functions.request-renewal-invitation]
 verify_jwt = false
+
+[functions.complete-employee-registration]
+verify_jwt = false
