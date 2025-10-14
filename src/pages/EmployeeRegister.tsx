@@ -144,39 +144,13 @@ const EmployeeRegister = () => {
       const employeeId = validationResult.employee_id;
       const email = validationResult.email;
 
-      // If user needs to be created, sign them up with Supabase Auth
-      if (validationResult.user_created) {
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: email,
-          password: formData.password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/employee/submit`,
-            data: {
-              employee_id: employeeId,
-            }
-          }
-        });
+      // Sign in using the email returned by validation (user may have been created server-side)
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: formData.password,
+      });
 
-        if (signUpError) throw signUpError;
-
-        // Link the employee to the auth user
-        if (signUpData.user) {
-          const { error: updateError } = await supabase
-            .from('employees')
-            .update({ user_id: signUpData.user.id })
-            .eq('id', employeeId);
-
-          if (updateError) throw updateError;
-        }
-      } else {
-        // User already exists, sign them in
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: email,
-          password: formData.password,
-        });
-
-        if (signInError) throw signInError;
-      }
+      if (signInError) throw signInError;
 
       // Check if POPIA already accepted
       const { data: popiaData } = await supabase
