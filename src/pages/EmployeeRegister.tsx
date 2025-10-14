@@ -18,8 +18,6 @@ const EmployeeRegister = () => {
   
   const [loading, setLoading] = useState(false);
   const [validatingToken, setValidatingToken] = useState(true);
-  const [step, setStep] = useState<'register' | 'popia'>('register');
-  const [employeeId, setEmployeeId] = useState<string>("");
   const [invitationMethod, setInvitationMethod] = useState<string>("email");
   
   const [formData, setFormData] = useState({
@@ -152,21 +150,8 @@ const EmployeeRegister = () => {
 
       if (signInError) throw signInError;
 
-      // Check if POPIA already accepted
-      const { data: popiaData } = await supabase
-        .from("popia_acceptances")
-        .select("id")
-        .eq("employee_id", employeeId)
-        .maybeSingle();
-
-      if (popiaData) {
-        // POPIA already accepted, go directly to submission
-        navigate("/employee/submit");
-      } else {
-        // Show POPIA declaration
-        setEmployeeId(employeeId);
-        setStep('popia');
-      }
+      // Navigate to submission page (POPIA will be handled there if needed)
+      navigate("/employee/submit");
 
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -180,26 +165,10 @@ const EmployeeRegister = () => {
     }
   };
 
-  const handlePOPIAAccept = () => {
-    // After POPIA acceptance, navigate to dashboard (user is already authenticated)
-    navigate("/employee/submit");
-  };
-
   if (validatingToken) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (step === 'popia' && employeeId) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
-        <TLDVHeader />
-        <div className="container mx-auto px-4 py-8">
-          <POPIADeclaration employeeId={employeeId} onAccept={handlePOPIAAccept} />
-        </div>
       </div>
     );
   }
