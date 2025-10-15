@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Camera, MapPin, Upload, CheckCircle } from "lucide-react";
 import { employeeSubmissionSchema } from "@/lib/validationSchemas";
+import TLDVHeader from "@/components/employee/TLDVHeader";
 
 const EmployeeSubmissionForm = () => {
   const { toast } = useToast();
@@ -469,7 +470,10 @@ const EmployeeSubmissionForm = () => {
 
   if (submitted) {
     return (
-      <Card className="max-w-md mx-auto text-center">
+      <div className="min-h-screen bg-background">
+        <TLDVHeader />
+        <div className="flex items-center justify-center p-4 mt-8">
+          <Card className="max-w-md text-center">
         <CardContent className="pt-12 pb-12">
           <CheckCircle className="h-16 w-16 text-primary mx-auto mb-6" />
           <h2 className="text-2xl font-bold mb-4">Submission Complete!</h2>
@@ -503,11 +507,13 @@ const EmployeeSubmissionForm = () => {
             </p>
           </div>
           
-          <p className="text-xs text-muted-foreground">
-            Please check your email inbox (and spam folder) for the verification email from TLDV.
-          </p>
-        </CardContent>
-      </Card>
+            <p className="text-xs text-muted-foreground">
+              Please check your email inbox (and spam folder) for the verification email from TLDV.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
     );
   }
 
