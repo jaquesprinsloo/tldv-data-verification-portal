@@ -3,8 +3,8 @@ import { z } from "zod";
 // South African ID number validation (13 digits)
 const saIdNumberRegex = /^\d{13}$/;
 
-// Phone number validation (South African format)
-const phoneRegex = /^(\+27|0)[0-9]{9}$/;
+// Phone number validation (South African format) - more flexible
+const phoneRegex = /^(\+27|0)\s?[0-9]{2}\s?[0-9]{3}\s?[0-9]{4}$/;
 
 // Email validation with length limit
 const emailSchema = z.string()
@@ -44,7 +44,10 @@ export const employeeSubmissionSchema = z.object({
   
   contactNumber: z.string()
     .trim()
-    .regex(phoneRegex, { message: "Invalid phone number. Use format: 0123456789 or +27123456789" }),
+    .transform(val => val.replace(/\s+/g, ''))
+    .refine(val => /^(\+27|0)[0-9]{9}$/.test(val), { 
+      message: "Invalid phone number. Use format: 0123456789 or +27123456789" 
+    }),
   
   physicalAddress: z.string()
     .trim()
@@ -97,7 +100,10 @@ export const employeeSubmissionSchema = z.object({
   
   nextOfKinContact: z.string()
     .trim()
-    .regex(phoneRegex, { message: "Invalid phone number. Use format: 0123456789 or +27123456789" }),
+    .transform(val => val.replace(/\s+/g, ''))
+    .refine(val => /^(\+27|0)[0-9]{9}$/.test(val), { 
+      message: "Invalid phone number. Use format: 0123456789 or +27123456789" 
+    }),
   
   nextOfKinAddress: addressSchema,
 });
