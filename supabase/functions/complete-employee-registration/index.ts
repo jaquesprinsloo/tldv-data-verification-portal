@@ -86,34 +86,36 @@ serve(async (req) => {
     if (!userId) {
       console.log('Creating new auth user', { email });
       
-      const { data: authUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
-        email: email,
-        password: password,
-        email_confirm: true, // Auto-confirm email
-        user_metadata: {
-          employee_id: employee_id
-        }
-      });
-
-      if (createUserError) {
-        // Check if user already exists
-        if (createUserError.message.includes('already registered') || createUserError.message.includes('already exists')) {
+      try {
+        const { data: authUser } = await supabaseAdmin.auth.admin.createUser({
+          email: email,
+          password: password,
+          email_confirm: true, // Auto-confirm email
+          user_metadata: {
+            employee_id: employee_id
+          }
+        });
+        userId = authUser.user.id;
+        console.log('Auth user created successfully', { userId });
+      } catch (err: any) {
+        const msg = err?.message || '';
+        const code = err?.code || err?.status;
+        // If the user already exists, fetch their id and continue
+        if (msg.includes('already registered') || msg.includes('already exists') || code === 'email_exists' || code === 422) {
           console.log('User already exists, fetching existing user');
           const { data: userData } = await supabaseAdmin.auth.admin.listUsers();
-          const existingAuthUser = userData.users.find(u => u.email === email);
-          
+          const existingAuthUser = userData.users.find((u: any) => u.email === email);
           if (existingAuthUser) {
             userId = existingAuthUser.id;
+            console.log('Found existing auth user', { userId });
           } else {
+            console.error('User exists but could not be found by email');
             throw new Error('User exists but could not be found');
           }
         } else {
-          console.error('Error creating user:', createUserError);
-          throw createUserError;
+          console.error('Error creating user:', err);
+          throw err;
         }
-      } else {
-        userId = authUser.user.id;
-        console.log('Auth user created successfully', { userId });
       }
 
       // Link employee to user

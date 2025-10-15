@@ -139,12 +139,22 @@ const EmployeeRegister = () => {
 
       const { email } = data;
 
-      // Sign in with the credentials
+      // If already logged in as this user, skip sign-in
+      const { data: existing } = await supabase.auth.getSession();
+      if (existing.session?.user?.email === email) {
+        toast({
+          title: "Registration Successful",
+          description: "Welcome! Redirecting to POPIA declaration...",
+        });
+        navigate("/employee/submit");
+        return;
+      }
+
+      // Otherwise sign in with the provided credentials
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: email,
         password: formData.password,
       });
-
       if (signInError) throw signInError;
 
       // Wait for session to be established
