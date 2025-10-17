@@ -7,6 +7,7 @@ import Home from "./pages/Home";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import EmployeeAuth from "./pages/EmployeeAuth";
 import EmployeeRegister from "./pages/EmployeeRegister";
+import EmployeeLogin from "./pages/EmployeeLogin";
 import AdminLogin from "./pages/AdminLogin";
 import AdminPortalDashboard from "./pages/AdminPortalDashboard";
 import DataEmployeeManagement from "./pages/DataEmployeeManagement";
@@ -27,7 +28,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/employee/login" element={<EmployeeAuth />} />
+          <Route path="/employee/login" element={<EmployeeLogin />} />
           <Route path="/employee/register" element={<EmployeeRegister />} />
           <Route path="/employee/submit" element={<EmployeeDashboard />} />
           <Route path="/admin/login" element={<AdminLogin />} />
