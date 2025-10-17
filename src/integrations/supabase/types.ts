@@ -658,6 +658,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      constant_time_compare: {
+        Args: { a: string; b: string }
+        Returns: boolean
+      }
       create_verified_submission: {
         Args: { submission_data: Json }
         Returns: string
