@@ -45,7 +45,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { email, employeeNumber, invitationLink, otp } = validationResult.data;
 
-    console.log('Sending invitation email');
+    console.log('Processing invitation email request');
 
     const GMAIL_EMAIL = Deno.env.get("GMAIL_EMAIL");
     const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
@@ -127,7 +127,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     await client.close();
 
-    console.log("Email sent successfully");
+    console.log("Invitation email delivered successfully");
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

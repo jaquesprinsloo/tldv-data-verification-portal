@@ -42,19 +42,18 @@ const EmployeeRegister = () => {
         return;
       }
 
-      // Fetch invitation method from the invitation
+      // Fetch invitation method via edge function
       try {
-        const { data, error } = await supabase
-          .from("employee_invitations")
-          .select("invitation_method")
-          .eq("token", token)
-          .maybeSingle();
+        const { data, error } = await supabase.functions.invoke('get-invitation-method', {
+          body: { token }
+        });
 
-        if (!error && data) {
-          setInvitationMethod(data.invitation_method || "email");
+        if (!error && data?.invitation_method) {
+          setInvitationMethod(data.invitation_method);
         }
       } catch (error) {
-        console.error("Error fetching invitation method:", error);
+        // Silently default to email if fetch fails
+        setInvitationMethod("email");
       }
 
       setValidatingToken(false);
@@ -190,7 +189,7 @@ const EmployeeRegister = () => {
       console.error("Registration error:", error);
       toast({
         title: "Registration Failed",
-        description: error.message || "Invalid credentials or invitation",
+        description: "Unable to complete registration. Please verify your information and try again.",
         variant: "destructive",
       });
     } finally {
