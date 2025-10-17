@@ -1,10 +1,26 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Server-side validation schema
+const RegistrationSchema = z.object({
+  token: z.string().uuid('Invalid token format'),
+  employeeNumber: z.string().trim().min(1).max(50, 'Employee number too long'),
+  idNumber: z.string().regex(/^\d{13}$/, 'ID number must be exactly 13 digits'),
+  otp: z.string().regex(/^\d{6}$/, 'OTP must be exactly 6 digits'),
+  password: z.string()
+    .min(12, 'Password must be at least 12 characters')
+    .max(128, 'Password too long')
+    .regex(/[A-Z]/, 'Password must include uppercase letter')
+    .regex(/[a-z]/, 'Password must include lowercase letter')
+    .regex(/[0-9]/, 'Password must include number')
+    .regex(/[^A-Za-z0-9]/, 'Password must include special character')
+});
 
 interface RegistrationRequest {
   token: string;
@@ -14,6 +30,26 @@ interface RegistrationRequest {
   password: string;
 }
 
+// Simple in-memory rate limiting (per IP)
+const rateLimitStore = new Map<string, { attempts: number; resetTime: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitStore.get(ip);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitStore.set(ip, { attempts: 1, resetTime: now + 3600000 }); // 1 hour
+    return true;
+  }
+  
+  if (record.attempts >= 10) {
+    return false;
+  }
+  
+  record.attempts++;
+  return true;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -21,6 +57,18 @@ serve(async (req) => {
   }
 
   try {
+    // Rate limiting based on IP
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    if (!checkRateLimit(ip)) {
+      return new Response(
+        JSON.stringify({ error: 'Too many attempts. Please try again later.' }),
+        {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -32,9 +80,24 @@ serve(async (req) => {
       }
     );
 
-    const { token, employeeNumber, idNumber, otp, password }: RegistrationRequest = await req.json();
+    const body: RegistrationRequest = await req.json();
 
-    console.log('Starting employee registration process', { token, employeeNumber });
+    // Validate input with zod
+    const validationResult = RegistrationSchema.safeParse(body);
+    if (!validationResult.success) {
+      console.error('Input validation failed');
+      return new Response(
+        JSON.stringify({ error: 'Invalid request. Please check your information and try again.' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const { token, employeeNumber, idNumber, otp, password } = validationResult.data;
+
+    console.log('Registration attempt started');
 
     // Validate invitation token and credentials
     const { data: validationData, error: validationError } = await supabaseAdmin
@@ -57,11 +120,10 @@ serve(async (req) => {
       };
 
     if (validationError || !validationData || !validationData.is_valid) {
-      console.error('Validation failed:', validationError);
+      console.error('Authentication failed');
       return new Response(
         JSON.stringify({ 
-          error: 'Invalid credentials or invitation',
-          details: validationError?.message 
+          error: 'Unable to complete registration. Please verify your information and try again.'
         }),
         {
           status: 400,
@@ -71,7 +133,7 @@ serve(async (req) => {
     }
 
     const { employee_id, email, user_created } = validationData;
-    console.log('Validation successful', { employee_id, email, user_created });
+    console.log('Authentication successful');
 
     // Check if user already exists
     const { data: existingUser } = await supabaseAdmin
@@ -84,7 +146,7 @@ serve(async (req) => {
 
     // Create auth user if needed
     if (!userId) {
-      console.log('Creating new auth user', { email });
+      console.log('Creating new auth user');
       
       const { data: authUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
         email: email,
@@ -108,18 +170,18 @@ serve(async (req) => {
           const existingAuthUser = userData?.users?.find((u: any) => u.email === email);
           if (existingAuthUser) {
             userId = existingAuthUser.id;
-            console.log('Found existing auth user', { userId });
+            console.log('Found existing auth user');
           } else {
-            console.error('User exists but could not be found by email');
-            throw new Error('User exists but could not be found');
+            console.error('User authentication conflict');
+            throw new Error('Unable to complete registration. Please contact support.');
           }
         } else {
-          console.error('Error creating user:', createUserError);
+          console.error('User creation failed');
           throw createUserError;
         }
       } else {
         userId = authUser!.user!.id;
-        console.log('Auth user created successfully', { userId });
+        console.log('Auth user created successfully');
       }
 
       // Link employee to user
@@ -129,13 +191,13 @@ serve(async (req) => {
         .eq('id', employee_id);
 
       if (linkError) {
-        console.error('Error linking employee to user:', linkError);
+        console.error('Failed to link employee account');
         throw linkError;
       }
 
-      console.log('Employee linked to user successfully');
+      console.log('Employee linked successfully');
     } else {
-      console.log('Employee already linked to user', { userId });
+      console.log('Employee already linked');
     }
 
     // Create a session for the user
@@ -145,7 +207,7 @@ serve(async (req) => {
     });
 
     if (sessionError) {
-      console.error('Error generating session:', sessionError);
+      console.error('Session generation failed');
       throw sessionError;
     }
 
@@ -165,11 +227,10 @@ serve(async (req) => {
     );
 
   } catch (error: any) {
-    console.error('Error in complete-employee-registration:', error);
+    console.error('Registration error occurred');
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Registration failed',
-        details: error.toString()
+        error: 'Unable to complete registration. Please try again or contact support.'
       }),
       {
         status: 500,

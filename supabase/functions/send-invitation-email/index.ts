@@ -1,10 +1,19 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Server-side validation schema
+const InvitationEmailSchema = z.object({
+  email: z.string().email('Invalid email format').max(255, 'Email too long'),
+  employeeNumber: z.string().trim().min(1).max(50, 'Employee number too long'),
+  invitationLink: z.string().url('Invalid invitation link').max(500, 'Link too long'),
+  otp: z.string().regex(/^\d{6}$/, 'OTP must be exactly 6 digits')
+});
 
 interface InvitationEmailRequest {
   email: string;
@@ -19,9 +28,24 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, employeeNumber, invitationLink, otp }: InvitationEmailRequest = await req.json();
+    const body: InvitationEmailRequest = await req.json();
 
-    console.log(`Sending invitation email to ${email} for employee ${employeeNumber}`);
+    // Validate input with zod
+    const validationResult = InvitationEmailSchema.safeParse(body);
+    if (!validationResult.success) {
+      console.error('Input validation failed');
+      return new Response(
+        JSON.stringify({ error: 'Invalid request parameters' }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    const { email, employeeNumber, invitationLink, otp } = validationResult.data;
+
+    console.log('Sending invitation email');
 
     const GMAIL_EMAIL = Deno.env.get("GMAIL_EMAIL");
     const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");
@@ -103,7 +127,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     await client.close();
 
-    console.log("Email sent successfully to:", email);
+    console.log("Email sent successfully");
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
@@ -113,9 +137,9 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
   } catch (error: any) {
-    console.error("Error in send-invitation-email function:", error);
+    console.error("Email sending failed");
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'Failed to send invitation email' }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },

@@ -1,10 +1,16 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Server-side validation schema
+const RequestRenewalSchema = z.object({
+  employeeId: z.string().uuid('Invalid employee ID format')
+});
 
 interface RequestRenewalRequest {
   employeeId: string;
@@ -20,16 +26,21 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { employeeId }: RequestRenewalRequest = await req.json();
+    const body: RequestRenewalRequest = await req.json();
 
-    if (!employeeId) {
+    // Validate input with zod
+    const validationResult = RequestRenewalSchema.safeParse(body);
+    if (!validationResult.success) {
+      console.error('Input validation failed');
       return new Response(
-        JSON.stringify({ error: 'Employee ID is required' }),
+        JSON.stringify({ error: 'Invalid request parameters' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Processing renewal request for employee:', employeeId);
+    const { employeeId } = validationResult.data;
+
+    console.log('Processing renewal request');
 
     // SECURITY: Rate limiting - check if employee has requested recently
     const { data: recentRequests, error: recentError } = await supabase
@@ -49,9 +60,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Allow max 3 requests per day per employee
     if (recentRequests && recentRequests.length >= 3) {
-      console.log(`Rate limit exceeded for employee ${employeeId}`);
+      console.log('Rate limit exceeded');
       return new Response(
-        JSON.stringify({ error: 'Rate limit exceeded. Please try again tomorrow.' }),
+        JSON.stringify({ error: 'Too many requests. Please try again tomorrow.' }),
         { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -64,16 +75,16 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (employeeError || !employee) {
-      console.error('Employee not found:', employeeError);
+      console.error('Employee lookup failed');
       return new Response(
-        JSON.stringify({ error: 'Employee not found' }),
+        JSON.stringify({ error: 'Unable to process request' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (employee.employment_status !== 'active') {
       return new Response(
-        JSON.stringify({ error: 'Employee is not active' }),
+        JSON.stringify({ error: 'Unable to process request' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -113,7 +124,7 @@ const handler = async (req: Request): Promise<Response> => {
       throw insertError;
     }
 
-    console.log('Renewal request created successfully:', newRequest.id);
+    console.log('Renewal request created successfully');
 
     return new Response(
       JSON.stringify({ 
@@ -125,9 +136,9 @@ const handler = async (req: Request): Promise<Response> => {
     );
 
   } catch (error: any) {
-    console.error('Error in request-renewal-invitation function:', error);
+    console.error('Request processing failed');
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'Unable to process request' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -103,10 +103,25 @@ const EmployeeRegister = () => {
       return;
     }
 
-    if (formData.password.length < 6) {
+    if (formData.password.length < 12) {
       toast({
         title: "Weak Password",
-        description: "Password must be at least 6 characters",
+        description: "Password must be at least 12 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check password complexity
+    const hasUppercase = /[A-Z]/.test(formData.password);
+    const hasLowercase = /[a-z]/.test(formData.password);
+    const hasNumber = /[0-9]/.test(formData.password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(formData.password);
+
+    if (!hasUppercase || !hasLowercase || !hasNumber || !hasSpecial) {
+      toast({
+        title: "Weak Password",
+        description: "Password must include uppercase, lowercase, number, and special character",
         variant: "destructive",
       });
       return;
@@ -261,7 +276,7 @@ const EmployeeRegister = () => {
                 placeholder="Create a secure password"
               />
               <p className="text-xs text-muted-foreground">
-                Minimum 6 characters
+                Minimum 12 characters with uppercase, lowercase, number, and special character
               </p>
             </div>
 
