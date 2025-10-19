@@ -198,6 +198,13 @@ serve(async (req) => {
       console.log('Employee linked successfully');
     } else {
       console.log('Employee already linked');
+      
+      // Ensure email is stored even if already linked
+      await supabaseAdmin
+        .from('employees')
+        .update({ email: email })
+        .eq('id', employee_id)
+        .is('email', null);
     }
 
     // Create a session for the user
