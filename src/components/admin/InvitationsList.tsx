@@ -6,8 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Copy, Download, QrCode, Trash2 } from "lucide-react";
+import { Copy, Download, QrCode, Trash2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import InvitationDetailsDialog from "./InvitationDetailsDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,7 @@ interface Invitation {
   created_at: string;
   expires_at: string;
   used: boolean;
+  used_at?: string;
   employees: {
     employee_number: string;
     id_number: string;
@@ -43,6 +45,8 @@ const InvitationsList = () => {
   const [selectedInvitations, setSelectedInvitations] = useState<Set<string>>(new Set());
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [adminPassword, setAdminPassword] = useState("");
+  const [selectedInvitation, setSelectedInvitation] = useState<Invitation | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
   useEffect(() => {
     fetchInvitations();
@@ -378,12 +382,24 @@ const InvitationsList = () => {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => {
+                        setSelectedInvitation(invitation);
+                        setShowDetailsDialog(true);
+                      }}
+                      title="View Details"
+                    >
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() =>
                         copyToClipboard(
                           `${window.location.origin}/employee/register?token=${invitation.token}`,
                           "Link"
                         )
                       }
+                      title="Copy Link"
                     >
                       <Copy className="h-3 w-3" />
                     </Button>
@@ -391,6 +407,7 @@ const InvitationsList = () => {
                       variant="outline"
                       size="sm"
                       onClick={() => generateQRCoupon(invitation)}
+                      title="Generate QR Coupon"
                     >
                       <QrCode className="h-3 w-3" />
                     </Button>
@@ -426,6 +443,12 @@ const InvitationsList = () => {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    <InvitationDetailsDialog
+      open={showDetailsDialog}
+      onOpenChange={setShowDetailsDialog}
+      invitation={selectedInvitation}
+    />
   </>
   );
 };
