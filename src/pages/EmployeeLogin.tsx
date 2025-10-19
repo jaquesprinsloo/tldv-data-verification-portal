@@ -38,31 +38,26 @@ const EmployeeLogin = () => {
         return;
       }
 
-      // Look up employee to get their email
-      const { data: employeeData, error: employeeError } = await supabase
-        .from("employees")
-        .select("id, user_id, email, employment_status")
-        .eq("employee_number", formData.employeeNumber)
-        .eq("id_number", formData.idNumber)
-        .eq("employment_status", "active")
-        .maybeSingle();
+      // Verify employee credentials via edge function (bypasses RLS)
+      const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
+        'verify-employee-login',
+        {
+          body: {
+            employeeNumber: formData.employeeNumber,
+            idNumber: formData.idNumber,
+          },
+        }
+      );
 
-      if (employeeError || !employeeData) {
+      if (verifyError || !verifyData?.email) {
         toast.error("Invalid credentials");
-        setLoading(false);
-        return;
-      }
-
-      // Check if user has completed registration
-      if (!employeeData.user_id || !employeeData.email) {
-        toast.error("Please complete registration first");
         setLoading(false);
         return;
       }
 
       // Sign in with email and password
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: employeeData.email,
+        email: verifyData.email,
         password: formData.password,
       });
 
