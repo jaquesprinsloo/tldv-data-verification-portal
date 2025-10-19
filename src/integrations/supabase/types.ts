@@ -116,6 +116,7 @@ export type Database = {
           dismissal_document_url: string | null
           dismissal_reason: string | null
           dismissed_at: string | null
+          email: string | null
           employee_number: string
           employment_status: Database["public"]["Enums"]["employment_status"]
           id: string
@@ -133,6 +134,7 @@ export type Database = {
           dismissal_document_url?: string | null
           dismissal_reason?: string | null
           dismissed_at?: string | null
+          email?: string | null
           employee_number: string
           employment_status?: Database["public"]["Enums"]["employment_status"]
           id?: string
@@ -150,6 +152,7 @@ export type Database = {
           dismissal_document_url?: string | null
           dismissal_reason?: string | null
           dismissed_at?: string | null
+          email?: string | null
           employee_number?: string
           employment_status?: Database["public"]["Enums"]["employment_status"]
           id?: string

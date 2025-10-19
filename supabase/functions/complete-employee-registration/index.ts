@@ -184,10 +184,10 @@ serve(async (req) => {
         console.log('Auth user created successfully');
       }
 
-      // Link employee to user
+      // Link employee to user and store email
       const { error: linkError } = await supabaseAdmin
         .from('employees')
-        .update({ user_id: userId })
+        .update({ user_id: userId, email: email })
         .eq('id', employee_id);
 
       if (linkError) {

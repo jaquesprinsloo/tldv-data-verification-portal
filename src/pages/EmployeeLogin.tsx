@@ -41,7 +41,7 @@ const EmployeeLogin = () => {
       // Look up employee to get their email
       const { data: employeeData, error: employeeError } = await supabase
         .from("employees")
-        .select("id, user_id, employment_status")
+        .select("id, user_id, email, employment_status")
         .eq("employee_number", formData.employeeNumber)
         .eq("id_number", formData.idNumber)
         .eq("employment_status", "active")
@@ -53,33 +53,27 @@ const EmployeeLogin = () => {
         return;
       }
 
-      // Get the user's email from invitations or auth
-      if (employeeData.user_id) {
-        const { data: userData } = await supabase.auth.admin.getUserById(employeeData.user_id);
-        if (!userData.user?.email) {
-          toast.error("Unable to find account email");
-          setLoading(false);
-          return;
-        }
-
-        // Sign in with email and password
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: userData.user.email,
-          password: formData.password,
-        });
-
-        if (signInError) {
-          toast.error("Invalid password");
-          setLoading(false);
-          return;
-        }
-
-        toast.success("Login successful");
-        navigate("/employee/submit");
-      } else {
+      // Check if user has completed registration
+      if (!employeeData.user_id || !employeeData.email) {
         toast.error("Please complete registration first");
         setLoading(false);
+        return;
       }
+
+      // Sign in with email and password
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: employeeData.email,
+        password: formData.password,
+      });
+
+      if (signInError) {
+        toast.error("Invalid password");
+        setLoading(false);
+        return;
+      }
+
+      toast.success("Login successful");
+      navigate("/employee/submit");
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Login failed. Please try again.");
