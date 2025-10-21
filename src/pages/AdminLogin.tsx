@@ -17,13 +17,27 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isResetPassword, setIsResetPassword] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      if (isSignUp) {
+      if (isResetPassword) {
+        // Password reset flow
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/admin/login`,
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: "Password Reset Email Sent",
+          description: "Check your email for the password reset link.",
+        });
+        setIsResetPassword(false);
+      } else if (isSignUp) {
         // Sign up flow
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -74,7 +88,7 @@ const AdminLogin = () => {
       }
     } catch (error: any) {
       toast({
-        title: isSignUp ? "Sign Up Failed" : "Login Failed",
+        title: isResetPassword ? "Reset Failed" : (isSignUp ? "Sign Up Failed" : "Login Failed"),
         description: error.message || "Please check your credentials.",
         variant: "destructive",
       });
@@ -99,7 +113,7 @@ const AdminLogin = () => {
           <CardHeader className="text-center">
             <CardTitle className="text-3xl font-bold text-white">Admin Portal</CardTitle>
             <CardDescription className="text-gray-300">
-              {isSignUp ? "Create your admin account" : "Enter your credentials to access the portal"}
+              {isResetPassword ? "Reset your password" : (isSignUp ? "Create your admin account" : "Enter your credentials to access the portal")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -117,38 +131,56 @@ const AdminLogin = () => {
                   className="bg-black/50 border-red-600/50 text-white placeholder:text-gray-500 focus:border-red-500"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-white">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    disabled={loading}
-                    className="bg-black/50 border-red-600/50 text-white placeholder:text-gray-500 focus:border-red-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+              {!isResetPassword && (
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-white">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="bg-black/50 border-red-600/50 text-white placeholder:text-gray-500 focus:border-red-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
               <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white" disabled={loading}>
-                {loading ? (isSignUp ? "Creating Account..." : "Signing in...") : (isSignUp ? "Sign Up" : "Sign In")}
+                {loading 
+                  ? (isResetPassword ? "Sending Reset Link..." : (isSignUp ? "Creating Account..." : "Signing in...")) 
+                  : (isResetPassword ? "Send Reset Link" : (isSignUp ? "Sign Up" : "Sign In"))
+                }
               </Button>
+              {!isResetPassword && (
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  className="w-full text-white hover:text-red-500" 
+                  onClick={() => setIsSignUp(!isSignUp)}
+                >
+                  {isSignUp ? "Already have an account? Sign In" : "Need an account? Sign Up"}
+                </Button>
+              )}
               <Button 
                 type="button" 
-                variant="ghost" 
-                className="w-full text-white hover:text-red-500" 
-                onClick={() => setIsSignUp(!isSignUp)}
+                variant="link" 
+                className="w-full text-gray-400 hover:text-red-500" 
+                onClick={() => {
+                  setIsResetPassword(!isResetPassword);
+                  setIsSignUp(false);
+                }}
               >
-                {isSignUp ? "Already have an account? Sign In" : "Need an account? Sign Up"}
+                {isResetPassword ? "Back to Sign In" : "Forgot Password?"}
               </Button>
             </form>
           </CardContent>
