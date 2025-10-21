@@ -171,6 +171,12 @@ serve(async (req) => {
           if (existingAuthUser) {
             userId = existingAuthUser.id;
             console.log('Found existing auth user');
+            // Ensure the password is updated to the one chosen during registration
+            const { error: updatePasswordError } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
+            if (updatePasswordError) {
+              console.error('Failed to update password for existing user', updatePasswordError);
+              throw updatePasswordError;
+            }
           } else {
             console.error('User authentication conflict');
             throw new Error('Unable to complete registration. Please contact support.');
@@ -198,6 +204,14 @@ serve(async (req) => {
       console.log('Employee linked successfully');
     } else {
       console.log('Employee already linked');
+      // Update the password to the one chosen during registration
+      if (userId) {
+        const { error: updatePwdLinkedErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { password });
+        if (updatePwdLinkedErr) {
+          console.error('Failed to update password for linked user', updatePwdLinkedErr);
+          throw updatePwdLinkedErr;
+        }
+      }
       
       // Ensure email is stored even if already linked
       await supabaseAdmin

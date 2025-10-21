@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     // Look up employee with service role (bypasses RLS)
     const { data: employeeData, error: employeeError } = await supabaseAdmin
       .from('employees')
-      .select('id, email, employment_status')
+      .select('id, email, employment_status, user_id')
       .eq('employee_number', employeeNumber)
       .eq('id_number', idNumber)
       .eq('employment_status', 'active')
@@ -90,8 +90,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!employeeData || !employeeData.email) {
-      console.log('Invalid credentials or employee not registered');
+    if (!employeeData) {
+      console.log('Invalid credentials or employee not found');
+      return new Response(
+        JSON.stringify({ error: 'Invalid credentials' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Prefer auth user's email if linked
+    let resolvedEmail: string | null = employeeData.email as string | null;
+
+    if ((employeeData as any).user_id) {
+      const { data: userResp, error: getUserErr } = await supabaseAdmin.auth.admin.getUserById((employeeData as any).user_id);
+      if (!getUserErr && userResp?.user?.email) {
+        resolvedEmail = userResp.user.email;
+      }
+    }
+
+    if (!resolvedEmail) {
+      console.log('No email found for employee');
       return new Response(
         JSON.stringify({ error: 'Invalid credentials' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -100,7 +118,7 @@ Deno.serve(async (req) => {
 
     console.log('Employee credentials verified successfully');
     return new Response(
-      JSON.stringify({ email: employeeData.email }),
+      JSON.stringify({ email: resolvedEmail }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
