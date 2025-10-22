@@ -9,6 +9,7 @@ import EmployeeAuth from "./pages/EmployeeAuth";
 import EmployeeRegister from "./pages/EmployeeRegister";
 import EmployeeLogin from "./pages/EmployeeLogin";
 import AdminLogin from "./pages/AdminLogin";
+import AdminResetPassword from "./pages/AdminResetPassword";
 import AdminPortalDashboard from "./pages/AdminPortalDashboard";
 import DataEmployeeManagement from "./pages/DataEmployeeManagement";
 import PolygraphVetting from "./pages/PolygraphVetting";
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/employee/register" element={<EmployeeRegister />} />
           <Route path="/employee/submit" element={<EmployeeDashboard />} />
           <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/reset-password" element={<AdminResetPassword />} />
           <Route path="/admin/portal" element={<AdminPortalDashboard />} />
           <Route path="/admin/data-employee-management" element={<DataEmployeeManagement />} />
           <Route path="/admin/polygraph-vetting" element={<PolygraphVetting />} />
