@@ -34,15 +34,14 @@ const AdminDashboard = () => {
           return;
         }
 
-        // Verify admin role
+        // Verify admin or master_admin role
         const { data: roleData, error: roleError } = await supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", user.id)
-          .eq("role", "admin")
-          .single();
+          .in("role", ["admin", "master_admin"]);
 
-        if (roleError || !roleData) {
+        if (roleError || !roleData || roleData.length === 0) {
           toast({
             title: "Access Denied",
             description: "You do not have administrator privileges.",
