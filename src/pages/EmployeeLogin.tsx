@@ -67,6 +67,18 @@ const EmployeeLogin = () => {
         return;
       }
 
+      // Link employee record to authenticated user (ensures Dashboard access)
+      const { error: linkError } = await supabase.functions.invoke('link-employee-user', {
+        body: {
+          employeeNumber: formData.employeeNumber,
+          idNumber: formData.idNumber,
+        },
+      });
+      if (linkError) {
+        console.warn('Link employee warning:', linkError);
+        // We still proceed; if already linked, this can return 409
+      }
+
       toast.success("Login successful");
       navigate("/employee/submit");
     } catch (error) {
