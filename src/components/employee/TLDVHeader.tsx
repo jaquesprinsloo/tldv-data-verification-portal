@@ -1,19 +1,18 @@
-import tldvLogo from "@/assets/tldv-logo-primary.png";
+import tldvIcon from "@/assets/tldv-icon-red.jpg";
 
 const TLDVHeader = () => {
   return (
-    <header className="bg-background border-b shadow-sm py-4 sm:py-6">
+    <header className="bg-black py-4 sm:py-6">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-center sm:justify-start">
           <div className="flex items-center gap-3 sm:gap-4">
             <img 
-              src={tldvLogo} 
+              src={tldvIcon} 
               alt="TLDV Logo" 
-              className="h-10 w-auto sm:h-12"
+              className="h-10 w-10 sm:h-12 sm:w-12 object-contain"
             />
-            <div className="border-l pl-3 sm:pl-4">
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground">TLDV</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">Data Verification Portal</p>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-white">Data Verification Portal</h1>
             </div>
           </div>
         </div>
