@@ -653,14 +653,8 @@ export type Database = {
         Args: { _employee_number: string }
         Returns: boolean
       }
-      cleanup_expired_invitation_locks: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      cleanup_old_audit_trail: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      cleanup_expired_invitation_locks: { Args: never; Returns: undefined }
+      cleanup_old_audit_trail: { Args: never; Returns: undefined }
       constant_time_compare: {
         Args: { a: string; b: string }
         Returns: boolean
@@ -681,10 +675,7 @@ export type Database = {
           is_primary_assignment: boolean
         }[]
       }
-      get_master_admin_email: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_master_admin_email: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -692,29 +683,37 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_master_admin: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
+      is_master_admin: { Args: { _user_id: string }; Returns: boolean }
       link_employee_to_user: {
         Args: { _employee_id: string; _user_id: string }
         Returns: boolean
       }
-      validate_invitation_token: {
-        Args:
-          | {
+      validate_invitation_token:
+        | {
+            Args: {
               _employee_number: string
               _id_number: string
               _otp: string
               _token: string
             }
-          | { _employee_number: string; _id_number: string; _token: string }
-        Returns: {
-          email: string
-          employee_id: string
-          is_valid: boolean
-        }[]
-      }
+            Returns: {
+              email: string
+              employee_id: string
+              is_valid: boolean
+            }[]
+          }
+        | {
+            Args: {
+              _employee_number: string
+              _id_number: string
+              _token: string
+            }
+            Returns: {
+              email: string
+              employee_id: string
+              is_valid: boolean
+            }[]
+          }
       validate_invitation_token_and_create_user: {
         Args: {
           _email: string
