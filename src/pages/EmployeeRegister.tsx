@@ -183,7 +183,7 @@ const EmployeeRegister = () => {
     <div className="min-h-screen bg-background">
       <TLDVHeader />
       <div className="flex items-center justify-center p-4 mt-8">
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md border-0 shadow-none">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Employee Registration</CardTitle>
             <CardDescription>

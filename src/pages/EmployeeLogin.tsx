@@ -93,7 +93,7 @@ const EmployeeLogin = () => {
       <TLDVHeader />
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-md mx-auto">
-          <Card>
+          <Card className="border-0 shadow-none">
             <CardHeader>
               <CardTitle>Employee Login</CardTitle>
               <CardDescription>

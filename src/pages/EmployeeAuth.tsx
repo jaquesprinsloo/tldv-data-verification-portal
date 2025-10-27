@@ -210,7 +210,7 @@ const EmployeeAuth = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <TLDVHeader />
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[calc(100vh-80px)]">
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md border-0 shadow-none">
           <CardHeader>
             <CardTitle>Employee Registration</CardTitle>
             <CardDescription>
