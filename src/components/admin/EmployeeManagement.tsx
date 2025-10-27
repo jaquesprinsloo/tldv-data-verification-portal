@@ -8,8 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Copy, Upload, Download, Eye, Mail, Store, Users, Briefcase } from "lucide-react";
+import { UserPlus, Trash2, Copy, Upload, Download, Eye, Mail, Store, Users, Briefcase, History } from "lucide-react";
 import InviteEmployeeDialog from "./InviteEmployeeDialog";
+import AuditHistoryDialog from "./AuditHistoryDialog";
 import { DismissEmployeeDialog } from "./DismissEmployeeDialog";
 import { StoreManagementDialog } from "./StoreManagementDialog";
 import { MultiStoreAssignmentDialog } from "./MultiStoreAssignmentDialog";
@@ -80,6 +81,7 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
   const [bulkStatusType, setBulkStatusType] = useState<"employed" | "dismissed" | "retrenched">("employed");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(new Set());
   const [employeeStatuses, setEmployeeStatuses] = useState<Map<string, string>>(new Map());
+  const [auditHistoryOpen, setAuditHistoryOpen] = useState(false);
   const [formData, setFormData] = useState({
     employeeNumber: "",
     idNumber: "",
@@ -577,10 +579,16 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
                 View employee records and submission statuses
               </CardDescription>
             </div>
-            <Button onClick={handleCopySubmissionLink} variant="outline">
-              <Copy className="h-4 w-4 mr-2" />
-              Copy Submission Link
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleCopySubmissionLink} variant="outline">
+                <Copy className="h-4 w-4 mr-2" />
+                Copy Submission Link
+              </Button>
+              <Button onClick={() => setAuditHistoryOpen(true)} variant="outline">
+                <History className="h-4 w-4 mr-2" />
+                View History
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -913,6 +921,11 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
         employeeIds={Array.from(selectedEmployeeIds)}
         statusType={bulkStatusType}
         onSuccess={handleStatusSuccess}
+      />
+
+      <AuditHistoryDialog
+        open={auditHistoryOpen}
+        onOpenChange={setAuditHistoryOpen}
       />
     </div>
   );
