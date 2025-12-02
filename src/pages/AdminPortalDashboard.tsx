@@ -10,7 +10,10 @@ import { useQuery } from "@tanstack/react-query";
 
 const AdminPortalDashboard = () => {
   const navigate = useNavigate();
-  const [isAnimating, setIsAnimating] = useState(true);
+  
+  // Check if animation has already played this session
+  const hasSeenAnimation = sessionStorage.getItem('portal_animation_played') === 'true';
+  const [isAnimating, setIsAnimating] = useState(!hasSeenAnimation);
   const [isExiting, setIsExiting] = useState(false);
   const [userName, setUserName] = useState("");
 
@@ -69,13 +72,22 @@ const AdminPortalDashboard = () => {
 
     checkAuth();
 
-    // Animation timer - matches full animation sequence (2s scanline + 2s logo fade in + 1.5s hold + 1s fade out = 6.5s)
-    const timer = setTimeout(() => setIsAnimating(false), 6500);
-    return () => clearTimeout(timer);
-  }, [navigate]);
+    // Only run animation timer if animation hasn't been seen
+    if (!hasSeenAnimation) {
+      // Animation timer - matches full animation sequence (2s scanline + 2s logo fade in + 1.5s hold + 1s fade out = 6.5s)
+      const timer = setTimeout(() => {
+        setIsAnimating(false);
+        sessionStorage.setItem('portal_animation_played', 'true');
+      }, 6500);
+      return () => clearTimeout(timer);
+    }
+  }, [navigate, hasSeenAnimation]);
 
   const handleSignOut = async () => {
     setIsExiting(true);
+    
+    // Clear the animation flag so it plays on next login
+    sessionStorage.removeItem('portal_animation_played');
     
     // Wait for exit animation to complete
     setTimeout(async () => {
