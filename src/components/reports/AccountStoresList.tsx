@@ -44,10 +44,7 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
   const [selectedSubAccountId, setSelectedSubAccountId] = useState("");
   const [newSubAccount, setNewSubAccount] = useState({
     name: "",
-    code: "",
-    address: "",
-    town: "",
-    province: ""
+    address: ""
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -144,16 +141,14 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
     }
 
     try {
-      const code = newSubAccount.code || generateCode(newSubAccount.name);
+      const code = generateCode(newSubAccount.name);
       
       const { error } = await supabase
         .from("stores")
         .insert([{
           store_name: newSubAccount.name,
           store_code: code,
-          street_name: newSubAccount.address,
-          town: newSubAccount.town || null,
-          province: newSubAccount.province || null,
+          street_name: newSubAccount.address || null,
           account_id: account.id
         }]);
 
@@ -161,7 +156,7 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
 
       toast.success("Sub account created successfully");
       setCreateDialogOpen(false);
-      setNewSubAccount({ name: "", code: "", address: "", town: "", province: "" });
+      setNewSubAccount({ name: "", address: "" });
       fetchSubAccounts();
     } catch (error: any) {
       console.error("Error creating sub account:", error);
@@ -193,9 +188,6 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
         const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
         const nameIndex = headers.findIndex(h => h.includes("name") || h.includes("sub account"));
         const addressIndex = headers.findIndex(h => h.includes("address"));
-        const townIndex = headers.findIndex(h => h.includes("town") || h.includes("city"));
-        const provinceIndex = headers.findIndex(h => h.includes("province") || h.includes("state"));
-        const codeIndex = headers.findIndex(h => h.includes("code"));
 
         if (nameIndex === -1) {
           toast.error("CSV must have a 'Name' or 'Sub Account Name' column");
@@ -210,16 +202,10 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
           
           if (!name) continue;
 
-          const code = codeIndex !== -1 && values[codeIndex] 
-            ? values[codeIndex] 
-            : generateCode(name);
-
           subAccountsToInsert.push({
             store_name: name,
-            store_code: code,
+            store_code: generateCode(name),
             street_name: addressIndex !== -1 ? values[addressIndex] || null : null,
-            town: townIndex !== -1 ? values[townIndex] || null : null,
-            province: provinceIndex !== -1 ? values[provinceIndex] || null : null,
             account_id: account.id
           });
         }
@@ -250,10 +236,10 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
   };
 
   const handleDownloadTemplate = () => {
-    const headers = ["Sub Account Name", "Code", "Address", "Town", "Province"];
+    const headers = ["Sub Account Name", "Address"];
     const sampleData = [
-      ["Branch Johannesburg", "BJH001", "123 Main Street", "Johannesburg", "Gauteng"],
-      ["Branch Cape Town", "BCT001", "456 Long Street", "Cape Town", "Western Cape"]
+      ["Branch Johannesburg", "123 Main Street, Johannesburg, Gauteng"],
+      ["Branch Cape Town", "456 Long Street, Cape Town, Western Cape"]
     ];
     
     const csvContent = [headers.join(","), ...sampleData.map(row => row.join(","))].join("\n");
@@ -264,6 +250,20 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
     a.download = "sub_accounts_template.csv";
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const getGoogleMapsUrl = (address: string) => {
+    const encodedAddress = encodeURIComponent(address);
+    return `https://www.google.com/maps/embed/v1/place?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}&q=${encodedAddress}&zoom=15`;
+  };
+
+  const getFullAddress = (subAccount: SubAccount) => {
+    const parts = [
+      subAccount.street_name,
+      subAccount.town,
+      subAccount.province
+    ].filter(Boolean);
+    return parts.join(", ");
   };
 
   if (loading) {
@@ -328,38 +328,12 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
                     />
                   </div>
                   <div>
-                    <Label>Code (optional)</Label>
-                    <Input
-                      value={newSubAccount.code}
-                      onChange={(e) => setNewSubAccount({ ...newSubAccount, code: e.target.value })}
-                      placeholder="Auto-generated if empty"
-                    />
-                  </div>
-                  <div>
-                    <Label>Address</Label>
+                    <Label>Physical Address</Label>
                     <Input
                       value={newSubAccount.address}
                       onChange={(e) => setNewSubAccount({ ...newSubAccount, address: e.target.value })}
-                      placeholder="e.g., 123 Main Street"
+                      placeholder="e.g., 123 Main Street, Johannesburg, Gauteng"
                     />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Town</Label>
-                      <Input
-                        value={newSubAccount.town}
-                        onChange={(e) => setNewSubAccount({ ...newSubAccount, town: e.target.value })}
-                        placeholder="e.g., Johannesburg"
-                      />
-                    </div>
-                    <div>
-                      <Label>Province</Label>
-                      <Input
-                        value={newSubAccount.province}
-                        onChange={(e) => setNewSubAccount({ ...newSubAccount, province: e.target.value })}
-                        placeholder="e.g., Gauteng"
-                      />
-                    </div>
                   </div>
                   <Button onClick={handleCreateSubAccount} className="w-full">
                     Create Sub Account
@@ -442,15 +416,27 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
                   {subAccount.store_name}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <p className="text-sm text-muted-foreground">Code: {subAccount.store_code}</p>
-                {subAccount.town && (
-                  <p className="text-sm flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    {subAccount.town}, {subAccount.province}
-                  </p>
+              <CardContent className="space-y-3">
+                {getFullAddress(subAccount) && (
+                  <>
+                    <p className="text-sm flex items-center gap-1 text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      {getFullAddress(subAccount)}
+                    </p>
+                    <div className="w-full h-24 rounded-md overflow-hidden border">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        style={{ border: 0 }}
+                        loading="lazy"
+                        allowFullScreen
+                        referrerPolicy="no-referrer-when-downgrade"
+                        src={getGoogleMapsUrl(getFullAddress(subAccount))}
+                      />
+                    </div>
+                  </>
                 )}
-                <div className="flex items-center gap-4 mt-3 pt-3 border-t">
+                <div className="flex items-center gap-4 pt-3 border-t">
                   <div className="flex items-center gap-1 text-sm">
                     <Users className="h-4 w-4 text-muted-foreground" />
                     <span>{subAccount.employees_count} Employees</span>
