@@ -96,12 +96,11 @@ serve(async (req) => {
       throw profileError;
     }
 
-    // Assign admin role
+    // Assign admin role using the database function
     const { error: roleInsertError } = await supabaseAdmin
-      .from('user_roles')
-      .insert({
-        user_id: newUser.user.id,
-        role: 'admin'
+      .rpc('assign_user_role', {
+        _user_id: newUser.user.id,
+        _role: 'admin'
       });
 
     if (roleInsertError) {

@@ -952,6 +952,13 @@ export type Database = {
         }
         Returns: string
       }
+      assign_user_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       can_access_submission: {
         Args: { _employee_id: string }
         Returns: boolean
@@ -983,6 +990,10 @@ export type Database = {
         }[]
       }
       get_master_admin_email: { Args: never; Returns: string }
+      get_user_roles: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"][]
+      }
       has_account_access: {
         Args: { _account_id: string; _user_id: string }
         Returns: boolean
@@ -997,6 +1008,13 @@ export type Database = {
       is_master_admin: { Args: { _user_id: string }; Returns: boolean }
       link_employee_to_user: {
         Args: { _employee_id: string; _user_id: string }
+        Returns: boolean
+      }
+      remove_user_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
         Returns: boolean
       }
       validate_invitation_token:
