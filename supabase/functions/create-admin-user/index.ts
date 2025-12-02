@@ -29,35 +29,10 @@ serve(async (req) => {
       throw new Error("No authorization header");
     }
 
-    // Create Supabase client with user's token to verify they're master admin
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    );
+    // Extract the token from the header
+    const token = authHeader.replace('Bearer ', '');
 
-    // Verify user is master admin
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
-    const { data: roleData, error: roleError } = await supabaseClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'master_admin')
-      .single();
-
-    if (roleError || !roleData) {
-      throw new Error("Not authorized - master admin only");
-    }
-
-    // Create admin client for user creation
+    // Create admin client for operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -68,6 +43,26 @@ serve(async (req) => {
         }
       }
     );
+
+    // Verify the user from the token
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+    
+    if (userError || !user) {
+      console.error("User verification error:", userError);
+      throw new Error("Not authenticated");
+    }
+
+    // Check if the user is a master admin
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'master_admin')
+      .single();
+
+    if (roleError || !roleData) {
+      throw new Error("Not authorized - master admin only");
+    }
 
     // Create the new user
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
