@@ -47,6 +47,17 @@ serve(async (req) => {
 {
   "invoice_number": "string - the invoice number",
   "invoice_date": "string - date in YYYY-MM-DD format",
+  "billing_info": {
+    "full_name": "string - the full company/business name as it appears (e.g., 'Cash Crusaders Stores (Pty) Ltd t/a Cash Crusaders Acornhoek')",
+    "trading_as_name": "string - the 'trading as' or 't/a' name if present (e.g., 'Cash Crusaders Acornhoek'). This is usually after 't/a' or 'trading as'",
+    "branch_name": "string - just the branch/location name without company prefix (e.g., 'Acornhoek' from 'Cash Crusaders Acornhoek')",
+    "shop_number": "string - shop/unit number if present (e.g., 'Shop 9')",
+    "mall_name": "string - mall or shopping center name if present (e.g., 'Acornhoek Mall')",
+    "street_address": "string - street address (e.g., 'R40 & Green Valley Road, Greenvalley')",
+    "town": "string - town or city name (e.g., 'Acornhoek')",
+    "postal_code": "string - postal code (e.g., '1360')",
+    "vat_number": "string - VAT registration number if present"
+  },
   "subtotal": number - subtotal amount before tax (excluding VAT),
   "vat_amount": number - VAT/tax amount,
   "discount_amount": number - any discount amount (0 if none),
@@ -68,7 +79,11 @@ serve(async (req) => {
   ]
 }
 
-Important:
+IMPORTANT INSTRUCTIONS:
+- Look at the TOP of the invoice for the BILLING ADDRESS or "BILL TO" section - this identifies which store/branch the invoice is for
+- The billing address typically has the format: "Company Name t/a Branch Name" followed by address details
+- "t/a" means "trading as" - extract the name after "t/a" as the trading_as_name
+- Extract the last word/location from the trading name as the branch_name (e.g., "Acornhoek" from "Cash Crusaders Acornhoek")
 - All amounts should be numbers (not strings)
 - If you can't find a value, use 0 for numbers or empty string for text
 - Categorize line items: polygraph examinations, risk assessments, travel/transport, tolls, accommodation, or other

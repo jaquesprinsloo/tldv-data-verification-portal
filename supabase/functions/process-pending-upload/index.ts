@@ -6,6 +6,122 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to normalize strings for comparison
+function normalizeString(str: string | null | undefined): string {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "") // Remove special characters
+    .trim();
+}
+
+// Helper function to extract branch name from full store name
+function extractBranchName(storeName: string): string {
+  // Remove common prefixes like "Cash Crusaders Stores PTY (LTD) t/a Cash Crusaders"
+  const patterns = [
+    /cash\s*crusaders?\s*stores?\s*\(?pty\)?\s*\(?ltd\)?\s*t\/a\s*cash\s*crusaders?\s*/gi,
+    /cash\s*crusaders?\s*/gi,
+    /t\/a\s*/gi,
+  ];
+  
+  let result = storeName;
+  for (const pattern of patterns) {
+    result = result.replace(pattern, "").trim();
+  }
+  return result;
+}
+
+// Calculate match score between invoice billing info and a store
+function calculateMatchScore(
+  billingInfo: {
+    trading_as_name?: string;
+    branch_name?: string;
+    mall_name?: string;
+    town?: string;
+    postal_code?: string;
+    full_name?: string;
+  },
+  store: {
+    store_name: string;
+    store_code: string;
+    town: string | null;
+    center_mall_name: string | null;
+    postal_code: string | null;
+  }
+): { score: number; reasons: string[] } {
+  let score = 0;
+  const reasons: string[] = [];
+  
+  const storeBranchName = extractBranchName(store.store_name);
+  const normalizedStoreName = normalizeString(store.store_name);
+  const normalizedStoreBranch = normalizeString(storeBranchName);
+  
+  // Check trading_as_name match
+  if (billingInfo.trading_as_name) {
+    const normalizedTradingAs = normalizeString(billingInfo.trading_as_name);
+    const tradingAsBranch = normalizeString(extractBranchName(billingInfo.trading_as_name));
+    
+    if (normalizedStoreName.includes(normalizedTradingAs) || normalizedTradingAs.includes(normalizedStoreName)) {
+      score += 40;
+      reasons.push("Trading name matches store name");
+    } else if (normalizedStoreBranch === tradingAsBranch) {
+      score += 35;
+      reasons.push("Branch name matches");
+    } else if (normalizedStoreBranch.includes(tradingAsBranch) || tradingAsBranch.includes(normalizedStoreBranch)) {
+      score += 25;
+      reasons.push("Partial branch name match");
+    }
+  }
+  
+  // Check branch_name match
+  if (billingInfo.branch_name) {
+    const normalizedBranch = normalizeString(billingInfo.branch_name);
+    if (normalizedStoreBranch === normalizedBranch) {
+      score += 30;
+      reasons.push("Branch location matches exactly");
+    } else if (normalizedStoreBranch.includes(normalizedBranch) || normalizedBranch.includes(normalizedStoreBranch)) {
+      score += 20;
+      reasons.push("Branch location partial match");
+    }
+  }
+  
+  // Check mall/center name match
+  if (billingInfo.mall_name && store.center_mall_name) {
+    const normalizedMall = normalizeString(billingInfo.mall_name);
+    const normalizedStoreMall = normalizeString(store.center_mall_name);
+    if (normalizedMall === normalizedStoreMall) {
+      score += 15;
+      reasons.push("Mall name matches");
+    } else if (normalizedMall.includes(normalizedStoreMall) || normalizedStoreMall.includes(normalizedMall)) {
+      score += 10;
+      reasons.push("Partial mall name match");
+    }
+  }
+  
+  // Check town match
+  if (billingInfo.town && store.town) {
+    const normalizedTown = normalizeString(billingInfo.town);
+    const normalizedStoreTown = normalizeString(store.town);
+    if (normalizedTown === normalizedStoreTown) {
+      score += 10;
+      reasons.push("Town matches");
+    } else if (normalizedTown.includes(normalizedStoreTown) || normalizedStoreTown.includes(normalizedTown)) {
+      score += 5;
+      reasons.push("Partial town match");
+    }
+  }
+  
+  // Check postal code match
+  if (billingInfo.postal_code && store.postal_code) {
+    if (billingInfo.postal_code === store.postal_code) {
+      score += 5;
+      reasons.push("Postal code matches");
+    }
+  }
+  
+  return { score, reasons };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -39,10 +155,10 @@ serve(async (req) => {
       });
     }
 
-    // Get all stores for this account
+    // Get all stores for this account with full address details
     const { data: stores, error: storesError } = await supabase
       .from("stores")
-      .select("id, store_name, store_code, town, center_mall_name")
+      .select("id, store_name, store_code, town, center_mall_name, postal_code, shop_number, street_name")
       .eq("account_id", accountId);
 
     if (storesError) {
@@ -59,30 +175,43 @@ serve(async (req) => {
       code: s.store_code,
       town: s.town,
       mall: s.center_mall_name,
+      postal_code: s.postal_code,
+      shop_number: s.shop_number,
+      branch: extractBranchName(s.store_name),
     }));
 
     // Use AI to extract store name from the document
-    const systemPrompt = `You are a document analyzer. Your task is to:
-1. Extract the store/branch name from the uploaded document (invoice, report, etc.)
-2. Match it to one of the stores in the provided list
-3. Extract any other relevant data based on document type
+    const systemPrompt = `You are a document analyzer specialized in South African business invoices. Your task is to:
+1. Extract the BILLING ADDRESS information from the invoice - this is the store/branch the invoice is for
+2. Look for the "t/a" (trading as) name which indicates the specific branch
+3. Extract address details like mall name, town, postal code
+4. Match to one of the stores in the provided list
+5. Extract any other relevant data based on document type
 
 Document type: ${documentType}
 
-Available stores:
+Available stores (with branch names extracted):
 ${JSON.stringify(storeList, null, 2)}
 
-Respond using the extract_document_info function.`;
+IMPORTANT: The billing address typically appears at the top of invoices. Look for patterns like:
+- "Company Name (Pty) Ltd t/a Store Branch Name"
+- Shop number, Mall/Center name
+- Street address
+- Town/City
+- Postal code
+
+The branch name is the key identifier - match it to the 'branch' field in the store list.`;
 
     const userPrompt = `Analyze this document: ${fileName}
 File URL: ${fileUrl}
 
-Extract the store name and match it to one of the available stores. Also extract any relevant data like:
-- For invoices: invoice number, date, amounts
-- For polygraph reports: examination date, result, examiner name
-- For risk assessments: assessment date, result, assessor name
+1. First, find the BILLING ADDRESS section (usually "Bill To" or "Invoice To" at the top)
+2. Extract the store name after "t/a" or "trading as"
+3. Extract the branch/location name (the last part, like "Acornhoek" from "Cash Crusaders Acornhoek")
+4. Extract mall name, town, and postal code
+5. Match to the most similar store in the list
 
-If you cannot determine the store, set matched_store_id to null.`;
+Respond using the extract_document_info function.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -101,22 +230,39 @@ If you cannot determine the store, set matched_store_id to null.`;
             type: "function",
             function: {
               name: "extract_document_info",
-              description: "Extract document information and match to a store",
+              description: "Extract document billing information and match to a store",
               parameters: {
                 type: "object",
                 properties: {
+                  billing_info: {
+                    type: "object",
+                    description: "The billing address information from the document",
+                    properties: {
+                      full_name: { type: "string", description: "Full company/business name as it appears" },
+                      trading_as_name: { type: "string", description: "The name after 't/a' or 'trading as'" },
+                      branch_name: { type: "string", description: "Just the branch/location name (e.g., 'Acornhoek')" },
+                      mall_name: { type: "string", description: "Mall or shopping center name" },
+                      town: { type: "string", description: "Town or city" },
+                      postal_code: { type: "string", description: "Postal code" },
+                    },
+                  },
                   extracted_store_name: {
                     type: "string",
-                    description: "The store name as it appears in the document",
+                    description: "The full store name as it appears in the document billing section",
                   },
                   matched_store_id: {
                     type: "string",
-                    description: "The UUID of the matched store from the list, or null if no match",
+                    description: "The UUID of the best matched store from the list, or null if no good match",
                     nullable: true,
                   },
                   confidence_score: {
                     type: "number",
-                    description: "Confidence of the match from 0 to 1",
+                    description: "Confidence of the match from 0 to 1 (0.8+ for strong match, 0.5-0.8 for partial match)",
+                  },
+                  match_reasons: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "List of reasons why the store was matched",
                   },
                   extracted_data: {
                     type: "object",
@@ -133,7 +279,7 @@ If you cannot determine the store, set matched_store_id to null.`;
                     },
                   },
                 },
-                required: ["extracted_store_name", "confidence_score"],
+                required: ["extracted_store_name", "confidence_score", "billing_info"],
               },
             },
           },
@@ -185,6 +331,8 @@ If you cannot determine the store, set matched_store_id to null.`;
       extracted_store_name: null as string | null,
       matched_store_id: null as string | null,
       confidence_score: 0,
+      billing_info: {} as Record<string, string>,
+      match_reasons: [] as string[],
       extracted_data: {} as Record<string, unknown>,
     };
 
@@ -195,6 +343,25 @@ If you cannot determine the store, set matched_store_id to null.`;
         extractedInfo = JSON.parse(toolCall.function.arguments);
       } catch (e) {
         console.error("Error parsing AI response:", e);
+      }
+    }
+
+    // If AI didn't provide a match but we have billing info, try to match ourselves
+    if (!extractedInfo.matched_store_id && extractedInfo.billing_info && stores && stores.length > 0) {
+      let bestMatch = { storeId: null as string | null, score: 0, reasons: [] as string[] };
+      
+      for (const store of stores) {
+        const result = calculateMatchScore(extractedInfo.billing_info, store);
+        if (result.score > bestMatch.score) {
+          bestMatch = { storeId: store.id, score: result.score, reasons: result.reasons };
+        }
+      }
+      
+      // Only use the match if score is reasonable (at least 25 out of 100)
+      if (bestMatch.score >= 25) {
+        extractedInfo.matched_store_id = bestMatch.storeId;
+        extractedInfo.confidence_score = Math.min(bestMatch.score / 100, 0.95);
+        extractedInfo.match_reasons = bestMatch.reasons;
       }
     }
 
@@ -209,7 +376,11 @@ If you cannot determine the store, set matched_store_id to null.`;
         extracted_store_name: extractedInfo.extracted_store_name,
         matched_store_id: extractedInfo.matched_store_id,
         confidence_score: extractedInfo.confidence_score,
-        extracted_data: extractedInfo.extracted_data,
+        extracted_data: {
+          ...extractedInfo.extracted_data,
+          billing_info: extractedInfo.billing_info,
+          match_reasons: extractedInfo.match_reasons,
+        },
         uploaded_by: user.id,
         status: "pending",
       })
