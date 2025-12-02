@@ -9,15 +9,28 @@ const corsHeaders = {
 // Function to extract invoice data using AI
 async function extractInvoiceData(pdfUrl: string, lovableApiKey: string): Promise<Record<string, unknown> | null> {
   try {
+    console.log("Starting PDF download from:", pdfUrl);
+    
     // Download the PDF
     const fileResponse = await fetch(pdfUrl);
     if (!fileResponse.ok) {
-      console.error("Failed to download PDF:", fileResponse.status);
+      console.error("Failed to download PDF. Status:", fileResponse.status, "StatusText:", fileResponse.statusText);
       return null;
     }
     
     const arrayBuffer = await fileResponse.arrayBuffer();
-    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    console.log("PDF downloaded, size:", arrayBuffer.byteLength, "bytes");
+    
+    if (arrayBuffer.byteLength === 0) {
+      console.error("PDF file is empty");
+      return null;
+    }
+    
+    // Use Deno's standard base64 encoding
+    const { encode } = await import("https://deno.land/std@0.168.0/encoding/base64.ts");
+    const pdfBase64 = encode(arrayBuffer);
+    
+    console.log("PDF converted to base64, length:", pdfBase64.length);
 
     // Call AI to extract invoice data
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -90,24 +103,30 @@ IMPORTANT INSTRUCTIONS:
     });
 
     if (!response.ok) {
-      console.error("AI gateway error:", response.status);
+      const errorText = await response.text();
+      console.error("AI gateway error. Status:", response.status, "Response:", errorText);
       return null;
     }
 
     const aiResponse = await response.json();
+    console.log("AI Response received");
     const content = aiResponse.choices?.[0]?.message?.content;
 
     if (!content) {
-      console.error("No response from AI");
+      console.error("No content in AI response:", JSON.stringify(aiResponse));
       return null;
     }
+
+    console.log("AI content:", content.substring(0, 500));
 
     // Parse the JSON from the response
     const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
     const jsonStr = jsonMatch ? jsonMatch[1] : content;
-    return JSON.parse(jsonStr.trim());
+    const parsed = JSON.parse(jsonStr.trim());
+    console.log("Parsed invoice data - polygraph:", parsed.polygraph_amount, "travel:", parsed.travel_amount, "vat:", parsed.vat_amount);
+    return parsed;
   } catch (error) {
-    console.error("Error extracting invoice data:", error);
+    console.error("Error extracting invoice data:", error instanceof Error ? error.message : error);
     return null;
   }
 }
