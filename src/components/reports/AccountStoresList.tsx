@@ -3,10 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, MapPin, Building, Plus, Users, Upload, Download, FileText } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, MapPin, Building, Plus, Users, Upload, Download, FileText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 interface SubAccount {
@@ -46,6 +48,9 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
     name: "",
     address: ""
   });
+  const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(new Set());
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -305,20 +310,62 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
   };
 
   const handleDownloadTemplate = () => {
-    const headers = ["Sub Account Name", "Address"];
-    const sampleData = [
+    // Create Excel workbook with proper template
+    const wb = XLSX.utils.book_new();
+    const wsData = [
+      ["Sub Account Name", "Address"],
       ["Branch Johannesburg", "123 Main Street, Johannesburg, Gauteng"],
       ["Branch Cape Town", "456 Long Street, Cape Town, Western Cape"]
     ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
     
-    const csvContent = [headers.join(","), ...sampleData.map(row => row.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "sub_accounts_template.csv";
-    a.click();
-    window.URL.revokeObjectURL(url);
+    // Set column widths
+    ws['!cols'] = [{ wch: 30 }, { wch: 50 }];
+    
+    XLSX.utils.book_append_sheet(wb, ws, "Sub Accounts");
+    XLSX.writeFile(wb, "sub_accounts_template.xlsx");
+  };
+
+  const toggleSelectForDelete = (id: string) => {
+    const newSelected = new Set(selectedForDelete);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedForDelete(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedForDelete.size === subAccounts.length) {
+      setSelectedForDelete(new Set());
+    } else {
+      setSelectedForDelete(new Set(subAccounts.map(s => s.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedForDelete.size === 0) return;
+    
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("stores")
+        .delete()
+        .in("id", Array.from(selectedForDelete));
+
+      if (error) throw error;
+
+      toast.success(`Successfully deleted ${selectedForDelete.size} sub account(s)`);
+      setSelectedForDelete(new Set());
+      setDeleteDialogOpen(false);
+      fetchSubAccounts();
+    } catch (error: any) {
+      console.error("Error deleting sub accounts:", error);
+      toast.error(error.message || "Failed to delete sub accounts");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const getGoogleMapsUrl = (address: string) => {
@@ -454,6 +501,57 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
         )}
       </div>
 
+      {/* Selection toolbar */}
+      {canEdit && subAccounts.length > 0 && (
+        <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={selectedForDelete.size === subAccounts.length && subAccounts.length > 0}
+              onCheckedChange={toggleSelectAll}
+            />
+            <span className="text-sm text-muted-foreground">
+              {selectedForDelete.size > 0 
+                ? `${selectedForDelete.size} selected` 
+                : "Select all"}
+            </span>
+          </div>
+          {selectedForDelete.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Selected ({selectedForDelete.size})
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Sub Accounts</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedForDelete.size} sub account(s)? 
+              This action cannot be undone. Any employees assigned to these sub accounts 
+              will have their store assignment removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {subAccounts.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -476,11 +574,20 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
           {subAccounts.map((subAccount) => (
             <Card
               key={subAccount.id}
-              className="cursor-pointer hover:border-primary transition-colors"
+              className={`cursor-pointer hover:border-primary transition-colors ${
+                selectedForDelete.has(subAccount.id) ? "border-primary bg-primary/5" : ""
+              }`}
               onClick={() => onSelectStore(subAccount)}
             >
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg">
+                  {canEdit && (
+                    <Checkbox
+                      checked={selectedForDelete.has(subAccount.id)}
+                      onCheckedChange={() => toggleSelectForDelete(subAccount.id)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  )}
                   <Building className="h-5 w-5 text-primary" />
                   {subAccount.store_name}
                 </CardTitle>
