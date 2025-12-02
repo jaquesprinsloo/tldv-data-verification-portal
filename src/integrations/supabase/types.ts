@@ -426,6 +426,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          accommodation_amount: number | null
           created_at: string
           discount_amount: number
           extracted_data: Json | null
@@ -433,13 +434,19 @@ export type Database = {
           invoice_date: string
           invoice_number: string
           invoice_url: string | null
+          other_amount: number | null
+          polygraph_amount: number | null
+          risk_assessment_amount: number | null
           store_id: string
           subtotal: number
+          tolls_amount: number | null
           total_amount: number
+          travel_amount: number | null
           updated_at: string
           vat_amount: number
         }
         Insert: {
+          accommodation_amount?: number | null
           created_at?: string
           discount_amount?: number
           extracted_data?: Json | null
@@ -447,13 +454,19 @@ export type Database = {
           invoice_date: string
           invoice_number: string
           invoice_url?: string | null
+          other_amount?: number | null
+          polygraph_amount?: number | null
+          risk_assessment_amount?: number | null
           store_id: string
           subtotal?: number
+          tolls_amount?: number | null
           total_amount?: number
+          travel_amount?: number | null
           updated_at?: string
           vat_amount?: number
         }
         Update: {
+          accommodation_amount?: number | null
           created_at?: string
           discount_amount?: number
           extracted_data?: Json | null
@@ -461,9 +474,14 @@ export type Database = {
           invoice_date?: string
           invoice_number?: string
           invoice_url?: string | null
+          other_amount?: number | null
+          polygraph_amount?: number | null
+          risk_assessment_amount?: number | null
           store_id?: string
           subtotal?: number
+          tolls_amount?: number | null
           total_amount?: number
+          travel_amount?: number | null
           updated_at?: string
           vat_amount?: number
         }
