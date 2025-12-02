@@ -248,19 +248,30 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     }
   };
 
-  // Map extracted result to valid enum value
-  const mapOverallResult = (result: string | null | undefined): 'passed' | 'failed' | 'inconclusive' | null => {
-    if (!result) return null;
-    const lower = result.toLowerCase();
-    if (lower.includes('pass') || lower.includes('no deception') || lower.includes('ndi') || lower.includes('truthful')) {
-      return 'passed';
-    }
-    if (lower.includes('fail') || lower.includes('deception') || lower.includes('significant reaction') || lower.includes('di ') || lower.includes('sr ')) {
+  // Map overall result based on exam question findings
+  // SR (Significant Response) = fail, NSR (No Significant Response) = pass
+  // If ANY question has SR, overall result is failed
+  // All questions must have NSR for passed result
+  const mapOverallResult = (examQuestions: any[] | null | undefined): 'passed' | 'failed' | 'inconclusive' | null => {
+    if (!examQuestions || examQuestions.length === 0) return null;
+    
+    const findings = examQuestions.map(q => q.finding?.toUpperCase() || q.result?.toUpperCase() || '');
+    
+    // If any question has SR (Significant Response), it's failed
+    if (findings.some(f => f === 'SR')) {
       return 'failed';
     }
-    if (lower.includes('inconclusive') || lower.includes('inc')) {
+    
+    // If any question has INC (Inconclusive), it's inconclusive
+    if (findings.some(f => f === 'INC')) {
       return 'inconclusive';
     }
+    
+    // If all questions have NSR (No Significant Response), it's passed
+    if (findings.length > 0 && findings.every(f => f === 'NSR')) {
+      return 'passed';
+    }
+    
     return 'inconclusive'; // Default to inconclusive if unclear
   };
 
@@ -308,7 +319,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         email: extractedData.candidate?.email || null,
         physical_address: extractedData.candidate?.physicalAddress || null,
         position_applying_for: extractedData.candidate?.positionApplyingFor || null,
-        overall_result: mapOverallResult(extractedData.result?.overallResult),
+        overall_result: mapOverallResult(extractedData.examQuestions),
         examiner_notes: extractedData.result?.examinerNotes || null,
         status: "completed",
       };
