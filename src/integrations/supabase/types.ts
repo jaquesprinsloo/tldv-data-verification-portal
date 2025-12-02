@@ -605,6 +605,346 @@ export type Database = {
           },
         ]
       }
+      polygraph_admissions: {
+        Row: {
+          category: string
+          confirmed: boolean
+          created_at: string
+          details: Json | null
+          id: string
+          notes: string | null
+          report_id: string
+          time_window:
+            | Database["public"]["Enums"]["admission_time_window"]
+            | null
+        }
+        Insert: {
+          category: string
+          confirmed?: boolean
+          created_at?: string
+          details?: Json | null
+          id?: string
+          notes?: string | null
+          report_id: string
+          time_window?:
+            | Database["public"]["Enums"]["admission_time_window"]
+            | null
+        }
+        Update: {
+          category?: string
+          confirmed?: boolean
+          created_at?: string
+          details?: Json | null
+          id?: string
+          notes?: string | null
+          report_id?: string
+          time_window?:
+            | Database["public"]["Enums"]["admission_time_window"]
+            | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polygraph_admissions_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "polygraph_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polygraph_candidates: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          contact_number: string | null
+          created_at: string
+          email: string | null
+          employee_id: string | null
+          first_name: string
+          id: string
+          id_number: string
+          invitation_sent: boolean | null
+          invitation_sent_at: string | null
+          invitation_token: string | null
+          last_name: string
+          physical_address: string | null
+          position: string | null
+          rejection_reason: string | null
+          report_id: string
+          status: Database["public"]["Enums"]["polygraph_candidate_status"]
+          store_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          contact_number?: string | null
+          created_at?: string
+          email?: string | null
+          employee_id?: string | null
+          first_name: string
+          id?: string
+          id_number: string
+          invitation_sent?: boolean | null
+          invitation_sent_at?: string | null
+          invitation_token?: string | null
+          last_name: string
+          physical_address?: string | null
+          position?: string | null
+          rejection_reason?: string | null
+          report_id: string
+          status?: Database["public"]["Enums"]["polygraph_candidate_status"]
+          store_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          contact_number?: string | null
+          created_at?: string
+          email?: string | null
+          employee_id?: string | null
+          first_name?: string
+          id?: string
+          id_number?: string
+          invitation_sent?: boolean | null
+          invitation_sent_at?: string | null
+          invitation_token?: string | null
+          last_name?: string
+          physical_address?: string | null
+          position?: string | null
+          rejection_reason?: string | null
+          report_id?: string
+          status?: Database["public"]["Enums"]["polygraph_candidate_status"]
+          store_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polygraph_candidates_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polygraph_candidates_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "polygraph_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polygraph_candidates_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polygraph_exam_questions: {
+        Row: {
+          created_at: string
+          finding: Database["public"]["Enums"]["exam_question_finding"] | null
+          id: string
+          question_number: number
+          question_text: string
+          report_id: string
+          response: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          finding?: Database["public"]["Enums"]["exam_question_finding"] | null
+          id?: string
+          question_number: number
+          question_text: string
+          report_id: string
+          response?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          finding?: Database["public"]["Enums"]["exam_question_finding"] | null
+          id?: string
+          question_number?: number
+          question_text?: string
+          report_id?: string
+          response?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polygraph_exam_questions_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "polygraph_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polygraph_reports: {
+        Row: {
+          contact_number: string | null
+          created_at: string
+          email: string | null
+          examination_date: string
+          examiner_id: string | null
+          examiner_notes: string | null
+          first_name: string
+          id: string
+          id_number: string
+          last_name: string
+          overall_result:
+            | Database["public"]["Enums"]["polygraph_overall_result"]
+            | null
+          physical_address: string | null
+          position_applying_for: string | null
+          status: Database["public"]["Enums"]["polygraph_report_status"]
+          store_id: string | null
+          updated_at: string
+          vetting_types: Json | null
+        }
+        Insert: {
+          contact_number?: string | null
+          created_at?: string
+          email?: string | null
+          examination_date: string
+          examiner_id?: string | null
+          examiner_notes?: string | null
+          first_name: string
+          id?: string
+          id_number: string
+          last_name: string
+          overall_result?:
+            | Database["public"]["Enums"]["polygraph_overall_result"]
+            | null
+          physical_address?: string | null
+          position_applying_for?: string | null
+          status?: Database["public"]["Enums"]["polygraph_report_status"]
+          store_id?: string | null
+          updated_at?: string
+          vetting_types?: Json | null
+        }
+        Update: {
+          contact_number?: string | null
+          created_at?: string
+          email?: string | null
+          examination_date?: string
+          examiner_id?: string | null
+          examiner_notes?: string | null
+          first_name?: string
+          id?: string
+          id_number?: string
+          last_name?: string
+          overall_result?:
+            | Database["public"]["Enums"]["polygraph_overall_result"]
+            | null
+          physical_address?: string | null
+          position_applying_for?: string | null
+          status?: Database["public"]["Enums"]["polygraph_report_status"]
+          store_id?: string | null
+          updated_at?: string
+          vetting_types?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polygraph_reports_examiner_id_fkey"
+            columns: ["examiner_id"]
+            isOneToOne: false
+            referencedRelation: "examiners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polygraph_reports_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polygraph_suitability: {
+        Row: {
+          alcohol_details: string | null
+          breathing_trouble: boolean | null
+          created_at: string
+          diabetic: boolean | null
+          drug_use_details: string | null
+          enough_sleep: boolean | null
+          health_status: string | null
+          heart_conditions: boolean | null
+          hospitalized_details: string | null
+          hospitalized_recently: boolean | null
+          id: string
+          medication_details: string | null
+          medication_taken: boolean | null
+          pregnant: boolean | null
+          psychological_disorders: boolean | null
+          recent_alcohol_use: boolean | null
+          recent_drug_use: boolean | null
+          report_id: string
+          smoker: boolean | null
+          smoking_details: string | null
+          suitability_comment: string | null
+          suitable_for_exam: boolean | null
+        }
+        Insert: {
+          alcohol_details?: string | null
+          breathing_trouble?: boolean | null
+          created_at?: string
+          diabetic?: boolean | null
+          drug_use_details?: string | null
+          enough_sleep?: boolean | null
+          health_status?: string | null
+          heart_conditions?: boolean | null
+          hospitalized_details?: string | null
+          hospitalized_recently?: boolean | null
+          id?: string
+          medication_details?: string | null
+          medication_taken?: boolean | null
+          pregnant?: boolean | null
+          psychological_disorders?: boolean | null
+          recent_alcohol_use?: boolean | null
+          recent_drug_use?: boolean | null
+          report_id: string
+          smoker?: boolean | null
+          smoking_details?: string | null
+          suitability_comment?: string | null
+          suitable_for_exam?: boolean | null
+        }
+        Update: {
+          alcohol_details?: string | null
+          breathing_trouble?: boolean | null
+          created_at?: string
+          diabetic?: boolean | null
+          drug_use_details?: string | null
+          enough_sleep?: boolean | null
+          health_status?: string | null
+          heart_conditions?: boolean | null
+          hospitalized_details?: string | null
+          hospitalized_recently?: boolean | null
+          id?: string
+          medication_details?: string | null
+          medication_taken?: boolean | null
+          pregnant?: boolean | null
+          psychological_disorders?: boolean | null
+          recent_alcohol_use?: boolean | null
+          recent_drug_use?: boolean | null
+          report_id?: string
+          smoker?: boolean | null
+          smoking_details?: string | null
+          suitability_comment?: string | null
+          suitable_for_exam?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polygraph_suitability_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "polygraph_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       popia_acceptances: {
         Row: {
           accepted_at: string
@@ -1218,6 +1558,11 @@ export type Database = {
       }
     }
     Enums: {
+      admission_time_window:
+        | "within_2_years"
+        | "2_5_years"
+        | "5_plus_years"
+        | "never"
       app_role: "admin" | "employee" | "master_admin"
       designation_type:
         | "team_leader"
@@ -1234,8 +1579,12 @@ export type Database = {
         | "resigned"
         | "retrenched"
         | "employed"
+      exam_question_finding: "SR" | "NSR" | "INC" | "PNC"
       examination_result: "pass" | "fail" | "inconclusive" | "pending"
       examination_type: "periodic_screening" | "pre_employment" | "specific"
+      polygraph_candidate_status: "pending_review" | "approved" | "rejected"
+      polygraph_overall_result: "passed" | "failed" | "inconclusive"
+      polygraph_report_status: "draft" | "completed" | "approved"
       renewal_request_status: "pending" | "sent" | "cancelled"
       request_status: "pending" | "in_progress" | "replied" | "closed"
       request_type:
@@ -1372,6 +1721,12 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      admission_time_window: [
+        "within_2_years",
+        "2_5_years",
+        "5_plus_years",
+        "never",
+      ],
       app_role: ["admin", "employee", "master_admin"],
       designation_type: [
         "team_leader",
@@ -1390,8 +1745,12 @@ export const Constants = {
         "retrenched",
         "employed",
       ],
+      exam_question_finding: ["SR", "NSR", "INC", "PNC"],
       examination_result: ["pass", "fail", "inconclusive", "pending"],
       examination_type: ["periodic_screening", "pre_employment", "specific"],
+      polygraph_candidate_status: ["pending_review", "approved", "rejected"],
+      polygraph_overall_result: ["passed", "failed", "inconclusive"],
+      polygraph_report_status: ["draft", "completed", "approved"],
       renewal_request_status: ["pending", "sent", "cancelled"],
       request_status: ["pending", "in_progress", "replied", "closed"],
       request_type: [
