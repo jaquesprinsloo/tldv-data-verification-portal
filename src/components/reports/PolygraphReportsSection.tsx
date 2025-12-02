@@ -316,10 +316,12 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       // Add risk analysis data
       if (extractedData.riskAnalysis) {
         reportPayload.risk_score = extractedData.riskAnalysis.TotalRiskScore || null;
-        // Map risk level to allowed values: LOW, MEDIUM, HIGH, UNACCEPTABLE
+        // Map risk level to allowed values: LOW, MEDIUM, HIGH, VERY HIGH
         const rawLevel = extractedData.riskAnalysis.RiskLevel || '';
-        const mappedLevel = rawLevel.toUpperCase().replace(' RISK', '');
-        reportPayload.risk_level = ['LOW', 'MEDIUM', 'HIGH', 'UNACCEPTABLE'].includes(mappedLevel) ? mappedLevel : null;
+        let mappedLevel = rawLevel.toUpperCase().replace(' RISK', '');
+        // Map UNACCEPTABLE to VERY HIGH
+        if (mappedLevel === 'UNACCEPTABLE') mappedLevel = 'VERY HIGH';
+        reportPayload.risk_level = ['LOW', 'MEDIUM', 'HIGH', 'VERY HIGH'].includes(mappedLevel) ? mappedLevel : null;
         reportPayload.risk_analysis = extractedData.riskAnalysis;
       }
       if (extractedData.disclosure) {

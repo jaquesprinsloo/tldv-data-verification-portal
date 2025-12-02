@@ -67,7 +67,7 @@ const RiskAnalysisDisplay = ({ riskAnalysis }: RiskAnalysisDisplayProps) => {
         return { color: 'bg-yellow-500', textColor: 'text-yellow-700', bgColor: 'bg-yellow-50', icon: AlertTriangle };
       case 'HIGH':
         return { color: 'bg-orange-500', textColor: 'text-orange-700', bgColor: 'bg-orange-50', icon: AlertTriangle };
-      case 'UNACCEPTABLE':
+      case 'VERY HIGH':
         return { color: 'bg-red-500', textColor: 'text-red-700', bgColor: 'bg-red-50', icon: XCircle };
       default:
         return { color: 'bg-gray-500', textColor: 'text-gray-700', bgColor: 'bg-gray-50', icon: Shield };
@@ -115,7 +115,7 @@ const RiskAnalysisDisplay = ({ riskAnalysis }: RiskAnalysisDisplayProps) => {
             <span>0-7 LOW</span>
             <span>8-17 MEDIUM</span>
             <span>18-30 HIGH</span>
-            <span>31+ UNACCEPTABLE</span>
+            <span>31+ VERY HIGH</span>
           </div>
         </CardContent>
       </Card>
