@@ -59,36 +59,44 @@ serve(async (req) => {
     "vat_number": "string - VAT registration number if present"
   },
   "subtotal": number - subtotal amount before tax (excluding VAT),
-  "vat_amount": number - VAT/tax amount,
+  "vat_amount": number - VAT/tax amount (look for "VAT", "VAT 15%", or similar line items),
   "discount_amount": number - any discount amount (0 if none),
   "total_amount": number - final total amount,
-  "polygraph_amount": number - total for polygraph examinations/tests,
-  "risk_assessment_amount": number - total for risk assessments/background checks,
-  "travel_amount": number - total for travel/transport/mileage,
-  "tolls_amount": number - total for toll fees,
-  "accommodation_amount": number - total for accommodation/lodging,
+  "polygraph_amount": number - total for items containing "Polygraph Examination" or "Polygraph" in description,
+  "risk_assessment_amount": number - total for items containing "Risk Assessment" in description,
+  "travel_amount": number - total for items containing "Travel" or "Transport" in description,
+  "tolls_amount": number - total for items containing "Toll" or "Tolls" in description,
+  "venue_amount": number - total for items containing "Venue" in description,
+  "accommodation_amount": number - total for items containing "Accommodation" or "Lodging" in description,
   "other_amount": number - any other fees not categorized above,
   "line_items": [
     {
-      "description": "string - item description",
+      "description": "string - item description exactly as it appears",
       "quantity": number,
       "unit_price": number,
       "amount": number,
-      "category": "string - one of: polygraph, risk_assessment, travel, tolls, accommodation, vat, other"
+      "category": "string - one of: polygraph, risk_assessment, travel, tolls, venue, accommodation, vat, other"
     }
   ]
 }
 
+CRITICAL CATEGORIZATION RULES - Read each line item description carefully:
+- If description contains "Polygraph Examination" or "Polygraph" → category is "polygraph", add to polygraph_amount
+- If description contains "Risk Assessment" → category is "risk_assessment", add to risk_assessment_amount  
+- If description contains "Travel" or "Transport" or "Mileage" → category is "travel", add to travel_amount
+- If description contains "Toll" or "Tolls" → category is "tolls", add to tolls_amount
+- If description contains "Venue" → category is "venue", add to venue_amount
+- If description contains "Accommodation" or "Lodging" → category is "accommodation", add to accommodation_amount
+- If description contains "VAT" → category is "vat", this is the vat_amount
+- Everything else → category is "other", add to other_amount
+
 IMPORTANT INSTRUCTIONS:
-- Look at the TOP of the invoice for the BILLING ADDRESS or "BILL TO" section - this identifies which store/branch the invoice is for
-- The billing address typically has the format: "Company Name t/a Branch Name" followed by address details
-- "t/a" means "trading as" - extract the name after "t/a" as the trading_as_name
-- Extract the last word/location from the trading name as the branch_name (e.g., "Acornhoek" from "Cash Crusaders Acornhoek")
+- Look at the TOP of the invoice for the BILLING ADDRESS or "BILL TO" section
+- Read EVERY line item in the invoice and categorize based on the keywords above
 - All amounts should be numbers (not strings)
 - If you can't find a value, use 0 for numbers or empty string for text
-- Categorize line items: polygraph examinations, risk assessments, travel/transport, tolls, accommodation, or other
 - The currency is South African Rand (ZAR/R)
-- Sum up amounts by category into the respective _amount fields`,
+- Make sure vat_amount is extracted from the VAT line item, NOT included in other totals`,
               },
               {
                 type: "image_url",
