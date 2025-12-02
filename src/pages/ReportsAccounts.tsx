@@ -8,6 +8,7 @@ import { AccountStoresList } from "@/components/reports/AccountStoresList";
 import { StoreDashboard } from "@/components/reports/StoreDashboard";
 
 type ViewState = "accounts" | "stores" | "dashboard";
+type UserRole = "admin" | "master_admin";
 
 interface Account {
   id: string;
@@ -30,6 +31,7 @@ const ReportsAccounts = () => {
   const [view, setView] = useState<ViewState>("accounts");
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [userRole, setUserRole] = useState<UserRole>("admin");
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -49,7 +51,12 @@ const ReportsAccounts = () => {
       if (!roleData || roleData.length === 0) {
         await supabase.auth.signOut();
         navigate("/admin/login");
+        return;
       }
+
+      // Set the user's role (prefer master_admin if they have both)
+      const isMasterAdmin = roleData.some(r => r.role === "master_admin");
+      setUserRole(isMasterAdmin ? "master_admin" : "admin");
     };
 
     checkAuth();
@@ -75,6 +82,8 @@ const ReportsAccounts = () => {
     setView("stores");
   };
 
+  const isMasterAdmin = userRole === "master_admin";
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="container mx-auto">
@@ -96,7 +105,7 @@ const ReportsAccounts = () => {
               </p>
             </div>
 
-            <AccountSelector onSelectAccount={handleSelectAccount} />
+            <AccountSelector onSelectAccount={handleSelectAccount} canEdit={isMasterAdmin} />
           </>
         )}
 
@@ -105,6 +114,7 @@ const ReportsAccounts = () => {
             account={selectedAccount}
             onBack={handleBackToAccounts}
             onSelectStore={handleSelectStore}
+            canEdit={isMasterAdmin}
           />
         )}
 
@@ -113,6 +123,7 @@ const ReportsAccounts = () => {
             store={selectedStore}
             accountName={selectedAccount.name}
             onBack={handleBackToStores}
+            canEdit={isMasterAdmin}
           />
         )}
       </div>

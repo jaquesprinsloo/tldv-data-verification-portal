@@ -5,11 +5,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
-import { CheckCircle2, XCircle, HelpCircle, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, HelpCircle, Clock, Lock } from "lucide-react";
 
 interface ExaminationStatsProps {
   storeId: string;
   dateFilter: "week" | "month" | "year" | "all";
+  canEdit?: boolean;
 }
 
 interface ExamStats {
@@ -34,7 +35,7 @@ interface Examination {
   employee?: { employee_number: string } | null;
 }
 
-export const ExaminationStats = ({ storeId, dateFilter }: ExaminationStatsProps) => {
+export const ExaminationStats = ({ storeId, dateFilter, canEdit = false }: ExaminationStatsProps) => {
   const [stats, setStats] = useState<ExamStats[]>([]);
   const [examinations, setExaminations] = useState<Examination[]>([]);
   const [loading, setLoading] = useState(true);
@@ -139,6 +140,14 @@ export const ExaminationStats = ({ storeId, dateFilter }: ExaminationStatsProps)
 
   return (
     <div className="space-y-6">
+      {/* View Only Notice for Admin */}
+      {!canEdit && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
+          <Lock className="h-4 w-4" />
+          <span>View only mode - Contact master profile to make changes</span>
+        </div>
+      )}
+
       {/* Stats Cards by Type */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {stats.map((stat) => (

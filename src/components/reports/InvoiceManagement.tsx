@@ -6,13 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Upload, FileText, Eye, Plus, Loader2 } from "lucide-react";
+import { Upload, FileText, Eye, Plus, Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 
 interface InvoiceManagementProps {
   storeId: string;
   dateFilter: "week" | "month" | "year" | "all";
+  canEdit?: boolean;
 }
 
 interface Invoice {
@@ -27,7 +28,7 @@ interface Invoice {
   extracted_data: any;
 }
 
-export const InvoiceManagement = ({ storeId, dateFilter }: InvoiceManagementProps) => {
+export const InvoiceManagement = ({ storeId, dateFilter, canEdit = false }: InvoiceManagementProps) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -232,115 +233,122 @@ export const InvoiceManagement = ({ storeId, dateFilter }: InvoiceManagementProp
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Invoices</CardTitle>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Invoice
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Add New Invoice</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                    <Button
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
-                    >
-                      {uploading ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Upload className="h-4 w-4 mr-2" />
-                      )}
-                      Upload PDF Invoice
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Upload a PDF to attach to this invoice
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="invoice_number">Invoice Number *</Label>
-                      <Input
-                        id="invoice_number"
-                        value={newInvoice.invoice_number}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, invoice_number: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="invoice_date">Invoice Date *</Label>
-                      <Input
-                        id="invoice_date"
-                        type="date"
-                        value={newInvoice.invoice_date}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, invoice_date: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="subtotal">Subtotal (R)</Label>
-                      <Input
-                        id="subtotal"
-                        type="number"
-                        step="0.01"
-                        value={newInvoice.subtotal}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, subtotal: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="vat_amount">VAT (R)</Label>
-                      <Input
-                        id="vat_amount"
-                        type="number"
-                        step="0.01"
-                        value={newInvoice.vat_amount}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, vat_amount: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="discount_amount">Discount (R)</Label>
-                      <Input
-                        id="discount_amount"
-                        type="number"
-                        step="0.01"
-                        value={newInvoice.discount_amount}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, discount_amount: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="total_amount">Total Amount (R) *</Label>
-                      <Input
-                        id="total_amount"
-                        type="number"
-                        step="0.01"
-                        value={newInvoice.total_amount}
-                        onChange={(e) => setNewInvoice({ ...newInvoice, total_amount: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <Button onClick={handleCreateInvoice} className="w-full">
-                    Create Invoice
+            {canEdit ? (
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Invoice
                   </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Add New Invoice</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                      >
+                        {uploading ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4 mr-2" />
+                        )}
+                        Upload PDF Invoice
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Upload a PDF to attach to this invoice
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="invoice_number">Invoice Number *</Label>
+                        <Input
+                          id="invoice_number"
+                          value={newInvoice.invoice_number}
+                          onChange={(e) => setNewInvoice({ ...newInvoice, invoice_number: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="invoice_date">Invoice Date *</Label>
+                        <Input
+                          id="invoice_date"
+                          type="date"
+                          value={newInvoice.invoice_date}
+                          onChange={(e) => setNewInvoice({ ...newInvoice, invoice_date: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="subtotal">Subtotal (R)</Label>
+                        <Input
+                          id="subtotal"
+                          type="number"
+                          step="0.01"
+                          value={newInvoice.subtotal}
+                          onChange={(e) => setNewInvoice({ ...newInvoice, subtotal: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="vat_amount">VAT (R)</Label>
+                        <Input
+                          id="vat_amount"
+                          type="number"
+                          step="0.01"
+                          value={newInvoice.vat_amount}
+                          onChange={(e) => setNewInvoice({ ...newInvoice, vat_amount: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="discount_amount">Discount (R)</Label>
+                        <Input
+                          id="discount_amount"
+                          type="number"
+                          step="0.01"
+                          value={newInvoice.discount_amount}
+                          onChange={(e) => setNewInvoice({ ...newInvoice, discount_amount: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="total_amount">Total Amount (R) *</Label>
+                        <Input
+                          id="total_amount"
+                          type="number"
+                          step="0.01"
+                          value={newInvoice.total_amount}
+                          onChange={(e) => setNewInvoice({ ...newInvoice, total_amount: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <Button onClick={handleCreateInvoice} className="w-full">
+                      Create Invoice
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Lock className="h-4 w-4" />
+                View Only
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -424,13 +432,19 @@ export const InvoiceManagement = ({ storeId, dateFilter }: InvoiceManagementProp
                   <span>R {Number(selectedInvoice.total_amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
-              {selectedInvoice.invoice_url && (
+              {selectedInvoice.invoice_url && canEdit && (
                 <Button variant="outline" className="w-full" asChild>
                   <a href={selectedInvoice.invoice_url} target="_blank" rel="noopener noreferrer">
                     <FileText className="h-4 w-4 mr-2" />
                     View PDF
                   </a>
                 </Button>
+              )}
+              {selectedInvoice.invoice_url && !canEdit && (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-2 border rounded-md">
+                  <Lock className="h-4 w-4" />
+                  PDF download restricted to master profile
+                </div>
               )}
             </div>
           )}
