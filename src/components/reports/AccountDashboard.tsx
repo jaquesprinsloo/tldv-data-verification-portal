@@ -308,15 +308,15 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="breakdown">Expense Breakdown</TabsTrigger>
-          <TabsTrigger value="stores">By Sub-Account</TabsTrigger>
-          <TabsTrigger value="upload">Upload Documents</TabsTrigger>
-          <TabsTrigger value="review">Review ({pendingCount})</TabsTrigger>
+        <TabsList className="flex flex-wrap h-auto gap-1 bg-muted p-1">
+          <TabsTrigger value="overview" className="flex-1 min-w-[100px]">Overview</TabsTrigger>
+          <TabsTrigger value="breakdown" className="flex-1 min-w-[100px]">Expense Breakdown</TabsTrigger>
+          <TabsTrigger value="stores" className="flex-1 min-w-[100px]">By Sub-Account</TabsTrigger>
+          <TabsTrigger value="upload" className="flex-1 min-w-[100px]">Upload Documents</TabsTrigger>
+          <TabsTrigger value="review" className="flex-1 min-w-[100px]">Review ({pendingCount})</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
+        <TabsContent value="overview" className="space-y-4 mt-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Expense Breakdown Pie Chart */}
             <Card>
