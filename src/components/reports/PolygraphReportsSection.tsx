@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FileText, BarChart3, Users, Plus, Download, Upload, Loader2 } from "lucide-react";
+import { FileText, BarChart3, Users, Download, Upload, Loader2, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import PolygraphReportForm from "@/components/admin/polygraph/PolygraphReportForm";
 import PolygraphReportsList from "@/components/admin/polygraph/PolygraphReportsList";
 import PolygraphStatistics from "@/components/admin/polygraph/PolygraphStatistics";
 import PolygraphCandidates from "@/components/admin/polygraph/PolygraphCandidates";
@@ -11,48 +10,48 @@ import { generatePolygraphTemplate } from "@/utils/polygraphTemplateGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import RiskAnalysisDisplay from "./RiskAnalysisDisplay";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
 interface PolygraphReportsSectionProps {
   canEdit: boolean;
 }
 
+interface Store {
+  id: string;
+  store_name: string;
+  store_code: string;
+}
+
+interface Examiner {
+  id: string;
+  name: string;
+}
+
 const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("reports");
-  const [editingReportId, setEditingReportId] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [extractedData, setExtractedData] = useState<any>(null);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [examiners, setExaminers] = useState<Examiner[]>([]);
+  
+  // Form fields for candidate
+  const [selectedStoreId, setSelectedStoreId] = useState("");
+  const [selectedExaminerId, setSelectedExaminerId] = useState("");
 
-  const handleCreateNew = () => {
-    if (!canEdit) {
-      toast({
-        title: "View Only",
-        description: "You don't have permission to create reports.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setEditingReportId(null);
-    setActiveTab("create");
-  };
-
-  const handleEditReport = (reportId: string) => {
-    if (!canEdit) {
-      toast({
-        title: "View Only",
-        description: "You don't have permission to edit reports.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setEditingReportId(reportId);
-    setActiveTab("create");
-  };
-
-  const handleReportSaved = () => {
-    setEditingReportId(null);
-    setActiveTab("reports");
+  const fetchStoresAndExaminers = async () => {
+    const [storesRes, examinersRes] = await Promise.all([
+      supabase.from("stores").select("id, store_name, store_code").order("store_name"),
+      supabase.from("examiners").select("id, name").eq("is_active", true).order("name")
+    ]);
+    setStores(storesRes.data || []);
+    setExaminers(examinersRes.data || []);
   };
 
   const handleDownloadTemplate = async () => {
@@ -75,8 +74,6 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     }
   };
 
-  const [extractedData, setExtractedData] = useState<any>(null);
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
@@ -90,6 +87,8 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       }
       setFile(selectedFile);
       setExtractedData(null);
+      setSelectedStoreId("");
+      setSelectedExaminerId("");
     }
   };
 
@@ -125,6 +124,9 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         description: "AI is extracting information from the PDF. This may take a moment...",
       });
 
+      // Fetch stores and examiners while processing
+      fetchStoresAndExaminers();
+
       const pdfBase64 = await fileToBase64(file);
 
       const { data, error } = await supabase.functions.invoke('extract-polygraph-report', {
@@ -143,7 +145,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         setExtractedData(data.data);
         toast({
           title: "Data Extracted Successfully",
-          description: "Review the extracted information and proceed to create the report.",
+          description: "Review the extracted information and save the report.",
         });
       } else {
         throw new Error('No data extracted from document');
@@ -160,8 +162,116 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     }
   };
 
-  const handleProceedWithExtracted = () => {
-    setActiveTab("create");
+  const handleSaveReport = async () => {
+    if (!extractedData) return;
+
+    setSaving(true);
+    try {
+      const reportPayload: Record<string, any> = {
+        store_id: selectedStoreId || null,
+        examiner_id: selectedExaminerId || null,
+        examination_date: extractedData.examination?.date || new Date().toISOString().split("T")[0],
+        first_name: extractedData.candidate?.firstName || "",
+        last_name: extractedData.candidate?.lastName || "",
+        id_number: extractedData.candidate?.idNumber || "",
+        contact_number: extractedData.candidate?.contactNumber || null,
+        email: extractedData.candidate?.email || null,
+        physical_address: extractedData.candidate?.physicalAddress || null,
+        position_applying_for: extractedData.candidate?.positionApplyingFor || null,
+        overall_result: extractedData.result?.overallResult || null,
+        examiner_notes: extractedData.result?.examinerNotes || null,
+        status: "completed",
+      };
+
+      // Add risk analysis data
+      if (extractedData.riskAnalysis) {
+        reportPayload.risk_score = extractedData.riskAnalysis.TotalRiskScore || null;
+        reportPayload.risk_level = extractedData.riskAnalysis.RiskLevel || null;
+        reportPayload.risk_analysis = extractedData.riskAnalysis;
+      }
+      if (extractedData.disclosure) {
+        reportPayload.extracted_disclosure = extractedData.disclosure;
+      }
+      if (extractedData.educationHistory) {
+        reportPayload.education_history = extractedData.educationHistory;
+      }
+      if (extractedData.employmentHistory) {
+        reportPayload.employment_history = extractedData.employmentHistory;
+      }
+      if (extractedData.familyCriminalHistory) {
+        reportPayload.family_criminal_history = extractedData.familyCriminalHistory;
+      }
+      if (extractedData.friendCriminalHistory) {
+        reportPayload.friend_criminal_history = extractedData.friendCriminalHistory;
+      }
+      if (extractedData.financialCircumstances) {
+        reportPayload.financial_circumstances = extractedData.financialCircumstances;
+      }
+      if (extractedData.permitsLicensing) {
+        reportPayload.permits_licensing = extractedData.permitsLicensing;
+      }
+      if (extractedData.personalLawEncounters) {
+        reportPayload.personal_law_encounters = extractedData.personalLawEncounters;
+      }
+      if (extractedData.postExamAdmissions) {
+        reportPayload.post_exam_admissions = extractedData.postExamAdmissions;
+      }
+
+      const { data: reportData, error: reportError } = await supabase
+        .from("polygraph_reports")
+        .insert(reportPayload as any)
+        .select("id")
+        .single();
+
+      if (reportError) throw reportError;
+
+      // Create candidate profile
+      const candidatePayload = {
+        report_id: reportData.id,
+        first_name: extractedData.candidate?.firstName || "",
+        last_name: extractedData.candidate?.lastName || "",
+        id_number: extractedData.candidate?.idNumber || "",
+        email: extractedData.candidate?.email || null,
+        contact_number: extractedData.candidate?.contactNumber || null,
+        physical_address: extractedData.candidate?.physicalAddress || null,
+        position: extractedData.candidate?.positionApplyingFor || null,
+        store_id: selectedStoreId || null,
+        status: "pending_review" as const,
+      };
+
+      await supabase.from("polygraph_candidates").insert([candidatePayload]);
+
+      toast({
+        title: "Report Saved",
+        description: "Report completed and candidate profile created for review.",
+      });
+
+      // Reset and go to reports list
+      setExtractedData(null);
+      setFile(null);
+      setSelectedStoreId("");
+      setSelectedExaminerId("");
+      setActiveTab("reports");
+    } catch (error: any) {
+      console.error("Error saving report:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save report",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getRiskLevelColor = (level: string) => {
+    switch (level?.toUpperCase()) {
+      case "LOW RISK": return "bg-green-500";
+      case "MEDIUM RISK": return "bg-yellow-500";
+      case "HIGH RISK": return "bg-orange-500";
+      case "UNACCEPTABLE RISK": return "bg-red-500";
+      default: return "bg-muted";
+    }
   };
 
   return (
@@ -193,17 +303,11 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="reports" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Reports</span>
           </TabsTrigger>
-          {canEdit && (
-            <TabsTrigger value="create" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">New Report</span>
-            </TabsTrigger>
-          )}
           {canEdit && (
             <TabsTrigger value="upload" className="flex items-center gap-2">
               <Upload className="h-4 w-4" />
@@ -222,28 +326,10 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
 
         <TabsContent value="reports" className="mt-6">
           <PolygraphReportsList 
-            onCreateNew={handleCreateNew} 
-            onEditReport={handleEditReport}
+            onCreateNew={() => setActiveTab("upload")} 
+            onEditReport={() => {}}
           />
         </TabsContent>
-
-        {canEdit && (
-          <TabsContent value="create" className="mt-6">
-            <PolygraphReportForm 
-              reportId={editingReportId}
-              initialData={editingReportId ? null : extractedData}
-              onSaved={() => {
-                handleReportSaved();
-                setExtractedData(null);
-                setFile(null);
-              }}
-              onCancel={() => {
-                setActiveTab("reports");
-                setExtractedData(null);
-              }}
-            />
-          </TabsContent>
-        )}
 
         {canEdit && (
           <TabsContent value="upload" className="mt-6">
@@ -311,10 +397,11 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                               <p><span className="text-muted-foreground">Contact:</span> {extractedData.candidate.contactNumber || 'N/A'}</p>
                               <p><span className="text-muted-foreground">Email:</span> {extractedData.candidate.email || 'N/A'}</p>
                               <p><span className="text-muted-foreground">Position:</span> {extractedData.candidate.positionApplyingFor || 'N/A'}</p>
-                              <p><span className="text-muted-foreground">Store:</span> {extractedData.candidate.storeLocation || 'N/A'}</p>
+                              <p><span className="text-muted-foreground">Address:</span> {extractedData.candidate.physicalAddress || 'N/A'}</p>
                             </div>
                           </div>
                         )}
+                        
                         {extractedData.examination && (
                           <div>
                             <h4 className="font-medium mb-2">Examination Details</h4>
@@ -324,30 +411,84 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                             </div>
                           </div>
                         )}
+
                         {extractedData.result && (
                           <div>
                             <h4 className="font-medium mb-2">Result</h4>
-                            <p className="text-sm"><span className="text-muted-foreground">Overall Result:</span> {extractedData.result.overallResult || 'N/A'}</p>
+                            <p className="text-sm">
+                              <span className="text-muted-foreground">Overall Result:</span>{" "}
+                              <Badge variant={
+                                extractedData.result.overallResult === 'passed' ? 'default' :
+                                extractedData.result.overallResult === 'failed' ? 'destructive' : 'secondary'
+                              }>
+                                {extractedData.result.overallResult || 'N/A'}
+                              </Badge>
+                            </p>
                           </div>
                         )}
 
-                        {/* Disclosure Summary */}
-                        {extractedData.disclosure && (
+                        {/* Key Risk Concerns from Risk Analysis */}
+                        {extractedData.riskAnalysis?.KeyRiskConcerns && extractedData.riskAnalysis.KeyRiskConcerns.length > 0 && (
                           <div>
-                            <h4 className="font-medium mb-2">Disclosure Summary</h4>
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                              <p><span className="text-muted-foreground">Workplace Theft:</span> {extractedData.disclosure.WorkplaceTheft || 'Not Disclosed'}</p>
-                              <p><span className="text-muted-foreground">Bribery Paid:</span> {extractedData.disclosure.BriberyPaid || 'Not Disclosed'}</p>
-                              <p><span className="text-muted-foreground">Drug Use History:</span> {extractedData.disclosure.DrugUseHistory || 'Not Disclosed'}</p>
-                              <p><span className="text-muted-foreground">Organised Crime:</span> {extractedData.disclosure.OrganisedCrimeLinks || 'Not Disclosed'}</p>
-                              <p><span className="text-muted-foreground">Arrests:</span> {extractedData.disclosure.Arrests || 'Not Disclosed'}</p>
-                              <p><span className="text-muted-foreground">Convictions:</span> {extractedData.disclosure.Convictions || 'Not Disclosed'}</p>
-                            </div>
+                            <h4 className="font-medium mb-2">Key Risk Concerns</h4>
+                            <ul className="list-disc list-inside text-sm space-y-1">
+                              {extractedData.riskAnalysis.KeyRiskConcerns.map((concern: string, idx: number) => (
+                                <li key={idx} className="text-destructive">{concern}</li>
+                              ))}
+                            </ul>
                           </div>
                         )}
 
-                        <Button onClick={handleProceedWithExtracted} className="w-full mt-4">
-                          Proceed to Create Report & Candidate Profile
+                        {/* Store and Examiner Selection */}
+                        <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                          <div className="space-y-2">
+                            <Label>Store Location</Label>
+                            <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select store" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {stores.map((store) => (
+                                  <SelectItem key={store.id} value={store.id}>
+                                    {store.store_name} ({store.store_code})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Examiner</Label>
+                            <Select value={selectedExaminerId} onValueChange={setSelectedExaminerId}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select examiner" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {examiners.map((examiner) => (
+                                  <SelectItem key={examiner.id} value={examiner.id}>
+                                    {examiner.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <Button 
+                          onClick={handleSaveReport} 
+                          disabled={saving}
+                          className="w-full mt-4"
+                        >
+                          {saving ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="mr-2 h-4 w-4" />
+                              Save Report & Create Candidate Profile
+                            </>
+                          )}
                         </Button>
                       </CardContent>
                     </Card>
@@ -361,7 +502,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                     <li>Have the examiner complete the template during or after the examination</li>
                     <li>Save or print the completed document as PDF</li>
                     <li>Upload the PDF here for AI data extraction</li>
-                    <li>Review the extracted data and proceed to create the report</li>
+                    <li>Review the extracted data, select store and examiner, then save</li>
                   </ol>
                 </div>
               </CardContent>
