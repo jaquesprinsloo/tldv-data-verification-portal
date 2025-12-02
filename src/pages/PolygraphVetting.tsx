@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AdminHeader from "@/components/admin/AdminHeader";
 import PolygraphHome from "@/components/admin/PolygraphHome";
-import PolygraphBookingForm from "@/components/admin/PolygraphBookingForm";
+import PolygraphPortal from "@/components/admin/polygraph/PolygraphPortal";
 import { User } from "@supabase/supabase-js";
 
 const PolygraphVetting = () => {
@@ -76,7 +76,7 @@ const PolygraphVetting = () => {
         {!showPortal ? (
           <PolygraphHome onEnterPortal={() => setShowPortal(true)} />
         ) : (
-          <PolygraphBookingForm />
+          <PolygraphPortal />
         )}
       </main>
     </div>
