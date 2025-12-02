@@ -49,3 +49,6 @@ verify_jwt = true
 
 [functions.approve-pending-upload]
 verify_jwt = true
+
+[functions.extract-polygraph-report]
+verify_jwt = true
