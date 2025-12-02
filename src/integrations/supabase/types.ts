@@ -533,6 +533,78 @@ export type Database = {
           },
         ]
       }
+      pending_document_uploads: {
+        Row: {
+          account_id: string
+          approved_at: string | null
+          approved_by: string | null
+          confidence_score: number | null
+          created_at: string
+          document_type: string
+          extracted_data: Json | null
+          extracted_store_name: string | null
+          file_name: string
+          file_url: string
+          id: string
+          matched_store_id: string | null
+          rejection_reason: string | null
+          status: string
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          account_id: string
+          approved_at?: string | null
+          approved_by?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          document_type: string
+          extracted_data?: Json | null
+          extracted_store_name?: string | null
+          file_name: string
+          file_url: string
+          id?: string
+          matched_store_id?: string | null
+          rejection_reason?: string | null
+          status?: string
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          account_id?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          document_type?: string
+          extracted_data?: Json | null
+          extracted_store_name?: string | null
+          file_name?: string
+          file_url?: string
+          id?: string
+          matched_store_id?: string | null
+          rejection_reason?: string | null
+          status?: string
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_document_uploads_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_document_uploads_matched_store_id_fkey"
+            columns: ["matched_store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       popia_acceptances: {
         Row: {
           accepted_at: string

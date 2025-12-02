@@ -43,3 +43,9 @@ verify_jwt = false
 
 [functions.reset-admin-password]
 verify_jwt = false
+
+[functions.process-pending-upload]
+verify_jwt = true
+
+[functions.approve-pending-upload]
+verify_jwt = true
