@@ -339,11 +339,36 @@ Return ONLY the JSON object, no additional text.`;
     // Extract JSON from response (handle markdown code blocks)
     let extractedData;
     try {
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-      const jsonString = jsonMatch ? jsonMatch[1].trim() : content.trim();
+      let jsonString = content.trim();
+      
+      // Try multiple patterns to extract JSON
+      // Pattern 1: ```json ... ```
+      const jsonBlockMatch = content.match(/```json\s*([\s\S]*?)```/);
+      if (jsonBlockMatch) {
+        jsonString = jsonBlockMatch[1].trim();
+      } else {
+        // Pattern 2: ``` ... ```
+        const codeBlockMatch = content.match(/```\s*([\s\S]*?)```/);
+        if (codeBlockMatch) {
+          jsonString = codeBlockMatch[1].trim();
+        } else {
+          // Pattern 3: Find JSON object directly
+          const jsonObjMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonObjMatch) {
+            jsonString = jsonObjMatch[0];
+          }
+        }
+      }
+      
+      console.log('Attempting to parse JSON string of length:', jsonString.length);
       extractedData = JSON.parse(jsonString);
+      console.log('Successfully parsed JSON');
     } catch (parseError) {
-      console.error('Failed to parse AI response:', content);
+      console.error('Failed to parse AI response. Content length:', content.length);
+      console.error('Parse error:', parseError instanceof Error ? parseError.message : 'Unknown error');
+      // Log first 500 and last 500 chars for debugging
+      console.error('Content start:', content.substring(0, 500));
+      console.error('Content end:', content.substring(content.length - 500));
       throw new Error('Failed to parse extracted data');
     }
 
