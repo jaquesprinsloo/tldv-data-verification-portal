@@ -352,7 +352,7 @@ export const AccountSelector = ({
               </CardHeader>
               <CardContent onClick={() => onSelectAccount(account)}>
                 <p className="text-sm text-muted-foreground mb-2">Code: {account.code}</p>
-                <p className="text-sm font-medium">{account.stores_count} Store(s)</p>
+                <p className="text-sm font-medium">{account.stores_count} Sub Account(s)</p>
               </CardContent>
             </Card>
           ))}
