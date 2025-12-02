@@ -27,9 +27,10 @@ interface AccountStoresListProps {
   };
   onBack: () => void;
   onSelectStore: (store: Store) => void;
+  canEdit?: boolean;
 }
 
-export const AccountStoresList = ({ account, onBack, onSelectStore }: AccountStoresListProps) => {
+export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = false }: AccountStoresListProps) => {
   const [stores, setStores] = useState<Store[]>([]);
   const [availableStores, setAvailableStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
@@ -143,44 +144,46 @@ export const AccountStoresList = ({ account, onBack, onSelectStore }: AccountSto
             <p className="text-sm text-muted-foreground">Account Code: {account.code}</p>
           </div>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Assign Store
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Assign Store to {account.name}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Select Store</Label>
-                <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a store" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableStores.map((store) => (
-                      <SelectItem key={store.id} value={store.id}>
-                        {store.store_name} ({store.store_code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {availableStores.length === 0 && (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    No unassigned stores available
-                  </p>
-                )}
-              </div>
-              <Button onClick={handleAssignStore} className="w-full" disabled={!selectedStoreId}>
+        {canEdit && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
                 Assign Store
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Assign Store to {account.name}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Select Store</Label>
+                  <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a store" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableStores.map((store) => (
+                        <SelectItem key={store.id} value={store.id}>
+                          {store.store_name} ({store.store_code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {availableStores.length === 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      No unassigned stores available
+                    </p>
+                  )}
+                </div>
+                <Button onClick={handleAssignStore} className="w-full" disabled={!selectedStoreId}>
+                  Assign Store
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {stores.length === 0 ? (
@@ -188,9 +191,11 @@ export const AccountStoresList = ({ account, onBack, onSelectStore }: AccountSto
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Store className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground">No stores assigned to this account</p>
-            <Button variant="outline" className="mt-4" onClick={() => setDialogOpen(true)}>
-              Assign a store
-            </Button>
+            {canEdit && (
+              <Button variant="outline" className="mt-4" onClick={() => setDialogOpen(true)}>
+                Assign a store
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

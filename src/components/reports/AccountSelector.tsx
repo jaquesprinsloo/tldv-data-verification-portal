@@ -19,9 +19,10 @@ interface Account {
 
 interface AccountSelectorProps {
   onSelectAccount: (account: Account) => void;
+  canEdit?: boolean;
 }
 
-export const AccountSelector = ({ onSelectAccount }: AccountSelectorProps) => {
+export const AccountSelector = ({ onSelectAccount, canEdit = false }: AccountSelectorProps) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -117,67 +118,69 @@ export const AccountSelector = ({ onSelectAccount }: AccountSelectorProps) => {
             className="pl-10"
           />
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Account
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Account</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Account Name *</Label>
-                <Input
-                  id="name"
-                  value={newAccount.name}
-                  onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })}
-                  placeholder="e.g., Cash Crusaders"
-                />
-              </div>
-              <div>
-                <Label htmlFor="code">Account Code *</Label>
-                <Input
-                  id="code"
-                  value={newAccount.code}
-                  onChange={(e) => setNewAccount({ ...newAccount, code: e.target.value })}
-                  placeholder="e.g., CC001"
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Contact Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newAccount.contact_email}
-                  onChange={(e) => setNewAccount({ ...newAccount, contact_email: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone">Contact Phone</Label>
-                <Input
-                  id="phone"
-                  value={newAccount.contact_phone}
-                  onChange={(e) => setNewAccount({ ...newAccount, contact_phone: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="address">Address</Label>
-                <Input
-                  id="address"
-                  value={newAccount.address}
-                  onChange={(e) => setNewAccount({ ...newAccount, address: e.target.value })}
-                />
-              </div>
-              <Button onClick={handleCreateAccount} className="w-full">
-                Create Account
+        {canEdit && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Account
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Account</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Account Name *</Label>
+                  <Input
+                    id="name"
+                    value={newAccount.name}
+                    onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })}
+                    placeholder="e.g., Cash Crusaders"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="code">Account Code *</Label>
+                  <Input
+                    id="code"
+                    value={newAccount.code}
+                    onChange={(e) => setNewAccount({ ...newAccount, code: e.target.value })}
+                    placeholder="e.g., CC001"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">Contact Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newAccount.contact_email}
+                    onChange={(e) => setNewAccount({ ...newAccount, contact_email: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Contact Phone</Label>
+                  <Input
+                    id="phone"
+                    value={newAccount.contact_phone}
+                    onChange={(e) => setNewAccount({ ...newAccount, contact_phone: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="address">Address</Label>
+                  <Input
+                    id="address"
+                    value={newAccount.address}
+                    onChange={(e) => setNewAccount({ ...newAccount, address: e.target.value })}
+                  />
+                </div>
+                <Button onClick={handleCreateAccount} className="w-full">
+                  Create Account
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {filteredAccounts.length === 0 ? (
@@ -185,9 +188,11 @@ export const AccountSelector = ({ onSelectAccount }: AccountSelectorProps) => {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground">No accounts found</p>
-            <Button variant="outline" className="mt-4" onClick={() => setDialogOpen(true)}>
-              Create your first account
-            </Button>
+            {canEdit && (
+              <Button variant="outline" className="mt-4" onClick={() => setDialogOpen(true)}>
+                Create your first account
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

@@ -8,13 +8,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Plus, UserCheck, TrendingUp, Award } from "lucide-react";
+import { Plus, UserCheck, TrendingUp, Award, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 
 interface ExaminerEffectivenessProps {
   storeId: string;
   dateFilter: "week" | "month" | "year" | "all";
+  canEdit?: boolean;
 }
 
 interface Examiner {
@@ -35,7 +36,7 @@ interface ExaminerStats {
   admissionRate: number;
 }
 
-export const ExaminerEffectiveness = ({ storeId, dateFilter }: ExaminerEffectivenessProps) => {
+export const ExaminerEffectiveness = ({ storeId, dateFilter, canEdit = false }: ExaminerEffectivenessProps) => {
   const [examinerStats, setExaminerStats] = useState<ExaminerStats[]>([]);
   const [examiners, setExaminers] = useState<Examiner[]>([]);
   const [loading, setLoading] = useState(true);
@@ -195,49 +196,56 @@ export const ExaminerEffectiveness = ({ storeId, dateFilter }: ExaminerEffective
               <UserCheck className="h-5 w-5" />
               Examiner Statistics
             </CardTitle>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Examiner
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Examiner</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Name *</Label>
-                    <Input
-                      id="name"
-                      value={newExaminer.name}
-                      onChange={(e) => setNewExaminer({ ...newExaminer, name: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newExaminer.email}
-                      onChange={(e) => setNewExaminer({ ...newExaminer, email: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                      id="phone"
-                      value={newExaminer.phone}
-                      onChange={(e) => setNewExaminer({ ...newExaminer, phone: e.target.value })}
-                    />
-                  </div>
-                  <Button onClick={handleCreateExaminer} className="w-full">
-                    Create Examiner
+            {canEdit ? (
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Examiner
                   </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Examiner</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="name">Name *</Label>
+                      <Input
+                        id="name"
+                        value={newExaminer.name}
+                        onChange={(e) => setNewExaminer({ ...newExaminer, name: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={newExaminer.email}
+                        onChange={(e) => setNewExaminer({ ...newExaminer, email: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input
+                        id="phone"
+                        value={newExaminer.phone}
+                        onChange={(e) => setNewExaminer({ ...newExaminer, phone: e.target.value })}
+                      />
+                    </div>
+                    <Button onClick={handleCreateExaminer} className="w-full">
+                      Create Examiner
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Lock className="h-4 w-4" />
+                View Only
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>

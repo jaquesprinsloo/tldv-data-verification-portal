@@ -8,7 +8,7 @@ import { ArrowLeft, ClipboardCheck, Receipt, TrendingUp, Users } from "lucide-re
 import { ExaminationStats } from "./ExaminationStats";
 import { InvoiceManagement } from "./InvoiceManagement";
 import { ExaminerEffectiveness } from "./ExaminerEffectiveness";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, subWeeks, subMonths, subYears } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
 
 interface Store {
   id: string;
@@ -20,11 +20,12 @@ interface StoreDashboardProps {
   store: Store;
   accountName: string;
   onBack: () => void;
+  canEdit?: boolean;
 }
 
 type DateFilter = "week" | "month" | "year" | "all";
 
-export const StoreDashboard = ({ store, accountName, onBack }: StoreDashboardProps) => {
+export const StoreDashboard = ({ store, accountName, onBack, canEdit = false }: StoreDashboardProps) => {
   const [dateFilter, setDateFilter] = useState<DateFilter>("month");
   const [stats, setStats] = useState({
     totalExaminations: 0,
@@ -231,15 +232,15 @@ export const StoreDashboard = ({ store, accountName, onBack }: StoreDashboardPro
         </TabsList>
 
         <TabsContent value="examinations">
-          <ExaminationStats storeId={store.id} dateFilter={dateFilter} />
+          <ExaminationStats storeId={store.id} dateFilter={dateFilter} canEdit={canEdit} />
         </TabsContent>
 
         <TabsContent value="invoices">
-          <InvoiceManagement storeId={store.id} dateFilter={dateFilter} />
+          <InvoiceManagement storeId={store.id} dateFilter={dateFilter} canEdit={canEdit} />
         </TabsContent>
 
         <TabsContent value="examiners">
-          <ExaminerEffectiveness storeId={store.id} dateFilter={dateFilter} />
+          <ExaminerEffectiveness storeId={store.id} dateFilter={dateFilter} canEdit={canEdit} />
         </TabsContent>
       </Tabs>
     </div>
