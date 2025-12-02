@@ -1,227 +1,131 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { FileText, BarChart3, Users, Plus, Download, Upload } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import PolygraphReportForm from "./PolygraphReportForm";
-import PolygraphReportsList from "./PolygraphReportsList";
-import PolygraphStatistics from "./PolygraphStatistics";
-import PolygraphCandidates from "./PolygraphCandidates";
-import { generatePolygraphTemplate } from "@/utils/polygraphTemplateGenerator";
+import { CalendarDays, History } from "lucide-react";
+import PolygraphBookingForm from "../PolygraphBookingForm";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
+
+interface BookingRequest {
+  id: string;
+  subject: string;
+  message: string;
+  status: string;
+  created_at: string;
+}
 
 const PolygraphPortal = () => {
-  const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("reports");
-  const [editingReportId, setEditingReportId] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState(false);
+  const [activeTab, setActiveTab] = useState("book");
+  const [bookingHistory, setBookingHistory] = useState<BookingRequest[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleCreateNew = () => {
-    setEditingReportId(null);
-    setActiveTab("create");
-  };
+  useEffect(() => {
+    if (activeTab === "history") {
+      fetchBookingHistory();
+    }
+  }, [activeTab]);
 
-  const handleEditReport = (reportId: string) => {
-    setEditingReportId(reportId);
-    setActiveTab("create");
-  };
-
-  const handleReportSaved = () => {
-    setEditingReportId(null);
-    setActiveTab("reports");
-  };
-
-  const handleDownloadTemplate = async () => {
-    setDownloading(true);
+  const fetchBookingHistory = async () => {
+    setLoading(true);
     try {
-      await generatePolygraphTemplate();
-      toast({
-        title: "Template Downloaded",
-        description: "The polygraph report template has been downloaded successfully.",
-      });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("profile_requests")
+        .select("*")
+        .eq("sender_user_id", user.id)
+        .eq("request_type", "polygraph_vetting")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setBookingHistory(data || []);
     } catch (error) {
-      console.error("Error generating template:", error);
-      toast({
-        title: "Download Failed",
-        description: "Failed to generate the template. Please try again.",
-        variant: "destructive",
-      });
+      console.error("Error fetching booking history:", error);
     } finally {
-      setDownloading(false);
+      setLoading(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <Badge variant="secondary">Pending</Badge>;
+      case "in_progress":
+        return <Badge variant="default">In Progress</Badge>;
+      case "replied":
+        return <Badge variant="outline">Replied</Badge>;
+      case "closed":
+        return <Badge variant="secondary">Closed</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Action Buttons */}
-      <div className="flex flex-wrap gap-3 justify-end">
-        <Button
-          variant="outline"
-          onClick={handleDownloadTemplate}
-          disabled={downloading}
-          className="flex items-center gap-2"
-        >
-          <Download className="h-4 w-4" />
-          {downloading ? "Generating..." : "Download Template"}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => setActiveTab("upload")}
-          className="flex items-center gap-2"
-        >
-          <Upload className="h-4 w-4" />
-          Upload Report
-        </Button>
-      </div>
-
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="reports" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Reports
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="book" className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Book Services
           </TabsTrigger>
-          <TabsTrigger value="create" className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            New Report
-          </TabsTrigger>
-          <TabsTrigger value="upload" className="flex items-center gap-2">
-            <Upload className="h-4 w-4" />
-            Upload
-          </TabsTrigger>
-          <TabsTrigger value="candidates" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Candidates
-          </TabsTrigger>
-          <TabsTrigger value="statistics" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Statistics
+          <TabsTrigger value="history" className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            Booking History
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="reports" className="mt-6">
-          <PolygraphReportsList 
-            onCreateNew={handleCreateNew} 
-            onEditReport={handleEditReport}
-          />
+        <TabsContent value="book" className="mt-6">
+          <PolygraphBookingForm />
         </TabsContent>
 
-        <TabsContent value="create" className="mt-6">
-          <PolygraphReportForm 
-            reportId={editingReportId}
-            onSaved={handleReportSaved}
-            onCancel={() => setActiveTab("reports")}
-          />
-        </TabsContent>
-
-        <TabsContent value="upload" className="mt-6">
-          <PolygraphReportUpload onUploaded={handleReportSaved} />
-        </TabsContent>
-
-        <TabsContent value="candidates" className="mt-6">
-          <PolygraphCandidates />
-        </TabsContent>
-
-        <TabsContent value="statistics" className="mt-6">
-          <PolygraphStatistics />
+        <TabsContent value="history" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Booking Requests</CardTitle>
+              <CardDescription>
+                View the status of your polygraph and vetting service requests
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+              ) : bookingHistory.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CalendarDays className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No booking requests yet</p>
+                  <p className="text-sm">Submit a booking request to get started</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {bookingHistory.map((request) => (
+                    <Card key={request.id} className="bg-muted/30">
+                      <CardContent className="pt-4">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <h4 className="font-medium">{request.subject}</h4>
+                            <p className="text-sm text-muted-foreground whitespace-pre-line">
+                              {request.message}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Submitted: {new Date(request.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          {getStatusBadge(request.status)}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
-};
-
-// Placeholder component for upload functionality
-const PolygraphReportUpload = ({ onUploaded }: { onUploaded: () => void }) => {
-  const { toast } = useToast();
-  const [uploading, setUploading] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      if (!selectedFile.name.endsWith('.docx')) {
-        toast({
-          title: "Invalid File Type",
-          description: "Please upload a Word document (.docx) file.",
-          variant: "destructive",
-        });
-        return;
-      }
-      setFile(selectedFile);
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!file) {
-      toast({
-        title: "No File Selected",
-        description: "Please select a file to upload.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setUploading(true);
-    try {
-      // TODO: Implement file parsing and data extraction
-      toast({
-        title: "Upload Received",
-        description: "The report has been uploaded. Manual data entry may be required to complete processing.",
-      });
-      onUploaded();
-    } catch (error) {
-      console.error("Upload error:", error);
-      toast({
-        title: "Upload Failed",
-        description: "Failed to upload the report. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="text-center p-8 border-2 border-dashed rounded-lg">
-        <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Upload Completed Report</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Upload a completed polygraph report template (.docx format)
-        </p>
-        <input
-          type="file"
-          accept=".docx"
-          onChange={handleFileChange}
-          className="hidden"
-          id="report-upload"
-        />
-        <label htmlFor="report-upload">
-          <Button variant="outline" asChild className="cursor-pointer">
-            <span>Select File</span>
-          </Button>
-        </label>
-        {file && (
-          <div className="mt-4">
-            <p className="text-sm font-medium">{file.name}</p>
-            <Button
-              onClick={handleUpload}
-              disabled={uploading}
-              className="mt-2"
-            >
-              {uploading ? "Uploading..." : "Upload Report"}
-            </Button>
-          </div>
-        )}
-      </div>
-      <div className="bg-muted/50 rounded-lg p-4">
-        <h4 className="font-medium mb-2">Instructions:</h4>
-        <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-          <li>Download the template using the "Download Template" button above</li>
-          <li>Have the examiner complete the template during or after the examination</li>
-          <li>Save the completed document</li>
-          <li>Upload the completed document here</li>
-          <li>Review and verify the extracted data before saving</li>
-        </ol>
-      </div>
     </div>
   );
 };

@@ -9,7 +9,6 @@ import EmployeeManagement from "@/components/admin/EmployeeManagement";
 import RenewalRequests from "@/components/admin/RenewalRequests";
 import InvitationsList from "@/components/admin/InvitationsList";
 import FlaggedEmployees from "@/components/admin/FlaggedEmployees";
-import PolygraphCandidates from "@/components/admin/polygraph/PolygraphCandidates";
 import { User } from "@supabase/supabase-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -102,13 +101,12 @@ const AdminDashboard = () => {
         <StatsOverview onSelectFilter={handleStatClick} activeFilter={employeeFilter} />
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-5xl grid-cols-6">
+          <TabsList className="grid w-full max-w-4xl grid-cols-5">
             <TabsTrigger value="employees">Employees</TabsTrigger>
             <TabsTrigger value="submissions">Submissions</TabsTrigger>
             <TabsTrigger value="flagged">Flagged</TabsTrigger>
             <TabsTrigger value="renewals">Renewals</TabsTrigger>
             <TabsTrigger value="invitations">Invitations</TabsTrigger>
-            <TabsTrigger value="candidates">Candidates</TabsTrigger>
           </TabsList>
           
           <TabsContent value="employees" className="mt-4 sm:mt-6" ref={employeeTabRef}>
@@ -129,10 +127,6 @@ const AdminDashboard = () => {
           
           <TabsContent value="invitations" className="mt-4 sm:mt-6">
             <InvitationsList />
-          </TabsContent>
-          
-          <TabsContent value="candidates" className="mt-4 sm:mt-6">
-            <PolygraphCandidates />
           </TabsContent>
         </Tabs>
       </main>
