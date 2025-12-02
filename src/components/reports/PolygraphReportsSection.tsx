@@ -160,12 +160,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   };
 
   const handleProceedWithExtracted = () => {
-    // TODO: Pass extractedData to the report form
     setActiveTab("create");
-    toast({
-      title: "Proceeding to Report Form",
-      description: "The extracted data will be used to pre-fill the report form.",
-    });
   };
 
   return (
@@ -235,8 +230,16 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
           <TabsContent value="create" className="mt-6">
             <PolygraphReportForm 
               reportId={editingReportId}
-              onSaved={handleReportSaved}
-              onCancel={() => setActiveTab("reports")}
+              initialData={editingReportId ? null : extractedData}
+              onSaved={() => {
+                handleReportSaved();
+                setExtractedData(null);
+                setFile(null);
+              }}
+              onCancel={() => {
+                setActiveTab("reports");
+                setExtractedData(null);
+              }}
             />
           </TabsContent>
         )}
