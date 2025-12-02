@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FileText, BarChart3, Users, Plus, Download, Upload } from "lucide-react";
+import { FileText, BarChart3, Users, Plus, Download, Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import PolygraphReportForm from "@/components/admin/polygraph/PolygraphReportForm";
 import PolygraphReportsList from "@/components/admin/polygraph/PolygraphReportsList";
@@ -9,6 +9,7 @@ import PolygraphStatistics from "@/components/admin/polygraph/PolygraphStatistic
 import PolygraphCandidates from "@/components/admin/polygraph/PolygraphCandidates";
 import { generatePolygraphTemplate } from "@/utils/polygraphTemplateGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PolygraphReportsSectionProps {
   canEdit: boolean;
@@ -73,19 +74,35 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     }
   };
 
+  const [extractedData, setExtractedData] = useState<any>(null);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (!selectedFile.name.endsWith('.docx')) {
+      if (!selectedFile.name.endsWith('.pdf')) {
         toast({
           title: "Invalid File Type",
-          description: "Please upload a Word document (.docx) file.",
+          description: "Please upload a PDF document (.pdf) file.",
           variant: "destructive",
         });
         return;
       }
       setFile(selectedFile);
+      setExtractedData(null);
     }
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = (error) => reject(error);
+    });
   };
 
   const handleUpload = async () => {
@@ -99,23 +116,56 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     }
 
     setUploading(true);
+    setExtractedData(null);
+    
     try {
       toast({
-        title: "Upload Received",
-        description: "The report has been uploaded. Manual data entry may be required to complete processing.",
+        title: "Processing Document",
+        description: "AI is extracting information from the PDF. This may take a moment...",
       });
-      setFile(null);
-      setActiveTab("create");
+
+      const pdfBase64 = await fileToBase64(file);
+
+      const { data, error } = await supabase.functions.invoke('extract-polygraph-report', {
+        body: { pdfBase64, fileName: file.name }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to process document');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (data?.success && data?.data) {
+        setExtractedData(data.data);
+        toast({
+          title: "Data Extracted Successfully",
+          description: "Review the extracted information and proceed to create the report.",
+        });
+      } else {
+        throw new Error('No data extracted from document');
+      }
     } catch (error) {
       console.error("Upload error:", error);
       toast({
-        title: "Upload Failed",
-        description: "Failed to upload the report. Please try again.",
+        title: "Extraction Failed",
+        description: error instanceof Error ? error.message : "Failed to extract data from the report. Please try again.",
         variant: "destructive",
       });
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleProceedWithExtracted = () => {
+    // TODO: Pass extractedData to the report form
+    setActiveTab("create");
+    toast({
+      title: "Proceeding to Report Form",
+      description: "The extracted data will be used to pre-fill the report form.",
+    });
   };
 
   return (
@@ -197,7 +247,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
               <CardHeader>
                 <CardTitle>Upload Completed Report</CardTitle>
                 <CardDescription>
-                  Upload a completed polygraph report template (.docx format)
+                  Upload a completed polygraph report PDF for AI data extraction
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -205,14 +255,14 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                   <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <input
                     type="file"
-                    accept=".docx"
+                    accept=".pdf"
                     onChange={handleFileChange}
                     className="hidden"
                     id="report-upload"
                   />
                   <label htmlFor="report-upload">
                     <Button variant="outline" asChild className="cursor-pointer">
-                      <span>Select File</span>
+                      <span>Select PDF File</span>
                     </Button>
                   </label>
                   {file && (
@@ -223,19 +273,66 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                         disabled={uploading}
                         className="mt-2"
                       >
-                        {uploading ? "Uploading..." : "Upload Report"}
+                        {uploading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Extracting Data...
+                          </>
+                        ) : (
+                          "Extract Report Data"
+                        )}
                       </Button>
                     </div>
                   )}
                 </div>
+
+                {extractedData && (
+                  <Card className="bg-muted/50">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Extracted Data Preview</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {extractedData.candidate && (
+                        <div>
+                          <h4 className="font-medium mb-2">Candidate Information</h4>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <p><span className="text-muted-foreground">Name:</span> {extractedData.candidate.firstName} {extractedData.candidate.lastName}</p>
+                            <p><span className="text-muted-foreground">ID Number:</span> {extractedData.candidate.idNumber || 'N/A'}</p>
+                            <p><span className="text-muted-foreground">Contact:</span> {extractedData.candidate.contactNumber || 'N/A'}</p>
+                            <p><span className="text-muted-foreground">Position:</span> {extractedData.candidate.positionApplyingFor || 'N/A'}</p>
+                          </div>
+                        </div>
+                      )}
+                      {extractedData.examination && (
+                        <div>
+                          <h4 className="font-medium mb-2">Examination Details</h4>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <p><span className="text-muted-foreground">Date:</span> {extractedData.examination.date || 'N/A'}</p>
+                            <p><span className="text-muted-foreground">Examiner:</span> {extractedData.examination.examinerName || 'N/A'}</p>
+                          </div>
+                        </div>
+                      )}
+                      {extractedData.result && (
+                        <div>
+                          <h4 className="font-medium mb-2">Result</h4>
+                          <p className="text-sm"><span className="text-muted-foreground">Overall Result:</span> {extractedData.result.overallResult || 'N/A'}</p>
+                        </div>
+                      )}
+                      <Button onClick={handleProceedWithExtracted} className="w-full mt-4">
+                        Proceed to Create Report
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <div className="bg-muted/50 rounded-lg p-4">
                   <h4 className="font-medium mb-2">Instructions:</h4>
                   <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                     <li>Download the template using the "Download Template" button</li>
                     <li>Have the examiner complete the template during or after the examination</li>
-                    <li>Save the completed document</li>
-                    <li>Upload the completed document here</li>
-                    <li>Review and verify the extracted data before saving</li>
+                    <li>Save or print the completed document as PDF</li>
+                    <li>Upload the PDF here for AI data extraction</li>
+                    <li>Review the extracted data and proceed to create the report</li>
                   </ol>
                 </div>
               </CardContent>
