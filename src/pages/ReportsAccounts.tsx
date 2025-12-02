@@ -1,11 +1,35 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AccountSelector } from "@/components/reports/AccountSelector";
+import { AccountStoresList } from "@/components/reports/AccountStoresList";
+import { StoreDashboard } from "@/components/reports/StoreDashboard";
+
+type ViewState = "accounts" | "stores" | "dashboard";
+
+interface Account {
+  id: string;
+  name: string;
+  code: string;
+  contact_email: string | null;
+  contact_phone: string | null;
+}
+
+interface Store {
+  id: string;
+  store_name: string;
+  store_code: string;
+  town: string | null;
+  province: string | null;
+}
 
 const ReportsAccounts = () => {
   const navigate = useNavigate();
+  const [view, setView] = useState<ViewState>("accounts");
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -31,24 +55,66 @@ const ReportsAccounts = () => {
     checkAuth();
   }, [navigate]);
 
+  const handleSelectAccount = (account: Account) => {
+    setSelectedAccount(account);
+    setView("stores");
+  };
+
+  const handleSelectStore = (store: Store) => {
+    setSelectedStore(store);
+    setView("dashboard");
+  };
+
+  const handleBackToAccounts = () => {
+    setSelectedAccount(null);
+    setView("accounts");
+  };
+
+  const handleBackToStores = () => {
+    setSelectedStore(null);
+    setView("stores");
+  };
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="container mx-auto">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/admin/dashboard")}
-          className="mb-6"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Portal
-        </Button>
-        
-        <div className="text-center py-20">
-          <h1 className="text-4xl font-bold mb-4">Reports & Accounts</h1>
-          <p className="text-xl text-muted-foreground">
-            Coming Soon - View reports and manage accounts
-          </p>
-        </div>
+        {view === "accounts" && (
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/admin/dashboard")}
+              className="mb-6"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Portal
+            </Button>
+            
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold">Reports & Accounts</h1>
+              <p className="text-muted-foreground mt-2">
+                Select an account to view stores and examination statistics
+              </p>
+            </div>
+
+            <AccountSelector onSelectAccount={handleSelectAccount} />
+          </>
+        )}
+
+        {view === "stores" && selectedAccount && (
+          <AccountStoresList
+            account={selectedAccount}
+            onBack={handleBackToAccounts}
+            onSelectStore={handleSelectStore}
+          />
+        )}
+
+        {view === "dashboard" && selectedStore && selectedAccount && (
+          <StoreDashboard
+            store={selectedStore}
+            accountName={selectedAccount.name}
+            onBack={handleBackToStores}
+          />
+        )}
       </div>
     </div>
   );
