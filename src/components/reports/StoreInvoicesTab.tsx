@@ -58,6 +58,24 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
 
+  const resetForm = () => {
+    setFormData({
+      invoice_number: "",
+      invoice_date: new Date().toISOString().split("T")[0],
+      subtotal: "",
+      vat_amount: "",
+      discount_amount: "",
+      total_amount: "",
+      polygraph_amount: "",
+      risk_assessment_amount: "",
+      travel_amount: "",
+      tolls_amount: "",
+      accommodation_amount: "",
+      other_amount: "",
+    });
+    setSelectedFile(null);
+  };
+
   useEffect(() => {
     fetchInvoices();
   }, [storeId]);
@@ -492,7 +510,7 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => setSelectedFile(null)}
+                    onClick={resetForm}
                   >
                     Remove
                   </Button>
@@ -505,7 +523,7 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setUploadDialogOpen(false)} disabled={extracting}>
+            <Button variant="outline" onClick={() => { resetForm(); setUploadDialogOpen(false); }} disabled={extracting}>
               Cancel
             </Button>
             <Button onClick={handleUploadInvoice} disabled={uploading || extracting}>
