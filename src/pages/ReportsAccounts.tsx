@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AccountSelector } from "@/components/reports/AccountSelector";
+import { AccountDashboard } from "@/components/reports/AccountDashboard";
 import { AccountStoresList } from "@/components/reports/AccountStoresList";
 import { SubAccountDetailView } from "@/components/reports/SubAccountDetailView";
 
-type ViewState = "accounts" | "stores" | "dashboard";
+type ViewState = "accounts" | "accountDashboard" | "stores" | "storeDashboard";
 type UserRole = "admin" | "master_admin";
 
 interface Account {
@@ -71,17 +72,26 @@ const ReportsAccounts = () => {
 
   const handleSelectAccount = (account: Account) => {
     setSelectedAccount(account);
+    setView("accountDashboard");
+  };
+
+  const handleViewStores = () => {
     setView("stores");
   };
 
   const handleSelectStore = (store: Store) => {
     setSelectedStore(store);
-    setView("dashboard");
+    setView("storeDashboard");
   };
 
   const handleBackToAccounts = () => {
     setSelectedAccount(null);
     setView("accounts");
+  };
+
+  const handleBackToAccountDashboard = () => {
+    setSelectedStore(null);
+    setView("accountDashboard");
   };
 
   const handleBackToStores = () => {
@@ -124,16 +134,25 @@ const ReportsAccounts = () => {
           </>
         )}
 
+        {view === "accountDashboard" && selectedAccount && (
+          <AccountDashboard
+            account={selectedAccount}
+            onBack={handleBackToAccounts}
+            onViewStores={handleViewStores}
+            canEdit={isMasterAdmin}
+          />
+        )}
+
         {view === "stores" && selectedAccount && (
           <AccountStoresList
             account={selectedAccount}
-            onBack={handleBackToAccounts}
+            onBack={handleBackToAccountDashboard}
             onSelectStore={handleSelectStore}
             canEdit={isMasterAdmin}
           />
         )}
 
-        {view === "dashboard" && selectedStore && selectedAccount && (
+        {view === "storeDashboard" && selectedStore && selectedAccount && (
           <SubAccountDetailView
             subAccount={selectedStore}
             accountName={selectedAccount.name}
