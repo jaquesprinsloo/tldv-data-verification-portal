@@ -689,6 +689,66 @@ export type Database = {
           },
         ]
       }
+      risk_assessments: {
+        Row: {
+          assessment_date: string
+          assessor_name: string | null
+          created_at: string
+          criminal_check_status: string | null
+          employee_id: string | null
+          id: string
+          id_verification_status: string | null
+          notes: string | null
+          report_url: string | null
+          result: Database["public"]["Enums"]["risk_assessment_result"]
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          assessment_date: string
+          assessor_name?: string | null
+          created_at?: string
+          criminal_check_status?: string | null
+          employee_id?: string | null
+          id?: string
+          id_verification_status?: string | null
+          notes?: string | null
+          report_url?: string | null
+          result?: Database["public"]["Enums"]["risk_assessment_result"]
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          assessment_date?: string
+          assessor_name?: string | null
+          created_at?: string
+          criminal_check_status?: string | null
+          employee_id?: string | null
+          id?: string
+          id_verification_status?: string | null
+          notes?: string | null
+          report_url?: string | null
+          result?: Database["public"]["Enums"]["risk_assessment_result"]
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_assessments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_assessments_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stores: {
         Row: {
           account_id: string | null
@@ -1093,6 +1153,7 @@ export type Database = {
         | "polygraph_vetting"
         | "reports_accounts"
         | "general"
+      risk_assessment_result: "clear" | "flagged" | "pending"
       submission_status: "pending" | "verified" | "flagged" | "approved"
     }
     CompositeTypes: {
@@ -1249,6 +1310,7 @@ export const Constants = {
         "reports_accounts",
         "general",
       ],
+      risk_assessment_result: ["clear", "flagged", "pending"],
       submission_status: ["pending", "verified", "flagged", "approved"],
     },
   },

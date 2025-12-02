@@ -1,0 +1,444 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Building, Users, FileText, DollarSign, ClipboardCheck, ShieldCheck, Edit, Save, X, MapPin } from "lucide-react";
+import { toast } from "sonner";
+import { StoreEmployeesList } from "./StoreEmployeesList";
+import { StoreStatisticsCards } from "./StoreStatisticsCards";
+import { StoreReportsTab } from "./StoreReportsTab";
+import { StoreInvoicesTab } from "./StoreInvoicesTab";
+
+interface SubAccount {
+  id: string;
+  store_name: string;
+  store_code: string;
+  town?: string | null;
+  province?: string | null;
+  center_mall_name?: string | null;
+  shop_number?: string | null;
+  street_number?: string | null;
+  street_name?: string | null;
+  postal_code?: string | null;
+  contact_number?: string | null;
+}
+
+interface SubAccountDetailViewProps {
+  subAccount: SubAccount;
+  accountName: string;
+  onBack: () => void;
+  canEdit: boolean;
+}
+
+export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit }: SubAccountDetailViewProps) => {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    store_name: subAccount.store_name,
+    center_mall_name: subAccount.center_mall_name || "",
+    shop_number: subAccount.shop_number || "",
+    street_number: subAccount.street_number || "",
+    street_name: subAccount.street_name || "",
+    town: subAccount.town || "",
+    province: subAccount.province || "",
+    postal_code: subAccount.postal_code || "",
+    contact_number: subAccount.contact_number || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [stats, setStats] = useState({
+    employeesCount: 0,
+    polygraphCount: 0,
+    riskAssessmentCount: 0,
+    totalSpend: 0,
+  });
+
+  useEffect(() => {
+    fetchStats();
+  }, [subAccount.id]);
+
+  const fetchStats = async () => {
+    try {
+      const [employeesResult, examsResult, riskResult, invoicesResult] = await Promise.all([
+        supabase
+          .from("employees")
+          .select("*", { count: "exact", head: true })
+          .eq("store_id", subAccount.id),
+        supabase
+          .from("examinations")
+          .select("*", { count: "exact", head: true })
+          .eq("store_id", subAccount.id),
+        supabase
+          .from("risk_assessments")
+          .select("*", { count: "exact", head: true })
+          .eq("store_id", subAccount.id),
+        supabase
+          .from("invoices")
+          .select("total_amount")
+          .eq("store_id", subAccount.id),
+      ]);
+
+      const totalSpend = (invoicesResult.data || []).reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+
+      setStats({
+        employeesCount: employeesResult.count || 0,
+        polygraphCount: examsResult.count || 0,
+        riskAssessmentCount: riskResult.count || 0,
+        totalSpend,
+      });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    }
+  };
+
+  const handleSaveDetails = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("stores")
+        .update({
+          store_name: formData.store_name,
+          center_mall_name: formData.center_mall_name || null,
+          shop_number: formData.shop_number || null,
+          street_number: formData.street_number || null,
+          street_name: formData.street_name || null,
+          town: formData.town || null,
+          province: formData.province || null,
+          postal_code: formData.postal_code || null,
+          contact_number: formData.contact_number || null,
+        })
+        .eq("id", subAccount.id);
+
+      if (error) throw error;
+      toast.success("Store details updated successfully");
+      setIsEditing(false);
+    } catch (error: any) {
+      console.error("Error saving store details:", error);
+      toast.error(error.message || "Failed to save store details");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getFullAddress = () => {
+    const parts = [
+      formData.shop_number,
+      formData.center_mall_name,
+      formData.street_number,
+      formData.street_name,
+      formData.town,
+      formData.province,
+      formData.postal_code,
+    ].filter(Boolean);
+    return parts.join(", ");
+  };
+
+  const getGoogleMapsUrl = () => {
+    const address = getFullAddress();
+    if (!address) return null;
+    const encodedAddress = encodeURIComponent(address);
+    return `https://www.google.com/maps/embed/v1/place?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ""}&q=${encodedAddress}&zoom=15`;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <Building className="h-6 w-6 text-primary" />
+              {formData.store_name}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {accountName} • Code: {subAccount.store_code}
+            </p>
+          </div>
+        </div>
+        {!canEdit && (
+          <Badge variant="secondary">View Only</Badge>
+        )}
+      </div>
+
+      {/* Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card 
+          className="cursor-pointer hover:border-primary transition-colors"
+          onClick={() => setActiveTab("employees")}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Users className="h-4 w-4 text-blue-500" />
+              Employees
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{stats.employeesCount}</p>
+            <p className="text-xs text-muted-foreground">Assigned to this store</p>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:border-primary transition-colors"
+          onClick={() => setActiveTab("statistics")}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4 text-green-500" />
+              Polygraph Exams
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{stats.polygraphCount}</p>
+            <p className="text-xs text-muted-foreground">Examinations conducted</p>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:border-primary transition-colors"
+          onClick={() => setActiveTab("statistics")}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-purple-500" />
+              Risk Assessments
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">{stats.riskAssessmentCount}</p>
+            <p className="text-xs text-muted-foreground">Background checks completed</p>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:border-primary transition-colors"
+          onClick={() => setActiveTab("invoices")}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-yellow-500" />
+              Total Spend
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">R {stats.totalSpend.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">On examinations & assessments</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview">Store Details</TabsTrigger>
+          <TabsTrigger value="employees">Employees</TabsTrigger>
+          <TabsTrigger value="statistics">Statistics</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">Store Details</CardTitle>
+              {canEdit && (
+                <div className="flex gap-2">
+                  {isEditing ? (
+                    <>
+                      <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
+                        <X className="h-4 w-4 mr-1" />
+                        Cancel
+                      </Button>
+                      <Button size="sm" onClick={handleSaveDetails} disabled={saving}>
+                        <Save className="h-4 w-4 mr-1" />
+                        {saving ? "Saving..." : "Save"}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit Details
+                    </Button>
+                  )}
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Store Name</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData.store_name}
+                          onChange={(e) => setFormData({ ...formData, store_name: e.target.value })}
+                        />
+                      ) : (
+                        <p className="text-sm">{formData.store_name || "-"}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Contact Number</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData.contact_number}
+                          onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
+                          placeholder="e.g., 012 345 6789"
+                        />
+                      ) : (
+                        <p className="text-sm">{formData.contact_number || "-"}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Center/Mall Name</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData.center_mall_name}
+                          onChange={(e) => setFormData({ ...formData, center_mall_name: e.target.value })}
+                          placeholder="e.g., Menlyn Park"
+                        />
+                      ) : (
+                        <p className="text-sm">{formData.center_mall_name || "-"}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Shop Number</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData.shop_number}
+                          onChange={(e) => setFormData({ ...formData, shop_number: e.target.value })}
+                          placeholder="e.g., Shop 45"
+                        />
+                      ) : (
+                        <p className="text-sm">{formData.shop_number || "-"}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Street Number</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData.street_number}
+                          onChange={(e) => setFormData({ ...formData, street_number: e.target.value })}
+                          placeholder="e.g., 123"
+                        />
+                      ) : (
+                        <p className="text-sm">{formData.street_number || "-"}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Street Name</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData.street_name}
+                          onChange={(e) => setFormData({ ...formData, street_name: e.target.value })}
+                          placeholder="e.g., Main Street"
+                        />
+                      ) : (
+                        <p className="text-sm">{formData.street_name || "-"}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Town/City</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData.town}
+                          onChange={(e) => setFormData({ ...formData, town: e.target.value })}
+                          placeholder="e.g., Pretoria"
+                        />
+                      ) : (
+                        <p className="text-sm">{formData.town || "-"}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Province</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData.province}
+                          onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+                          placeholder="e.g., Gauteng"
+                        />
+                      ) : (
+                        <p className="text-sm">{formData.province || "-"}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Postal Code</Label>
+                      {isEditing ? (
+                        <Input
+                          value={formData.postal_code}
+                          onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                          placeholder="e.g., 0181"
+                        />
+                      ) : (
+                        <p className="text-sm">{formData.postal_code || "-"}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Map */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1">
+                    <MapPin className="h-4 w-4" />
+                    Location
+                  </Label>
+                  {getFullAddress() ? (
+                    <div className="w-full h-64 rounded-lg overflow-hidden border">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        style={{ border: 0 }}
+                        loading="lazy"
+                        allowFullScreen
+                        referrerPolicy="no-referrer-when-downgrade"
+                        src={getGoogleMapsUrl() || ""}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full h-64 rounded-lg border flex items-center justify-center bg-muted">
+                      <p className="text-muted-foreground">Add address details to see location</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="employees">
+          <StoreEmployeesList storeId={subAccount.id} storeName={formData.store_name} canEdit={canEdit} />
+        </TabsContent>
+
+        <TabsContent value="statistics">
+          <StoreStatisticsCards storeId={subAccount.id} canEdit={canEdit} />
+        </TabsContent>
+
+        <TabsContent value="reports">
+          <StoreReportsTab storeId={subAccount.id} canEdit={canEdit} />
+        </TabsContent>
+
+        <TabsContent value="invoices">
+          <StoreInvoicesTab storeId={subAccount.id} canEdit={canEdit} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
