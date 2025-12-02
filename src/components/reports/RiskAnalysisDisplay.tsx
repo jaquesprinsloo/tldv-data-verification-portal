@@ -74,7 +74,9 @@ const RiskAnalysisDisplay = ({ riskAnalysis }: RiskAnalysisDisplayProps) => {
     }
   };
 
-  const config = getRiskLevelConfig(riskAnalysis.RiskLevel || '');
+  // Normalize risk level display - map UNACCEPTABLE to VERY HIGH
+  const normalizedRiskLevel = (riskAnalysis.RiskLevel || '').toUpperCase().replace('UNACCEPTABLE', 'VERY HIGH');
+  const config = getRiskLevelConfig(normalizedRiskLevel);
   const IconComponent = config.icon;
 
   const scoreCategories = [
@@ -99,7 +101,7 @@ const RiskAnalysisDisplay = ({ riskAnalysis }: RiskAnalysisDisplayProps) => {
               Risk Assessment Summary
             </CardTitle>
             <Badge className={`${config.color} text-white text-lg px-4 py-1`}>
-              {riskAnalysis.RiskLevel || 'N/A'}
+              {normalizedRiskLevel || 'N/A'}
             </Badge>
           </div>
           <CardDescription>
