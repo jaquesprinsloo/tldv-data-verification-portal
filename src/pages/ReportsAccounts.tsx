@@ -7,6 +7,9 @@ import { AccountSelector } from "@/components/reports/AccountSelector";
 import { AccountDashboard } from "@/components/reports/AccountDashboard";
 import { AccountStoresList } from "@/components/reports/AccountStoresList";
 import { SubAccountDetailView } from "@/components/reports/SubAccountDetailView";
+import PolygraphReportsSection from "@/components/reports/PolygraphReportsSection";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Building2, FileText } from "lucide-react";
 
 type ViewState = "accounts" | "accountDashboard" | "stores" | "storeDashboard";
 type UserRole = "admin" | "master_admin";
@@ -36,6 +39,7 @@ interface Store {
 const ReportsAccounts = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
+  const [mainTab, setMainTab] = useState("accounts");
   const [view, setView] = useState<ViewState>("accounts");
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
@@ -107,53 +111,72 @@ const ReportsAccounts = () => {
     <div className="min-h-screen bg-background">
       <AdminHeader user={user} title="Reports & Accounts Portal" />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        {view === "accounts" && (
-          <>
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold">Select Account</h2>
-              <p className="text-muted-foreground mt-2">
-                {isMasterAdmin 
-                  ? "Select an account to view sub accounts and examination statistics"
-                  : "View your assigned accounts and examination statistics"
-                }
-              </p>
-            </div>
+        <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="accounts" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Accounts
+            </TabsTrigger>
+            <TabsTrigger value="polygraph" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Polygraph Reports
+            </TabsTrigger>
+          </TabsList>
 
-            <AccountSelector 
-              onSelectAccount={handleSelectAccount} 
-              canEdit={isMasterAdmin}
-              currentUserId={currentUserId || undefined}
-              isMasterAdmin={isMasterAdmin}
-            />
-          </>
-        )}
+          <TabsContent value="accounts">
+            {view === "accounts" && (
+              <>
+                <div className="mb-8">
+                  <h2 className="text-2xl font-bold">Select Account</h2>
+                  <p className="text-muted-foreground mt-2">
+                    {isMasterAdmin 
+                      ? "Select an account to view sub accounts and examination statistics"
+                      : "View your assigned accounts and examination statistics"
+                    }
+                  </p>
+                </div>
 
-        {view === "accountDashboard" && selectedAccount && (
-          <AccountDashboard
-            account={selectedAccount}
-            onBack={handleBackToAccounts}
-            onViewStores={handleViewStores}
-            canEdit={isMasterAdmin}
-          />
-        )}
+                <AccountSelector 
+                  onSelectAccount={handleSelectAccount} 
+                  canEdit={isMasterAdmin}
+                  currentUserId={currentUserId || undefined}
+                  isMasterAdmin={isMasterAdmin}
+                />
+              </>
+            )}
 
-        {view === "stores" && selectedAccount && (
-          <AccountStoresList
-            account={selectedAccount}
-            onBack={handleBackToAccountDashboard}
-            onSelectStore={handleSelectStore}
-            canEdit={isMasterAdmin}
-          />
-        )}
+            {view === "accountDashboard" && selectedAccount && (
+              <AccountDashboard
+                account={selectedAccount}
+                onBack={handleBackToAccounts}
+                onViewStores={handleViewStores}
+                canEdit={isMasterAdmin}
+              />
+            )}
 
-        {view === "storeDashboard" && selectedStore && selectedAccount && (
-          <SubAccountDetailView
-            subAccount={selectedStore}
-            accountName={selectedAccount.name}
-            onBack={handleBackToStores}
-            canEdit={isMasterAdmin}
-          />
-        )}
+            {view === "stores" && selectedAccount && (
+              <AccountStoresList
+                account={selectedAccount}
+                onBack={handleBackToAccountDashboard}
+                onSelectStore={handleSelectStore}
+                canEdit={isMasterAdmin}
+              />
+            )}
+
+            {view === "storeDashboard" && selectedStore && selectedAccount && (
+              <SubAccountDetailView
+                subAccount={selectedStore}
+                accountName={selectedAccount.name}
+                onBack={handleBackToStores}
+                canEdit={isMasterAdmin}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="polygraph">
+            <PolygraphReportsSection canEdit={isMasterAdmin} />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
