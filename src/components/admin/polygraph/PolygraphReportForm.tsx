@@ -15,8 +15,64 @@ import AdmissionAssessment, { Admission } from "./AdmissionAssessment";
 import SuitabilityQuestionnaire, { SuitabilityData } from "./SuitabilityQuestionnaire";
 import ExamQuestionsForm, { ExamQuestion } from "./ExamQuestionsForm";
 
+interface ExtractedPDFData {
+  candidate?: {
+    firstName?: string;
+    lastName?: string;
+    idNumber?: string;
+    contactNumber?: string;
+    email?: string;
+    physicalAddress?: string;
+    positionApplyingFor?: string;
+  };
+  examination?: {
+    date?: string;
+    examinerName?: string;
+  };
+  vettingServices?: string[];
+  suitability?: {
+    healthStatus?: string;
+    enoughSleep?: boolean;
+    hospitalizedRecently?: boolean;
+    hospitalizedDetails?: string;
+    medicationTaken?: boolean;
+    medicationDetails?: string;
+    heartConditions?: boolean;
+    breathingTrouble?: boolean;
+    psychologicalDisorders?: boolean;
+    diabetic?: boolean;
+    recentDrugUse?: boolean;
+    drugUseDetails?: string;
+    recentAlcoholUse?: boolean;
+    alcoholDetails?: string;
+    smoker?: boolean;
+    smokingDetails?: string;
+    pregnant?: boolean;
+    suitableForExam?: boolean;
+    suitabilityComment?: string;
+  };
+  admissions?: Array<{
+    category: string;
+    confirmed: boolean;
+    details?: Record<string, any>;
+    timeWindow?: string;
+    notes?: string;
+  }>;
+  examQuestions?: Array<{
+    questionNumber: number;
+    questionText: string;
+    response?: boolean;
+    finding?: string;
+  }>;
+  result?: {
+    overallResult?: string;
+    examinerNotes?: string;
+  };
+}
+
 interface PolygraphReportFormProps {
   reportId?: string | null;
+  initialData?: ExtractedPDFData | null;
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -54,7 +110,7 @@ const STEPS = [
   { id: 6, title: "Results", description: "Final assessment" },
 ];
 
-const PolygraphReportForm = ({ reportId, onSaved, onCancel }: PolygraphReportFormProps) => {
+const PolygraphReportForm = ({ reportId, initialData, onSaved, onCancel }: PolygraphReportFormProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -67,43 +123,59 @@ const PolygraphReportForm = ({ reportId, onSaved, onCancel }: PolygraphReportFor
   const [formData, setFormData] = useState({
     store_id: "",
     examiner_id: "",
-    examination_date: new Date().toISOString().split("T")[0],
-    first_name: "",
-    last_name: "",
-    id_number: "",
-    contact_number: "",
-    email: "",
-    physical_address: "",
-    position_applying_for: "",
-    vetting_types: [] as string[],
-    overall_result: "" as "" | "passed" | "failed" | "inconclusive",
-    examiner_notes: "",
+    examination_date: initialData?.examination?.date || new Date().toISOString().split("T")[0],
+    first_name: initialData?.candidate?.firstName || "",
+    last_name: initialData?.candidate?.lastName || "",
+    id_number: initialData?.candidate?.idNumber || "",
+    contact_number: initialData?.candidate?.contactNumber || "",
+    email: initialData?.candidate?.email || "",
+    physical_address: initialData?.candidate?.physicalAddress || "",
+    position_applying_for: initialData?.candidate?.positionApplyingFor || "",
+    vetting_types: initialData?.vettingServices || [] as string[],
+    overall_result: (initialData?.result?.overallResult as "" | "passed" | "failed" | "inconclusive") || "",
+    examiner_notes: initialData?.result?.examinerNotes || "",
   });
 
   const [suitability, setSuitability] = useState<SuitabilityData>({
-    health_status: "",
-    enough_sleep: null,
-    hospitalized_recently: null,
-    hospitalized_details: "",
-    medication_taken: null,
-    medication_details: "",
-    heart_conditions: null,
-    breathing_trouble: null,
-    psychological_disorders: null,
-    diabetic: null,
-    recent_drug_use: null,
-    drug_use_details: "",
-    recent_alcohol_use: null,
-    alcohol_details: "",
-    smoker: null,
-    smoking_details: "",
-    pregnant: null,
-    suitable_for_exam: null,
-    suitability_comment: "",
+    health_status: initialData?.suitability?.healthStatus || "",
+    enough_sleep: initialData?.suitability?.enoughSleep ?? null,
+    hospitalized_recently: initialData?.suitability?.hospitalizedRecently ?? null,
+    hospitalized_details: initialData?.suitability?.hospitalizedDetails || "",
+    medication_taken: initialData?.suitability?.medicationTaken ?? null,
+    medication_details: initialData?.suitability?.medicationDetails || "",
+    heart_conditions: initialData?.suitability?.heartConditions ?? null,
+    breathing_trouble: initialData?.suitability?.breathingTrouble ?? null,
+    psychological_disorders: initialData?.suitability?.psychologicalDisorders ?? null,
+    diabetic: initialData?.suitability?.diabetic ?? null,
+    recent_drug_use: initialData?.suitability?.recentDrugUse ?? null,
+    drug_use_details: initialData?.suitability?.drugUseDetails || "",
+    recent_alcohol_use: initialData?.suitability?.recentAlcoholUse ?? null,
+    alcohol_details: initialData?.suitability?.alcoholDetails || "",
+    smoker: initialData?.suitability?.smoker ?? null,
+    smoking_details: initialData?.suitability?.smokingDetails || "",
+    pregnant: initialData?.suitability?.pregnant ?? null,
+    suitable_for_exam: initialData?.suitability?.suitableForExam ?? null,
+    suitability_comment: initialData?.suitability?.suitabilityComment || "",
   });
 
-  const [admissions, setAdmissions] = useState<Admission[]>([]);
-  const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>([]);
+  const [admissions, setAdmissions] = useState<Admission[]>(
+    initialData?.admissions?.map(a => ({
+      category: a.category,
+      confirmed: a.confirmed,
+      details: a.details || {},
+      time_window: a.timeWindow as "within_2_years" | "2_5_years" | "5_plus_years" | "never" | null,
+      notes: a.notes || "",
+    })) || []
+  );
+  
+  const [examQuestions, setExamQuestions] = useState<ExamQuestion[]>(
+    initialData?.examQuestions?.map(q => ({
+      question_number: q.questionNumber,
+      question_text: q.questionText,
+      response: q.response ?? null,
+      finding: (q.finding as "SR" | "NSR" | "INC" | "PNC") || null,
+    })) || []
+  );
 
   useEffect(() => {
     fetchStores();
@@ -234,7 +306,7 @@ const PolygraphReportForm = ({ reportId, onSaved, onCancel }: PolygraphReportFor
         physical_address: formData.physical_address || null,
         position_applying_for: formData.position_applying_for || null,
         vetting_types: formData.vetting_types,
-        overall_result: formData.overall_result || null,
+        overall_result: (formData.overall_result || null) as "passed" | "failed" | "inconclusive" | null,
         examiner_notes: formData.examiner_notes || null,
         status,
       };
