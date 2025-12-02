@@ -785,19 +785,31 @@ export type Database = {
         Row: {
           contact_number: string | null
           created_at: string
+          education_history: Json | null
           email: string | null
+          employment_history: Json | null
           examination_date: string
           examiner_id: string | null
           examiner_notes: string | null
+          extracted_disclosure: Json | null
+          family_criminal_history: Json | null
+          financial_circumstances: Json | null
           first_name: string
+          friend_criminal_history: Json | null
           id: string
           id_number: string
           last_name: string
           overall_result:
             | Database["public"]["Enums"]["polygraph_overall_result"]
             | null
+          permits_licensing: Json | null
+          personal_law_encounters: Json | null
           physical_address: string | null
           position_applying_for: string | null
+          post_exam_admissions: string | null
+          risk_analysis: Json | null
+          risk_level: string | null
+          risk_score: number | null
           status: Database["public"]["Enums"]["polygraph_report_status"]
           store_id: string | null
           updated_at: string
@@ -806,19 +818,31 @@ export type Database = {
         Insert: {
           contact_number?: string | null
           created_at?: string
+          education_history?: Json | null
           email?: string | null
+          employment_history?: Json | null
           examination_date: string
           examiner_id?: string | null
           examiner_notes?: string | null
+          extracted_disclosure?: Json | null
+          family_criminal_history?: Json | null
+          financial_circumstances?: Json | null
           first_name: string
+          friend_criminal_history?: Json | null
           id?: string
           id_number: string
           last_name: string
           overall_result?:
             | Database["public"]["Enums"]["polygraph_overall_result"]
             | null
+          permits_licensing?: Json | null
+          personal_law_encounters?: Json | null
           physical_address?: string | null
           position_applying_for?: string | null
+          post_exam_admissions?: string | null
+          risk_analysis?: Json | null
+          risk_level?: string | null
+          risk_score?: number | null
           status?: Database["public"]["Enums"]["polygraph_report_status"]
           store_id?: string | null
           updated_at?: string
@@ -827,19 +851,31 @@ export type Database = {
         Update: {
           contact_number?: string | null
           created_at?: string
+          education_history?: Json | null
           email?: string | null
+          employment_history?: Json | null
           examination_date?: string
           examiner_id?: string | null
           examiner_notes?: string | null
+          extracted_disclosure?: Json | null
+          family_criminal_history?: Json | null
+          financial_circumstances?: Json | null
           first_name?: string
+          friend_criminal_history?: Json | null
           id?: string
           id_number?: string
           last_name?: string
           overall_result?:
             | Database["public"]["Enums"]["polygraph_overall_result"]
             | null
+          permits_licensing?: Json | null
+          personal_law_encounters?: Json | null
           physical_address?: string | null
           position_applying_for?: string | null
+          post_exam_admissions?: string | null
+          risk_analysis?: Json | null
+          risk_level?: string | null
+          risk_score?: number | null
           status?: Database["public"]["Enums"]["polygraph_report_status"]
           store_id?: string | null
           updated_at?: string

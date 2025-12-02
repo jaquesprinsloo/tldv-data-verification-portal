@@ -10,6 +10,7 @@ import PolygraphCandidates from "@/components/admin/polygraph/PolygraphCandidate
 import { generatePolygraphTemplate } from "@/utils/polygraphTemplateGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import RiskAnalysisDisplay from "./RiskAnalysisDisplay";
 
 interface PolygraphReportsSectionProps {
   canEdit: boolean;
@@ -290,42 +291,67 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                 </div>
 
                 {extractedData && (
-                  <Card className="bg-muted/50">
-                    <CardHeader>
-                      <CardTitle className="text-lg">Extracted Data Preview</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {extractedData.candidate && (
-                        <div>
-                          <h4 className="font-medium mb-2">Candidate Information</h4>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <p><span className="text-muted-foreground">Name:</span> {extractedData.candidate.firstName} {extractedData.candidate.lastName}</p>
-                            <p><span className="text-muted-foreground">ID Number:</span> {extractedData.candidate.idNumber || 'N/A'}</p>
-                            <p><span className="text-muted-foreground">Contact:</span> {extractedData.candidate.contactNumber || 'N/A'}</p>
-                            <p><span className="text-muted-foreground">Position:</span> {extractedData.candidate.positionApplyingFor || 'N/A'}</p>
+                  <div className="space-y-6">
+                    {/* Risk Analysis Display */}
+                    {extractedData.riskAnalysis && (
+                      <RiskAnalysisDisplay riskAnalysis={extractedData.riskAnalysis} />
+                    )}
+
+                    <Card className="bg-muted/50">
+                      <CardHeader>
+                        <CardTitle className="text-lg">Extracted Candidate Data</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {extractedData.candidate && (
+                          <div>
+                            <h4 className="font-medium mb-2">Candidate Information</h4>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <p><span className="text-muted-foreground">Name:</span> {extractedData.candidate.firstName} {extractedData.candidate.lastName}</p>
+                              <p><span className="text-muted-foreground">ID Number:</span> {extractedData.candidate.idNumber || 'N/A'}</p>
+                              <p><span className="text-muted-foreground">Contact:</span> {extractedData.candidate.contactNumber || 'N/A'}</p>
+                              <p><span className="text-muted-foreground">Email:</span> {extractedData.candidate.email || 'N/A'}</p>
+                              <p><span className="text-muted-foreground">Position:</span> {extractedData.candidate.positionApplyingFor || 'N/A'}</p>
+                              <p><span className="text-muted-foreground">Store:</span> {extractedData.candidate.storeLocation || 'N/A'}</p>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      {extractedData.examination && (
-                        <div>
-                          <h4 className="font-medium mb-2">Examination Details</h4>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <p><span className="text-muted-foreground">Date:</span> {extractedData.examination.date || 'N/A'}</p>
-                            <p><span className="text-muted-foreground">Examiner:</span> {extractedData.examination.examinerName || 'N/A'}</p>
+                        )}
+                        {extractedData.examination && (
+                          <div>
+                            <h4 className="font-medium mb-2">Examination Details</h4>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <p><span className="text-muted-foreground">Date:</span> {extractedData.examination.date || 'N/A'}</p>
+                              <p><span className="text-muted-foreground">Examiner:</span> {extractedData.examination.examinerName || 'N/A'}</p>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      {extractedData.result && (
-                        <div>
-                          <h4 className="font-medium mb-2">Result</h4>
-                          <p className="text-sm"><span className="text-muted-foreground">Overall Result:</span> {extractedData.result.overallResult || 'N/A'}</p>
-                        </div>
-                      )}
-                      <Button onClick={handleProceedWithExtracted} className="w-full mt-4">
-                        Proceed to Create Report
-                      </Button>
-                    </CardContent>
-                  </Card>
+                        )}
+                        {extractedData.result && (
+                          <div>
+                            <h4 className="font-medium mb-2">Result</h4>
+                            <p className="text-sm"><span className="text-muted-foreground">Overall Result:</span> {extractedData.result.overallResult || 'N/A'}</p>
+                          </div>
+                        )}
+
+                        {/* Disclosure Summary */}
+                        {extractedData.disclosure && (
+                          <div>
+                            <h4 className="font-medium mb-2">Disclosure Summary</h4>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <p><span className="text-muted-foreground">Workplace Theft:</span> {extractedData.disclosure.WorkplaceTheft || 'Not Disclosed'}</p>
+                              <p><span className="text-muted-foreground">Bribery Paid:</span> {extractedData.disclosure.BriberyPaid || 'Not Disclosed'}</p>
+                              <p><span className="text-muted-foreground">Drug Use History:</span> {extractedData.disclosure.DrugUseHistory || 'Not Disclosed'}</p>
+                              <p><span className="text-muted-foreground">Organised Crime:</span> {extractedData.disclosure.OrganisedCrimeLinks || 'Not Disclosed'}</p>
+                              <p><span className="text-muted-foreground">Arrests:</span> {extractedData.disclosure.Arrests || 'Not Disclosed'}</p>
+                              <p><span className="text-muted-foreground">Convictions:</span> {extractedData.disclosure.Convictions || 'Not Disclosed'}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        <Button onClick={handleProceedWithExtracted} className="w-full mt-4">
+                          Proceed to Create Report & Candidate Profile
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
                 )}
 
                 <div className="bg-muted/50 rounded-lg p-4">

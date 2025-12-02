@@ -24,10 +24,12 @@ interface ExtractedPDFData {
     email?: string;
     physicalAddress?: string;
     positionApplyingFor?: string;
+    storeLocation?: string;
   };
   examination?: {
     date?: string;
     examinerName?: string;
+    vettingTypes?: Record<string, boolean>;
   };
   vettingServices?: string[];
   suitability?: {
@@ -67,6 +69,25 @@ interface ExtractedPDFData {
   result?: {
     overallResult?: string;
     examinerNotes?: string;
+  };
+  // Extended risk analysis data
+  disclosure?: Record<string, any>;
+  educationHistory?: any[];
+  employmentHistory?: any[];
+  familyCriminalHistory?: any[];
+  friendCriminalHistory?: any[];
+  financialCircumstances?: Record<string, any>;
+  permitsLicensing?: Record<string, any>;
+  personalLawEncounters?: Record<string, any>;
+  polygraphResults?: Record<string, any>;
+  postExamAdmissions?: string;
+  riskAnalysis?: {
+    TotalRiskScore?: number;
+    RiskLevel?: string;
+    KeyRiskConcerns?: string[];
+    RecommendedMitigations?: string[];
+    NarrativeReport?: string;
+    [key: string]: any;
   };
 }
 
@@ -293,8 +314,8 @@ const PolygraphReportForm = ({ reportId, initialData, onSaved, onCancel }: Polyg
     try {
       let newReportId = reportId;
 
-      // Create or update main report
-      const reportPayload = {
+      // Create or update main report with risk analysis data
+      const reportPayload: Record<string, any> = {
         store_id: formData.store_id || null,
         examiner_id: formData.examiner_id || null,
         examination_date: formData.examination_date,
@@ -311,16 +332,50 @@ const PolygraphReportForm = ({ reportId, initialData, onSaved, onCancel }: Polyg
         status,
       };
 
+      // Add risk analysis data if available from initialData
+      if (initialData?.riskAnalysis) {
+        reportPayload.risk_score = initialData.riskAnalysis.TotalRiskScore || null;
+        reportPayload.risk_level = initialData.riskAnalysis.RiskLevel || null;
+        reportPayload.risk_analysis = initialData.riskAnalysis;
+      }
+      if (initialData?.disclosure) {
+        reportPayload.extracted_disclosure = initialData.disclosure;
+      }
+      if (initialData?.educationHistory) {
+        reportPayload.education_history = initialData.educationHistory;
+      }
+      if (initialData?.employmentHistory) {
+        reportPayload.employment_history = initialData.employmentHistory;
+      }
+      if (initialData?.familyCriminalHistory) {
+        reportPayload.family_criminal_history = initialData.familyCriminalHistory;
+      }
+      if (initialData?.friendCriminalHistory) {
+        reportPayload.friend_criminal_history = initialData.friendCriminalHistory;
+      }
+      if (initialData?.financialCircumstances) {
+        reportPayload.financial_circumstances = initialData.financialCircumstances;
+      }
+      if (initialData?.permitsLicensing) {
+        reportPayload.permits_licensing = initialData.permitsLicensing;
+      }
+      if (initialData?.personalLawEncounters) {
+        reportPayload.personal_law_encounters = initialData.personalLawEncounters;
+      }
+      if (initialData?.postExamAdmissions) {
+        reportPayload.post_exam_admissions = initialData.postExamAdmissions;
+      }
+
       if (reportId) {
         const { error } = await supabase
           .from("polygraph_reports")
-          .update(reportPayload)
+          .update(reportPayload as any)
           .eq("id", reportId);
         if (error) throw error;
       } else {
         const { data, error } = await supabase
           .from("polygraph_reports")
-          .insert(reportPayload)
+          .insert(reportPayload as any)
           .select("id")
           .single();
         if (error) throw error;

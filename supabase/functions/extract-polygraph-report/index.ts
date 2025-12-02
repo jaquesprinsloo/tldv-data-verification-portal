@@ -20,78 +20,263 @@ serve(async (req) => {
 
     console.log('Processing polygraph report PDF:', fileName);
 
-    const systemPrompt = `You are an expert at extracting structured data from polygraph examination reports. 
-    Extract all relevant information and return it as a JSON object with the following structure:
-    {
-      "candidate": {
-        "firstName": string,
-        "lastName": string,
-        "idNumber": string,
-        "email": string or null,
-        "contactNumber": string or null,
-        "physicalAddress": string or null,
-        "positionApplyingFor": string or null
-      },
-      "examination": {
-        "date": string (YYYY-MM-DD format),
-        "examinerName": string or null,
-        "vettingTypes": {
-          "preEmployment": boolean,
-          "periodicScreening": boolean,
-          "specific": boolean
-        }
-      },
-      "suitability": {
-        "enoughSleep": boolean or null,
-        "recentAlcoholUse": boolean or null,
-        "alcoholDetails": string or null,
-        "recentDrugUse": boolean or null,
-        "drugUseDetails": string or null,
-        "medicationTaken": boolean or null,
-        "medicationDetails": string or null,
-        "heartConditions": boolean or null,
-        "breathingTrouble": boolean or null,
-        "pregnant": boolean or null,
-        "diabetic": boolean or null,
-        "psychologicalDisorders": boolean or null,
-        "hospitalizedRecently": boolean or null,
-        "hospitalizedDetails": string or null,
-        "smoker": boolean or null,
-        "smokingDetails": string or null,
-        "healthStatus": string or null,
-        "suitableForExam": boolean or null,
-        "suitabilityComment": string or null
-      },
-      "admissions": [
-        {
-          "category": string (one of: "drug_use", "workplace_theft", "fraud", "bribery", "criminal_syndicate", "undetected_crimes", "previous_dismissal", "gambling_issues"),
-          "confirmed": boolean,
-          "timeWindow": string or null (one of: "within_2_years", "2_5_years", "5_plus_years", "never"),
-          "details": object or null (category-specific details),
-          "notes": string or null
-        }
-      ],
-      "examQuestions": [
-        {
-          "questionNumber": number,
-          "questionText": string,
-          "response": boolean or null,
-          "finding": string or null (one of: "SR", "NSR", "INC", "PNC")
-        }
-      ],
-      "result": {
-        "overallResult": string or null (one of: "passed", "failed", "inconclusive"),
-        "examinerNotes": string or null
-      }
+    const systemPrompt = `You are an automated risk-analysis system used for pre-employment vetting in South Africa.
+
+You MUST:
+1. Read the uploaded PDF containing a polygraph/vetting report.
+2. Recognize and extract all sections, even if formatting varies.
+
+REQUIRED SECTIONS TO EXTRACT:
+- Candidate Identification (full name, ID number)
+- Residential Address
+- Contact Details (phone, email)
+- Position Applied For & Store
+- Suitability Questionnaire responses (health, sleep, medication, conditions)
+- Educational History
+- Employment History (all employers, job titles, duties, reasons for leaving)
+- Family Information & Criminal History
+- Friend Information & Criminal History
+- Financial Circumstances (bank, debts, arrears, blacklisting)
+- Permits & Licensing (passport, driver's license, bribes paid to obtain license)
+- Personal Encounters with the Law (arrests, fines, convictions, court appearances)
+- Past Criminal Activity (workplace theft, bribery, fraud, syndicates, undetected crimes)
+- Drug & Substance Use
+- Gambling behaviour
+- Polygraph Relevant Questions, Responses, and Findings (SR, INC, NSR)
+- Post-Examination Admissions
+
+If a section is blank in the PDF, mark it as "Not disclosed".
+
+STEP 2 — STRUCTURE THE DATA EXACTLY LIKE THIS:
+
+{
+  "Candidate": {
+    "FullName": "",
+    "FirstName": "",
+    "LastName": "",
+    "IDNumber": "",
+    "Email": "",
+    "ContactNumber": "",
+    "PhysicalAddress": "",
+    "PositionAppliedFor": "",
+    "StoreLocation": ""
+  },
+  "Examination": {
+    "Date": "",
+    "ExaminerName": "",
+    "VettingTypes": {
+      "PreEmployment": false,
+      "PeriodicScreening": false,
+      "Specific": false
     }
-    
-    For admissions details, use these structures based on category:
-    - drug_use: { "substances": ["marijuana", "cocaine", etc.] }
-    - workplace_theft: { "valueRange": "under_100" | "100_500" | "500_1000" | "over_1000" }
-    - previous_dismissal: { "reason": string }
-    
-    Extract as much information as possible. If a field is not found or unclear, use null.
-    Return ONLY the JSON object, no additional text.`;
+  },
+  "Suitability": {
+    "HealthStatus": "",
+    "EnoughSleep": null,
+    "HospitalizedRecently": null,
+    "HospitalizedDetails": "",
+    "MedicationTaken": null,
+    "MedicationDetails": "",
+    "HeartConditions": null,
+    "BreathingTrouble": null,
+    "PsychologicalDisorders": null,
+    "Diabetic": null,
+    "RecentDrugUse": null,
+    "DrugUseDetails": "",
+    "RecentAlcoholUse": null,
+    "AlcoholDetails": "",
+    "Smoker": null,
+    "SmokingDetails": "",
+    "Pregnant": null,
+    "SuitableForExam": null,
+    "SuitabilityComment": ""
+  },
+  "Disclosure": {
+    "WorkplaceTheft": "",
+    "BriberyPaid": "",
+    "BriberyAccepted": "",
+    "DrugUseHistory": "",
+    "OrganisedCrimeLinks": "",
+    "FamilyCriminalHistory": "",
+    "FriendCriminalHistory": "",
+    "Arrests": "",
+    "Convictions": "",
+    "CourtCases": "",
+    "FinancialStatus": {
+      "ActiveDebt": [],
+      "Arrears": [],
+      "Blacklisted": "",
+      "GamblingImpact": ""
+    },
+    "DriverLicenseAndBribes": "",
+    "OtherNotableAdmissions": ""
+  },
+  "EducationHistory": [],
+  "EmploymentHistory": [],
+  "FamilyCriminalHistory": [],
+  "FriendCriminalHistory": [],
+  "FinancialCircumstances": {
+    "BankDetails": "",
+    "Debts": [],
+    "Arrears": [],
+    "Blacklisted": "",
+    "GamblingIssues": ""
+  },
+  "PermitsLicensing": {
+    "Passport": "",
+    "DriversLicense": "",
+    "BribesPaid": ""
+  },
+  "PersonalLawEncounters": {
+    "Arrests": "",
+    "Fines": "",
+    "Convictions": "",
+    "CourtAppearances": ""
+  },
+  "Admissions": [
+    {
+      "Category": "",
+      "Confirmed": false,
+      "TimeWindow": "",
+      "Details": {},
+      "Notes": ""
+    }
+  ],
+  "ExamQuestions": [
+    {
+      "QuestionNumber": 0,
+      "QuestionText": "",
+      "Response": null,
+      "Finding": ""
+    }
+  ],
+  "PolygraphResults": {
+    "QuestionResults": [],
+    "SRQuestions": [],
+    "INCQuestions": [],
+    "NSRQuestions": []
+  },
+  "PostExamAdmissions": "",
+  "Result": {
+    "OverallResult": "",
+    "ExaminerNotes": ""
+  },
+  "RiskAnalysis": {
+    "CriminalDishonestyScore": {
+      "TheftAdmission": 0,
+      "PriorDishonestDismissal": 0,
+      "ArrestsLast5Years": 0,
+      "Convictions": 0,
+      "Total": 0
+    },
+    "PolygraphIndicatorsScore": {
+      "SROnSeriousCrimes": 0,
+      "INCOnRelevant": 0,
+      "Total": 0
+    },
+    "FinancialRiskScore": {
+      "BadDebtArrears": 0,
+      "MultipleDebts": 0,
+      "GamblingRelated": 0,
+      "Total": 0
+    },
+    "BriberyCorruptionScore": {
+      "PersonalBenefit": 0,
+      "MinorBribe": 0,
+      "Total": 0
+    },
+    "OrganisedCrimeScore": {
+      "DirectInvolvement": 0,
+      "FamilyFriendContact": 0,
+      "Total": 0
+    },
+    "SubstanceUseScore": {
+      "RecentActiveAbuse": 0,
+      "HistoricalExperimentation": 0,
+      "Total": 0
+    },
+    "JobStabilityScore": {
+      "JobHopping": 0,
+      "DismissalsAllegations": 0,
+      "Total": 0
+    },
+    "AdministrativeIntegrityScore": {
+      "FalseCVClaims": 0,
+      "UnpaidFines": 0,
+      "Total": 0
+    },
+    "TotalRiskScore": 0,
+    "RiskLevel": "",
+    "KeyRiskConcerns": [],
+    "RecommendedMitigations": [],
+    "NarrativeReport": ""
+  }
+}
+
+STEP 3 – APPLY THE RISK SCORING SYSTEM
+
+Use the exact scoring model:
+
+A. Criminal / Dishonesty history (max 12):
+- Theft admission: +6
+- Prior dishonest dismissal: +4
+- Arrest(s) last 5 years: +3
+- Conviction(s): +6
+
+B. Polygraph Indicators (max 8):
+- SR (Significant Reaction) on theft, syndicate, serious crimes, dismissals: +6 each
+- INC (Inconclusive) on relevant question: +2
+- NSR: +0
+
+C. Financial Risk (max 6):
+- Bad debt / arrears > 6 months: +4
+- Multiple debts indicating pressure: +2
+- Gambling-related missed payments: +2
+
+D. Bribery / Corruption (max 6):
+- Paid or received bribe for personal benefit: +6
+- Paid minor bribe (traffic fine or license): +3
+
+E. Organised Crime / Criminal Network Links (max 6):
+- Direct involvement: +6
+- Family/friend involvement with ongoing contact: +3
+
+F. Substance Use (max 4):
+- Recent active abuse: +4
+- Historical experimentation (>5 yrs): 0–1
+
+G. Job Stability (max 4):
+- Job hopping (<1 year average tenure): +2
+- Dismissals/resignations under allegations: +2
+
+H. Administrative Integrity (max 4):
+- False CV claims: +4
+- Multiple unpaid fines showing disregard for rules: +1–2
+
+STEP 4 – COMPUTE TOTAL & OUTPUT RISK LEVEL
+
+Use thresholds:
+- 0–7 = LOW RISK
+- 8–17 = MEDIUM RISK
+- 18–30 = HIGH RISK
+- 31+ = UNACCEPTABLE RISK
+
+STEP 5 — GENERATE FINAL REPORT (HUMAN-READABLE)
+
+In NarrativeReport field, write a detailed narrative containing:
+1. Summary of Candidate Disclosures
+2. Polygraph Analysis Summary
+3. Risk Score Breakdown (category by category)
+4. Final Risk Rating
+5. Key Risk Concerns
+6. Recommended Mitigations
+
+STEP 6 – NO HALLUCINATIONS
+
+If the PDF does not include information, say "Not Disclosed."
+Never invent data.
+
+Return ONLY the JSON object, no additional text.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -108,7 +293,7 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: `Please extract all polygraph report data from this PDF document. The document is a completed polygraph examination report template.`
+                text: `Please extract all polygraph report data from this PDF document and perform a complete risk analysis. The document is a completed polygraph examination report.`
               },
               {
                 type: 'image_url',
@@ -162,12 +347,83 @@ serve(async (req) => {
       throw new Error('Failed to parse extracted data');
     }
 
-    console.log('Successfully extracted polygraph report data');
+    // Transform the extracted data to match our form structure
+    const transformedData = {
+      candidate: {
+        firstName: extractedData.Candidate?.FirstName || extractedData.Candidate?.FullName?.split(' ')[0] || '',
+        lastName: extractedData.Candidate?.LastName || extractedData.Candidate?.FullName?.split(' ').slice(1).join(' ') || '',
+        idNumber: extractedData.Candidate?.IDNumber || '',
+        email: extractedData.Candidate?.Email || '',
+        contactNumber: extractedData.Candidate?.ContactNumber || '',
+        physicalAddress: extractedData.Candidate?.PhysicalAddress || '',
+        positionApplyingFor: extractedData.Candidate?.PositionAppliedFor || '',
+        storeLocation: extractedData.Candidate?.StoreLocation || '',
+      },
+      examination: {
+        date: extractedData.Examination?.Date || new Date().toISOString().split('T')[0],
+        examinerName: extractedData.Examination?.ExaminerName || '',
+        vettingTypes: extractedData.Examination?.VettingTypes || {},
+      },
+      suitability: {
+        healthStatus: extractedData.Suitability?.HealthStatus || '',
+        enoughSleep: extractedData.Suitability?.EnoughSleep,
+        hospitalizedRecently: extractedData.Suitability?.HospitalizedRecently,
+        hospitalizedDetails: extractedData.Suitability?.HospitalizedDetails || '',
+        medicationTaken: extractedData.Suitability?.MedicationTaken,
+        medicationDetails: extractedData.Suitability?.MedicationDetails || '',
+        heartConditions: extractedData.Suitability?.HeartConditions,
+        breathingTrouble: extractedData.Suitability?.BreathingTrouble,
+        psychologicalDisorders: extractedData.Suitability?.PsychologicalDisorders,
+        diabetic: extractedData.Suitability?.Diabetic,
+        recentDrugUse: extractedData.Suitability?.RecentDrugUse,
+        drugUseDetails: extractedData.Suitability?.DrugUseDetails || '',
+        recentAlcoholUse: extractedData.Suitability?.RecentAlcoholUse,
+        alcoholDetails: extractedData.Suitability?.AlcoholDetails || '',
+        smoker: extractedData.Suitability?.Smoker,
+        smokingDetails: extractedData.Suitability?.SmokingDetails || '',
+        pregnant: extractedData.Suitability?.Pregnant,
+        suitableForExam: extractedData.Suitability?.SuitableForExam,
+        suitabilityComment: extractedData.Suitability?.SuitabilityComment || '',
+      },
+      admissions: (extractedData.Admissions || []).map((a: any) => ({
+        category: a.Category || '',
+        confirmed: a.Confirmed || false,
+        timeWindow: a.TimeWindow || '',
+        details: a.Details || {},
+        notes: a.Notes || '',
+      })),
+      examQuestions: (extractedData.ExamQuestions || []).map((q: any) => ({
+        questionNumber: q.QuestionNumber || 0,
+        questionText: q.QuestionText || '',
+        response: q.Response,
+        finding: q.Finding || '',
+      })),
+      result: {
+        overallResult: extractedData.Result?.OverallResult?.toLowerCase() || '',
+        examinerNotes: extractedData.Result?.ExaminerNotes || '',
+      },
+      // Extended data for risk analysis
+      disclosure: extractedData.Disclosure || {},
+      educationHistory: extractedData.EducationHistory || [],
+      employmentHistory: extractedData.EmploymentHistory || [],
+      familyCriminalHistory: extractedData.FamilyCriminalHistory || [],
+      friendCriminalHistory: extractedData.FriendCriminalHistory || [],
+      financialCircumstances: extractedData.FinancialCircumstances || {},
+      permitsLicensing: extractedData.PermitsLicensing || {},
+      personalLawEncounters: extractedData.PersonalLawEncounters || {},
+      polygraphResults: extractedData.PolygraphResults || {},
+      postExamAdmissions: extractedData.PostExamAdmissions || '',
+      riskAnalysis: extractedData.RiskAnalysis || {},
+    };
+
+    console.log('Successfully extracted polygraph report data with risk analysis');
+    console.log('Risk Level:', transformedData.riskAnalysis?.RiskLevel);
+    console.log('Total Risk Score:', transformedData.riskAnalysis?.TotalRiskScore);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        data: extractedData 
+        data: transformedData 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
