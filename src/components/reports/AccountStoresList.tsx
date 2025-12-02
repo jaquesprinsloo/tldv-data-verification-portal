@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, MapPin, Building, Plus, Users, Upload, Download, FileText } from "lucide-react";
 import { toast } from "sonner";
-
+import * as XLSX from "xlsx";
 interface SubAccount {
   id: string;
   store_name: string;
@@ -170,66 +170,135 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
     return `${prefix}${timestamp}`;
   };
 
-  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const text = e.target?.result as string;
-        const lines = text.split("\n").filter(line => line.trim());
-        
-        if (lines.length < 2) {
-          toast.error("CSV file must have a header row and at least one data row");
-          return;
-        }
-
-        const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
-        const nameIndex = headers.findIndex(h => h.includes("name") || h.includes("sub account"));
-        const addressIndex = headers.findIndex(h => h.includes("address"));
-
-        if (nameIndex === -1) {
-          toast.error("CSV must have a 'Name' or 'Sub Account Name' column");
-          return;
-        }
-
-        const subAccountsToInsert = [];
-        
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(",").map(v => v.trim().replace(/"/g, ""));
-          const name = values[nameIndex];
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    
+    if (isExcel) {
+      // Handle Excel file
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
           
-          if (!name) continue;
+          const subAccountsToInsert: Array<{
+            store_name: string;
+            store_code: string;
+            street_name: string | null;
+            account_id: string;
+          }> = [];
 
-          subAccountsToInsert.push({
-            store_name: name,
-            store_code: generateCode(name),
-            street_name: addressIndex !== -1 ? values[addressIndex] || null : null,
-            account_id: account.id
-          });
+          // Process all sheets
+          for (const sheetName of workbook.SheetNames) {
+            const sheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as string[][];
+            
+            if (jsonData.length < 2) continue;
+            
+            const headers = (jsonData[0] || []).map(h => String(h || '').toLowerCase().trim());
+            const nameIndex = headers.findIndex(h => 
+              h.includes('name') || h.includes('store') || h.includes('sub account') || h.includes('branch')
+            );
+            const addressIndex = headers.findIndex(h => h.includes('address'));
+
+            if (nameIndex === -1) continue;
+
+            for (let i = 1; i < jsonData.length; i++) {
+              const row = jsonData[i] || [];
+              const name = String(row[nameIndex] || '').trim();
+              
+              if (!name) continue;
+
+              subAccountsToInsert.push({
+                store_name: name,
+                store_code: generateCode(name),
+                street_name: addressIndex !== -1 ? String(row[addressIndex] || '').trim() || null : null,
+                account_id: account.id
+              });
+            }
+          }
+
+          if (subAccountsToInsert.length === 0) {
+            toast.error("No valid sub accounts found in Excel file. Ensure there's a 'Name' or 'Store' column.");
+            return;
+          }
+
+          const { error } = await supabase
+            .from("stores")
+            .insert(subAccountsToInsert);
+
+          if (error) throw error;
+
+          toast.success(`Successfully imported ${subAccountsToInsert.length} sub accounts from ${workbook.SheetNames.length} sheet(s)`);
+          fetchSubAccounts();
+        } catch (error: any) {
+          console.error("Error importing Excel:", error);
+          toast.error(error.message || "Failed to import Excel file");
         }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      // Handle CSV file
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const text = e.target?.result as string;
+          const lines = text.split("\n").filter(line => line.trim());
+          
+          if (lines.length < 2) {
+            toast.error("CSV file must have a header row and at least one data row");
+            return;
+          }
 
-        if (subAccountsToInsert.length === 0) {
-          toast.error("No valid sub accounts found in CSV");
-          return;
+          const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
+          const nameIndex = headers.findIndex(h => h.includes("name") || h.includes("sub account"));
+          const addressIndex = headers.findIndex(h => h.includes("address"));
+
+          if (nameIndex === -1) {
+            toast.error("CSV must have a 'Name' or 'Sub Account Name' column");
+            return;
+          }
+
+          const subAccountsToInsert = [];
+          
+          for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(",").map(v => v.trim().replace(/"/g, ""));
+            const name = values[nameIndex];
+            
+            if (!name) continue;
+
+            subAccountsToInsert.push({
+              store_name: name,
+              store_code: generateCode(name),
+              street_name: addressIndex !== -1 ? values[addressIndex] || null : null,
+              account_id: account.id
+            });
+          }
+
+          if (subAccountsToInsert.length === 0) {
+            toast.error("No valid sub accounts found in CSV");
+            return;
+          }
+
+          const { error } = await supabase
+            .from("stores")
+            .insert(subAccountsToInsert);
+
+          if (error) throw error;
+
+          toast.success(`Successfully imported ${subAccountsToInsert.length} sub accounts`);
+          fetchSubAccounts();
+        } catch (error: any) {
+          console.error("Error importing CSV:", error);
+          toast.error(error.message || "Failed to import CSV");
         }
-
-        const { error } = await supabase
-          .from("stores")
-          .insert(subAccountsToInsert);
-
-        if (error) throw error;
-
-        toast.success(`Successfully imported ${subAccountsToInsert.length} sub accounts`);
-        fetchSubAccounts();
-      } catch (error: any) {
-        console.error("Error importing CSV:", error);
-        toast.error(error.message || "Failed to import CSV");
-      }
-    };
-
-    reader.readAsText(file);
+      };
+      reader.readAsText(file);
+    }
+    
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -289,11 +358,11 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
         </div>
         {canEdit && (
           <div className="flex items-center gap-2">
-            {/* CSV Upload */}
+            {/* File Upload */}
             <input
               type="file"
-              accept=".csv"
-              onChange={handleCSVUpload}
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileUpload}
               ref={fileInputRef}
               className="hidden"
             />
@@ -303,7 +372,7 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
             </Button>
             <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
               <Upload className="h-4 w-4 mr-2" />
-              Import CSV
+              Import CSV/Excel
             </Button>
 
             {/* Create New Sub Account */}
