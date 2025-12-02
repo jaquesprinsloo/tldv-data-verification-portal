@@ -6,6 +6,112 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Function to extract invoice data using AI
+async function extractInvoiceData(pdfUrl: string, lovableApiKey: string): Promise<Record<string, unknown> | null> {
+  try {
+    // Download the PDF
+    const fileResponse = await fetch(pdfUrl);
+    if (!fileResponse.ok) {
+      console.error("Failed to download PDF:", fileResponse.status);
+      return null;
+    }
+    
+    const arrayBuffer = await fileResponse.arrayBuffer();
+    const pdfBase64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+    // Call AI to extract invoice data
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Analyze this invoice PDF and extract the following information. Return ONLY valid JSON with these exact fields:
+{
+  "invoice_number": "string - the invoice number",
+  "invoice_date": "string - date in YYYY-MM-DD format",
+  "subtotal": number - subtotal amount before tax (excluding VAT),
+  "vat_amount": number - VAT/tax amount (look for "VAT", "VAT 15%", or similar line items),
+  "discount_amount": number - any discount amount (0 if none),
+  "total_amount": number - final total amount,
+  "polygraph_amount": number - total for items containing "Polygraph Examination" or "Polygraph" in description,
+  "risk_assessment_amount": number - total for items containing "Risk Assessment" in description,
+  "travel_amount": number - total for items containing "Travel" or "Transport" in description,
+  "tolls_amount": number - total for items containing "Toll" or "Tolls" in description,
+  "venue_amount": number - total for items containing "Venue" in description,
+  "accommodation_amount": number - total for items containing "Accommodation" or "Lodging" in description,
+  "other_amount": number - any other fees not categorized above,
+  "line_items": [
+    {
+      "description": "string - item description exactly as it appears",
+      "quantity": number,
+      "unit_price": number,
+      "amount": number,
+      "category": "string - one of: polygraph, risk_assessment, travel, tolls, venue, accommodation, vat, other"
+    }
+  ]
+}
+
+CRITICAL CATEGORIZATION RULES - Read each line item description carefully:
+- If description contains "Polygraph Examination" or "Polygraph" → category is "polygraph", add to polygraph_amount
+- If description contains "Risk Assessment" → category is "risk_assessment", add to risk_assessment_amount  
+- If description contains "Travel" or "Transport" or "Mileage" → category is "travel", add to travel_amount
+- If description contains "Toll" or "Tolls" → category is "tolls", add to tolls_amount
+- If description contains "Venue" → category is "venue", add to venue_amount
+- If description contains "Accommodation" or "Lodging" → category is "accommodation", add to accommodation_amount
+- If description contains "VAT" → category is "vat", this is the vat_amount
+- Everything else → category is "other", add to other_amount
+
+IMPORTANT INSTRUCTIONS:
+- Read EVERY line item in the invoice and categorize based on the keywords above
+- All amounts should be numbers (not strings)
+- If you can't find a value, use 0 for numbers
+- The currency is South African Rand (ZAR/R)
+- Make sure vat_amount is extracted from the VAT line item, NOT included in other totals`,
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:application/pdf;base64,${pdfBase64}`,
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("AI gateway error:", response.status);
+      return null;
+    }
+
+    const aiResponse = await response.json();
+    const content = aiResponse.choices?.[0]?.message?.content;
+
+    if (!content) {
+      console.error("No response from AI");
+      return null;
+    }
+
+    // Parse the JSON from the response
+    const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
+    const jsonStr = jsonMatch ? jsonMatch[1] : content;
+    return JSON.parse(jsonStr.trim());
+  } catch (error) {
+    console.error("Error extracting invoice data:", error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -16,6 +122,7 @@ serve(async (req) => {
     
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")!;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -99,10 +206,21 @@ serve(async (req) => {
     }
 
     let createError: Error | null = null;
-    const extractedData = pendingUpload.extracted_data || {};
+    let extractedData = pendingUpload.extracted_data || {};
 
     // Create the actual record based on document type
     if (pendingUpload.document_type === "invoice") {
+      // Extract detailed invoice data using AI
+      console.log("Extracting invoice data from:", pendingUpload.file_url);
+      const invoiceData = await extractInvoiceData(pendingUpload.file_url, lovableApiKey);
+      
+      if (invoiceData) {
+        console.log("Extracted invoice data:", JSON.stringify(invoiceData));
+        extractedData = { ...extractedData, ...invoiceData };
+      } else {
+        console.log("Failed to extract invoice data, using basic data");
+      }
+
       const { error } = await supabase.from("invoices").insert({
         store_id: finalStoreId,
         invoice_number: extractedData.invoice_number || `INV-${Date.now()}`,
@@ -111,6 +229,12 @@ serve(async (req) => {
         subtotal: extractedData.subtotal || extractedData.total_amount || 0,
         vat_amount: extractedData.vat_amount || 0,
         discount_amount: extractedData.discount_amount || 0,
+        polygraph_amount: extractedData.polygraph_amount || 0,
+        risk_assessment_amount: extractedData.risk_assessment_amount || 0,
+        travel_amount: extractedData.travel_amount || 0,
+        tolls_amount: extractedData.tolls_amount || 0,
+        accommodation_amount: extractedData.accommodation_amount || 0,
+        other_amount: (extractedData.other_amount || 0) + (extractedData.venue_amount || 0),
         invoice_url: pendingUpload.file_url,
         extracted_data: extractedData,
       });
