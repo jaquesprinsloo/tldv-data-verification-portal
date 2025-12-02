@@ -105,56 +105,68 @@ IMPORTANT INSTRUCTIONS:
   return parsed;
 }
 
-// Download PDF and convert to base64
-async function downloadPdfAsBase64(pdfUrl: string): Promise<string | null> {
-  console.log("Attempting to download PDF from:", pdfUrl);
+// Download PDF from private Supabase storage and convert to base64
+// deno-lint-ignore no-explicit-any
+async function downloadPdfFromStorage(fileUrl: string, supabase: any): Promise<string | null> {
+  console.log("Attempting to download PDF from storage:", fileUrl);
   
-  // Try different URL variations
-  const urlsToTry = [pdfUrl];
-  
-  // If URL contains encoded characters, add decoded version
-  if (pdfUrl.includes('%')) {
-    try {
-      urlsToTry.push(decodeURIComponent(pdfUrl));
-    } catch (e) {
-      console.log("Failed to decode URL:", e);
+  try {
+    // Extract the file path from the URL
+    // URL format: https://xxx.supabase.co/storage/v1/object/public/bucket-name/path/to/file.pdf
+    const urlObj = new URL(fileUrl);
+    const pathParts = urlObj.pathname.split('/storage/v1/object/public/');
+    
+    if (pathParts.length < 2) {
+      console.error("Could not parse storage path from URL");
+      return null;
     }
-  }
-  
-  for (const url of urlsToTry) {
-    console.log("Trying URL:", url);
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        const arrayBuffer = await response.arrayBuffer();
-        console.log("PDF downloaded successfully, size:", arrayBuffer.byteLength, "bytes");
-        
-        if (arrayBuffer.byteLength === 0) {
-          console.error("PDF file is empty");
-          continue;
-        }
-        
-        const base64 = encode(arrayBuffer);
-        console.log("PDF converted to base64, length:", base64.length);
-        return base64;
-      } else {
-        console.error("Failed to download from URL. Status:", response.status);
-      }
-    } catch (e) {
-      console.error("Error downloading from URL:", e);
+    
+    const fullPath = decodeURIComponent(pathParts[1]);
+    const bucketName = fullPath.split('/')[0];
+    const filePath = fullPath.substring(bucketName.length + 1);
+    
+    console.log("Bucket:", bucketName, "Path:", filePath);
+    
+    // Download using Supabase client (works for private buckets)
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .download(filePath);
+    
+    if (error) {
+      console.error("Supabase storage download error:", error.message);
+      return null;
     }
+    
+    if (!data) {
+      console.error("No data returned from storage");
+      return null;
+    }
+    
+    const arrayBuffer = await data.arrayBuffer();
+    console.log("PDF downloaded successfully, size:", arrayBuffer.byteLength, "bytes");
+    
+    if (arrayBuffer.byteLength === 0) {
+      console.error("PDF file is empty");
+      return null;
+    }
+    
+    const base64 = encode(arrayBuffer);
+    console.log("PDF converted to base64, length:", base64.length);
+    return base64;
+  } catch (e) {
+    console.error("Error downloading from storage:", e);
+    return null;
   }
-  
-  return null;
 }
 
 // Function to extract invoice data using AI
-async function extractInvoiceData(pdfUrl: string, lovableApiKey: string): Promise<Record<string, unknown> | null> {
+// deno-lint-ignore no-explicit-any
+async function extractInvoiceData(pdfUrl: string, lovableApiKey: string, supabase: any): Promise<Record<string, unknown> | null> {
   try {
-    const pdfBase64 = await downloadPdfAsBase64(pdfUrl);
+    const pdfBase64 = await downloadPdfFromStorage(pdfUrl, supabase);
     
     if (!pdfBase64) {
-      console.error("Could not download PDF from any URL variation");
+      console.error("Could not download PDF from storage");
       return null;
     }
     
@@ -265,7 +277,7 @@ serve(async (req) => {
     if (pendingUpload.document_type === "invoice") {
       // Extract detailed invoice data using AI
       console.log("Extracting invoice data from:", pendingUpload.file_url);
-      const invoiceData = await extractInvoiceData(pendingUpload.file_url, lovableApiKey);
+      const invoiceData = await extractInvoiceData(pendingUpload.file_url, lovableApiKey, supabase);
       
       if (invoiceData) {
         console.log("Extracted invoice data:", JSON.stringify(invoiceData));
