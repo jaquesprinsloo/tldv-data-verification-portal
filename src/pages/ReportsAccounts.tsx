@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AccountSelector } from "@/components/reports/AccountSelector";
 import { AccountStoresList } from "@/components/reports/AccountStoresList";
-import { StoreDashboard } from "@/components/reports/StoreDashboard";
+import { SubAccountDetailView } from "@/components/reports/SubAccountDetailView";
 
 type ViewState = "accounts" | "stores" | "dashboard";
 type UserRole = "admin" | "master_admin";
@@ -24,6 +24,12 @@ interface Store {
   store_code: string;
   town: string | null;
   province: string | null;
+  center_mall_name?: string | null;
+  shop_number?: string | null;
+  street_number?: string | null;
+  street_name?: string | null;
+  postal_code?: string | null;
+  contact_number?: string | null;
 }
 
 const ReportsAccounts = () => {
@@ -44,7 +50,6 @@ const ReportsAccounts = () => {
 
       setCurrentUserId(session.user.id);
 
-      // Check for admin or master_admin role
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
@@ -57,7 +62,6 @@ const ReportsAccounts = () => {
         return;
       }
 
-      // Set the user's role (prefer master_admin if they have both)
       const isMasterAdmin = roleData.some(r => r.role === "master_admin");
       setUserRole(isMasterAdmin ? "master_admin" : "admin");
     };
@@ -130,8 +134,8 @@ const ReportsAccounts = () => {
         )}
 
         {view === "dashboard" && selectedStore && selectedAccount && (
-          <StoreDashboard
-            store={selectedStore}
+          <SubAccountDetailView
+            subAccount={selectedStore}
             accountName={selectedAccount.name}
             onBack={handleBackToStores}
             canEdit={isMasterAdmin}
