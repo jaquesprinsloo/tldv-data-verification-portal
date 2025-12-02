@@ -13,11 +13,15 @@ const AdminPortalDashboard = () => {
   
   // Check if animation has already played this session
   const hasSeenAnimation = sessionStorage.getItem('portal_animation_played') === 'true';
+  // Cache user role to prevent layout shift on return navigation
+  const cachedIsMasterAdmin = sessionStorage.getItem('user_is_master_admin') === 'true';
+  const cachedUserName = sessionStorage.getItem('user_display_name') || "";
+  
   const [isAnimating, setIsAnimating] = useState(!hasSeenAnimation);
   const [isExiting, setIsExiting] = useState(false);
-  const [userName, setUserName] = useState("");
+  const [userName, setUserName] = useState(cachedUserName);
 
-  const [isMasterAdmin, setIsMasterAdmin] = useState(false);
+  const [isMasterAdmin, setIsMasterAdmin] = useState(cachedIsMasterAdmin);
   const [currentUserId, setCurrentUserId] = useState<string>("");
 
   const { data: pendingRequests } = useQuery({
@@ -57,6 +61,7 @@ const AdminPortalDashboard = () => {
       // Check if user is master admin
       const isMaster = roleData.some(r => r.role === "master_admin");
       setIsMasterAdmin(isMaster);
+      sessionStorage.setItem('user_is_master_admin', isMaster ? 'true' : 'false');
 
       // Fetch user profile for name
       const { data: profileData } = await supabase
@@ -67,6 +72,7 @@ const AdminPortalDashboard = () => {
 
       if (profileData?.full_name) {
         setUserName(profileData.full_name);
+        sessionStorage.setItem('user_display_name', profileData.full_name);
       }
     };
 
@@ -86,8 +92,10 @@ const AdminPortalDashboard = () => {
   const handleSignOut = async () => {
     setIsExiting(true);
     
-    // Clear the animation flag so it plays on next login
+    // Clear all session storage flags so they reset on next login
     sessionStorage.removeItem('portal_animation_played');
+    sessionStorage.removeItem('user_is_master_admin');
+    sessionStorage.removeItem('user_display_name');
     
     // Wait for exit animation to complete
     setTimeout(async () => {
