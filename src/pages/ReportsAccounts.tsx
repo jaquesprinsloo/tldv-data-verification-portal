@@ -94,7 +94,7 @@ const ReportsAccounts = () => {
           <>
             <Button
               variant="ghost"
-              onClick={() => navigate("/admin/dashboard")}
+              onClick={() => navigate("/admin/portal")}
               className="mb-6"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
