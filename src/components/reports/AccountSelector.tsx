@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Building2, Search } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Building2, Search, Users, Settings } from "lucide-react";
 import { toast } from "sonner";
+import { ManageAccessDialog } from "./ManageAccessDialog";
 
 interface Account {
   id: string;
@@ -17,40 +19,82 @@ interface Account {
   stores_count?: number;
 }
 
+interface AdminProfile {
+  id: string;
+  email: string;
+  full_name: string | null;
+}
+
 interface AccountSelectorProps {
   onSelectAccount: (account: Account) => void;
   canEdit?: boolean;
+  currentUserId?: string;
+  isMasterAdmin?: boolean;
 }
 
-export const AccountSelector = ({ onSelectAccount, canEdit = false }: AccountSelectorProps) => {
+export const AccountSelector = ({ 
+  onSelectAccount, 
+  canEdit = false, 
+  currentUserId,
+  isMasterAdmin = false 
+}: AccountSelectorProps) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [adminProfiles, setAdminProfiles] = useState<AdminProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedAdmins, setSelectedAdmins] = useState<string[]>([]);
   const [newAccount, setNewAccount] = useState({
     name: "",
-    code: "",
-    contact_email: "",
-    contact_phone: "",
-    address: ""
+    code: ""
   });
+  const [manageAccessAccount, setManageAccessAccount] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     fetchAccounts();
-  }, []);
+    if (canEdit) {
+      fetchAdminProfiles();
+    }
+  }, [canEdit]);
 
   const fetchAccounts = async () => {
     try {
-      const { data: accountsData, error } = await supabase
-        .from("accounts")
-        .select("*")
-        .order("name");
+      let accountsData: Account[] = [];
 
-      if (error) throw error;
+      if (isMasterAdmin) {
+        // Master admin sees all accounts
+        const { data, error } = await supabase
+          .from("accounts")
+          .select("*")
+          .order("name");
+
+        if (error) throw error;
+        accountsData = data || [];
+      } else if (currentUserId) {
+        // Admin only sees accounts they have access to
+        const { data: accessData, error: accessError } = await supabase
+          .from("account_access")
+          .select("account_id")
+          .eq("user_id", currentUserId);
+
+        if (accessError) throw accessError;
+
+        if (accessData && accessData.length > 0) {
+          const accountIds = accessData.map(a => a.account_id);
+          const { data, error } = await supabase
+            .from("accounts")
+            .select("*")
+            .in("id", accountIds)
+            .order("name");
+
+          if (error) throw error;
+          accountsData = data || [];
+        }
+      }
 
       // Get store counts for each account
       const accountsWithCounts = await Promise.all(
-        (accountsData || []).map(async (account) => {
+        accountsData.map(async (account) => {
           const { count } = await supabase
             .from("stores")
             .select("*", { count: "exact", head: true })
@@ -69,27 +113,83 @@ export const AccountSelector = ({ onSelectAccount, canEdit = false }: AccountSel
     }
   };
 
+  const fetchAdminProfiles = async () => {
+    try {
+      // Get all users with admin role
+      const { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "admin");
+
+      if (roleError) throw roleError;
+
+      if (roleData && roleData.length > 0) {
+        const userIds = roleData.map(r => r.user_id);
+        const { data: profiles, error: profileError } = await supabase
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", userIds);
+
+        if (profileError) throw profileError;
+        setAdminProfiles(profiles || []);
+      }
+    } catch (error) {
+      console.error("Error fetching admin profiles:", error);
+    }
+  };
+
   const handleCreateAccount = async () => {
     if (!newAccount.name || !newAccount.code) {
-      toast.error("Name and code are required");
+      toast.error("Account name and code are required");
       return;
     }
 
     try {
-      const { error } = await supabase
+      // Create the account
+      const { data: accountData, error: accountError } = await supabase
         .from("accounts")
-        .insert([newAccount]);
+        .insert([{ name: newAccount.name, code: newAccount.code }])
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (accountError) throw accountError;
+
+      // Add access for selected admins
+      if (selectedAdmins.length > 0 && accountData) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const accessRecords = selectedAdmins.map(userId => ({
+          account_id: accountData.id,
+          user_id: userId,
+          granted_by: session?.user?.id
+        }));
+
+        const { error: accessError } = await supabase
+          .from("account_access")
+          .insert(accessRecords);
+
+        if (accessError) {
+          console.error("Error granting access:", accessError);
+          toast.error("Account created but failed to grant admin access");
+        }
+      }
 
       toast.success("Account created successfully");
       setDialogOpen(false);
-      setNewAccount({ name: "", code: "", contact_email: "", contact_phone: "", address: "" });
+      setNewAccount({ name: "", code: "" });
+      setSelectedAdmins([]);
       fetchAccounts();
     } catch (error: any) {
       console.error("Error creating account:", error);
       toast.error(error.message || "Failed to create account");
     }
+  };
+
+  const toggleAdminSelection = (userId: string) => {
+    setSelectedAdmins(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
   };
 
   const filteredAccounts = accounts.filter(
@@ -126,7 +226,7 @@ export const AccountSelector = ({ onSelectAccount, canEdit = false }: AccountSel
                 Add Account
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Create New Account</DialogTitle>
               </DialogHeader>
@@ -149,31 +249,48 @@ export const AccountSelector = ({ onSelectAccount, canEdit = false }: AccountSel
                     placeholder="e.g., CC001"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="email">Contact Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newAccount.contact_email}
-                    onChange={(e) => setNewAccount({ ...newAccount, contact_email: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Contact Phone</Label>
-                  <Input
-                    id="phone"
-                    value={newAccount.contact_phone}
-                    onChange={(e) => setNewAccount({ ...newAccount, contact_phone: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    value={newAccount.address}
-                    onChange={(e) => setNewAccount({ ...newAccount, address: e.target.value })}
-                  />
-                </div>
+
+                {/* Admin Access Selection */}
+                {adminProfiles.length > 0 && (
+                  <div className="space-y-3">
+                    <Label className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Grant Access to Admin Profiles
+                    </Label>
+                    <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+                      {adminProfiles.map((profile) => (
+                        <div key={profile.id} className="flex items-center space-x-3">
+                          <Checkbox
+                            id={`admin-${profile.id}`}
+                            checked={selectedAdmins.includes(profile.id)}
+                            onCheckedChange={() => toggleAdminSelection(profile.id)}
+                          />
+                          <label 
+                            htmlFor={`admin-${profile.id}`}
+                            className="text-sm cursor-pointer flex-1"
+                          >
+                            <span className="font-medium">
+                              {profile.full_name || "Unnamed Admin"}
+                            </span>
+                            <span className="text-muted-foreground ml-2">
+                              ({profile.email})
+                            </span>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Selected admins will be able to view this account's reports
+                    </p>
+                  </div>
+                )}
+
+                {adminProfiles.length === 0 && (
+                  <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                    No admin profiles found. Create admin users first to grant access.
+                  </p>
+                )}
+
                 <Button onClick={handleCreateAccount} className="w-full">
                   Create Account
                 </Button>
@@ -187,11 +304,18 @@ export const AccountSelector = ({ onSelectAccount, canEdit = false }: AccountSel
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Building2 className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">No accounts found</p>
+            <p className="text-muted-foreground">
+              {isMasterAdmin ? "No accounts found" : "No accounts assigned to you"}
+            </p>
             {canEdit && (
               <Button variant="outline" className="mt-4" onClick={() => setDialogOpen(true)}>
                 Create your first account
               </Button>
+            )}
+            {!canEdit && !isMasterAdmin && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Contact the master admin to get access to accounts
+              </p>
             )}
           </CardContent>
         </Card>
@@ -200,25 +324,49 @@ export const AccountSelector = ({ onSelectAccount, canEdit = false }: AccountSel
           {filteredAccounts.map((account) => (
             <Card
               key={account.id}
-              className="cursor-pointer hover:border-primary transition-colors"
-              onClick={() => onSelectAccount(account)}
+              className="cursor-pointer hover:border-primary transition-colors group"
             >
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  {account.name}
+                <CardTitle className="flex items-center justify-between">
+                  <div 
+                    className="flex items-center gap-2 flex-1"
+                    onClick={() => onSelectAccount(account)}
+                  >
+                    <Building2 className="h-5 w-5 text-primary" />
+                    {account.name}
+                  </div>
+                  {canEdit && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setManageAccessAccount({ id: account.id, name: account.name });
+                      }}
+                    >
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent onClick={() => onSelectAccount(account)}>
                 <p className="text-sm text-muted-foreground mb-2">Code: {account.code}</p>
                 <p className="text-sm font-medium">{account.stores_count} Store(s)</p>
-                {account.contact_email && (
-                  <p className="text-xs text-muted-foreground mt-2">{account.contact_email}</p>
-                )}
               </CardContent>
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Manage Access Dialog */}
+      {manageAccessAccount && (
+        <ManageAccessDialog
+          open={!!manageAccessAccount}
+          onOpenChange={(open) => !open && setManageAccessAccount(null)}
+          account={manageAccessAccount}
+          onAccessUpdated={fetchAccounts}
+        />
       )}
     </div>
   );

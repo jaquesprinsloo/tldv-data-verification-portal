@@ -32,6 +32,7 @@ const ReportsAccounts = () => {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [userRole, setUserRole] = useState<UserRole>("admin");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -40,6 +41,8 @@ const ReportsAccounts = () => {
         navigate("/admin/login");
         return;
       }
+
+      setCurrentUserId(session.user.id);
 
       // Check for admin or master_admin role
       const { data: roleData } = await supabase
@@ -101,11 +104,19 @@ const ReportsAccounts = () => {
             <div className="mb-8">
               <h1 className="text-3xl font-bold">Reports & Accounts</h1>
               <p className="text-muted-foreground mt-2">
-                Select an account to view stores and examination statistics
+                {isMasterAdmin 
+                  ? "Select an account to view stores and examination statistics"
+                  : "View your assigned accounts and examination statistics"
+                }
               </p>
             </div>
 
-            <AccountSelector onSelectAccount={handleSelectAccount} canEdit={isMasterAdmin} />
+            <AccountSelector 
+              onSelectAccount={handleSelectAccount} 
+              canEdit={isMasterAdmin}
+              currentUserId={currentUserId || undefined}
+              isMasterAdmin={isMasterAdmin}
+            />
           </>
         )}
 
