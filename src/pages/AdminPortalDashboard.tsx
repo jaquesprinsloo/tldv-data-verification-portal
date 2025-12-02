@@ -219,9 +219,9 @@ const AdminPortalDashboard = () => {
       </div>
 
       {/* Main Content - Portals */}
-      <div className={`min-h-screen flex items-center justify-center transition-all duration-1000 ${
-        isAnimating ? "opacity-0" : "opacity-100"
-      }`}>
+      <div className={`min-h-screen flex items-center justify-center ${
+        !hasSeenAnimation ? "transition-all duration-1000" : ""
+      } ${isAnimating ? "opacity-0" : "opacity-100"}`}>
         <div className="container mx-auto px-4 max-w-6xl relative">
           <div className="absolute top-0 right-4 flex gap-3">
             {!isMasterAdmin && <NotificationsDialog />}
