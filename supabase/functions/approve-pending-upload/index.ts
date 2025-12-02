@@ -1,53 +1,31 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Function to extract invoice data using AI
-async function extractInvoiceData(pdfUrl: string, lovableApiKey: string): Promise<Record<string, unknown> | null> {
-  try {
-    console.log("Starting PDF download from:", pdfUrl);
-    
-    // Download the PDF
-    const fileResponse = await fetch(pdfUrl);
-    if (!fileResponse.ok) {
-      console.error("Failed to download PDF. Status:", fileResponse.status, "StatusText:", fileResponse.statusText);
-      return null;
-    }
-    
-    const arrayBuffer = await fileResponse.arrayBuffer();
-    console.log("PDF downloaded, size:", arrayBuffer.byteLength, "bytes");
-    
-    if (arrayBuffer.byteLength === 0) {
-      console.error("PDF file is empty");
-      return null;
-    }
-    
-    // Use Deno's standard base64 encoding
-    const { encode } = await import("https://deno.land/std@0.168.0/encoding/base64.ts");
-    const pdfBase64 = encode(arrayBuffer);
-    
-    console.log("PDF converted to base64, length:", pdfBase64.length);
-
-    // Call AI to extract invoice data
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Analyze this invoice PDF and extract the following information. Return ONLY valid JSON with these exact fields:
+// Call AI to extract invoice data from base64 PDF
+async function callAIForExtraction(pdfBase64: string, lovableApiKey: string): Promise<Record<string, unknown> | null> {
+  console.log("Calling AI for extraction, base64 length:", pdfBase64.length);
+  
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${lovableApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analyze this invoice PDF and extract the following information. Return ONLY valid JSON with these exact fields:
 {
   "invoice_number": "string - the invoice number",
   "invoice_date": "string - date in YYYY-MM-DD format",
@@ -57,7 +35,7 @@ async function extractInvoiceData(pdfUrl: string, lovableApiKey: string): Promis
   "total_amount": number - final total amount,
   "polygraph_amount": number - total for items containing "Polygraph Examination" or "Polygraph" in description,
   "risk_assessment_amount": number - total for items containing "Risk Assessment" in description,
-  "travel_amount": number - total for items containing "Travel" or "Transport" in description,
+  "travel_amount": number - total for items containing "Travel" or "Transport" or "Mileage" in description,
   "tolls_amount": number - total for items containing "Toll" or "Tolls" in description,
   "venue_amount": number - total for items containing "Venue" in description,
   "accommodation_amount": number - total for items containing "Accommodation" or "Lodging" in description,
@@ -89,42 +67,98 @@ IMPORTANT INSTRUCTIONS:
 - If you can't find a value, use 0 for numbers
 - The currency is South African Rand (ZAR/R)
 - Make sure vat_amount is extracted from the VAT line item, NOT included in other totals`,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:application/pdf;base64,${pdfBase64}`,
               },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:application/pdf;base64,${pdfBase64}`,
-                },
-              },
-            ],
-          },
-        ],
-      }),
-    });
+            },
+          ],
+        },
+      ],
+    }),
+  });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error. Status:", response.status, "Response:", errorText);
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("AI gateway error. Status:", response.status, "Response:", errorText);
+    return null;
+  }
+
+  const aiResponse = await response.json();
+  console.log("AI Response received");
+  const content = aiResponse.choices?.[0]?.message?.content;
+
+  if (!content) {
+    console.error("No content in AI response:", JSON.stringify(aiResponse));
+    return null;
+  }
+
+  console.log("AI content:", content.substring(0, 500));
+
+  // Parse the JSON from the response
+  const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
+  const jsonStr = jsonMatch ? jsonMatch[1] : content;
+  const parsed = JSON.parse(jsonStr.trim());
+  console.log("Parsed invoice data - polygraph:", parsed.polygraph_amount, "travel:", parsed.travel_amount, "vat:", parsed.vat_amount);
+  return parsed;
+}
+
+// Download PDF and convert to base64
+async function downloadPdfAsBase64(pdfUrl: string): Promise<string | null> {
+  console.log("Attempting to download PDF from:", pdfUrl);
+  
+  // Try different URL variations
+  const urlsToTry = [pdfUrl];
+  
+  // If URL contains encoded characters, add decoded version
+  if (pdfUrl.includes('%')) {
+    try {
+      urlsToTry.push(decodeURIComponent(pdfUrl));
+    } catch (e) {
+      console.log("Failed to decode URL:", e);
+    }
+  }
+  
+  for (const url of urlsToTry) {
+    console.log("Trying URL:", url);
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        console.log("PDF downloaded successfully, size:", arrayBuffer.byteLength, "bytes");
+        
+        if (arrayBuffer.byteLength === 0) {
+          console.error("PDF file is empty");
+          continue;
+        }
+        
+        const base64 = encode(arrayBuffer);
+        console.log("PDF converted to base64, length:", base64.length);
+        return base64;
+      } else {
+        console.error("Failed to download from URL. Status:", response.status);
+      }
+    } catch (e) {
+      console.error("Error downloading from URL:", e);
+    }
+  }
+  
+  return null;
+}
+
+// Function to extract invoice data using AI
+async function extractInvoiceData(pdfUrl: string, lovableApiKey: string): Promise<Record<string, unknown> | null> {
+  try {
+    const pdfBase64 = await downloadPdfAsBase64(pdfUrl);
+    
+    if (!pdfBase64) {
+      console.error("Could not download PDF from any URL variation");
       return null;
     }
-
-    const aiResponse = await response.json();
-    console.log("AI Response received");
-    const content = aiResponse.choices?.[0]?.message?.content;
-
-    if (!content) {
-      console.error("No content in AI response:", JSON.stringify(aiResponse));
-      return null;
-    }
-
-    console.log("AI content:", content.substring(0, 500));
-
-    // Parse the JSON from the response
-    const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
-    const jsonStr = jsonMatch ? jsonMatch[1] : content;
-    const parsed = JSON.parse(jsonStr.trim());
-    console.log("Parsed invoice data - polygraph:", parsed.polygraph_amount, "travel:", parsed.travel_amount, "vat:", parsed.vat_amount);
-    return parsed;
+    
+    return await callAIForExtraction(pdfBase64, lovableApiKey);
   } catch (error) {
     console.error("Error extracting invoice data:", error instanceof Error ? error.message : error);
     return null;
