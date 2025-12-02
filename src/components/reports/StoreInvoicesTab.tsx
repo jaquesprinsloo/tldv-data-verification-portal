@@ -23,6 +23,12 @@ interface Invoice {
   vat_amount: number;
   discount_amount: number;
   total_amount: number;
+  polygraph_amount: number;
+  risk_assessment_amount: number;
+  travel_amount: number;
+  tolls_amount: number;
+  accommodation_amount: number;
+  other_amount: number;
   invoice_url: string | null;
 }
 
@@ -42,6 +48,12 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
     vat_amount: "",
     discount_amount: "",
     total_amount: "",
+    polygraph_amount: "",
+    risk_assessment_amount: "",
+    travel_amount: "",
+    tolls_amount: "",
+    accommodation_amount: "",
+    other_amount: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
@@ -103,6 +115,12 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
           vat_amount: extracted.vat_amount?.toString() || "",
           discount_amount: extracted.discount_amount?.toString() || "0",
           total_amount: extracted.total_amount?.toString() || "",
+          polygraph_amount: extracted.polygraph_amount?.toString() || "0",
+          risk_assessment_amount: extracted.risk_assessment_amount?.toString() || "0",
+          travel_amount: extracted.travel_amount?.toString() || "0",
+          tolls_amount: extracted.tolls_amount?.toString() || "0",
+          accommodation_amount: extracted.accommodation_amount?.toString() || "0",
+          other_amount: extracted.other_amount?.toString() || "0",
         });
         toast.success("Invoice data extracted successfully");
       } else {
@@ -152,6 +170,12 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
         vat_amount: parseFloat(formData.vat_amount) || 0,
         discount_amount: parseFloat(formData.discount_amount) || 0,
         total_amount: parseFloat(formData.total_amount) || 0,
+        polygraph_amount: parseFloat(formData.polygraph_amount) || 0,
+        risk_assessment_amount: parseFloat(formData.risk_assessment_amount) || 0,
+        travel_amount: parseFloat(formData.travel_amount) || 0,
+        tolls_amount: parseFloat(formData.tolls_amount) || 0,
+        accommodation_amount: parseFloat(formData.accommodation_amount) || 0,
+        other_amount: parseFloat(formData.other_amount) || 0,
         invoice_url: invoiceUrl,
       });
 
@@ -166,6 +190,12 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
         vat_amount: "",
         discount_amount: "",
         total_amount: "",
+        polygraph_amount: "",
+        risk_assessment_amount: "",
+        travel_amount: "",
+        tolls_amount: "",
+        accommodation_amount: "",
+        other_amount: "",
       });
       setSelectedFile(null);
       fetchInvoices();
@@ -343,6 +373,70 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
               </div>
             </div>
 
+            <div className="border-t pt-4">
+              <Label className="text-sm font-medium mb-2 block">Expense Breakdown</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Polygraph Exams (R)</Label>
+                  <Input
+                    type="number"
+                    value={formData.polygraph_amount}
+                    onChange={(e) => setFormData({ ...formData, polygraph_amount: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Risk Assessments (R)</Label>
+                  <Input
+                    type="number"
+                    value={formData.risk_assessment_amount}
+                    onChange={(e) => setFormData({ ...formData, risk_assessment_amount: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Travel (R)</Label>
+                  <Input
+                    type="number"
+                    value={formData.travel_amount}
+                    onChange={(e) => setFormData({ ...formData, travel_amount: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Tolls (R)</Label>
+                  <Input
+                    type="number"
+                    value={formData.tolls_amount}
+                    onChange={(e) => setFormData({ ...formData, tolls_amount: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Accommodation (R)</Label>
+                  <Input
+                    type="number"
+                    value={formData.accommodation_amount}
+                    onChange={(e) => setFormData({ ...formData, accommodation_amount: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Other (R)</Label>
+                  <Input
+                    type="number"
+                    value={formData.other_amount}
+                    onChange={(e) => setFormData({ ...formData, other_amount: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Discount (R)</Label>
@@ -442,6 +536,46 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
               </div>
 
               <div className="space-y-2 border-t pt-4">
+                <p className="text-sm font-medium mb-2">Expense Breakdown</p>
+                {selectedInvoice.polygraph_amount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Polygraph Exams</span>
+                    <span>R {selectedInvoice.polygraph_amount.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedInvoice.risk_assessment_amount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Risk Assessments</span>
+                    <span>R {selectedInvoice.risk_assessment_amount.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedInvoice.travel_amount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Travel</span>
+                    <span>R {selectedInvoice.travel_amount.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedInvoice.tolls_amount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Tolls</span>
+                    <span>R {selectedInvoice.tolls_amount.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedInvoice.accommodation_amount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Accommodation</span>
+                    <span>R {selectedInvoice.accommodation_amount.toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedInvoice.other_amount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Other</span>
+                    <span>R {selectedInvoice.other_amount.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 border-t pt-4">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>R {selectedInvoice.subtotal.toLocaleString()}</span>
@@ -450,10 +584,12 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
                   <span className="text-muted-foreground">VAT</span>
                   <span>R {selectedInvoice.vat_amount.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Discount</span>
-                  <span>-R {selectedInvoice.discount_amount.toLocaleString()}</span>
-                </div>
+                {selectedInvoice.discount_amount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Discount</span>
+                    <span>-R {selectedInvoice.discount_amount.toLocaleString()}</span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t pt-2 font-bold">
                   <span>Total</span>
                   <span>R {selectedInvoice.total_amount.toLocaleString()}</span>

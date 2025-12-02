@@ -51,12 +51,19 @@ serve(async (req) => {
   "vat_amount": number - VAT/tax amount,
   "discount_amount": number - any discount amount (0 if none),
   "total_amount": number - final total amount,
+  "polygraph_amount": number - total for polygraph examinations/tests,
+  "risk_assessment_amount": number - total for risk assessments/background checks,
+  "travel_amount": number - total for travel/transport/mileage,
+  "tolls_amount": number - total for toll fees,
+  "accommodation_amount": number - total for accommodation/lodging,
+  "other_amount": number - any other fees not categorized above,
   "line_items": [
     {
       "description": "string - item description",
       "quantity": number,
       "unit_price": number,
-      "amount": number
+      "amount": number,
+      "category": "string - one of: polygraph, risk_assessment, travel, tolls, accommodation, vat, other"
     }
   ]
 }
@@ -64,8 +71,9 @@ serve(async (req) => {
 Important:
 - All amounts should be numbers (not strings)
 - If you can't find a value, use 0 for numbers or empty string for text
-- Look for polygraph examination fees, risk assessment fees, or similar services
-- The currency is South African Rand (ZAR/R)`,
+- Categorize line items: polygraph examinations, risk assessments, travel/transport, tolls, accommodation, or other
+- The currency is South African Rand (ZAR/R)
+- Sum up amounts by category into the respective _amount fields`,
               },
               {
                 type: "image_url",
