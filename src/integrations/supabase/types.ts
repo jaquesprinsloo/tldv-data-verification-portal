@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts: {
+        Row: {
+          address: string | null
+          code: string
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          code: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          code?: string
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -213,6 +246,198 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      examinations: {
+        Row: {
+          admission_after_exam: string | null
+          admission_before_exam: string | null
+          created_at: string
+          employee_id: string | null
+          examination_date: string
+          examination_type: Database["public"]["Enums"]["examination_type"]
+          examiner_id: string | null
+          id: string
+          notes: string | null
+          report_url: string | null
+          result: Database["public"]["Enums"]["examination_result"]
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          admission_after_exam?: string | null
+          admission_before_exam?: string | null
+          created_at?: string
+          employee_id?: string | null
+          examination_date: string
+          examination_type: Database["public"]["Enums"]["examination_type"]
+          examiner_id?: string | null
+          id?: string
+          notes?: string | null
+          report_url?: string | null
+          result?: Database["public"]["Enums"]["examination_result"]
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          admission_after_exam?: string | null
+          admission_before_exam?: string | null
+          created_at?: string
+          employee_id?: string | null
+          examination_date?: string
+          examination_type?: Database["public"]["Enums"]["examination_type"]
+          examiner_id?: string | null
+          id?: string
+          notes?: string | null
+          report_url?: string | null
+          result?: Database["public"]["Enums"]["examination_result"]
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "examinations_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "examinations_examiner_id_fkey"
+            columns: ["examiner_id"]
+            isOneToOne: false
+            referencedRelation: "examiners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "examinations_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      examiners: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      invoice_examinations: {
+        Row: {
+          created_at: string
+          examination_id: string
+          id: string
+          invoice_id: string
+          line_amount: number | null
+        }
+        Insert: {
+          created_at?: string
+          examination_id: string
+          id?: string
+          invoice_id: string
+          line_amount?: number | null
+        }
+        Update: {
+          created_at?: string
+          examination_id?: string
+          id?: string
+          invoice_id?: string
+          line_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_examinations_examination_id_fkey"
+            columns: ["examination_id"]
+            isOneToOne: false
+            referencedRelation: "examinations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_examinations_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          created_at: string
+          discount_amount: number
+          extracted_data: Json | null
+          id: string
+          invoice_date: string
+          invoice_number: string
+          invoice_url: string | null
+          store_id: string
+          subtotal: number
+          total_amount: number
+          updated_at: string
+          vat_amount: number
+        }
+        Insert: {
+          created_at?: string
+          discount_amount?: number
+          extracted_data?: Json | null
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          invoice_url?: string | null
+          store_id: string
+          subtotal?: number
+          total_amount?: number
+          updated_at?: string
+          vat_amount?: number
+        }
+        Update: {
+          created_at?: string
+          discount_amount?: number
+          extracted_data?: Json | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          invoice_url?: string | null
+          store_id?: string
+          subtotal?: number
+          total_amount?: number
+          updated_at?: string
+          vat_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
             referencedColumns: ["id"]
           },
         ]
@@ -431,6 +656,7 @@ export type Database = {
       }
       stores: {
         Row: {
+          account_id: string | null
           center_mall_name: string | null
           contact_number: string | null
           created_at: string
@@ -445,6 +671,7 @@ export type Database = {
           town: string | null
         }
         Insert: {
+          account_id?: string | null
           center_mall_name?: string | null
           contact_number?: string | null
           created_at?: string
@@ -459,6 +686,7 @@ export type Database = {
           town?: string | null
         }
         Update: {
+          account_id?: string | null
           center_mall_name?: string | null
           contact_number?: string | null
           created_at?: string
@@ -472,7 +700,15 @@ export type Database = {
           street_number?: string | null
           town?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stores_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       submission_history: {
         Row: {
@@ -791,6 +1027,8 @@ export type Database = {
         | "resigned"
         | "retrenched"
         | "employed"
+      examination_result: "pass" | "fail" | "inconclusive" | "pending"
+      examination_type: "periodic_screening" | "pre_employment" | "specific"
       renewal_request_status: "pending" | "sent" | "cancelled"
       request_status: "pending" | "in_progress" | "replied" | "closed"
       request_type:
@@ -944,6 +1182,8 @@ export const Constants = {
         "retrenched",
         "employed",
       ],
+      examination_result: ["pass", "fail", "inconclusive", "pending"],
+      examination_type: ["periodic_screening", "pre_employment", "specific"],
       renewal_request_status: ["pending", "sent", "cancelled"],
       request_status: ["pending", "in_progress", "replied", "closed"],
       request_type: [
