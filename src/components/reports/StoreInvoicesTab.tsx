@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileText, Plus, DollarSign, Eye, Loader2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Upload, FileText, Plus, DollarSign, Eye, Loader2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -57,6 +58,9 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const resetForm = () => {
     setFormData({
@@ -244,6 +248,44 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
     setViewDialogOpen(true);
   };
 
+  const handleDeleteClick = (invoice: Invoice) => {
+    setInvoiceToDelete(invoice);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteInvoice = async () => {
+    if (!invoiceToDelete) return;
+    
+    setDeleting(true);
+    try {
+      // Delete from storage if there's a file
+      if (invoiceToDelete.invoice_url) {
+        const urlParts = invoiceToDelete.invoice_url.split("/invoices/");
+        if (urlParts[1]) {
+          await supabase.storage.from("invoices").remove([urlParts[1]]);
+        }
+      }
+
+      // Delete from database
+      const { error } = await supabase
+        .from("invoices")
+        .delete()
+        .eq("id", invoiceToDelete.id);
+
+      if (error) throw error;
+
+      toast.success("Invoice deleted successfully");
+      setDeleteDialogOpen(false);
+      setInvoiceToDelete(null);
+      fetchInvoices();
+    } catch (error: any) {
+      console.error("Error deleting invoice:", error);
+      toast.error(error.message || "Failed to delete invoice");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -331,6 +373,16 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
                             <a href={invoice.invoice_url} target="_blank" rel="noopener noreferrer">
                               <FileText className="h-4 w-4" />
                             </a>
+                          </Button>
+                        )}
+                        {canEdit && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteClick(invoice)}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
@@ -626,6 +678,29 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete invoice "{invoiceToDelete?.invoice_number}"? 
+              This action cannot be undone and will also remove the associated PDF file if present.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteInvoice} 
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, FileText, ClipboardCheck, ShieldCheck, Plus } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Upload, FileText, ClipboardCheck, ShieldCheck, Plus, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -50,6 +51,9 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
     admission_after_exam: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: "polygraph" | "risk"; reportUrl?: string | null } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -201,6 +205,45 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
     return emp?.employee_number || "-";
   };
 
+  const handleDeleteClick = (id: string, type: "polygraph" | "risk", reportUrl?: string | null) => {
+    setItemToDelete({ id, type, reportUrl });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteReport = async () => {
+    if (!itemToDelete) return;
+    
+    setDeleting(true);
+    try {
+      // Delete from storage if there's a file
+      if (itemToDelete.reportUrl) {
+        const urlParts = itemToDelete.reportUrl.split("/invoices/");
+        if (urlParts[1]) {
+          await supabase.storage.from("invoices").remove([urlParts[1]]);
+        }
+      }
+
+      // Delete from database
+      const tableName = itemToDelete.type === "polygraph" ? "examinations" : "risk_assessments";
+      const { error } = await supabase
+        .from(tableName)
+        .delete()
+        .eq("id", itemToDelete.id);
+
+      if (error) throw error;
+
+      toast.success(`${itemToDelete.type === "polygraph" ? "Polygraph examination" : "Risk assessment"} deleted successfully`);
+      setDeleteDialogOpen(false);
+      setItemToDelete(null);
+      fetchData();
+    } catch (error: any) {
+      console.error("Error deleting report:", error);
+      toast.error(error.message || "Failed to delete report");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -247,6 +290,7 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
                       <TableHead>Examiner</TableHead>
                       <TableHead>Result</TableHead>
                       <TableHead>Report</TableHead>
+                      {canEdit && <TableHead>Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -268,6 +312,18 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
                             "-"
                           )}
                         </TableCell>
+                        {canEdit && (
+                          <TableCell>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteClick(report.id, "polygraph", report.report_url)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -292,6 +348,7 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
                       <TableHead>Criminal Check</TableHead>
                       <TableHead>Result</TableHead>
                       <TableHead>Report</TableHead>
+                      {canEdit && <TableHead>Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -313,6 +370,18 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
                             "-"
                           )}
                         </TableCell>
+                        {canEdit && (
+                          <TableCell>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteClick(report.id, "risk", report.report_url)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -543,6 +612,29 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {itemToDelete?.type === "polygraph" ? "Polygraph Examination" : "Risk Assessment"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this {itemToDelete?.type === "polygraph" ? "polygraph examination" : "risk assessment"}? 
+              This action cannot be undone and will also remove the associated report file if present.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteReport} 
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
