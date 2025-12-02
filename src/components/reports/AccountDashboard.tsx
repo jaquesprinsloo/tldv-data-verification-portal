@@ -31,6 +31,8 @@ import {
   Cell,
   Legend
 } from "recharts";
+import { DocumentUploadTab } from "./DocumentUploadTab";
+import { PendingUploadsReviewTab } from "./PendingUploadsReviewTab";
 
 interface Account {
   id: string;
@@ -80,6 +82,8 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'
 
 export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: AccountDashboardProps) => {
   const [loading, setLoading] = useState(true);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [stats, setStats] = useState<AggregatedStats>({
     totalStores: 0,
     totalEmployees: 0,
@@ -98,7 +102,22 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
 
   useEffect(() => {
     fetchDashboardData();
+    fetchPendingCount();
   }, [account.id]);
+
+  const fetchPendingCount = async () => {
+    const { count } = await supabase
+      .from("pending_document_uploads")
+      .select("*", { count: "exact", head: true })
+      .eq("account_id", account.id)
+      .eq("status", "pending");
+    setPendingCount(count || 0);
+  };
+
+  const handleUploadComplete = () => {
+    fetchPendingCount();
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -289,10 +308,12 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="breakdown">Expense Breakdown</TabsTrigger>
           <TabsTrigger value="stores">By Sub-Account</TabsTrigger>
+          <TabsTrigger value="upload">Upload Documents</TabsTrigger>
+          <TabsTrigger value="review">Review ({pendingCount})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -472,6 +493,21 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="upload" className="space-y-4">
+          <DocumentUploadTab 
+            accountId={account.id} 
+            onUploadComplete={handleUploadComplete} 
+          />
+        </TabsContent>
+
+        <TabsContent value="review" className="space-y-4">
+          <PendingUploadsReviewTab 
+            accountId={account.id} 
+            canEdit={canEdit} 
+            refreshTrigger={refreshTrigger}
+          />
         </TabsContent>
       </Tabs>
     </div>
