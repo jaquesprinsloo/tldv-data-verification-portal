@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { User } from "@supabase/supabase-js";
+import AdminHeader from "@/components/admin/AdminHeader";
 import { AccountSelector } from "@/components/reports/AccountSelector";
 import { AccountDashboard } from "@/components/reports/AccountDashboard";
 import { AccountStoresList } from "@/components/reports/AccountStoresList";
@@ -35,6 +35,7 @@ interface Store {
 
 const ReportsAccounts = () => {
   const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
   const [view, setView] = useState<ViewState>("accounts");
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
@@ -49,6 +50,7 @@ const ReportsAccounts = () => {
         return;
       }
 
+      setUser(session.user);
       setCurrentUserId(session.user.id);
 
       const { data: roleData } = await supabase
@@ -102,21 +104,13 @@ const ReportsAccounts = () => {
   const isMasterAdmin = userRole === "master_admin";
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="container mx-auto">
+    <div className="min-h-screen bg-background">
+      <AdminHeader user={user} title="Reports & Accounts Portal" />
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         {view === "accounts" && (
           <>
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/admin/portal")}
-              className="mb-6"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Portal
-            </Button>
-            
             <div className="mb-8">
-              <h1 className="text-3xl font-bold">Reports & Accounts</h1>
+              <h2 className="text-2xl font-bold">Select Account</h2>
               <p className="text-muted-foreground mt-2">
                 {isMasterAdmin 
                   ? "Select an account to view sub accounts and examination statistics"
@@ -160,7 +154,7 @@ const ReportsAccounts = () => {
             canEdit={isMasterAdmin}
           />
         )}
-      </div>
+      </main>
     </div>
   );
 };

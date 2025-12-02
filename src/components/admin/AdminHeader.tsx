@@ -7,9 +7,10 @@ interface AdminHeaderProps {
   user: User | null;
   showUserDetails?: boolean;
   showMainPortalButton?: boolean;
+  title?: string;
 }
 
-const AdminHeader = ({ user, showUserDetails = true, showMainPortalButton = true }: AdminHeaderProps) => {
+const AdminHeader = ({ user, showUserDetails = true, showMainPortalButton = true, title = "Data & Employee Management Portal" }: AdminHeaderProps) => {
   const navigate = useNavigate();
 
   const handleMainPortal = () => {
@@ -26,7 +27,7 @@ const AdminHeader = ({ user, showUserDetails = true, showMainPortalButton = true
                 <img src={tldvLogo} alt="TLDV Logo" className="h-full w-full object-cover" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold font-poppins">Data & Employee Management Portal</h1>
+                <h1 className="text-2xl font-bold font-poppins">{title}</h1>
               </div>
             </div>
             <div className="flex items-center gap-4">
