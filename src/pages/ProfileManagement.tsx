@@ -1,11 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { User } from "@supabase/supabase-js";
+import AdminHeader from "@/components/admin/AdminHeader";
 import { ProfileManagement as ProfileManagementComponent } from "@/components/admin/ProfileManagement";
-import { Button } from "@/components/ui/button";
 
 const ProfileManagement = () => {
   const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -14,6 +16,8 @@ const ProfileManagement = () => {
         navigate("/admin/login");
         return;
       }
+
+      setUser(session.user);
 
       const { data: roleData } = await supabase
         .from("user_roles")
@@ -31,17 +35,11 @@ const ProfileManagement = () => {
   }, [navigate]);
 
   return (
-    <div>
-      <div className="absolute top-4 left-4">
-        <Button
-          onClick={() => navigate("/admin/portal")}
-          variant="outline"
-          className="border-red-600 text-white hover:bg-red-600/20"
-        >
-          ← Back to Portal Selection
-        </Button>
-      </div>
-      <ProfileManagementComponent />
+    <div className="min-h-screen bg-background">
+      <AdminHeader user={user} title="Profile Management Portal" />
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <ProfileManagementComponent />
+      </main>
     </div>
   );
 };
