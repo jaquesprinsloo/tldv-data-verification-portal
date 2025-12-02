@@ -47,7 +47,6 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit 
     town: subAccount.town || "",
     province: subAccount.province || "",
     postal_code: subAccount.postal_code || "",
-    contact_number: subAccount.contact_number || "",
   });
   const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState({
@@ -109,7 +108,6 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit 
           town: formData.town || null,
           province: formData.province || null,
           postal_code: formData.postal_code || null,
-          contact_number: formData.contact_number || null,
         })
         .eq("id", subAccount.id);
 
@@ -273,123 +271,122 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit 
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Store Name</Label>
-                      {isEditing ? (
-                        <Input
-                          value={formData.store_name}
-                          onChange={(e) => setFormData({ ...formData, store_name: e.target.value })}
-                        />
-                      ) : (
-                        <p className="text-sm">{formData.store_name || "-"}</p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Contact Number</Label>
-                      {isEditing ? (
-                        <Input
-                          value={formData.contact_number}
-                          onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
-                          placeholder="e.g., 012 345 6789"
-                        />
-                      ) : (
-                        <p className="text-sm">{formData.contact_number || "-"}</p>
-                      )}
+                <div className="space-y-6">
+                  {/* Store Name */}
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wide">Store Name</Label>
+                    {isEditing ? (
+                      <Input
+                        value={formData.store_name}
+                        onChange={(e) => setFormData({ ...formData, store_name: e.target.value })}
+                      />
+                    ) : (
+                      <p className="text-lg font-medium">{formData.store_name || "-"}</p>
+                    )}
+                  </div>
+
+                  {/* Building Details */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-muted-foreground">Building Details</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Center/Mall</Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData.center_mall_name}
+                            onChange={(e) => setFormData({ ...formData, center_mall_name: e.target.value })}
+                            placeholder="e.g., Menlyn Park"
+                          />
+                        ) : (
+                          <p className="font-medium">{formData.center_mall_name || "-"}</p>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Shop/Unit Number</Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData.shop_number}
+                            onChange={(e) => setFormData({ ...formData, shop_number: e.target.value })}
+                            placeholder="e.g., Shop 45"
+                          />
+                        ) : (
+                          <p className="font-medium">{formData.shop_number || "-"}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Center/Mall Name</Label>
-                      {isEditing ? (
-                        <Input
-                          value={formData.center_mall_name}
-                          onChange={(e) => setFormData({ ...formData, center_mall_name: e.target.value })}
-                          placeholder="e.g., Menlyn Park"
-                        />
-                      ) : (
-                        <p className="text-sm">{formData.center_mall_name || "-"}</p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Shop Number</Label>
-                      {isEditing ? (
-                        <Input
-                          value={formData.shop_number}
-                          onChange={(e) => setFormData({ ...formData, shop_number: e.target.value })}
-                          placeholder="e.g., Shop 45"
-                        />
-                      ) : (
-                        <p className="text-sm">{formData.shop_number || "-"}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Street Number</Label>
-                      {isEditing ? (
-                        <Input
-                          value={formData.street_number}
-                          onChange={(e) => setFormData({ ...formData, street_number: e.target.value })}
-                          placeholder="e.g., 123"
-                        />
-                      ) : (
-                        <p className="text-sm">{formData.street_number || "-"}</p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Street Name</Label>
-                      {isEditing ? (
-                        <Input
-                          value={formData.street_name}
-                          onChange={(e) => setFormData({ ...formData, street_name: e.target.value })}
-                          placeholder="e.g., Main Street"
-                        />
-                      ) : (
-                        <p className="text-sm">{formData.street_name || "-"}</p>
-                      )}
+                  {/* Street Address */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-muted-foreground">Street Address</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Street No.</Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData.street_number}
+                            onChange={(e) => setFormData({ ...formData, street_number: e.target.value })}
+                            placeholder="123"
+                          />
+                        ) : (
+                          <p className="font-medium">{formData.street_number || "-"}</p>
+                        )}
+                      </div>
+                      <div className="col-span-2 space-y-1">
+                        <Label className="text-xs text-muted-foreground">Street Name</Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData.street_name}
+                            onChange={(e) => setFormData({ ...formData, street_name: e.target.value })}
+                            placeholder="e.g., Main Street"
+                          />
+                        ) : (
+                          <p className="font-medium">{formData.street_name || "-"}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>Town/City</Label>
-                      {isEditing ? (
-                        <Input
-                          value={formData.town}
-                          onChange={(e) => setFormData({ ...formData, town: e.target.value })}
-                          placeholder="e.g., Pretoria"
-                        />
-                      ) : (
-                        <p className="text-sm">{formData.town || "-"}</p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Province</Label>
-                      {isEditing ? (
-                        <Input
-                          value={formData.province}
-                          onChange={(e) => setFormData({ ...formData, province: e.target.value })}
-                          placeholder="e.g., Gauteng"
-                        />
-                      ) : (
-                        <p className="text-sm">{formData.province || "-"}</p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Postal Code</Label>
-                      {isEditing ? (
-                        <Input
-                          value={formData.postal_code}
-                          onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
-                          placeholder="e.g., 0181"
-                        />
-                      ) : (
-                        <p className="text-sm">{formData.postal_code || "-"}</p>
-                      )}
+                  {/* Location */}
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-muted-foreground">Location</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Town/City</Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData.town}
+                            onChange={(e) => setFormData({ ...formData, town: e.target.value })}
+                            placeholder="Pretoria"
+                          />
+                        ) : (
+                          <p className="font-medium">{formData.town || "-"}</p>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Province</Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData.province}
+                            onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+                            placeholder="Gauteng"
+                          />
+                        ) : (
+                          <p className="font-medium">{formData.province || "-"}</p>
+                        )}
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Postal Code</Label>
+                        {isEditing ? (
+                          <Input
+                            value={formData.postal_code}
+                            onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                            placeholder="0181"
+                          />
+                        ) : (
+                          <p className="font-medium">{formData.postal_code || "-"}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
