@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FileText, BarChart3, Users, Download, Upload, Loader2, Save } from "lucide-react";
+import { FileText, BarChart3, Users, Download, Upload, Loader2, Save, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import PolygraphReportsList from "@/components/admin/polygraph/PolygraphReportsList";
 import PolygraphStatistics from "@/components/admin/polygraph/PolygraphStatistics";
@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 
 interface PolygraphReportsSectionProps {
   canEdit: boolean;
@@ -23,9 +25,15 @@ interface Store {
   id: string;
   store_name: string;
   store_code: string;
+  account_id: string | null;
 }
 
 interface Examiner {
+  id: string;
+  name: string;
+}
+
+interface Account {
   id: string;
   name: string;
 }
@@ -40,18 +48,98 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   const [extractedData, setExtractedData] = useState<any>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [examiners, setExaminers] = useState<Examiner[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   
   // Form fields for candidate
+  const [selectedAccountId, setSelectedAccountId] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState("");
   const [selectedExaminerId, setSelectedExaminerId] = useState("");
+  const [newExaminerName, setNewExaminerName] = useState("");
+  const [showAddExaminer, setShowAddExaminer] = useState(false);
 
-  const fetchStoresAndExaminers = async () => {
-    const [storesRes, examinersRes] = await Promise.all([
-      supabase.from("stores").select("id, store_name, store_code").order("store_name"),
-      supabase.from("examiners").select("id, name").eq("is_active", true).order("name")
-    ]);
-    setStores(storesRes.data || []);
-    setExaminers(examinersRes.data || []);
+  // Fetch accounts the user has access to on mount
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  // Fetch stores when account changes
+  useEffect(() => {
+    if (selectedAccountId) {
+      fetchStoresByAccount(selectedAccountId);
+    } else {
+      setStores([]);
+    }
+    setSelectedStoreId("");
+  }, [selectedAccountId]);
+
+  const fetchInitialData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // Check if master admin
+    const { data: isMasterAdmin } = await supabase.rpc('is_master_admin', { _user_id: user.id });
+
+    // Fetch accounts
+    if (isMasterAdmin) {
+      const { data: accountsData } = await supabase.from("accounts").select("id, name").order("name");
+      setAccounts(accountsData || []);
+    } else {
+      // Fetch only accessible accounts
+      const { data: accessData } = await supabase
+        .from("account_access")
+        .select("account_id, accounts(id, name)")
+        .eq("user_id", user.id);
+      
+      const accessibleAccounts = accessData?.map(a => a.accounts).filter(Boolean) as Account[] || [];
+      setAccounts(accessibleAccounts);
+    }
+
+    // Fetch examiners
+    const { data: examinersData } = await supabase
+      .from("examiners")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("name");
+    setExaminers(examinersData || []);
+  };
+
+  const fetchStoresByAccount = async (accountId: string) => {
+    const { data: storesData } = await supabase
+      .from("stores")
+      .select("id, store_name, store_code, account_id")
+      .eq("account_id", accountId)
+      .order("store_name");
+    setStores(storesData || []);
+  };
+
+  const handleAddExaminer = async () => {
+    if (!newExaminerName.trim()) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("examiners")
+        .insert({ name: newExaminerName.trim(), is_active: true })
+        .select("id, name")
+        .single();
+
+      if (error) throw error;
+
+      setExaminers(prev => [...prev, data]);
+      setSelectedExaminerId(data.id);
+      setNewExaminerName("");
+      setShowAddExaminer(false);
+      
+      toast({
+        title: "Examiner Added",
+        description: `${data.name} has been added to the examiners list.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add examiner",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDownloadTemplate = async () => {
@@ -87,6 +175,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       }
       setFile(selectedFile);
       setExtractedData(null);
+      setSelectedAccountId("");
       setSelectedStoreId("");
       setSelectedExaminerId("");
     }
@@ -123,9 +212,6 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         title: "Processing Document",
         description: "AI is extracting information from the PDF. This may take a moment...",
       });
-
-      // Fetch stores and examiners while processing
-      fetchStoresAndExaminers();
 
       const pdfBase64 = await fileToBase64(file);
 
@@ -249,6 +335,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       // Reset and go to reports list
       setExtractedData(null);
       setFile(null);
+      setSelectedAccountId("");
       setSelectedStoreId("");
       setSelectedExaminerId("");
       setActiveTab("reports");
@@ -439,43 +526,110 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                           </div>
                         )}
 
-                        {/* Store and Examiner Selection */}
-                        <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                          <div className="space-y-2">
-                            <Label>Store Location</Label>
-                            <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select store" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {stores.map((store) => (
-                                  <SelectItem key={store.id} value={store.id}>
-                                    {store.store_name} ({store.store_code})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                        {/* Disclosure Summary */}
+                        {extractedData.disclosure && (
+                          <Collapsible>
+                            <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-muted rounded-lg hover:bg-muted/80">
+                              <h4 className="font-medium">Full Disclosure Summary</h4>
+                              <ChevronDown className="h-4 w-4" />
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="pt-3 space-y-2 text-sm">
+                              {Object.entries(extractedData.disclosure).map(([key, value]) => (
+                                <div key={key} className="grid grid-cols-3 gap-2 border-b pb-2">
+                                  <span className="font-medium text-muted-foreground capitalize">{key.replace(/_/g, ' ')}:</span>
+                                  <span className="col-span-2">
+                                    {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value) || 'Not Disclosed'}
+                                  </span>
+                                </div>
+                              ))}
+                            </CollapsibleContent>
+                          </Collapsible>
+                        )}
+
+                        {/* Account, Store and Examiner Selection */}
+                        <div className="space-y-4 pt-4 border-t">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Account *</Label>
+                              <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select account" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {accounts.map((account) => (
+                                    <SelectItem key={account.id} value={account.id}>
+                                      {account.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Sub-Account / Store *</Label>
+                              <Select 
+                                value={selectedStoreId} 
+                                onValueChange={setSelectedStoreId}
+                                disabled={!selectedAccountId}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder={selectedAccountId ? "Select sub-account" : "Select account first"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {stores.map((store) => (
+                                    <SelectItem key={store.id} value={store.id}>
+                                      {store.store_name} ({store.store_code})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
+                          
                           <div className="space-y-2">
-                            <Label>Examiner</Label>
-                            <Select value={selectedExaminerId} onValueChange={setSelectedExaminerId}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select examiner" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {examiners.map((examiner) => (
-                                  <SelectItem key={examiner.id} value={examiner.id}>
-                                    {examiner.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <Label>Examiner *</Label>
+                            {!showAddExaminer ? (
+                              <div className="flex gap-2">
+                                <Select value={selectedExaminerId} onValueChange={setSelectedExaminerId}>
+                                  <SelectTrigger className="flex-1">
+                                    <SelectValue placeholder={examiners.length > 0 ? "Select examiner" : "No examiners - add one"} />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {examiners.map((examiner) => (
+                                      <SelectItem key={examiner.id} value={examiner.id}>
+                                        {examiner.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Button 
+                                  type="button" 
+                                  variant="outline" 
+                                  size="icon"
+                                  onClick={() => setShowAddExaminer(true)}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex gap-2">
+                                <Input
+                                  placeholder="Enter examiner name"
+                                  value={newExaminerName}
+                                  onChange={(e) => setNewExaminerName(e.target.value)}
+                                />
+                                <Button type="button" onClick={handleAddExaminer}>Add</Button>
+                                <Button type="button" variant="outline" onClick={() => {
+                                  setShowAddExaminer(false);
+                                  setNewExaminerName("");
+                                }}>Cancel</Button>
+                              </div>
+                            )}
                           </div>
                         </div>
 
                         <Button 
                           onClick={handleSaveReport} 
-                          disabled={saving}
+                          disabled={saving || !selectedAccountId || !selectedStoreId || !selectedExaminerId}
                           className="w-full mt-4"
                         >
                           {saving ? (
@@ -490,6 +644,11 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                             </>
                           )}
                         </Button>
+                        {(!selectedAccountId || !selectedStoreId || !selectedExaminerId) && (
+                          <p className="text-xs text-muted-foreground text-center mt-2">
+                            Please select account, sub-account, and examiner to proceed
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
