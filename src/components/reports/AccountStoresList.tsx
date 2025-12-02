@@ -1,20 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, MapPin, Store, Plus, Users } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, MapPin, Building, Plus, Users, Upload, Download, FileText } from "lucide-react";
 import { toast } from "sonner";
 
-interface Store {
+interface SubAccount {
   id: string;
   store_name: string;
   store_code: string;
   town: string | null;
   province: string | null;
   account_id: string | null;
+  center_mall_name: string | null;
+  street_number: string | null;
+  street_name: string | null;
+  postal_code: string | null;
   employees_count?: number;
   examinations_count?: number;
 }
@@ -26,25 +31,34 @@ interface AccountStoresListProps {
     code: string;
   };
   onBack: () => void;
-  onSelectStore: (store: Store) => void;
+  onSelectStore: (store: SubAccount) => void;
   canEdit?: boolean;
 }
 
 export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = false }: AccountStoresListProps) => {
-  const [stores, setStores] = useState<Store[]>([]);
-  const [availableStores, setAvailableStores] = useState<Store[]>([]);
+  const [subAccounts, setSubAccounts] = useState<SubAccount[]>([]);
+  const [availableSubAccounts, setAvailableSubAccounts] = useState<SubAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedStoreId, setSelectedStoreId] = useState("");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [selectedSubAccountId, setSelectedSubAccountId] = useState("");
+  const [newSubAccount, setNewSubAccount] = useState({
+    name: "",
+    code: "",
+    address: "",
+    town: "",
+    province: ""
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchStores();
-    fetchAvailableStores();
+    fetchSubAccounts();
+    fetchAvailableSubAccounts();
   }, [account.id]);
 
-  const fetchStores = async () => {
+  const fetchSubAccounts = async () => {
     try {
-      const { data: storesData, error } = await supabase
+      const { data: subAccountsData, error } = await supabase
         .from("stores")
         .select("*")
         .eq("account_id", account.id)
@@ -52,38 +66,38 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
 
       if (error) throw error;
 
-      // Get employee and examination counts for each store
-      const storesWithCounts = await Promise.all(
-        (storesData || []).map(async (store) => {
+      // Get employee and examination counts for each sub account
+      const subAccountsWithCounts = await Promise.all(
+        (subAccountsData || []).map(async (subAccount) => {
           const [employeesResult, examsResult] = await Promise.all([
             supabase
               .from("employees")
               .select("*", { count: "exact", head: true })
-              .eq("store_id", store.id),
+              .eq("store_id", subAccount.id),
             supabase
               .from("examinations")
               .select("*", { count: "exact", head: true })
-              .eq("store_id", store.id)
+              .eq("store_id", subAccount.id)
           ]);
 
           return {
-            ...store,
+            ...subAccount,
             employees_count: employeesResult.count || 0,
             examinations_count: examsResult.count || 0
           };
         })
       );
 
-      setStores(storesWithCounts);
+      setSubAccounts(subAccountsWithCounts);
     } catch (error) {
-      console.error("Error fetching stores:", error);
-      toast.error("Failed to load stores");
+      console.error("Error fetching sub accounts:", error);
+      toast.error("Failed to load sub accounts");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchAvailableStores = async () => {
+  const fetchAvailableSubAccounts = async () => {
     try {
       const { data, error } = await supabase
         .from("stores")
@@ -92,15 +106,15 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
         .order("store_name");
 
       if (error) throw error;
-      setAvailableStores(data || []);
+      setAvailableSubAccounts(data || []);
     } catch (error) {
-      console.error("Error fetching available stores:", error);
+      console.error("Error fetching available sub accounts:", error);
     }
   };
 
-  const handleAssignStore = async () => {
-    if (!selectedStoreId) {
-      toast.error("Please select a store");
+  const handleAssignSubAccount = async () => {
+    if (!selectedSubAccountId) {
+      toast.error("Please select a sub account");
       return;
     }
 
@@ -108,19 +122,148 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
       const { error } = await supabase
         .from("stores")
         .update({ account_id: account.id })
-        .eq("id", selectedStoreId);
+        .eq("id", selectedSubAccountId);
 
       if (error) throw error;
 
-      toast.success("Store assigned to account");
+      toast.success("Sub account assigned to account");
       setDialogOpen(false);
-      setSelectedStoreId("");
-      fetchStores();
-      fetchAvailableStores();
+      setSelectedSubAccountId("");
+      fetchSubAccounts();
+      fetchAvailableSubAccounts();
     } catch (error: any) {
-      console.error("Error assigning store:", error);
-      toast.error(error.message || "Failed to assign store");
+      console.error("Error assigning sub account:", error);
+      toast.error(error.message || "Failed to assign sub account");
     }
+  };
+
+  const handleCreateSubAccount = async () => {
+    if (!newSubAccount.name) {
+      toast.error("Sub account name is required");
+      return;
+    }
+
+    try {
+      const code = newSubAccount.code || generateCode(newSubAccount.name);
+      
+      const { error } = await supabase
+        .from("stores")
+        .insert([{
+          store_name: newSubAccount.name,
+          store_code: code,
+          street_name: newSubAccount.address,
+          town: newSubAccount.town || null,
+          province: newSubAccount.province || null,
+          account_id: account.id
+        }]);
+
+      if (error) throw error;
+
+      toast.success("Sub account created successfully");
+      setCreateDialogOpen(false);
+      setNewSubAccount({ name: "", code: "", address: "", town: "", province: "" });
+      fetchSubAccounts();
+    } catch (error: any) {
+      console.error("Error creating sub account:", error);
+      toast.error(error.message || "Failed to create sub account");
+    }
+  };
+
+  const generateCode = (name: string) => {
+    const prefix = name.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, "X");
+    const timestamp = Date.now().toString().slice(-4);
+    return `${prefix}${timestamp}`;
+  };
+
+  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split("\n").filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          toast.error("CSV file must have a header row and at least one data row");
+          return;
+        }
+
+        const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
+        const nameIndex = headers.findIndex(h => h.includes("name") || h.includes("sub account"));
+        const addressIndex = headers.findIndex(h => h.includes("address"));
+        const townIndex = headers.findIndex(h => h.includes("town") || h.includes("city"));
+        const provinceIndex = headers.findIndex(h => h.includes("province") || h.includes("state"));
+        const codeIndex = headers.findIndex(h => h.includes("code"));
+
+        if (nameIndex === -1) {
+          toast.error("CSV must have a 'Name' or 'Sub Account Name' column");
+          return;
+        }
+
+        const subAccountsToInsert = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(",").map(v => v.trim().replace(/"/g, ""));
+          const name = values[nameIndex];
+          
+          if (!name) continue;
+
+          const code = codeIndex !== -1 && values[codeIndex] 
+            ? values[codeIndex] 
+            : generateCode(name);
+
+          subAccountsToInsert.push({
+            store_name: name,
+            store_code: code,
+            street_name: addressIndex !== -1 ? values[addressIndex] || null : null,
+            town: townIndex !== -1 ? values[townIndex] || null : null,
+            province: provinceIndex !== -1 ? values[provinceIndex] || null : null,
+            account_id: account.id
+          });
+        }
+
+        if (subAccountsToInsert.length === 0) {
+          toast.error("No valid sub accounts found in CSV");
+          return;
+        }
+
+        const { error } = await supabase
+          .from("stores")
+          .insert(subAccountsToInsert);
+
+        if (error) throw error;
+
+        toast.success(`Successfully imported ${subAccountsToInsert.length} sub accounts`);
+        fetchSubAccounts();
+      } catch (error: any) {
+        console.error("Error importing CSV:", error);
+        toast.error(error.message || "Failed to import CSV");
+      }
+    };
+
+    reader.readAsText(file);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = ["Sub Account Name", "Code", "Address", "Town", "Province"];
+    const sampleData = [
+      ["Branch Johannesburg", "BJH001", "123 Main Street", "Johannesburg", "Gauteng"],
+      ["Branch Cape Town", "BCT001", "456 Long Street", "Cape Town", "Western Cape"]
+    ];
+    
+    const csvContent = [headers.join(","), ...sampleData.map(row => row.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "sub_accounts_template.csv";
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -133,7 +276,7 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -145,88 +288,175 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
           </div>
         </div>
         {canEdit && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Assign Store
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Assign Store to {account.name}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>Select Store</Label>
-                  <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a store" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableStores.map((store) => (
-                        <SelectItem key={store.id} value={store.id}>
-                          {store.store_name} ({store.store_code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {availableStores.length === 0 && (
-                    <p className="text-sm text-muted-foreground mt-2">
-                      No unassigned stores available
-                    </p>
-                  )}
-                </div>
-                <Button onClick={handleAssignStore} className="w-full" disabled={!selectedStoreId}>
-                  Assign Store
+          <div className="flex items-center gap-2">
+            {/* CSV Upload */}
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleCSVUpload}
+              ref={fileInputRef}
+              className="hidden"
+            />
+            <Button variant="outline" onClick={handleDownloadTemplate}>
+              <Download className="h-4 w-4 mr-2" />
+              Template
+            </Button>
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="h-4 w-4 mr-2" />
+              Import CSV
+            </Button>
+
+            {/* Create New Sub Account */}
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Sub Account
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Sub Account</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Sub Account Name *</Label>
+                    <Input
+                      value={newSubAccount.name}
+                      onChange={(e) => setNewSubAccount({ ...newSubAccount, name: e.target.value })}
+                      placeholder="e.g., Branch Johannesburg"
+                    />
+                  </div>
+                  <div>
+                    <Label>Code (optional)</Label>
+                    <Input
+                      value={newSubAccount.code}
+                      onChange={(e) => setNewSubAccount({ ...newSubAccount, code: e.target.value })}
+                      placeholder="Auto-generated if empty"
+                    />
+                  </div>
+                  <div>
+                    <Label>Address</Label>
+                    <Input
+                      value={newSubAccount.address}
+                      onChange={(e) => setNewSubAccount({ ...newSubAccount, address: e.target.value })}
+                      placeholder="e.g., 123 Main Street"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Town</Label>
+                      <Input
+                        value={newSubAccount.town}
+                        onChange={(e) => setNewSubAccount({ ...newSubAccount, town: e.target.value })}
+                        placeholder="e.g., Johannesburg"
+                      />
+                    </div>
+                    <div>
+                      <Label>Province</Label>
+                      <Input
+                        value={newSubAccount.province}
+                        onChange={(e) => setNewSubAccount({ ...newSubAccount, province: e.target.value })}
+                        placeholder="e.g., Gauteng"
+                      />
+                    </div>
+                  </div>
+                  <Button onClick={handleCreateSubAccount} className="w-full">
+                    Create Sub Account
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Assign Existing Sub Account */}
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Assign Sub Account
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Assign Sub Account to {account.name}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Select Sub Account</Label>
+                    <Select value={selectedSubAccountId} onValueChange={setSelectedSubAccountId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a sub account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSubAccounts.map((subAccount) => (
+                          <SelectItem key={subAccount.id} value={subAccount.id}>
+                            {subAccount.store_name} ({subAccount.store_code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {availableSubAccounts.length === 0 && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        No unassigned sub accounts available
+                      </p>
+                    )}
+                  </div>
+                  <Button onClick={handleAssignSubAccount} className="w-full" disabled={!selectedSubAccountId}>
+                    Assign Sub Account
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         )}
       </div>
 
-      {stores.length === 0 ? (
+      {subAccounts.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Store className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">No stores assigned to this account</p>
+            <Building className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">No sub accounts assigned to this account</p>
             {canEdit && (
-              <Button variant="outline" className="mt-4" onClick={() => setDialogOpen(true)}>
-                Assign a store
-              </Button>
+              <div className="flex gap-2 mt-4">
+                <Button variant="outline" onClick={() => setCreateDialogOpen(true)}>
+                  Create a sub account
+                </Button>
+                <Button variant="outline" onClick={() => setDialogOpen(true)}>
+                  Assign existing sub account
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {stores.map((store) => (
+          {subAccounts.map((subAccount) => (
             <Card
-              key={store.id}
+              key={subAccount.id}
               className="cursor-pointer hover:border-primary transition-colors"
-              onClick={() => onSelectStore(store)}
+              onClick={() => onSelectStore(subAccount)}
             >
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <Store className="h-5 w-5 text-primary" />
-                  {store.store_name}
+                  <Building className="h-5 w-5 text-primary" />
+                  {subAccount.store_name}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <p className="text-sm text-muted-foreground">Code: {store.store_code}</p>
-                {store.town && (
+                <p className="text-sm text-muted-foreground">Code: {subAccount.store_code}</p>
+                {subAccount.town && (
                   <p className="text-sm flex items-center gap-1">
                     <MapPin className="h-3 w-3" />
-                    {store.town}, {store.province}
+                    {subAccount.town}, {subAccount.province}
                   </p>
                 )}
                 <div className="flex items-center gap-4 mt-3 pt-3 border-t">
                   <div className="flex items-center gap-1 text-sm">
                     <Users className="h-4 w-4 text-muted-foreground" />
-                    <span>{store.employees_count} Employees</span>
+                    <span>{subAccount.employees_count} Employees</span>
                   </div>
                   <div className="text-sm">
-                    <span className="font-medium">{store.examinations_count}</span> Examinations
+                    <span className="font-medium">{subAccount.examinations_count}</span> Examinations
                   </div>
                 </div>
               </CardContent>

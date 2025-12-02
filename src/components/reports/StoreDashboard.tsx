@@ -127,7 +127,7 @@ export const StoreDashboard = ({ store, accountName, onBack, canEdit = false }: 
           <div>
             <h2 className="text-2xl font-bold">{store.store_name}</h2>
             <p className="text-sm text-muted-foreground">
-              {accountName} • Store Code: {store.store_code}
+              {accountName} • Sub Account Code: {store.store_code}
             </p>
           </div>
         </div>

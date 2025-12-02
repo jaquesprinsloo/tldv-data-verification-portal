@@ -105,7 +105,7 @@ const ReportsAccounts = () => {
               <h1 className="text-3xl font-bold">Reports & Accounts</h1>
               <p className="text-muted-foreground mt-2">
                 {isMasterAdmin 
-                  ? "Select an account to view stores and examination statistics"
+                  ? "Select an account to view sub accounts and examination statistics"
                   : "View your assigned accounts and examination statistics"
                 }
               </p>
