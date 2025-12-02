@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileText, Plus, DollarSign, Eye } from "lucide-react";
+import { Upload, FileText, Plus, DollarSign, Eye, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -44,6 +44,7 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
     total_amount: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [extracting, setExtracting] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -68,12 +69,56 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && file.type === "application/pdf") {
-      setSelectedFile(file);
-    } else {
+    if (!file || file.type !== "application/pdf") {
       toast.error("Please select a PDF file");
+      return;
+    }
+    
+    setSelectedFile(file);
+    setExtracting(true);
+    toast.info("Analyzing invoice...");
+
+    try {
+      // Convert file to base64
+      const arrayBuffer = await file.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+      );
+
+      // Call edge function to extract invoice data
+      const { data, error } = await supabase.functions.invoke("extract-invoice-data", {
+        body: { pdfBase64: base64, fileName: file.name },
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.data) {
+        const extracted = data.data;
+        setFormData({
+          invoice_number: extracted.invoice_number || "",
+          invoice_date: extracted.invoice_date || new Date().toISOString().split("T")[0],
+          subtotal: extracted.subtotal?.toString() || "",
+          vat_amount: extracted.vat_amount?.toString() || "",
+          discount_amount: extracted.discount_amount?.toString() || "0",
+          total_amount: extracted.total_amount?.toString() || "",
+        });
+        toast.success("Invoice data extracted successfully");
+      } else {
+        toast.error(data?.error || "Failed to extract invoice data");
+      }
+    } catch (error: any) {
+      console.error("Error extracting invoice:", error);
+      if (error.message?.includes("429")) {
+        toast.error("Rate limit exceeded. Please try again later.");
+      } else if (error.message?.includes("402")) {
+        toast.error("AI credits exhausted. Please add funds.");
+      } else {
+        toast.error("Failed to analyze invoice. Please enter details manually.");
+      }
+    } finally {
+      setExtracting(false);
     }
   };
 
@@ -320,24 +365,35 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
             </div>
 
             <div className="space-y-2">
-              <Label>Upload Invoice PDF</Label>
+              <Label>Upload Invoice PDF (auto-extracts data)</Label>
               <input
                 type="file"
                 accept=".pdf"
                 ref={fileInputRef}
                 onChange={handleFileSelect}
                 className="hidden"
+                disabled={extracting}
               />
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={extracting}
                 >
-                  <Upload className="h-4 w-4 mr-2" />
-                  {selectedFile ? selectedFile.name : "Select PDF"}
+                  {extracting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      {selectedFile ? selectedFile.name : "Select PDF"}
+                    </>
+                  )}
                 </Button>
-                {selectedFile && (
+                {selectedFile && !extracting && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -348,14 +404,17 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
                   </Button>
                 )}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Upload a PDF and we'll automatically extract the invoice details
+              </p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setUploadDialogOpen(false)} disabled={extracting}>
               Cancel
             </Button>
-            <Button onClick={handleUploadInvoice} disabled={uploading}>
+            <Button onClick={handleUploadInvoice} disabled={uploading || extracting}>
               {uploading ? "Saving..." : "Save Invoice"}
             </Button>
           </DialogFooter>
