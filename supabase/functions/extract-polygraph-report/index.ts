@@ -341,26 +341,25 @@ Return ONLY the JSON object, no additional text.`;
     try {
       let jsonString = content.trim();
       
-      // Try multiple patterns to extract JSON
-      // Pattern 1: ```json ... ```
-      const jsonBlockMatch = content.match(/```json\s*([\s\S]*?)```/);
-      if (jsonBlockMatch) {
-        jsonString = jsonBlockMatch[1].trim();
-      } else {
-        // Pattern 2: ``` ... ```
-        const codeBlockMatch = content.match(/```\s*([\s\S]*?)```/);
-        if (codeBlockMatch) {
-          jsonString = codeBlockMatch[1].trim();
-        } else {
-          // Pattern 3: Find JSON object directly
-          const jsonObjMatch = content.match(/\{[\s\S]*\}/);
-          if (jsonObjMatch) {
-            jsonString = jsonObjMatch[0];
-          }
+      // Remove markdown code blocks more aggressively
+      // First, remove ```json or ``` at the start
+      jsonString = jsonString.replace(/^```(?:json)?\s*\n?/, '');
+      // Then remove ``` at the end
+      jsonString = jsonString.replace(/\n?```\s*$/, '');
+      
+      // If it still doesn't start with {, try to find the JSON object
+      if (!jsonString.trim().startsWith('{')) {
+        const jsonObjMatch = jsonString.match(/\{[\s\S]*\}/);
+        if (jsonObjMatch) {
+          jsonString = jsonObjMatch[0];
         }
       }
       
+      jsonString = jsonString.trim();
+      
       console.log('Attempting to parse JSON string of length:', jsonString.length);
+      console.log('JSON starts with:', jsonString.substring(0, 50));
+      console.log('JSON ends with:', jsonString.substring(jsonString.length - 50));
       extractedData = JSON.parse(jsonString);
       console.log('Successfully parsed JSON');
     } catch (parseError) {
