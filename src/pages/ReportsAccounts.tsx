@@ -39,14 +39,14 @@ const ReportsAccounts = () => {
         return;
       }
 
+      // Check for admin or master_admin role
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", session.user.id)
-        .eq("role", "admin")
-        .single();
+        .in("role", ["admin", "master_admin"]);
 
-      if (!roleData) {
+      if (!roleData || roleData.length === 0) {
         await supabase.auth.signOut();
         navigate("/admin/login");
       }
