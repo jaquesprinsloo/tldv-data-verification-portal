@@ -171,8 +171,8 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
 
   const generateCode = (name: string) => {
     const prefix = name.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, "X");
-    const timestamp = Date.now().toString().slice(-4);
-    return `${prefix}${timestamp}`;
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `${prefix}${random}`;
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
