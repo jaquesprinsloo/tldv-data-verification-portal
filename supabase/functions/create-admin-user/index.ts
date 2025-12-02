@@ -77,19 +77,7 @@ serve(async (req) => {
     if (createError) throw createError;
     if (!newUser.user) throw new Error("Failed to create user");
 
-    // Create profile
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .insert({
-        id: newUser.user.id,
-        email: email,
-        full_name: `${firstName} ${lastName}`
-      });
-
-    if (profileError) {
-      console.error("Profile creation error:", profileError);
-      throw profileError;
-    }
+    // Note: Profile is automatically created by the handle_new_user trigger
 
     // Assign admin role using the database function
     const { error: roleInsertError } = await supabaseAdmin
