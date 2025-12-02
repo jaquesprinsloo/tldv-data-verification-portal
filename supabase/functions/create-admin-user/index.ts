@@ -91,6 +91,87 @@ serve(async (req) => {
       throw roleInsertError;
     }
 
+    // Get the site URL for the login link
+    const siteUrl = Deno.env.get('SITE_URL') || 'https://tldv-data-verification-portal.lovable.app';
+    const loginUrl = `${siteUrl}/admin/login`;
+
+    // Send welcome email using Resend
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (resendApiKey) {
+      try {
+        const emailHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background-color: #000; padding: 20px; text-align: center; }
+              .header h1 { color: #dc2626; margin: 0; }
+              .content { padding: 30px; background-color: #f9f9f9; }
+              .credentials { background-color: #fff; border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 5px; }
+              .button { display: inline-block; padding: 12px 30px; background-color: #dc2626; color: #fff; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+              .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>TLDV Data Verification Portal</h1>
+              </div>
+              <div class="content">
+                <h2>Welcome, ${firstName} ${lastName}!</h2>
+                <p>Your admin account has been successfully created. You can now access the TLDV Admin Portal.</p>
+                
+                <div class="credentials">
+                  <h3>Your Login Credentials</h3>
+                  <p><strong>Email:</strong> ${email}</p>
+                  <p><strong>Password:</strong> ${password}</p>
+                </div>
+                
+                <p><strong>Important:</strong> Please change your password after your first login for security purposes.</p>
+                
+                <a href="${loginUrl}" class="button">Login to Admin Portal</a>
+                
+                <p style="margin-top: 30px;">If you have any questions, please contact the master administrator.</p>
+              </div>
+              <div class="footer">
+                <p>This is an automated message from TLDV Data Verification Portal.</p>
+                <p>Please do not reply to this email.</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `;
+
+        const emailResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: "TLDV Admin <onboarding@resend.dev>",
+            to: [email],
+            subject: "Your TLDV Admin Account Has Been Created",
+            html: emailHtml,
+          }),
+        });
+
+        if (emailResponse.ok) {
+          console.log("Welcome email sent successfully");
+        } else {
+          const errorData = await emailResponse.text();
+          console.error("Failed to send welcome email:", errorData);
+        }
+      } catch (emailError) {
+        console.error("Failed to send welcome email:", emailError);
+        // Don't throw - user was created successfully, just email failed
+      }
+    } else {
+      console.log("RESEND_API_KEY not configured, skipping welcome email");
+    }
+
     console.log(`Successfully created admin user: ${email}`);
 
     return new Response(

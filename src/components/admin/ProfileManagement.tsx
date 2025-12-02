@@ -6,12 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ProfileDetailsDialog } from "./ProfileDetailsDialog";
+import { Badge } from "@/components/ui/badge";
 
 interface Profile {
   id: string;
   email: string;
   full_name: string;
   created_at: string;
+  roles?: string[];
 }
 
 export const ProfileManagement = () => {
@@ -21,6 +24,8 @@ export const ProfileManagement = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: profiles, isLoading: isLoadingProfiles } = useQuery({
@@ -39,22 +44,38 @@ export const ProfileManagement = () => {
 
       if (!roleData) throw new Error("Not authorized");
 
-      // Fetch all admin profiles
-      const { data: adminRoles } = await supabase
+      // Fetch all profiles with admin or master_admin roles
+      const { data: allRoles } = await supabase
         .from("user_roles")
-        .select("user_id")
-        .eq("role", "admin");
+        .select("user_id, role")
+        .in("role", ["admin", "master_admin"]);
 
-      if (!adminRoles) return [];
+      if (!allRoles || allRoles.length === 0) return [];
 
-      const userIds = adminRoles.map(r => r.user_id);
+      // Get unique user IDs
+      const userIds = [...new Set(allRoles.map(r => r.user_id))];
       
+      // Create a map of user_id to roles
+      const userRolesMap: Record<string, string[]> = {};
+      allRoles.forEach(r => {
+        if (!userRolesMap[r.user_id]) {
+          userRolesMap[r.user_id] = [];
+        }
+        userRolesMap[r.user_id].push(r.role);
+      });
+
       const { data: profilesData } = await supabase
         .from("profiles")
         .select("*")
         .in("id", userIds);
 
-      return profilesData as Profile[] || [];
+      // Add roles to each profile
+      const profilesWithRoles = (profilesData || []).map(profile => ({
+        ...profile,
+        roles: userRolesMap[profile.id] || []
+      }));
+
+      return profilesWithRoles as Profile[];
     }
   });
 
@@ -80,7 +101,7 @@ export const ProfileManagement = () => {
 
       if (error) throw error;
 
-      toast.success("Profile created successfully!");
+      toast.success("Profile created successfully! A welcome email has been sent.");
       setFirstName("");
       setLastName("");
       setEmail("");
@@ -99,8 +120,17 @@ export const ProfileManagement = () => {
     }
   };
 
+  const handleProfileClick = (profile: Profile) => {
+    setSelectedProfile(profile);
+    setDialogOpen(true);
+  };
+
+  const handleDialogUpdate = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
+  };
+
   const filteredProfiles = profiles?.filter(profile => 
-    profile.full_name.toLowerCase().includes(searchFilter.toLowerCase()) ||
+    (profile.full_name?.toLowerCase() || '').includes(searchFilter.toLowerCase()) ||
     profile.email.toLowerCase().includes(searchFilter.toLowerCase())
   ) || [];
 
@@ -157,6 +187,9 @@ export const ProfileManagement = () => {
                   className="bg-black border-red-600 text-white"
                 />
               </div>
+              <p className="text-gray-400 text-sm">
+                A welcome email with login credentials will be sent to the user.
+              </p>
               <Button
                 type="submit"
                 disabled={isLoading}
@@ -180,6 +213,9 @@ export const ProfileManagement = () => {
                 className="bg-black border-red-600 text-white"
               />
             </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Click on a profile to manage details, roles, and password.
+            </p>
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {isLoadingProfiles ? (
                 <p className="text-gray-400">Loading profiles...</p>
@@ -189,10 +225,30 @@ export const ProfileManagement = () => {
                 filteredProfiles.map((profile) => (
                   <div
                     key={profile.id}
-                    className="p-4 border border-red-600/50 rounded-lg hover:bg-red-600/10 transition-colors"
+                    onClick={() => handleProfileClick(profile)}
+                    className="p-4 border border-red-600/50 rounded-lg hover:bg-red-600/10 transition-colors cursor-pointer"
                   >
-                    <p className="text-white font-semibold">{profile.full_name}</p>
-                    <p className="text-gray-400 text-sm">{profile.email}</p>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-white font-semibold">{profile.full_name || 'No name'}</p>
+                        <p className="text-gray-400 text-sm">{profile.email}</p>
+                      </div>
+                      <div className="flex gap-1 flex-wrap justify-end">
+                        {profile.roles?.map(role => (
+                          <Badge 
+                            key={role} 
+                            variant="outline" 
+                            className={`text-xs ${
+                              role === 'master_admin' 
+                                ? 'border-yellow-500 text-yellow-500' 
+                                : 'border-red-500 text-red-500'
+                            }`}
+                          >
+                            {role === 'master_admin' ? 'Master' : 'Admin'}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
                     <p className="text-gray-500 text-xs mt-1">
                       Created: {new Date(profile.created_at).toLocaleDateString()}
                     </p>
@@ -203,6 +259,13 @@ export const ProfileManagement = () => {
           </Card>
         </div>
       </div>
+
+      <ProfileDetailsDialog
+        profile={selectedProfile}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onUpdate={handleDialogUpdate}
+      />
     </div>
   );
 };
