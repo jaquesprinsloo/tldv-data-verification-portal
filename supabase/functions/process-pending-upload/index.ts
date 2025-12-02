@@ -128,13 +128,27 @@ serve(async (req) => {
   }
 
   try {
-    const { fileUrl, accountId, documentType, fileName } = await req.json();
+    const { fileUrl, accountId, documentType, fileName, pdfBase64 } = await req.json();
     
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")!;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // If no base64 provided, try to download the file
+    let fileContent = pdfBase64;
+    if (!fileContent && fileUrl) {
+      try {
+        const fileResponse = await fetch(fileUrl);
+        if (fileResponse.ok) {
+          const arrayBuffer = await fileResponse.arrayBuffer();
+          fileContent = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        }
+      } catch (e) {
+        console.error("Failed to download file:", e);
+      }
+    }
 
     // Get auth header to extract user
     const authHeader = req.headers.get("Authorization");
@@ -202,16 +216,33 @@ IMPORTANT: The billing address typically appears at the top of invoices. Look fo
 
 The branch name is the key identifier - match it to the 'branch' field in the store list.`;
 
-    const userPrompt = `Analyze this document: ${fileName}
-File URL: ${fileUrl}
+    const userPrompt = `Analyze this invoice document and extract the BILLING ADDRESS information.
 
-1. First, find the BILLING ADDRESS section (usually "Bill To" or "Invoice To" at the top)
-2. Extract the store name after "t/a" or "trading as"
-3. Extract the branch/location name (the last part, like "Acornhoek" from "Cash Crusaders Acornhoek")
-4. Extract mall name, town, and postal code
-5. Match to the most similar store in the list
+CRITICAL: Look at the TOP of the invoice for "Bill To", "Invoice To", or billing address section.
+Extract EXACTLY what you see - do not guess or infer store names.
+
+1. Find the BILLING ADDRESS - this tells us which store the invoice is for
+2. Extract the full company name including "t/a" portion
+3. The branch name is after "t/a" (e.g., "Cash Crusaders Acornhoek" -> branch is "Acornhoek")
+4. Extract mall/center name, town, and postal code from the address
+5. Match to the store in the list that best matches the BILLING ADDRESS
+
+File name: ${fileName}
 
 Respond using the extract_document_info function.`;
+
+    // Build the message content - include PDF if available
+    const messageContent: Array<{type: string; text?: string; image_url?: {url: string}}> = [];
+    messageContent.push({ type: "text", text: userPrompt });
+    
+    if (fileContent) {
+      messageContent.push({
+        type: "image_url",
+        image_url: {
+          url: `data:application/pdf;base64,${fileContent}`,
+        },
+      });
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -223,7 +254,7 @@ Respond using the extract_document_info function.`;
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+          { role: "user", content: messageContent },
         ],
         tools: [
           {

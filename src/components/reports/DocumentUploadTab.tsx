@@ -31,6 +31,20 @@ export const DocumentUploadTab = ({ accountId, onUploadComplete }: DocumentUploa
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove the data:application/pdf;base64, prefix
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleUpload = async () => {
     if (!selectedFile) {
       toast.error("Please select a file to upload");
@@ -39,6 +53,9 @@ export const DocumentUploadTab = ({ accountId, onUploadComplete }: DocumentUploa
 
     setUploading(true);
     try {
+      // Read file as base64 for AI processing
+      const pdfBase64 = await fileToBase64(selectedFile);
+
       // Upload file to storage
       const fileName = `${accountId}/${selectedType}/${Date.now()}_${selectedFile.name}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -54,15 +71,14 @@ export const DocumentUploadTab = ({ accountId, onUploadComplete }: DocumentUploa
         .from("pending-documents")
         .getPublicUrl(fileName);
 
-      // Process with AI
-      const { data: { session } } = await supabase.auth.getSession();
-      
+      // Process with AI - include base64 for accurate extraction
       const response = await supabase.functions.invoke("process-pending-upload", {
         body: {
           fileUrl: urlData.publicUrl,
           accountId,
           documentType: selectedType,
           fileName: selectedFile.name,
+          pdfBase64,
         },
       });
 
