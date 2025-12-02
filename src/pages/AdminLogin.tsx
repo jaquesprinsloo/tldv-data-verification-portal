@@ -80,6 +80,11 @@ const AdminLogin = () => {
           return;
         }
 
+        // Clear session storage to ensure animation plays on fresh login
+        sessionStorage.removeItem('portal_animation_played');
+        sessionStorage.removeItem('user_is_master_admin');
+        sessionStorage.removeItem('user_display_name');
+        
         toast({
           title: "Welcome back!",
           description: "You have successfully logged in.",
