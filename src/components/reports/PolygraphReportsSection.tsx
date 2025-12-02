@@ -248,6 +248,50 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     }
   };
 
+  // Map extracted result to valid enum value
+  const mapOverallResult = (result: string | null | undefined): 'passed' | 'failed' | 'inconclusive' | null => {
+    if (!result) return null;
+    const lower = result.toLowerCase();
+    if (lower.includes('pass') || lower.includes('no deception') || lower.includes('ndi') || lower.includes('truthful')) {
+      return 'passed';
+    }
+    if (lower.includes('fail') || lower.includes('deception') || lower.includes('significant reaction') || lower.includes('di ') || lower.includes('sr ')) {
+      return 'failed';
+    }
+    if (lower.includes('inconclusive') || lower.includes('inc')) {
+      return 'inconclusive';
+    }
+    return 'inconclusive'; // Default to inconclusive if unclear
+  };
+
+  // Parse date string to valid date format
+  const parseExaminationDate = (dateStr: string | null | undefined): string => {
+    if (!dateStr) return new Date().toISOString().split("T")[0];
+    
+    // Try to parse various date formats
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split("T")[0];
+    }
+    
+    // Try parsing "26 November 2024" format
+    const months: Record<string, number> = {
+      'january': 0, 'february': 1, 'march': 2, 'april': 3, 'may': 4, 'june': 5,
+      'july': 6, 'august': 7, 'september': 8, 'october': 9, 'november': 10, 'december': 11
+    };
+    const parts = dateStr.toLowerCase().match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+    if (parts) {
+      const day = parseInt(parts[1]);
+      const month = months[parts[2]];
+      const year = parseInt(parts[3]);
+      if (month !== undefined) {
+        return new Date(year, month, day).toISOString().split("T")[0];
+      }
+    }
+    
+    return new Date().toISOString().split("T")[0];
+  };
+
   const handleSaveReport = async () => {
     if (!extractedData) return;
 
@@ -256,7 +300,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       const reportPayload: Record<string, any> = {
         store_id: selectedStoreId || null,
         examiner_id: selectedExaminerId || null,
-        examination_date: extractedData.examination?.date || new Date().toISOString().split("T")[0],
+        examination_date: parseExaminationDate(extractedData.examination?.date),
         first_name: extractedData.candidate?.firstName || "",
         last_name: extractedData.candidate?.lastName || "",
         id_number: extractedData.candidate?.idNumber || "",
@@ -264,7 +308,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         email: extractedData.candidate?.email || null,
         physical_address: extractedData.candidate?.physicalAddress || null,
         position_applying_for: extractedData.candidate?.positionApplyingFor || null,
-        overall_result: extractedData.result?.overallResult || null,
+        overall_result: mapOverallResult(extractedData.result?.overallResult),
         examiner_notes: extractedData.result?.examinerNotes || null,
         status: "completed",
       };
