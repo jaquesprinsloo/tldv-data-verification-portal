@@ -105,15 +105,15 @@ export const InvoiceManagement = ({ storeId, dateFilter }: InvoiceManagementProp
       // Upload file to storage
       const fileName = `${storeId}/${Date.now()}_${file.name}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("proof-of-residence") // Using existing bucket for now
+        .from("invoices")
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from("proof-of-residence")
-        .getPublicUrl(fileName);
+      // Get signed URL (bucket is private)
+      const { data: { signedUrl } } = await supabase.storage
+        .from("invoices")
+        .createSignedUrl(fileName, 3600);
 
       toast.success("Invoice uploaded successfully. Please enter the details manually.");
       
