@@ -192,7 +192,12 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
           const subAccountsToInsert: Array<{
             store_name: string;
             store_code: string;
+            center_mall_name: string | null;
+            street_number: string | null;
             street_name: string | null;
+            town: string | null;
+            province: string | null;
+            postal_code: string | null;
             account_id: string;
           }> = [];
 
@@ -204,10 +209,25 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
             if (jsonData.length < 2) continue;
             
             const headers = (jsonData[0] || []).map(h => String(h || '').toLowerCase().trim());
+            
+            // Find column indices
             const nameIndex = headers.findIndex(h => 
               h.includes('name') || h.includes('store') || h.includes('sub account') || h.includes('branch')
             );
-            const addressIndex = headers.findIndex(h => h.includes('address'));
+            const complexIndex = headers.findIndex(h => 
+              h.includes('complex') || h.includes('unit') || h.includes('building')
+            );
+            const streetIndex = headers.findIndex(h => 
+              h.includes('street') || h.includes('address')
+            );
+            const suburbIndex = headers.findIndex(h => h.includes('suburb'));
+            const townIndex = headers.findIndex(h => 
+              h.includes('town') || h.includes('city')
+            );
+            const provinceIndex = headers.findIndex(h => h.includes('province'));
+            const postalIndex = headers.findIndex(h => 
+              h.includes('postal') || h.includes('code') || h.includes('zip')
+            );
 
             if (nameIndex === -1) continue;
 
@@ -220,7 +240,14 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
               subAccountsToInsert.push({
                 store_name: name,
                 store_code: generateCode(name),
-                street_name: addressIndex !== -1 ? String(row[addressIndex] || '').trim() || null : null,
+                center_mall_name: complexIndex !== -1 ? String(row[complexIndex] || '').trim() || null : null,
+                street_number: null,
+                street_name: streetIndex !== -1 ? String(row[streetIndex] || '').trim() || null : null,
+                town: townIndex !== -1 
+                  ? String(row[townIndex] || '').trim() || null 
+                  : (suburbIndex !== -1 ? String(row[suburbIndex] || '').trim() || null : null),
+                province: provinceIndex !== -1 ? String(row[provinceIndex] || '').trim() || null : null,
+                postal_code: postalIndex !== -1 ? String(row[postalIndex] || '').trim() || null : null,
                 account_id: account.id
               });
             }
@@ -313,14 +340,22 @@ export const AccountStoresList = ({ account, onBack, onSelectStore, canEdit = fa
     // Create Excel workbook with proper template
     const wb = XLSX.utils.book_new();
     const wsData = [
-      ["Sub Account Name", "Address"],
-      ["Branch Johannesburg", "123 Main Street, Johannesburg, Gauteng"],
-      ["Branch Cape Town", "456 Long Street, Cape Town, Western Cape"]
+      ["Sub Account Name", "Complex/Unit", "Street Address", "Suburb", "Town/City", "Province", "Postal Code"],
+      ["Cash Crusaders Arcadia", "1 & 1B, Scopus Heights", "505 Madiba Street", "Arcadia", "Pretoria", "Gauteng", "0083"],
+      ["Cash Crusaders Menlyn", "Shop 45, Menlyn Park", "Atterbury Road", "Menlyn", "Pretoria", "Gauteng", "0181"]
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     
     // Set column widths
-    ws['!cols'] = [{ wch: 30 }, { wch: 50 }];
+    ws['!cols'] = [
+      { wch: 30 }, // Sub Account Name
+      { wch: 25 }, // Complex/Unit
+      { wch: 25 }, // Street Address
+      { wch: 15 }, // Suburb
+      { wch: 15 }, // Town/City
+      { wch: 15 }, // Province
+      { wch: 12 }  // Postal Code
+    ];
     
     XLSX.utils.book_append_sheet(wb, ws, "Sub Accounts");
     XLSX.writeFile(wb, "sub_accounts_template.xlsx");
