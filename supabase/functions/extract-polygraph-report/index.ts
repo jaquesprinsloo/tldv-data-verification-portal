@@ -478,11 +478,68 @@ Return ONLY the JSON object, no additional text.`;
         jsonString = jsonString.trim();
         
         console.log('Attempting to parse JSON string of length:', jsonString.length);
-        extractedData = JSON.parse(jsonString);
-        console.log('Successfully parsed JSON from string content');
+        
+        try {
+          extractedData = JSON.parse(jsonString);
+          console.log('Successfully parsed JSON from string content');
+        } catch (firstParseError) {
+          // Try to repair truncated JSON by closing open brackets
+          console.log('First parse failed, attempting to repair JSON...');
+          let repairedJson = jsonString;
+          
+          // Count open brackets/braces
+          let openBraces = 0;
+          let openBrackets = 0;
+          let inString = false;
+          let escapeNext = false;
+          
+          for (let i = 0; i < repairedJson.length; i++) {
+            const char = repairedJson[i];
+            if (escapeNext) {
+              escapeNext = false;
+              continue;
+            }
+            if (char === '\\') {
+              escapeNext = true;
+              continue;
+            }
+            if (char === '"') {
+              inString = !inString;
+              continue;
+            }
+            if (!inString) {
+              if (char === '{') openBraces++;
+              else if (char === '}') openBraces--;
+              else if (char === '[') openBrackets++;
+              else if (char === ']') openBrackets--;
+            }
+          }
+          
+          // Close any unclosed strings first
+          if (inString) {
+            repairedJson += '"';
+          }
+          
+          // Remove trailing comma if present
+          repairedJson = repairedJson.replace(/,\s*$/, '');
+          
+          // Close open brackets and braces
+          for (let i = 0; i < openBrackets; i++) {
+            repairedJson += ']';
+          }
+          for (let i = 0; i < openBraces; i++) {
+            repairedJson += '}';
+          }
+          
+          console.log('Repaired JSON, attempting parse again...');
+          extractedData = JSON.parse(repairedJson);
+          console.log('Successfully parsed repaired JSON');
+        }
       } catch (parseError) {
         console.error('Failed to parse AI response. Content length:', typeof content === 'string' ? content.length : 'non-string');
         console.error('Parse error:', parseError instanceof Error ? parseError.message : 'Unknown error');
+        console.error('Content preview (first 500 chars):', typeof content === 'string' ? content.substring(0, 500) : 'non-string');
+        console.error('Content preview (last 500 chars):', typeof content === 'string' ? content.substring(content.length - 500) : 'non-string');
         throw new Error('Failed to parse extracted data');
       }
     }
