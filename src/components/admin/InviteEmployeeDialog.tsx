@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,20 +17,28 @@ import { Mail, Copy, Loader2 } from "lucide-react";
 interface InviteEmployeeDialogProps {
   employeeId: string;
   employeeNumber: string;
+  employeeEmail?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }: InviteEmployeeDialogProps) => {
+const InviteEmployeeDialog = ({ employeeId, employeeNumber, employeeEmail, open, onOpenChange }: InviteEmployeeDialogProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(employeeEmail || "");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [invitationLink, setInvitationLink] = useState("");
   const [otp, setOtp] = useState("");
   const [invitationMethod, setInvitationMethod] = useState<"email" | "whatsapp" | "qr_coupon">("email");
   const [showQRCode, setShowQRCode] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState("");
+
+  // Update email when employeeEmail prop changes or dialog opens
+  useEffect(() => {
+    if (open && employeeEmail) {
+      setEmail(employeeEmail);
+    }
+  }, [open, employeeEmail]);
 
   const generateInvitation = async () => {
     // Validate based on invitation method
@@ -144,7 +152,7 @@ const InviteEmployeeDialog = ({ employeeId, employeeNumber, open, onOpenChange }
   };
 
   const handleClose = () => {
-    setEmail("");
+    setEmail(employeeEmail || "");
     setPhoneNumber("");
     setInvitationLink("");
     setOtp("");

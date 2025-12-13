@@ -33,6 +33,7 @@ interface EmployeeWithSubmission {
   id: string;
   employee_number: string;
   id_number: string;
+  email: string | null;
   created_at: string;
   employment_status: string;
   designation: string | null;
@@ -70,7 +71,7 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [employeeToInvite, setEmployeeToInvite] = useState<{ id: string; number: string } | null>(null);
+  const [employeeToInvite, setEmployeeToInvite] = useState<{ id: string; number: string; email: string | null } | null>(null);
   const [dismissDialogOpen, setDismissDialogOpen] = useState(false);
   const [employeeToDismiss, setEmployeeToDismiss] = useState<{ id: string; name: string; type: "dismissed" | "retrenched" } | null>(null);
   const [storeManagementOpen, setStoreManagementOpen] = useState(false);
@@ -103,6 +104,7 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
           id, 
           employee_number, 
           id_number, 
+          email,
           created_at, 
           employment_status,
           designation,
@@ -390,8 +392,8 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
     }
   };
 
-  const handleInviteEmployee = (employeeId: string, employeeNumber: string) => {
-    setEmployeeToInvite({ id: employeeId, number: employeeNumber });
+  const handleInviteEmployee = (employeeId: string, employeeNumber: string, employeeEmail: string | null) => {
+    setEmployeeToInvite({ id: employeeId, number: employeeNumber, email: employeeEmail });
     setInviteDialogOpen(true);
   };
 
@@ -830,7 +832,7 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleInviteEmployee(employee.id, employee.employee_number)}
+                              onClick={() => handleInviteEmployee(employee.id, employee.employee_number, employee.email)}
                               title="Invite to portal"
                             >
                               <Mail className="h-4 w-4 text-primary" />
@@ -884,6 +886,7 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
         <InviteEmployeeDialog
           employeeId={employeeToInvite.id}
           employeeNumber={employeeToInvite.number}
+          employeeEmail={employeeToInvite.email}
           open={inviteDialogOpen}
           onOpenChange={setInviteDialogOpen}
         />
