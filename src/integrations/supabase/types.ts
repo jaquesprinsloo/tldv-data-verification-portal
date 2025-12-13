@@ -1548,7 +1548,6 @@ export type Database = {
             Args: {
               _employee_number: string
               _id_number: string
-              _otp: string
               _token: string
             }
             Returns: {
@@ -1561,6 +1560,7 @@ export type Database = {
             Args: {
               _employee_number: string
               _id_number: string
+              _otp: string
               _token: string
             }
             Returns: {

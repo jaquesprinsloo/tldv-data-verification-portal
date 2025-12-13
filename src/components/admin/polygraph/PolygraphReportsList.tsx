@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Eye, Edit, Trash2, FileText } from "lucide-react";
+import { Plus, Search, Eye, Edit, Trash2, FileText, Shield } from "lucide-react";
 import { format } from "date-fns";
+import { RiskProfileDialog } from "@/components/shared/RiskProfileDialog";
 
 interface PolygraphReport {
   id: string;
@@ -17,6 +18,7 @@ interface PolygraphReport {
   examination_date: string;
   status: string;
   overall_result: string | null;
+  risk_level: string | null;
   store_id: string | null;
   created_at: string;
   stores?: { store_name: string } | null;
@@ -33,6 +35,11 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
   const [reports, setReports] = useState<PolygraphReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Risk profile dialog state
+  const [riskProfileOpen, setRiskProfileOpen] = useState(false);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedCandidateName, setSelectedCandidateName] = useState<string>("");
 
   useEffect(() => {
     fetchReports();
@@ -107,6 +114,23 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
       inconclusive: "secondary",
     };
     return <Badge variant={variants[result] || "outline"}>{result}</Badge>;
+  };
+
+  const getRiskLevelBadge = (level: string | null) => {
+    if (!level) return null;
+    const colors: Record<string, string> = {
+      LOW: "bg-green-500",
+      MEDIUM: "bg-yellow-500",
+      HIGH: "bg-orange-500",
+      "VERY HIGH": "bg-red-500",
+    };
+    return <Badge className={colors[level] || "bg-gray-500"}>{level}</Badge>;
+  };
+
+  const handleViewRiskProfile = (report: PolygraphReport) => {
+    setSelectedReportId(report.id);
+    setSelectedCandidateName(`${report.first_name} ${report.last_name}`);
+    setRiskProfileOpen(true);
   };
 
   const filteredReports = reports.filter((report) => {
@@ -198,6 +222,14 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => handleViewRiskProfile(report)}
+                          title="View Risk Profile"
+                        >
+                          <Shield className="h-4 w-4 text-primary" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => onEditReport(report.id)}
                         >
                           <Edit className="h-4 w-4" />
@@ -218,6 +250,14 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
           </div>
         )}
       </CardContent>
+
+      {/* Risk Profile Dialog */}
+      <RiskProfileDialog
+        open={riskProfileOpen}
+        onOpenChange={setRiskProfileOpen}
+        reportId={selectedReportId || undefined}
+        candidateName={selectedCandidateName}
+      />
     </Card>
   );
 };

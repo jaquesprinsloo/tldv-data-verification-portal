@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Eye, FileText, ClipboardCheck, ShieldCheck, CheckCircle } from "lucide-react";
+import { Users, Eye, FileText, ClipboardCheck, ShieldCheck, CheckCircle, Shield } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { RiskProfileDialog } from "@/components/shared/RiskProfileDialog";
 
 interface Employee {
   id: string;
@@ -41,8 +42,12 @@ export const StoreEmployeesList = ({ storeId, storeName, canEdit }: StoreEmploye
     popia: any | null;
     examinations: any[];
     riskAssessments: any[];
-  }>({ popia: null, examinations: [], riskAssessments: [] });
+    polygraphReport: any | null;
+  }>({ popia: null, examinations: [], riskAssessments: [], polygraphReport: null });
   const [loadingDetails, setLoadingDetails] = useState(false);
+  
+  // Risk profile dialog
+  const [riskProfileOpen, setRiskProfileOpen] = useState(false);
 
   useEffect(() => {
     fetchEmployees();
@@ -93,7 +98,14 @@ export const StoreEmployeesList = ({ storeId, storeName, canEdit }: StoreEmploye
     setLoadingDetails(true);
 
     try {
-      const [popiaResult, examsResult, riskResult] = await Promise.all([
+      // Find polygraph report linked to this employee via candidate
+      const { data: candidate } = await supabase
+        .from("polygraph_candidates")
+        .select("report_id")
+        .eq("employee_id", employee.id)
+        .maybeSingle();
+
+      const [popiaResult, examsResult, riskResult, polygraphResult] = await Promise.all([
         supabase
           .from("popia_acceptances")
           .select("*")
@@ -114,12 +126,20 @@ export const StoreEmployeesList = ({ storeId, storeName, canEdit }: StoreEmploye
           .select("*")
           .eq("employee_id", employee.id)
           .order("assessment_date", { ascending: false }),
+        candidate?.report_id 
+          ? supabase
+              .from("polygraph_reports")
+              .select("*, examiners (name)")
+              .eq("id", candidate.report_id)
+              .single()
+          : Promise.resolve({ data: null }),
       ]);
 
       setEmployeeData({
         popia: popiaResult.data,
         examinations: examsResult.data || [],
         riskAssessments: riskResult.data || [],
+        polygraphReport: polygraphResult.data,
       });
     } catch (error) {
       console.error("Error fetching employee details:", error);
@@ -254,11 +274,15 @@ export const StoreEmployeesList = ({ storeId, storeName, canEdit }: StoreEmploye
             </div>
           ) : (
             <Tabs defaultValue="personal" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="personal">Personal Info</TabsTrigger>
                 <TabsTrigger value="popia">POPIA</TabsTrigger>
                 <TabsTrigger value="polygraph">Polygraph</TabsTrigger>
                 <TabsTrigger value="risk">Risk Assessments</TabsTrigger>
+                <TabsTrigger value="profile" className="flex items-center gap-1">
+                  <Shield className="h-3 w-3" />
+                  Risk Profile
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="personal" className="space-y-4">
@@ -454,10 +478,95 @@ export const StoreEmployeesList = ({ storeId, storeName, canEdit }: StoreEmploye
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              {/* Risk Profile Tab */}
+              <TabsContent value="profile" className="space-y-4">
+                {employeeData.polygraphReport ? (
+                  <div className="space-y-4">
+                    <Card className="bg-primary/5 border-primary/20">
+                      <CardHeader>
+                        <CardTitle className="flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <Shield className="h-5 w-5 text-primary" />
+                            Polygraph Vetting Report
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRiskProfileOpen(true)}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Full Risk Profile
+                          </Button>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Examination Date</p>
+                            <p className="font-medium">
+                              {format(new Date(employeeData.polygraphReport.examination_date), "PP")}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Examiner</p>
+                            <p className="font-medium">{employeeData.polygraphReport.examiners?.name || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Risk Level</p>
+                            {employeeData.polygraphReport.risk_level && (
+                              <Badge className={
+                                employeeData.polygraphReport.risk_level === "LOW" ? "bg-green-500" :
+                                employeeData.polygraphReport.risk_level === "MEDIUM" ? "bg-yellow-500" :
+                                employeeData.polygraphReport.risk_level === "HIGH" ? "bg-orange-500" :
+                                "bg-red-500"
+                              }>
+                                {employeeData.polygraphReport.risk_level}
+                              </Badge>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Overall Result</p>
+                            {employeeData.polygraphReport.overall_result && (
+                              <Badge variant={
+                                employeeData.polygraphReport.overall_result === "passed" ? "default" :
+                                employeeData.polygraphReport.overall_result === "failed" ? "destructive" :
+                                "secondary"
+                              }>
+                                {employeeData.polygraphReport.overall_result}
+                              </Badge>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Risk Score</p>
+                            <p className="font-medium">{employeeData.polygraphReport.risk_score || "-"} / 50</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="py-8 text-center text-muted-foreground">
+                      <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No polygraph vetting report linked to this employee</p>
+                      <p className="text-sm mt-2">Reports are linked when candidates are approved from the Polygraph Reports section</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
             </Tabs>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Risk Profile Dialog */}
+      <RiskProfileDialog
+        open={riskProfileOpen}
+        onOpenChange={setRiskProfileOpen}
+        employeeId={selectedEmployee?.id}
+        candidateName={selectedEmployee?.submission ? `${selectedEmployee.submission.first_name} ${selectedEmployee.submission.last_name}` : undefined}
+      />
     </>
   );
 };
