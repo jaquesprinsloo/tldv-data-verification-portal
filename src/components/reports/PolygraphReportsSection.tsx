@@ -44,6 +44,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   const [activeTab, setActiveTab] = useState("reports");
   const [downloading, setDownloading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingStep, setUploadingStep] = useState<'extracting' | 'processing' | null>(null);
   const [saving, setSaving] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [extractedData, setExtractedData] = useState<any>(null);
@@ -253,16 +254,24 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     }
 
     setUploading(true);
+    setUploadingStep('extracting');
     setExtractedData(null);
     
     try {
       toast({
         title: "Processing Document",
-        description: "Extracting images and data from the Word document. This may take a moment...",
+        description: "Extracting images from the Word document...",
       });
 
       // Extract images from Word document
       const extractedImages = await extractImagesFromDocx(file);
+      
+      setUploadingStep('processing');
+      toast({
+        title: "Processing Document",
+        description: "Extracting text and analyzing data. This may take a moment...",
+      });
+      
       const docxBase64 = await fileToBase64(file);
 
       const { data, error } = await supabase.functions.invoke('extract-polygraph-report', {
@@ -319,6 +328,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       });
     } finally {
       setUploading(false);
+      setUploadingStep(null);
     }
   };
 
@@ -696,7 +706,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                         {uploading ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Extracting Data...
+                            {uploadingStep === 'extracting' ? 'Extracting images from document...' : 'Extracting text and analyzing data...'}
                           </>
                         ) : (
                           "Extract Report Data"
