@@ -344,6 +344,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         examiner_notes: extractedData.result?.examinerNotes || null,
         status: "completed",
         report_pdf_url: pdfUrl,
+        candidate_photo_url: extractedData.candidatePhotoUrl || null,
       };
 
       // Add risk analysis data
