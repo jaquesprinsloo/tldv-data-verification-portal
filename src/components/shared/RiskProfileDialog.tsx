@@ -29,106 +29,32 @@ interface ProfileData {
   pdfUrl: string | null;
 }
 
-// Component to find and display the original PDF
-const ViewOriginalPdfButton = ({ reportId }: { reportId: string }) => {
-  const [loading, setLoading] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const findPdf = async () => {
-      try {
-        // Try to find PDF in polygraph-reports bucket
-        const { data: files } = await supabase.storage
-          .from("polygraph-reports")
-          .list("", { search: reportId });
-
-        if (files && files.length > 0) {
-          const { data } = supabase.storage
-            .from("polygraph-reports")
-            .getPublicUrl(files[0].name);
-          setPdfUrl(data.publicUrl);
-          return;
-        }
-
-        // Also try searching by partial match
-        const { data: allFiles } = await supabase.storage
-          .from("polygraph-reports")
-          .list();
-
-        const matchingFile = allFiles?.find(f => f.name.includes(reportId.substring(0, 8)));
-        if (matchingFile) {
-          const { data } = supabase.storage
-            .from("polygraph-reports")
-            .getPublicUrl(matchingFile.name);
-          setPdfUrl(data.publicUrl);
-        }
-      } catch (error) {
-        console.error("Error finding PDF:", error);
-      }
-    };
-
-    findPdf();
-  }, [reportId]);
-
-  const handleViewPdf = async () => {
-    if (pdfUrl) {
-      window.open(pdfUrl, "_blank");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // List all files in the bucket and try to find one matching the report
-      const { data: files, error } = await supabase.storage
-        .from("polygraph-reports")
-        .list();
-
-      if (error) throw error;
-
-      // Try to find a file that might match this report
-      const potentialFile = files?.find(f => 
-        f.name.toLowerCase().includes(reportId.toLowerCase().substring(0, 8))
-      );
-
-      if (potentialFile) {
-        const { data } = supabase.storage
-          .from("polygraph-reports")
-          .getPublicUrl(potentialFile.name);
-        window.open(data.publicUrl, "_blank");
-      } else {
-        toast.error("Original PDF report not found in storage");
-      }
-    } catch (error) {
-      console.error("Error fetching PDF:", error);
-      toast.error("Could not retrieve the original PDF report");
-    } finally {
-      setLoading(false);
-    }
-  };
+// Component to view the original PDF
+const ViewOriginalPdfButton = ({ pdfUrl }: { pdfUrl: string | null }) => {
+  if (!pdfUrl) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        No PDF document was stored for this report. Reports uploaded before this feature was added will not have a PDF available.
+      </p>
+    );
+  }
 
   return (
     <div className="flex items-center gap-4">
       <Button
         variant="outline"
-        onClick={handleViewPdf}
-        disabled={loading}
+        onClick={() => window.open(pdfUrl, "_blank")}
         className="flex items-center gap-2"
       >
-        {loading ? (
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
-        ) : (
-          <ExternalLink className="h-4 w-4" />
-        )}
+        <ExternalLink className="h-4 w-4" />
         View Original PDF Report
       </Button>
-      {pdfUrl && (
-        <Button variant="ghost" size="sm" asChild>
-          <a href={pdfUrl} download className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Download
-          </a>
-        </Button>
-      )}
+      <Button variant="ghost" size="sm" asChild>
+        <a href={pdfUrl} download className="flex items-center gap-2">
+          <Download className="h-4 w-4" />
+          Download
+        </a>
+      </Button>
     </div>
   );
 };
@@ -363,7 +289,7 @@ export const RiskProfileDialog = ({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ViewOriginalPdfButton reportId={data.polygraphReport.id} />
+                    <ViewOriginalPdfButton pdfUrl={data.polygraphReport.report_pdf_url} />
                   </CardContent>
                 </Card>
               )}

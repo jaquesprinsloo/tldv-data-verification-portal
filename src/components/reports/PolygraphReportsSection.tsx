@@ -308,6 +308,27 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
 
     setSaving(true);
     try {
+      // Upload the PDF to storage first
+      let pdfUrl: string | null = null;
+      if (file) {
+        const reportId = crypto.randomUUID();
+        const fileName = `${reportId}/${file.name}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from("polygraph-reports")
+          .upload(fileName, file, { contentType: "application/pdf" });
+
+        if (uploadError) {
+          console.error("PDF upload error:", uploadError);
+          // Continue without PDF URL if upload fails
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from("polygraph-reports")
+            .getPublicUrl(fileName);
+          pdfUrl = publicUrl;
+        }
+      }
+
       const reportPayload: Record<string, any> = {
         store_id: selectedStoreId || null,
         examiner_id: selectedExaminerId || null,
@@ -322,6 +343,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         overall_result: mapOverallResult(extractedData.examQuestions),
         examiner_notes: extractedData.result?.examinerNotes || null,
         status: "completed",
+        report_pdf_url: pdfUrl,
       };
 
       // Add risk analysis data
