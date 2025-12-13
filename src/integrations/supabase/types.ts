@@ -1484,6 +1484,18 @@ export type Database = {
         }
         Returns: string
       }
+      approve_polygraph_candidate: {
+        Args: { _candidate_id: string }
+        Returns: {
+          email: string
+          employee_id: string
+          employee_number: string
+          first_name: string
+          last_name: string
+          otp: string
+          token: string
+        }[]
+      }
       assign_user_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
