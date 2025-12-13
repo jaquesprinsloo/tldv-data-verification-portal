@@ -273,89 +273,62 @@ export const RiskProfileDialog = ({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-6">
-                    {/* Personal Details - Left Side */}
-                    <div className="flex-1 grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Full Name</p>
-                        <p className="font-medium">{displayName}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">ID Number</p>
-                        <p className="font-medium">
-                          {data?.employee?.id_number || data?.polygraphReport?.id_number || "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Employee Number</p>
-                        <p className="font-medium">{data?.employee?.employee_number || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Contact Number</p>
-                        <p className="font-medium">
-                          {data?.submission?.contact_number || data?.polygraphReport?.contact_number || "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Email</p>
-                        <p className="font-medium">
-                          {data?.submission?.email || data?.polygraphReport?.email || "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Position</p>
-                        <p className="font-medium">{data?.polygraphReport?.position_applying_for || "-"}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <p className="text-sm text-muted-foreground">Physical Address</p>
-                        <p className="font-medium">
-                          {data?.submission?.physical_address || data?.polygraphReport?.physical_address || "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Store</p>
-                        <p className="font-medium">{data?.polygraphReport?.stores?.store_name || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Examination Date</p>
-                        <p className="font-medium">
-                          {data?.polygraphReport?.examination_date 
-                            ? format(new Date(data.polygraphReport.examination_date), "PP")
-                            : "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Examiner</p>
-                        <p className="font-medium">{data?.polygraphReport?.examiners?.name || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Overall Result</p>
-                        {getResultBadge(data?.polygraphReport?.overall_result)}
-                      </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Full Name</p>
+                      <p className="font-medium">{displayName}</p>
                     </div>
-                    
-                    {/* Candidate Photo - Right Side */}
-                    <div className="w-48 flex-shrink-0">
-                      <p className="text-sm text-muted-foreground mb-2">Candidate Photo</p>
-                      <div className="aspect-[3/4] w-full rounded-lg border bg-muted overflow-hidden">
-                        {data?.polygraphReport?.candidate_photo_url ? (
-                          <img 
-                            src={data.polygraphReport.candidate_photo_url} 
-                            alt={`${displayName} photo`}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : data?.submission?.id_photo_url ? (
-                          <img 
-                            src={data.submission.id_photo_url} 
-                            alt={`${displayName} ID photo`}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                            <User className="h-16 w-16 opacity-30" />
-                          </div>
-                        )}
-                      </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">ID Number</p>
+                      <p className="font-medium">
+                        {data?.employee?.id_number || data?.polygraphReport?.id_number || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Employee Number</p>
+                      <p className="font-medium">{data?.employee?.employee_number || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Contact Number</p>
+                      <p className="font-medium">
+                        {data?.submission?.contact_number || data?.polygraphReport?.contact_number || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <p className="font-medium">
+                        {data?.submission?.email || data?.polygraphReport?.email || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Position</p>
+                      <p className="font-medium">{data?.polygraphReport?.position_applying_for || "-"}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-sm text-muted-foreground">Physical Address</p>
+                      <p className="font-medium">
+                        {data?.submission?.physical_address || data?.polygraphReport?.physical_address || "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Store</p>
+                      <p className="font-medium">{data?.polygraphReport?.stores?.store_name || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Examination Date</p>
+                      <p className="font-medium">
+                        {data?.polygraphReport?.examination_date 
+                          ? format(new Date(data.polygraphReport.examination_date), "PP")
+                          : "-"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Examiner</p>
+                      <p className="font-medium">{data?.polygraphReport?.examiners?.name || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Overall Result</p>
+                      {getResultBadge(data?.polygraphReport?.overall_result)}
                     </div>
                   </div>
                 </CardContent>
