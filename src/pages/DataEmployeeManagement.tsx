@@ -9,8 +9,10 @@ import EmployeeManagement from "@/components/admin/EmployeeManagement";
 import RenewalRequests from "@/components/admin/RenewalRequests";
 import InvitationsList from "@/components/admin/InvitationsList";
 import FlaggedEmployees from "@/components/admin/FlaggedEmployees";
+import PolygraphCandidates from "@/components/admin/polygraph/PolygraphCandidates";
 import { User } from "@supabase/supabase-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 type EmployeeFilterType = "all" | "verified" | "flagged" | "pending";
 
@@ -22,7 +24,20 @@ const AdminDashboard = () => {
   const [filter, setFilter] = useState<FilterType>("all");
   const [activeTab, setActiveTab] = useState("employees");
   const [employeeFilter, setEmployeeFilter] = useState<EmployeeFilterType>("all");
+  const [pendingCandidatesCount, setPendingCandidatesCount] = useState(0);
   const employeeTabRef = useRef<HTMLDivElement>(null);
+
+  // Fetch pending candidates count
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      const { count } = await supabase
+        .from("polygraph_candidates")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending_review");
+      setPendingCandidatesCount(count || 0);
+    };
+    fetchPendingCount();
+  }, [activeTab]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -101,8 +116,16 @@ const AdminDashboard = () => {
         <StatsOverview onSelectFilter={handleStatClick} activeFilter={employeeFilter} />
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-4xl grid-cols-5">
+          <TabsList className="grid w-full max-w-5xl grid-cols-6">
             <TabsTrigger value="employees">Employees</TabsTrigger>
+            <TabsTrigger value="candidates" className="relative">
+              Candidates
+              {pendingCandidatesCount > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
+                  {pendingCandidatesCount}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="submissions">Submissions</TabsTrigger>
             <TabsTrigger value="flagged">Flagged</TabsTrigger>
             <TabsTrigger value="renewals">Renewals</TabsTrigger>
@@ -111,6 +134,10 @@ const AdminDashboard = () => {
           
           <TabsContent value="employees" className="mt-4 sm:mt-6" ref={employeeTabRef}>
             <EmployeeManagement filterType={employeeFilter} />
+          </TabsContent>
+          
+          <TabsContent value="candidates" className="mt-4 sm:mt-6">
+            <PolygraphCandidates />
           </TabsContent>
           
           <TabsContent value="submissions" className="mt-4 sm:mt-6">
