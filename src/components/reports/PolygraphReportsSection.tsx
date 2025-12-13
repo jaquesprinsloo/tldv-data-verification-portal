@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
+import JSZip from "jszip";
 
 interface PolygraphReportsSectionProps {
   canEdit: boolean;
@@ -165,14 +166,27 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (!selectedFile.name.endsWith('.pdf')) {
+      const isDocx = selectedFile.name.endsWith('.docx');
+      const isDoc = selectedFile.name.endsWith('.doc');
+      
+      if (!isDocx && !isDoc) {
         toast({
           title: "Invalid File Type",
-          description: "Please upload a PDF document (.pdf) file.",
+          description: "Please upload a Word document (.docx) file.",
           variant: "destructive",
         });
         return;
       }
+      
+      if (isDoc) {
+        toast({
+          title: "Unsupported Format",
+          description: "Please use the .docx format. The older .doc format is not supported.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       setFile(selectedFile);
       setExtractedData(null);
       setSelectedAccountId("");
@@ -194,6 +208,40 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     });
   };
 
+  // Extract images from a Word document (.docx)
+  const extractImagesFromDocx = async (file: File): Promise<{ base64: string; mimeType: string }[]> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(arrayBuffer);
+      const images: { base64: string; mimeType: string }[] = [];
+      
+      // Word documents store images in word/media/ folder
+      const mediaFolder = zip.folder("word/media");
+      if (!mediaFolder) return images;
+      
+      const imageFiles = Object.keys(zip.files).filter(name => 
+        name.startsWith("word/media/") && 
+        (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".gif"))
+      );
+      
+      for (const imagePath of imageFiles) {
+        const imageFile = zip.file(imagePath);
+        if (imageFile) {
+          const imageData = await imageFile.async("base64");
+          const extension = imagePath.split('.').pop()?.toLowerCase() || 'png';
+          const mimeType = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
+          images.push({ base64: imageData, mimeType });
+        }
+      }
+      
+      console.log(`Extracted ${images.length} images from Word document`);
+      return images;
+    } catch (error) {
+      console.error("Error extracting images from docx:", error);
+      return [];
+    }
+  };
+
   const handleUpload = async () => {
     if (!file) {
       toast({
@@ -210,13 +258,19 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     try {
       toast({
         title: "Processing Document",
-        description: "AI is extracting information from the PDF. This may take a moment...",
+        description: "Extracting images and data from the Word document. This may take a moment...",
       });
 
-      const pdfBase64 = await fileToBase64(file);
+      // Extract images from Word document
+      const extractedImages = await extractImagesFromDocx(file);
+      const docxBase64 = await fileToBase64(file);
 
       const { data, error } = await supabase.functions.invoke('extract-polygraph-report', {
-        body: { pdfBase64, fileName: file.name }
+        body: { 
+          docxBase64, 
+          fileName: file.name,
+          extractedImages // Pass extracted images to the edge function
+        }
       });
 
       if (error) {
@@ -228,6 +282,26 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       }
 
       if (data?.success && data?.data) {
+        // If we extracted images from the docx but the edge function didn't find a photo,
+        // use the first extracted image as the candidate photo
+        if (!data.data.candidatePhotoUrl && extractedImages.length > 0) {
+          // Upload the first image as the candidate photo
+          const firstImage = extractedImages[0];
+          const photoBlob = base64ToBlob(firstImage.base64, firstImage.mimeType);
+          const photoFileName = `candidate-photos/extracted-${Date.now()}.${firstImage.mimeType.split('/')[1]}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from("polygraph-reports")
+            .upload(photoFileName, photoBlob, { contentType: firstImage.mimeType });
+          
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from("polygraph-reports")
+              .getPublicUrl(photoFileName);
+            data.data.candidatePhotoUrl = publicUrl;
+          }
+        }
+        
         setExtractedData(data.data);
         toast({
           title: "Data Extracted Successfully",
@@ -246,6 +320,17 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     } finally {
       setUploading(false);
     }
+  };
+
+  // Helper to convert base64 to Blob
+  const base64ToBlob = (base64: string, mimeType: string): Blob => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
   };
 
   // Map overall result based on exam question findings
@@ -308,24 +393,51 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
 
     setSaving(true);
     try {
-      // Upload the PDF to storage first
+      // Convert Word document to PDF and upload
       let pdfUrl: string | null = null;
       if (file) {
         const reportId = crypto.randomUUID();
-        const fileName = `${reportId}/${file.name}`;
         
-        const { error: uploadError } = await supabase.storage
-          .from("polygraph-reports")
-          .upload(fileName, file, { contentType: "application/pdf" });
-
-        if (uploadError) {
-          console.error("PDF upload error:", uploadError);
-          // Continue without PDF URL if upload fails
-        } else {
-          const { data: { publicUrl } } = supabase.storage
+        // First, call edge function to convert Word to PDF
+        toast({
+          title: "Converting to PDF",
+          description: "Converting Word document to PDF format...",
+        });
+        
+        const docxBase64 = await fileToBase64(file);
+        const { data: conversionData, error: conversionError } = await supabase.functions.invoke('convert-docx-to-pdf', {
+          body: { docxBase64, fileName: file.name }
+        });
+        
+        if (conversionError) {
+          console.error("Conversion error:", conversionError);
+          // Fall back to storing Word document if conversion fails
+          const fileName = `${reportId}/${file.name}`;
+          const { error: uploadError } = await supabase.storage
             .from("polygraph-reports")
-            .getPublicUrl(fileName);
-          pdfUrl = publicUrl;
+            .upload(fileName, file, { contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+          
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from("polygraph-reports")
+              .getPublicUrl(fileName);
+            pdfUrl = publicUrl;
+          }
+        } else if (conversionData?.pdfBase64) {
+          // Upload the converted PDF
+          const pdfBlob = base64ToBlob(conversionData.pdfBase64, 'application/pdf');
+          const pdfFileName = `${reportId}/${file.name.replace('.docx', '.pdf')}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from("polygraph-reports")
+            .upload(pdfFileName, pdfBlob, { contentType: "application/pdf" });
+          
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from("polygraph-reports")
+              .getPublicUrl(pdfFileName);
+            pdfUrl = publicUrl;
+          }
         }
       }
 
@@ -545,7 +657,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
               <CardHeader>
                 <CardTitle>Upload Completed Report</CardTitle>
                 <CardDescription>
-                  Upload a completed polygraph report PDF for AI data extraction
+                  Upload a completed polygraph report Word document (.docx) for AI data extraction. The document will be converted to PDF for secure storage.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -553,19 +665,29 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                   <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <input
                     type="file"
-                    accept=".pdf"
+                    accept=".docx"
                     onChange={handleFileChange}
                     className="hidden"
                     id="report-upload"
                   />
                   <label htmlFor="report-upload">
                     <Button variant="outline" asChild className="cursor-pointer">
-                      <span>Select PDF File</span>
+                      <span>Select Word Document (.docx)</span>
                     </Button>
                   </label>
                   {file && (
                     <div className="mt-4">
                       <p className="text-sm font-medium">{file.name}</p>
+                      {extractedData?.candidatePhotoUrl && (
+                        <div className="mt-2">
+                          <p className="text-xs text-muted-foreground mb-1">Extracted Photo:</p>
+                          <img 
+                            src={extractedData.candidatePhotoUrl} 
+                            alt="Candidate" 
+                            className="w-16 h-16 object-cover rounded-full mx-auto border"
+                          />
+                        </div>
+                      )}
                       <Button
                         onClick={handleUpload}
                         disabled={uploading}

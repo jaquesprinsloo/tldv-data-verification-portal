@@ -6,82 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function extractCandidatePhoto(pdfBase64: string, apiKey: string): Promise<string | null> {
-  try {
-    console.log('Attempting to extract candidate photo from PDF...');
-    
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image-preview',
-        messages: [
-          { 
-            role: 'user', 
-            content: [
-              {
-                type: 'text',
-                text: `Look at this PDF document. If there is a candidate/person photo (like an ID photo, passport photo, or headshot), extract ONLY that photo and return it. 
-                
-If no candidate photo exists in the document, respond with exactly: NO_PHOTO_FOUND
-
-The photo I'm looking for is typically:
-- A passport-style headshot
-- An ID photo
-- A formal photo of the candidate being examined
-- Usually found at the top of the document or in a personal details section
-
-Do NOT return logos, signatures, stamps, or other images - only the candidate's face photo.`
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:application/pdf;base64,${pdfBase64}`
-                }
-              }
-            ]
-          }
-        ],
-        modalities: ['image', 'text']
-      }),
-    });
-
-    if (!response.ok) {
-      console.error('Photo extraction API error:', response.status);
-      return null;
-    }
-
-    const data = await response.json();
-    const message = data.choices?.[0]?.message;
-    
-    // Check if we got an image back
-    if (message?.images && message.images.length > 0) {
-      const imageUrl = message.images[0]?.image_url?.url;
-      if (imageUrl && imageUrl.startsWith('data:image')) {
-        console.log('Successfully extracted candidate photo from PDF');
-        return imageUrl;
-      }
-    }
-    
-    // Check text response for no photo found
-    const textContent = message?.content || '';
-    if (textContent.includes('NO_PHOTO_FOUND') || textContent.toLowerCase().includes('no photo') || textContent.toLowerCase().includes('no candidate photo')) {
-      console.log('No candidate photo found in PDF');
-      return null;
-    }
-    
-    console.log('Photo extraction returned no usable image');
-    return null;
-  } catch (error) {
-    console.error('Error extracting candidate photo:', error);
-    return null;
-  }
-}
-
-async function uploadPhotoToStorage(photoBase64: string, candidateIdNumber: string): Promise<string | null> {
+async function uploadPhotoToStorage(photoBase64: string, candidateIdNumber: string, mimeType: string = 'image/png'): Promise<string | null> {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -93,29 +18,19 @@ async function uploadPhotoToStorage(photoBase64: string, candidateIdNumber: stri
     
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Extract the base64 data and mime type
-    const matches = photoBase64.match(/^data:([^;]+);base64,(.+)$/);
-    if (!matches) {
-      console.error('Invalid base64 image format');
-      return null;
-    }
-    
-    const mimeType = matches[1];
-    const base64Data = matches[2];
-    const extension = mimeType.split('/')[1] || 'png';
-    
     // Convert base64 to Uint8Array
-    const binaryString = atob(base64Data);
+    const binaryString = atob(photoBase64);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
     
     // Generate unique filename
+    const extension = mimeType.split('/')[1] || 'png';
     const fileName = `candidate-photos/${candidateIdNumber}-${Date.now()}.${extension}`;
     
     // Upload to polygraph-reports bucket (public bucket)
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('polygraph-reports')
       .upload(fileName, bytes, {
         contentType: mimeType,
@@ -146,19 +61,23 @@ serve(async (req) => {
   }
 
   try {
-    const { pdfBase64, fileName } = await req.json();
+    const { docxBase64, pdfBase64, fileName, extractedImages } = await req.json();
+    
+    // Support both Word documents (docxBase64) and PDFs (pdfBase64) for backwards compatibility
+    const documentBase64 = docxBase64 || pdfBase64;
+    const isWordDoc = !!docxBase64;
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    console.log('Processing polygraph report PDF:', fileName);
+    console.log(`Processing polygraph report ${isWordDoc ? 'Word document' : 'PDF'}:`, fileName);
 
     const systemPrompt = `You are an automated risk-analysis system used for pre-employment vetting in South Africa.
 
 You MUST:
-1. Read the uploaded PDF containing a polygraph/vetting report.
+1. Read the uploaded document containing a polygraph/vetting report.
 2. Recognize and extract all sections, even if formatting varies.
 
 REQUIRED SECTIONS TO EXTRACT:
@@ -180,7 +99,7 @@ REQUIRED SECTIONS TO EXTRACT:
 - Polygraph Relevant Questions, Responses, and Findings (SR, INC, NSR)
 - Post-Examination Admissions
 
-If a section is blank in the PDF, mark it as "Not disclosed".
+If a section is blank in the document, mark it as "Not disclosed".
 
 STEP 2 — STRUCTURE THE DATA EXACTLY LIKE THIS:
 
@@ -408,44 +327,46 @@ In NarrativeReport field, write a detailed narrative containing:
 
 STEP 6 – NO HALLUCINATIONS
 
-If the PDF does not include information, say "Not Disclosed."
+If the document does not include information, say "Not Disclosed."
 Never invent data.
 
 Return ONLY the JSON object, no additional text.`;
 
-    // Run data extraction and photo extraction in parallel
-    const [dataResponse, candidatePhotoBase64] = await Promise.all([
-      fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { 
-              role: 'user', 
-              content: [
-                {
-                  type: 'text',
-                  text: `Please extract all polygraph report data from this PDF document and perform a complete risk analysis. The document is a completed polygraph examination report.`
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: `data:application/pdf;base64,${pdfBase64}`
-                  }
+    // Determine the MIME type for the document
+    const mimeType = isWordDoc 
+      ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      : 'application/pdf';
+
+    // Extract data from the document
+    const dataResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { 
+            role: 'user', 
+            content: [
+              {
+                type: 'text',
+                text: `Please extract all polygraph report data from this ${isWordDoc ? 'Word document' : 'PDF'} and perform a complete risk analysis. The document is a completed polygraph examination report.`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${documentBase64}`
                 }
-              ]
-            }
-          ],
-          response_format: { type: 'json_object' },
-        }),
+              }
+            ]
+          }
+        ],
+        response_format: { type: 'json_object' },
       }),
-      extractCandidatePhoto(pdfBase64, LOVABLE_API_KEY)
-    ]);
+    });
 
     if (!dataResponse.ok) {
       const errorText = await dataResponse.text();
@@ -506,11 +427,15 @@ Return ONLY the JSON object, no additional text.`;
       }
     }
 
-    // Upload photo to storage if extracted
+    // Handle photo from extracted images (Word document) or upload if provided
     let candidatePhotoUrl: string | null = null;
-    if (candidatePhotoBase64) {
+    
+    if (extractedImages && extractedImages.length > 0) {
+      // Use the first extracted image from the Word document as the candidate photo
+      const firstImage = extractedImages[0];
       const candidateIdNumber = extractedData.Candidate?.IDNumber || `unknown-${Date.now()}`;
-      candidatePhotoUrl = await uploadPhotoToStorage(candidatePhotoBase64, candidateIdNumber);
+      candidatePhotoUrl = await uploadPhotoToStorage(firstImage.base64, candidateIdNumber, firstImage.mimeType);
+      console.log('Uploaded extracted image from Word document:', candidatePhotoUrl ? 'Success' : 'Failed');
     }
 
     // Transform the extracted data to match our form structure
