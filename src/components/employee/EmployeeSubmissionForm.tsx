@@ -747,70 +747,6 @@ const EmployeeSubmissionForm = () => {
                 </div>
               </div>
 
-              {/* Document Upload */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Document Upload</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="proofOfResidence">Proof of Residence *</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="proofOfResidence"
-                        type="file"
-                        accept="image/*,.pdf"
-                        onChange={(e) => handleFileChange(e, "proof")}
-                        required
-                        className="cursor-pointer"
-                      />
-                      <Upload className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    {proofOfResidenceFile && (
-                      <p className="text-sm text-green-600">✓ {proofOfResidenceFile.name}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="idPhoto">ID Photo *</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="idPhoto"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileChange(e, "id")}
-                        required
-                        className="cursor-pointer"
-                      />
-                      <Camera className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    {idFile && (
-                      <p className="text-sm text-green-600">✓ {idFile.name}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Location Capture */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Location Verification</h3>
-                <div className="flex items-center gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={captureLocation}
-                    className="flex items-center gap-2"
-                  >
-                    <MapPin className="h-4 w-4" />
-                    Capture Current Location
-                  </Button>
-                  {location && (
-                    <p className="text-sm text-green-600">
-                      ✓ Location captured ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
-                    </p>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  We need to verify that you are at the address you provided. Please make sure you are at your current physical address before capturing your location.
-                </p>
-              </div>
             </TabsContent>
 
             {/* Next of Kin Tab */}
@@ -860,6 +796,71 @@ const EmployeeSubmissionForm = () => {
               </div>
             </TabsContent>
           </Tabs>
+
+          {/* Document Upload - Always visible outside tabs */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold border-b pb-2">Document Upload</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="proofOfResidence">Proof of Residence *</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="proofOfResidence"
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => handleFileChange(e, "proof")}
+                    required
+                    className="cursor-pointer"
+                  />
+                  <Upload className="h-5 w-5 text-muted-foreground" />
+                </div>
+                {proofOfResidenceFile && (
+                  <p className="text-sm text-green-600">✓ {proofOfResidenceFile.name}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="idPhoto">ID Photo *</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="idPhoto"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFileChange(e, "id")}
+                    required
+                    className="cursor-pointer"
+                  />
+                  <Camera className="h-5 w-5 text-muted-foreground" />
+                </div>
+                {idFile && (
+                  <p className="text-sm text-green-600">✓ {idFile.name}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Location Capture - Always visible outside tabs */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold border-b pb-2">Location Verification</h3>
+            <div className="flex items-center gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={captureLocation}
+                className="flex items-center gap-2"
+              >
+                <MapPin className="h-4 w-4" />
+                Capture Current Location
+              </Button>
+              {location && (
+                <p className="text-sm text-green-600">
+                  ✓ Location captured ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
+                </p>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              We need to verify that you are at the address you provided. Please make sure you are at your current physical address before capturing your location.
+            </p>
+          </div>
 
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? "Submitting..." : "Submit Verification"}
