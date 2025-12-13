@@ -65,7 +65,7 @@ const FamilyMemberNode = ({ member }: { member: FamilyMember }) => {
           {getRelationshipIcon(member.Relationship)}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm truncate">{member.Name}</p>
+          <p className="font-semibold text-sm break-words">{member.Name}</p>
           <Badge variant="outline" className="text-xs mt-1">
             {member.Relationship}
           </Badge>
