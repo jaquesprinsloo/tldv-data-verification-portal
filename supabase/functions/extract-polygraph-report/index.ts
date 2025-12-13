@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import JSZip from 'https://esm.sh/jszip@3.10.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -55,6 +56,49 @@ async function uploadPhotoToStorage(photoBase64: string, candidateIdNumber: stri
   }
 }
 
+// Extract text content from a Word document (docx is a ZIP containing XML)
+async function extractTextFromDocx(docxBase64: string): Promise<string> {
+  try {
+    // Decode base64 to binary
+    const binaryString = atob(docxBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    // Load the docx as a ZIP file
+    const zip = await JSZip.loadAsync(bytes);
+    
+    // Get the main document XML
+    const documentXml = await zip.file('word/document.xml')?.async('string');
+    
+    if (!documentXml) {
+      console.error('Could not find word/document.xml in docx');
+      return '';
+    }
+    
+    // Extract text content from XML by removing tags and cleaning up
+    let text = documentXml
+      // Replace paragraph tags with newlines
+      .replace(/<\/w:p>/g, '\n')
+      // Replace table row endings with newlines
+      .replace(/<\/w:tr>/g, '\n')
+      // Remove all XML tags
+      .replace(/<[^>]+>/g, ' ')
+      // Clean up multiple spaces
+      .replace(/\s+/g, ' ')
+      // Clean up multiple newlines
+      .replace(/\n\s*\n/g, '\n\n')
+      .trim();
+    
+    console.log('Extracted text length from Word document:', text.length);
+    return text;
+  } catch (error) {
+    console.error('Error extracting text from docx:', error);
+    return '';
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -64,7 +108,6 @@ serve(async (req) => {
     const { docxBase64, pdfBase64, fileName, extractedImages } = await req.json();
     
     // Support both Word documents (docxBase64) and PDFs (pdfBase64) for backwards compatibility
-    const documentBase64 = docxBase64 || pdfBase64;
     const isWordDoc = !!docxBase64;
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -332,10 +375,38 @@ Never invent data.
 
 Return ONLY the JSON object, no additional text.`;
 
-    // Determine the MIME type for the document
-    const mimeType = isWordDoc 
-      ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      : 'application/pdf';
+    // Build the AI request based on document type
+    let userContent: any[];
+    
+    if (isWordDoc) {
+      // For Word documents, extract text and send as plain text
+      const extractedText = await extractTextFromDocx(docxBase64);
+      
+      if (!extractedText) {
+        throw new Error('Failed to extract text from Word document');
+      }
+      
+      userContent = [
+        {
+          type: 'text',
+          text: `Please extract all polygraph report data from the following document text and perform a complete risk analysis. The document is a completed polygraph examination report.\n\n--- DOCUMENT CONTENT ---\n\n${extractedText}`
+        }
+      ];
+    } else {
+      // For PDFs, send as base64 image
+      userContent = [
+        {
+          type: 'text',
+          text: 'Please extract all polygraph report data from this PDF and perform a complete risk analysis. The document is a completed polygraph examination report.'
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:application/pdf;base64,${pdfBase64}`
+          }
+        }
+      ];
+    }
 
     // Extract data from the document
     const dataResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -350,18 +421,7 @@ Return ONLY the JSON object, no additional text.`;
           { role: 'system', content: systemPrompt },
           { 
             role: 'user', 
-            content: [
-              {
-                type: 'text',
-                text: `Please extract all polygraph report data from this ${isWordDoc ? 'Word document' : 'PDF'} and perform a complete risk analysis. The document is a completed polygraph examination report.`
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${mimeType};base64,${documentBase64}`
-                }
-              }
-            ]
+            content: userContent
           }
         ],
         response_format: { type: 'json_object' },
