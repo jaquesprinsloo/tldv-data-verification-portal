@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Shield, FileText, User, AlertTriangle, ExternalLink, Download } from "lucide-react";
+import { Shield, FileText, User, AlertTriangle, ExternalLink, Download, X } from "lucide-react";
 import { format } from "date-fns";
 import RiskAnalysisDisplay from "@/components/reports/RiskAnalysisDisplay";
 import { toast } from "sonner";
@@ -29,8 +29,57 @@ interface ProfileData {
   pdfUrl: string | null;
 }
 
+// PDF Preview Modal
+const PdfPreviewModal = ({ 
+  open, 
+  onClose, 
+  pdfUrl 
+}: { 
+  open: boolean; 
+  onClose: () => void; 
+  pdfUrl: string; 
+}) => {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
+      <div className="relative w-full max-w-5xl h-[90vh] bg-background rounded-lg overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="font-semibold">PDF Report Preview</h3>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+                <ExternalLink className="h-4 w-4" />
+                Open in New Tab
+              </a>
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <a href={pdfUrl} download className="flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                Download
+              </a>
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="flex-1 w-full">
+          <iframe
+            src={pdfUrl}
+            className="w-full h-full border-0"
+            title="PDF Preview"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Component to view the original PDF
 const ViewOriginalPdfButton = ({ pdfUrl }: { pdfUrl: string | null }) => {
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   if (!pdfUrl) {
     return (
       <p className="text-muted-foreground text-sm">
@@ -40,20 +89,31 @@ const ViewOriginalPdfButton = ({ pdfUrl }: { pdfUrl: string | null }) => {
   }
 
   return (
-    <div className="flex items-center gap-4">
-      <Button variant="outline" asChild>
-        <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
-          <ExternalLink className="h-4 w-4" />
-          View Original PDF Report
-        </a>
-      </Button>
-      <Button variant="ghost" size="sm" asChild>
-        <a href={pdfUrl} download className="flex items-center gap-2">
-          <Download className="h-4 w-4" />
-          Download
-        </a>
-      </Button>
-    </div>
+    <>
+      <div className="flex items-center gap-4">
+        <Button variant="outline" onClick={() => setPreviewOpen(true)} className="flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          Preview PDF Report
+        </Button>
+        <Button variant="ghost" size="sm" asChild>
+          <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+            <ExternalLink className="h-4 w-4" />
+            Open in New Tab
+          </a>
+        </Button>
+        <Button variant="ghost" size="sm" asChild>
+          <a href={pdfUrl} download className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            Download
+          </a>
+        </Button>
+      </div>
+      <PdfPreviewModal 
+        open={previewOpen} 
+        onClose={() => setPreviewOpen(false)} 
+        pdfUrl={pdfUrl} 
+      />
+    </>
   );
 };
 
