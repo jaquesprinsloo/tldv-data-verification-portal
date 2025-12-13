@@ -57,26 +57,19 @@ const FamilyMemberNode = ({ member }: { member: FamilyMember }) => {
 
   return (
     <div className={cn(
-      "relative p-4 rounded-xl border-2 transition-all hover:shadow-lg",
+      "relative p-3 rounded-xl border-2 transition-all hover:shadow-lg",
       statusInfo.bgColor
     )}>
-      <div className="flex items-start gap-3">
-        <div className={cn(
-          "p-2 rounded-full",
-          statusInfo.status === "clear" ? "bg-green-500/20" :
-          statusInfo.status === "flagged" ? "bg-orange-500/20" : "bg-muted"
-        )}>
-          {getRelationshipIcon(member.Relationship)}
-        </div>
+      <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-xs break-words">{member.Name}</p>
-          <Badge variant="outline" className="text-xs mt-1">
+          <Badge variant="outline" className="text-[10px] mt-1">
             {member.Relationship}
           </Badge>
         </div>
-        <StatusIcon className={cn("h-5 w-5 flex-shrink-0", statusInfo.color)} />
+        <StatusIcon className={cn("h-4 w-4 flex-shrink-0", statusInfo.color)} />
       </div>
-      <p className="mt-3 text-xs text-muted-foreground line-clamp-3">
+      <p className="mt-2 text-[11px] text-muted-foreground line-clamp-3">
         {member.CriminalHistory}
       </p>
     </div>
@@ -93,21 +86,14 @@ const CompactMemberNode = ({ member }: { member: FamilyMember }) => {
       <Tooltip>
         <TooltipTrigger asChild>
           <div className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all hover:shadow-md cursor-pointer",
+            "flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all hover:shadow-md cursor-pointer",
             statusInfo.bgColor
           )}>
-            <div className={cn(
-              "p-1.5 rounded-full",
-              statusInfo.status === "clear" ? "bg-green-500/20" :
-              statusInfo.status === "flagged" ? "bg-orange-500/20" : "bg-muted"
-            )}>
-              {getRelationshipIcon(member.Relationship, "h-3 w-3")}
-            </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-[11px] truncate">{member.Name}</p>
               <p className="text-[10px] text-muted-foreground">{member.Relationship}</p>
             </div>
-            <StatusIcon className={cn("h-4 w-4 flex-shrink-0", statusInfo.color)} />
+            <StatusIcon className={cn("h-3.5 w-3.5 flex-shrink-0", statusInfo.color)} />
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs">
