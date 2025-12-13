@@ -1,9 +1,144 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+async function extractCandidatePhoto(pdfBase64: string, apiKey: string): Promise<string | null> {
+  try {
+    console.log('Attempting to extract candidate photo from PDF...');
+    
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-image-preview',
+        messages: [
+          { 
+            role: 'user', 
+            content: [
+              {
+                type: 'text',
+                text: `Look at this PDF document. If there is a candidate/person photo (like an ID photo, passport photo, or headshot), extract ONLY that photo and return it. 
+                
+If no candidate photo exists in the document, respond with exactly: NO_PHOTO_FOUND
+
+The photo I'm looking for is typically:
+- A passport-style headshot
+- An ID photo
+- A formal photo of the candidate being examined
+- Usually found at the top of the document or in a personal details section
+
+Do NOT return logos, signatures, stamps, or other images - only the candidate's face photo.`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:application/pdf;base64,${pdfBase64}`
+                }
+              }
+            ]
+          }
+        ],
+        modalities: ['image', 'text']
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Photo extraction API error:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const message = data.choices?.[0]?.message;
+    
+    // Check if we got an image back
+    if (message?.images && message.images.length > 0) {
+      const imageUrl = message.images[0]?.image_url?.url;
+      if (imageUrl && imageUrl.startsWith('data:image')) {
+        console.log('Successfully extracted candidate photo from PDF');
+        return imageUrl;
+      }
+    }
+    
+    // Check text response for no photo found
+    const textContent = message?.content || '';
+    if (textContent.includes('NO_PHOTO_FOUND') || textContent.toLowerCase().includes('no photo') || textContent.toLowerCase().includes('no candidate photo')) {
+      console.log('No candidate photo found in PDF');
+      return null;
+    }
+    
+    console.log('Photo extraction returned no usable image');
+    return null;
+  } catch (error) {
+    console.error('Error extracting candidate photo:', error);
+    return null;
+  }
+}
+
+async function uploadPhotoToStorage(photoBase64: string, candidateIdNumber: string): Promise<string | null> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Supabase credentials not configured');
+      return null;
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Extract the base64 data and mime type
+    const matches = photoBase64.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) {
+      console.error('Invalid base64 image format');
+      return null;
+    }
+    
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    const extension = mimeType.split('/')[1] || 'png';
+    
+    // Convert base64 to Uint8Array
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    // Generate unique filename
+    const fileName = `candidate-photos/${candidateIdNumber}-${Date.now()}.${extension}`;
+    
+    // Upload to polygraph-reports bucket (public bucket)
+    const { data, error } = await supabase.storage
+      .from('polygraph-reports')
+      .upload(fileName, bytes, {
+        contentType: mimeType,
+        upsert: true
+      });
+    
+    if (error) {
+      console.error('Error uploading photo to storage:', error);
+      return null;
+    }
+    
+    // Get public URL
+    const { data: publicUrlData } = supabase.storage
+      .from('polygraph-reports')
+      .getPublicUrl(fileName);
+    
+    console.log('Photo uploaded successfully:', publicUrlData.publicUrl);
+    return publicUrlData.publicUrl;
+  } catch (error) {
+    console.error('Error in uploadPhotoToStorage:', error);
+    return null;
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -278,58 +413,61 @@ Never invent data.
 
 Return ONLY the JSON object, no additional text.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { 
-            role: 'user', 
-            content: [
-              {
-                type: 'text',
-                text: `Please extract all polygraph report data from this PDF document and perform a complete risk analysis. The document is a completed polygraph examination report.`
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:application/pdf;base64,${pdfBase64}`
+    // Run data extraction and photo extraction in parallel
+    const [dataResponse, candidatePhotoBase64] = await Promise.all([
+      fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { 
+              role: 'user', 
+              content: [
+                {
+                  type: 'text',
+                  text: `Please extract all polygraph report data from this PDF document and perform a complete risk analysis. The document is a completed polygraph examination report.`
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:application/pdf;base64,${pdfBase64}`
+                  }
                 }
-              }
-            ]
-          }
-        ],
-        // Ask the model to return a strict JSON object to avoid parsing issues
-        response_format: { type: 'json_object' },
+              ]
+            }
+          ],
+          response_format: { type: 'json_object' },
+        }),
       }),
-    });
+      extractCandidatePhoto(pdfBase64, LOVABLE_API_KEY)
+    ]);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
+    if (!dataResponse.ok) {
+      const errorText = await dataResponse.text();
+      console.error('AI Gateway error:', dataResponse.status, errorText);
       
-      if (response.status === 429) {
+      if (dataResponse.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (dataResponse.status === 402) {
         return new Response(
           JSON.stringify({ error: 'AI credits exhausted. Please add credits to continue.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw new Error(`AI Gateway error: ${dataResponse.status}`);
     }
 
-    const aiData = await response.json();
+    const aiData = await dataResponse.json();
     const content = aiData.choices?.[0]?.message?.content;
     
     if (!content) {
@@ -338,28 +476,17 @@ Return ONLY the JSON object, no additional text.`;
 
     console.log('AI response received, parsing JSON...');
 
-    // Extract JSON from response. The Lovable AI gateway may return either:
-    // - a plain string (possibly wrapped in markdown fences), or
-    // - a structured JSON object when response_format: { type: 'json_object' } is used.
     let extractedData: any;
     
     if (typeof content === 'object') {
-      // When using response_format: 'json_object', the content is already
-      // a parsed JSON object, so we can use it directly.
       extractedData = content;
       console.log('Received structured JSON content from AI.');
     } else {
-      // Fallback: handle string content with potential markdown wrapping
       try {
         let jsonString = content.trim();
-        
-        // Remove markdown code blocks more aggressively
-        // First, remove ```json or ``` at the start
         jsonString = jsonString.replace(/^```(?:json)?\s*\n?/, '');
-        // Then remove ``` at the end
         jsonString = jsonString.replace(/\n?```\s*$/, '');
         
-        // If it still doesn't start with {, try to find the JSON object
         if (!jsonString.trim().startsWith('{')) {
           const jsonObjMatch = jsonString.match(/\{[\s\S]*\}/);
           if (jsonObjMatch) {
@@ -370,20 +497,20 @@ Return ONLY the JSON object, no additional text.`;
         jsonString = jsonString.trim();
         
         console.log('Attempting to parse JSON string of length:', jsonString.length);
-        console.log('JSON starts with:', jsonString.substring(0, 50));
-        console.log('JSON ends with:', jsonString.substring(jsonString.length - 50));
         extractedData = JSON.parse(jsonString);
         console.log('Successfully parsed JSON from string content');
       } catch (parseError) {
         console.error('Failed to parse AI response. Content length:', typeof content === 'string' ? content.length : 'non-string');
         console.error('Parse error:', parseError instanceof Error ? parseError.message : 'Unknown error');
-        if (typeof content === 'string') {
-          // Log first 500 and last 500 chars for debugging
-          console.error('Content start:', content.substring(0, 500));
-          console.error('Content end:', content.substring(content.length - 500));
-        }
         throw new Error('Failed to parse extracted data');
       }
+    }
+
+    // Upload photo to storage if extracted
+    let candidatePhotoUrl: string | null = null;
+    if (candidatePhotoBase64) {
+      const candidateIdNumber = extractedData.Candidate?.IDNumber || `unknown-${Date.now()}`;
+      candidatePhotoUrl = await uploadPhotoToStorage(candidatePhotoBase64, candidateIdNumber);
     }
 
     // Transform the extracted data to match our form structure
@@ -453,11 +580,14 @@ Return ONLY the JSON object, no additional text.`;
       polygraphResults: extractedData.PolygraphResults || {},
       postExamAdmissions: extractedData.PostExamAdmissions || '',
       riskAnalysis: extractedData.RiskAnalysis || {},
+      // Add extracted photo URL
+      candidatePhotoUrl: candidatePhotoUrl,
     };
 
     console.log('Successfully extracted polygraph report data with risk analysis');
     console.log('Risk Level:', transformedData.riskAnalysis?.RiskLevel);
     console.log('Total Risk Score:', transformedData.riskAnalysis?.TotalRiskScore);
+    console.log('Candidate Photo URL:', candidatePhotoUrl ? 'Extracted' : 'Not found');
 
     return new Response(
       JSON.stringify({ 
