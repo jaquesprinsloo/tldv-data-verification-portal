@@ -371,18 +371,56 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
 
       if (reportError) throw reportError;
 
-      // Create candidate profile
+      // Ensure an employee record exists for this candidate so they appear in the
+      // Data & Employee Management portal's employee list
+      const candidateIdNumber = extractedData.candidate?.idNumber || "";
+      let employeeId: string | null = null;
+
+      if (candidateIdNumber) {
+        // Check if an employee with this ID number already exists
+        const { data: existingEmployee } = await supabase
+          .from("employees")
+          .select("id")
+          .eq("id_number", candidateIdNumber)
+          .maybeSingle();
+
+        if (existingEmployee) {
+          employeeId = existingEmployee.id;
+        } else {
+          // Generate an employee number indicating polygraph origin
+          const employeeNumber = `PG${Date.now().toString().slice(-6)}`;
+
+          const { data: newEmployee, error: empError } = await supabase
+            .from("employees")
+            .insert({
+              employee_number: employeeNumber,
+              id_number: candidateIdNumber,
+              email: extractedData.candidate?.email || null,
+              store_id: selectedStoreId || null,
+              employment_status: "active",
+            })
+            .select("id")
+            .single();
+
+          if (!empError && newEmployee) {
+            employeeId = newEmployee.id;
+          }
+        }
+      }
+
+      // Create candidate profile linked to the employee (if created)
       const candidatePayload = {
         report_id: reportData.id,
         first_name: extractedData.candidate?.firstName || "",
         last_name: extractedData.candidate?.lastName || "",
-        id_number: extractedData.candidate?.idNumber || "",
+        id_number: candidateIdNumber,
         email: extractedData.candidate?.email || null,
         contact_number: extractedData.candidate?.contactNumber || null,
         physical_address: extractedData.candidate?.physicalAddress || null,
         position: extractedData.candidate?.positionApplyingFor || null,
         store_id: selectedStoreId || null,
         status: "pending_review" as const,
+        employee_id: employeeId,
       };
 
       await supabase.from("polygraph_candidates").insert([candidatePayload]);
