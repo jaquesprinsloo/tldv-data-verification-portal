@@ -426,8 +426,42 @@ const PolygraphReportForm = ({ reportId, initialData, onSaved, onCancel }: Polyg
           if (qError) console.error("Questions save error:", qError);
         }
 
-        // If completed, create candidate profile
+        // If completed, create employee record automatically
         if (status === "completed") {
+          // Check if employee already exists with this ID number
+          const { data: existingEmployee } = await supabase
+            .from("employees")
+            .select("id")
+            .eq("id_number", formData.id_number)
+            .single();
+
+          let employeeId = existingEmployee?.id;
+
+          if (!existingEmployee) {
+            // Generate employee number from polygraph report
+            const employeeNumber = `PG${Date.now().toString().slice(-6)}`;
+
+            // Create employee record automatically
+            const { data: newEmployee, error: empError } = await supabase
+              .from("employees")
+              .insert({
+                employee_number: employeeNumber,
+                id_number: formData.id_number,
+                email: formData.email || null,
+                store_id: formData.store_id || null,
+                employment_status: "active",
+              })
+              .select("id")
+              .single();
+
+            if (empError) {
+              console.error("Error creating employee:", empError);
+            } else {
+              employeeId = newEmployee.id;
+            }
+          }
+
+          // Create or update candidate profile
           const candidatePayload = {
             report_id: newReportId,
             first_name: formData.first_name,
@@ -439,6 +473,7 @@ const PolygraphReportForm = ({ reportId, initialData, onSaved, onCancel }: Polyg
             position: formData.position_applying_for || null,
             store_id: formData.store_id || null,
             status: "pending_review" as const,
+            employee_id: employeeId || null,
           };
 
           // Check if candidate already exists for this report
