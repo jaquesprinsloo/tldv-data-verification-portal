@@ -137,6 +137,9 @@ const EmployeeSubmissionForm = () => {
   const [proofOfResidenceFile, setProofOfResidenceFile] = useState<File | null>(null);
   const [idFile, setIdFile] = useState<File | null>(null);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showManualLocation, setShowManualLocation] = useState(false);
+  const [manualLat, setManualLat] = useState("");
+  const [manualLng, setManualLng] = useState("");
   const [capturingLocation, setCapturingLocation] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "proof" | "id") => {
@@ -269,7 +272,8 @@ const EmployeeSubmissionForm = () => {
                   errorMessage = "Location information is unavailable. Please check your device's GPS settings and ensure you have a clear view of the sky.";
                   break;
                 case fallbackError.TIMEOUT:
-                  errorMessage = "Location request timed out. Please move outdoors or near a window and ensure GPS is enabled on your device.";
+                  errorMessage = "Location request timed out. You can try again or enter coordinates manually.";
+                  setShowManualLocation(true);
                   break;
                 default:
                   errorMessage = `Location error: ${fallbackError.message}`;
@@ -284,8 +288,8 @@ const EmployeeSubmissionForm = () => {
             },
             {
               enableHighAccuracy: false,
-              timeout: 15000,
-              maximumAge: 0
+              timeout: 60000, // 60 seconds for fallback
+              maximumAge: 60000 // Allow cached position up to 1 minute old
             }
           );
         } else {
@@ -314,8 +318,8 @@ const EmployeeSubmissionForm = () => {
       },
       {
         enableHighAccuracy: true,
-        timeout: 30000,
-        maximumAge: 0
+        timeout: 60000, // 60 seconds for high accuracy
+        maximumAge: 30000 // Allow cached position up to 30 seconds old
       }
     );
   };
@@ -850,7 +854,7 @@ const EmployeeSubmissionForm = () => {
           {/* Location Capture - Always visible outside tabs */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold border-b pb-2">Location Verification</h3>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <Button
                 type="button"
                 variant="outline"
@@ -861,12 +865,91 @@ const EmployeeSubmissionForm = () => {
                 <MapPin className={`h-4 w-4 ${capturingLocation ? 'animate-pulse' : ''}`} />
                 {capturingLocation ? "Capturing..." : "Capture Current Location"}
               </Button>
+              {!showManualLocation && !location && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowManualLocation(true)}
+                  className="text-xs"
+                >
+                  Enter manually
+                </Button>
+              )}
               {location && (
                 <p className="text-sm text-green-600">
                   ✓ Location captured ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
                 </p>
               )}
             </div>
+            
+            {showManualLocation && !location && (
+              <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
+                <p className="text-sm font-medium">Enter GPS Coordinates Manually</p>
+                <p className="text-xs text-muted-foreground">
+                  You can find your coordinates using Google Maps (long-press on your location) or any GPS app.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="manualLat" className="text-xs">Latitude</Label>
+                    <Input
+                      id="manualLat"
+                      type="number"
+                      step="any"
+                      placeholder="-26.2041"
+                      value={manualLat}
+                      onChange={(e) => setManualLat(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="manualLng" className="text-xs">Longitude</Label>
+                    <Input
+                      id="manualLng"
+                      type="number"
+                      step="any"
+                      placeholder="28.0473"
+                      value={manualLng}
+                      onChange={(e) => setManualLng(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      const lat = parseFloat(manualLat);
+                      const lng = parseFloat(manualLng);
+                      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                        toast({
+                          title: "Invalid Coordinates",
+                          description: "Please enter valid latitude (-90 to 90) and longitude (-180 to 180).",
+                          variant: "destructive",
+                        });
+                        return;
+                      }
+                      setLocation({ lat, lng });
+                      setShowManualLocation(false);
+                      toast({
+                        title: "Location Set ✓",
+                        description: `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`,
+                      });
+                    }}
+                  >
+                    Confirm Location
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowManualLocation(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             <p className="text-xs text-muted-foreground">
               We need to verify that you are at the address you provided. Please make sure you are at your current physical address before capturing your location.
             </p>
