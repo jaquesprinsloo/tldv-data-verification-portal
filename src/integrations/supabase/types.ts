@@ -807,6 +807,7 @@ export type Database = {
           physical_address: string | null
           position_applying_for: string | null
           post_exam_admissions: string | null
+          report_pdf_url: string | null
           risk_analysis: Json | null
           risk_level: string | null
           risk_score: number | null
@@ -840,6 +841,7 @@ export type Database = {
           physical_address?: string | null
           position_applying_for?: string | null
           post_exam_admissions?: string | null
+          report_pdf_url?: string | null
           risk_analysis?: Json | null
           risk_level?: string | null
           risk_score?: number | null
@@ -873,6 +875,7 @@ export type Database = {
           physical_address?: string | null
           position_applying_for?: string | null
           post_exam_admissions?: string | null
+          report_pdf_url?: string | null
           risk_analysis?: Json | null
           risk_level?: string | null
           risk_score?: number | null
