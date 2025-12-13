@@ -304,6 +304,8 @@ Return ONLY the JSON object, no additional text.`;
             ]
           }
         ],
+        // Ask the model to return a strict JSON object to avoid parsing issues
+        response_format: { type: 'json_object' },
       }),
     });
 
@@ -336,39 +338,52 @@ Return ONLY the JSON object, no additional text.`;
 
     console.log('AI response received, parsing JSON...');
 
-    // Extract JSON from response (handle markdown code blocks)
-    let extractedData;
-    try {
-      let jsonString = content.trim();
-      
-      // Remove markdown code blocks more aggressively
-      // First, remove ```json or ``` at the start
-      jsonString = jsonString.replace(/^```(?:json)?\s*\n?/, '');
-      // Then remove ``` at the end
-      jsonString = jsonString.replace(/\n?```\s*$/, '');
-      
-      // If it still doesn't start with {, try to find the JSON object
-      if (!jsonString.trim().startsWith('{')) {
-        const jsonObjMatch = jsonString.match(/\{[\s\S]*\}/);
-        if (jsonObjMatch) {
-          jsonString = jsonObjMatch[0];
+    // Extract JSON from response. The Lovable AI gateway may return either:
+    // - a plain string (possibly wrapped in markdown fences), or
+    // - a structured JSON object when response_format: { type: 'json_object' } is used.
+    let extractedData: any;
+    
+    if (typeof content === 'object') {
+      // When using response_format: 'json_object', the content is already
+      // a parsed JSON object, so we can use it directly.
+      extractedData = content;
+      console.log('Received structured JSON content from AI.');
+    } else {
+      // Fallback: handle string content with potential markdown wrapping
+      try {
+        let jsonString = content.trim();
+        
+        // Remove markdown code blocks more aggressively
+        // First, remove ```json or ``` at the start
+        jsonString = jsonString.replace(/^```(?:json)?\s*\n?/, '');
+        // Then remove ``` at the end
+        jsonString = jsonString.replace(/\n?```\s*$/, '');
+        
+        // If it still doesn't start with {, try to find the JSON object
+        if (!jsonString.trim().startsWith('{')) {
+          const jsonObjMatch = jsonString.match(/\{[\s\S]*\}/);
+          if (jsonObjMatch) {
+            jsonString = jsonObjMatch[0];
+          }
         }
+        
+        jsonString = jsonString.trim();
+        
+        console.log('Attempting to parse JSON string of length:', jsonString.length);
+        console.log('JSON starts with:', jsonString.substring(0, 50));
+        console.log('JSON ends with:', jsonString.substring(jsonString.length - 50));
+        extractedData = JSON.parse(jsonString);
+        console.log('Successfully parsed JSON from string content');
+      } catch (parseError) {
+        console.error('Failed to parse AI response. Content length:', typeof content === 'string' ? content.length : 'non-string');
+        console.error('Parse error:', parseError instanceof Error ? parseError.message : 'Unknown error');
+        if (typeof content === 'string') {
+          // Log first 500 and last 500 chars for debugging
+          console.error('Content start:', content.substring(0, 500));
+          console.error('Content end:', content.substring(content.length - 500));
+        }
+        throw new Error('Failed to parse extracted data');
       }
-      
-      jsonString = jsonString.trim();
-      
-      console.log('Attempting to parse JSON string of length:', jsonString.length);
-      console.log('JSON starts with:', jsonString.substring(0, 50));
-      console.log('JSON ends with:', jsonString.substring(jsonString.length - 50));
-      extractedData = JSON.parse(jsonString);
-      console.log('Successfully parsed JSON');
-    } catch (parseError) {
-      console.error('Failed to parse AI response. Content length:', content.length);
-      console.error('Parse error:', parseError instanceof Error ? parseError.message : 'Unknown error');
-      // Log first 500 and last 500 chars for debugging
-      console.error('Content start:', content.substring(0, 500));
-      console.error('Content end:', content.substring(content.length - 500));
-      throw new Error('Failed to parse extracted data');
     }
 
     // Transform the extracted data to match our form structure
