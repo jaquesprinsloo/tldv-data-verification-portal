@@ -108,12 +108,13 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
 
   const getResultBadge = (result: string | null) => {
     if (!result) return <Badge variant="outline">Pending</Badge>;
-    const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      passed: "default",
-      failed: "destructive",
-      inconclusive: "secondary",
-    };
-    return <Badge variant={variants[result] || "outline"}>{result}</Badge>;
+    if (result === "passed") {
+      return <Badge variant="success">{result}</Badge>;
+    }
+    if (result === "failed") {
+      return <Badge variant="destructive">{result}</Badge>;
+    }
+    return <Badge variant="warning">{result}</Badge>;
   };
 
   const getRiskLevelBadge = (level: string | null) => {
