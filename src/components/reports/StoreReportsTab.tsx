@@ -10,9 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Upload, FileText, ClipboardCheck, ShieldCheck, Plus, Trash2 } from "lucide-react";
+import { Upload, FileText, ClipboardCheck, ShieldCheck, Plus, Trash2, Eye, Shield } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { RiskProfileDialog } from "@/components/shared/RiskProfileDialog";
 
 interface StoreReportsTabProps {
   storeId: string;
@@ -30,12 +31,18 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [examiners, setExaminers] = useState<{ id: string; name: string }[]>([]);
   const [polygraphReports, setPolygraphReports] = useState<any[]>([]);
+  const [polygraphFullReports, setPolygraphFullReports] = useState<any[]>([]);
   const [riskReports, setRiskReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadType, setUploadType] = useState<"polygraph" | "risk">("polygraph");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Risk profile dialog state
+  const [riskProfileOpen, setRiskProfileOpen] = useState(false);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedCandidateName, setSelectedCandidateName] = useState<string>("");
 
   const [formData, setFormData] = useState({
     employee_id: "",
@@ -62,7 +69,7 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [employeesRes, examinersRes, polygraphRes, riskRes] = await Promise.all([
+      const [employeesRes, examinersRes, polygraphRes, polygraphFullRes, riskRes] = await Promise.all([
         supabase
           .from("employees")
           .select("id, employee_number, submissions (first_name, last_name)")
@@ -71,6 +78,12 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
         supabase
           .from("examinations")
           .select("*, employees (employee_number, submissions (first_name, last_name)), examiners (name)")
+          .eq("store_id", storeId)
+          .order("examination_date", { ascending: false }),
+        // Fetch polygraph_reports linked to this store (from PDF uploads)
+        supabase
+          .from("polygraph_reports")
+          .select("*, examiners (name)")
           .eq("store_id", storeId)
           .order("examination_date", { ascending: false }),
         supabase
@@ -83,6 +96,7 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
       setEmployees((employeesRes.data || []).map((e: any) => ({ ...e, submission: e.submissions })));
       setExaminers(examinersRes.data || []);
       setPolygraphReports(polygraphRes.data || []);
+      setPolygraphFullReports(polygraphFullRes.data || []);
       setRiskReports(riskRes.data || []);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -90,6 +104,12 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleViewRiskProfile = (report: any) => {
+    setSelectedReportId(report.id);
+    setSelectedCandidateName(`${report.first_name} ${report.last_name}`);
+    setRiskProfileOpen(true);
   };
 
   const openUploadDialog = (type: "polygraph" | "risk") => {
@@ -276,61 +296,140 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
         </div>
 
         <TabsContent value="polygraph">
-          <Card>
-            <CardContent className="pt-4">
-              {polygraphReports.length === 0 ? (
-                <p className="text-center text-muted-foreground py-8">No polygraph reports uploaded</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Examiner</TableHead>
-                      <TableHead>Result</TableHead>
-                      <TableHead>Report</TableHead>
-                      {canEdit && <TableHead>Actions</TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {polygraphReports.map((report) => (
-                      <TableRow key={report.id}>
-                        <TableCell>{format(new Date(report.examination_date), "PP")}</TableCell>
-                        <TableCell>{getEmployeeName(report.employees)}</TableCell>
-                        <TableCell className="capitalize">{report.examination_type.replace(/_/g, " ")}</TableCell>
-                        <TableCell>{report.examiners?.name || "-"}</TableCell>
-                        <TableCell>{getResultBadge(report.result)}</TableCell>
-                        <TableCell>
-                          {report.report_url ? (
-                            <Button variant="ghost" size="sm" asChild>
-                              <a href={report.report_url} target="_blank" rel="noopener noreferrer">
-                                <FileText className="h-4 w-4" />
-                              </a>
-                            </Button>
-                          ) : (
-                            "-"
-                          )}
-                        </TableCell>
-                        {canEdit && (
+          <div className="space-y-6">
+            {/* Full Polygraph Reports from PDF Uploads */}
+            {polygraphFullReports.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-primary" />
+                    Polygraph Vetting Reports (from PDF Uploads)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Candidate</TableHead>
+                        <TableHead>ID Number</TableHead>
+                        <TableHead>Examiner</TableHead>
+                        <TableHead>Risk Level</TableHead>
+                        <TableHead>Result</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {polygraphFullReports.map((report) => (
+                        <TableRow key={report.id}>
+                          <TableCell>{format(new Date(report.examination_date), "PP")}</TableCell>
+                          <TableCell className="font-medium">{report.first_name} {report.last_name}</TableCell>
+                          <TableCell>{report.id_number}</TableCell>
+                          <TableCell>{report.examiners?.name || "-"}</TableCell>
                           <TableCell>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => handleDeleteClick(report.id, "polygraph", report.report_url)}
+                            {report.risk_level && (
+                              <Badge className={
+                                report.risk_level === "LOW" ? "bg-green-500" :
+                                report.risk_level === "MEDIUM" ? "bg-yellow-500" :
+                                report.risk_level === "HIGH" ? "bg-orange-500" :
+                                "bg-red-500"
+                              }>
+                                {report.risk_level}
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {report.overall_result && (
+                              <Badge variant={
+                                report.overall_result === "passed" ? "default" :
+                                report.overall_result === "failed" ? "destructive" :
+                                "secondary"
+                              }>
+                                {report.overall_result}
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewRiskProfile(report)}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Eye className="h-4 w-4 mr-1" />
+                              View Profile
                             </Button>
                           </TableCell>
-                        )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Regular Polygraph Examinations */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <ClipboardCheck className="h-5 w-5 text-green-500" />
+                  Polygraph Examinations
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {polygraphReports.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No polygraph examinations recorded</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Employee</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Examiner</TableHead>
+                        <TableHead>Result</TableHead>
+                        <TableHead>Report</TableHead>
+                        {canEdit && <TableHead>Actions</TableHead>}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {polygraphReports.map((report) => (
+                        <TableRow key={report.id}>
+                          <TableCell>{format(new Date(report.examination_date), "PP")}</TableCell>
+                          <TableCell>{getEmployeeName(report.employees)}</TableCell>
+                          <TableCell className="capitalize">{report.examination_type.replace(/_/g, " ")}</TableCell>
+                          <TableCell>{report.examiners?.name || "-"}</TableCell>
+                          <TableCell>{getResultBadge(report.result)}</TableCell>
+                          <TableCell>
+                            {report.report_url ? (
+                              <Button variant="ghost" size="sm" asChild>
+                                <a href={report.report_url} target="_blank" rel="noopener noreferrer">
+                                  <FileText className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            ) : (
+                              "-"
+                            )}
+                          </TableCell>
+                          {canEdit && (
+                            <TableCell>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteClick(report.id, "polygraph", report.report_url)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="risk">
@@ -635,6 +734,14 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Risk Profile Dialog */}
+      <RiskProfileDialog
+        open={riskProfileOpen}
+        onOpenChange={setRiskProfileOpen}
+        reportId={selectedReportId || undefined}
+        candidateName={selectedCandidateName}
+      />
     </div>
   );
 };
