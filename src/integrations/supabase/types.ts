@@ -783,6 +783,7 @@ export type Database = {
       }
       polygraph_reports: {
         Row: {
+          candidate_photo_url: string | null
           contact_number: string | null
           created_at: string
           education_history: Json | null
@@ -817,6 +818,7 @@ export type Database = {
           vetting_types: Json | null
         }
         Insert: {
+          candidate_photo_url?: string | null
           contact_number?: string | null
           created_at?: string
           education_history?: Json | null
@@ -851,6 +853,7 @@ export type Database = {
           vetting_types?: Json | null
         }
         Update: {
+          candidate_photo_url?: string | null
           contact_number?: string | null
           created_at?: string
           education_history?: Json | null
