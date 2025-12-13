@@ -5,9 +5,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Shield, FileText, MapPin, CheckCircle, User, AlertTriangle, ExternalLink } from "lucide-react";
+import { Shield, FileText, User, AlertTriangle, ExternalLink, Download } from "lucide-react";
 import { format } from "date-fns";
 import RiskAnalysisDisplay from "@/components/reports/RiskAnalysisDisplay";
+import { toast } from "sonner";
 
 interface RiskProfileDialogProps {
   open: boolean;
@@ -25,7 +26,112 @@ interface ProfileData {
   examQuestions: any[];
   admissions: any[];
   suitability: any;
+  pdfUrl: string | null;
 }
+
+// Component to find and display the original PDF
+const ViewOriginalPdfButton = ({ reportId }: { reportId: string }) => {
+  const [loading, setLoading] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const findPdf = async () => {
+      try {
+        // Try to find PDF in polygraph-reports bucket
+        const { data: files } = await supabase.storage
+          .from("polygraph-reports")
+          .list("", { search: reportId });
+
+        if (files && files.length > 0) {
+          const { data } = supabase.storage
+            .from("polygraph-reports")
+            .getPublicUrl(files[0].name);
+          setPdfUrl(data.publicUrl);
+          return;
+        }
+
+        // Also try searching by partial match
+        const { data: allFiles } = await supabase.storage
+          .from("polygraph-reports")
+          .list();
+
+        const matchingFile = allFiles?.find(f => f.name.includes(reportId.substring(0, 8)));
+        if (matchingFile) {
+          const { data } = supabase.storage
+            .from("polygraph-reports")
+            .getPublicUrl(matchingFile.name);
+          setPdfUrl(data.publicUrl);
+        }
+      } catch (error) {
+        console.error("Error finding PDF:", error);
+      }
+    };
+
+    findPdf();
+  }, [reportId]);
+
+  const handleViewPdf = async () => {
+    if (pdfUrl) {
+      window.open(pdfUrl, "_blank");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // List all files in the bucket and try to find one matching the report
+      const { data: files, error } = await supabase.storage
+        .from("polygraph-reports")
+        .list();
+
+      if (error) throw error;
+
+      // Try to find a file that might match this report
+      const potentialFile = files?.find(f => 
+        f.name.toLowerCase().includes(reportId.toLowerCase().substring(0, 8))
+      );
+
+      if (potentialFile) {
+        const { data } = supabase.storage
+          .from("polygraph-reports")
+          .getPublicUrl(potentialFile.name);
+        window.open(data.publicUrl, "_blank");
+      } else {
+        toast.error("Original PDF report not found in storage");
+      }
+    } catch (error) {
+      console.error("Error fetching PDF:", error);
+      toast.error("Could not retrieve the original PDF report");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-4">
+      <Button
+        variant="outline"
+        onClick={handleViewPdf}
+        disabled={loading}
+        className="flex items-center gap-2"
+      >
+        {loading ? (
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+        ) : (
+          <ExternalLink className="h-4 w-4" />
+        )}
+        View Original PDF Report
+      </Button>
+      {pdfUrl && (
+        <Button variant="ghost" size="sm" asChild>
+          <a href={pdfUrl} download className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            Download
+          </a>
+        </Button>
+      )}
+    </div>
+  );
+};
 
 export const RiskProfileDialog = ({ 
   open, 
@@ -113,6 +219,7 @@ export const RiskProfileDialog = ({
         examQuestions,
         admissions,
         suitability,
+        pdfUrl: null,
       });
     } catch (error) {
       console.error("Error fetching profile data:", error);
@@ -123,24 +230,13 @@ export const RiskProfileDialog = ({
 
   const getResultBadge = (result: string | null) => {
     if (!result) return null;
-    const variants: Record<string, "default" | "destructive" | "secondary"> = {
-      passed: "default",
-      failed: "destructive",
-      inconclusive: "secondary",
-    };
-    return <Badge variant={variants[result] || "secondary"}>{result}</Badge>;
-  };
-
-  const getFindingBadge = (finding: string | null) => {
-    if (!finding) return null;
-    const config: Record<string, { color: string; label: string }> = {
-      SR: { color: "bg-red-500 text-white", label: "SR (Significant Response)" },
-      NSR: { color: "bg-green-500 text-white", label: "NSR (No Significant Response)" },
-      INC: { color: "bg-orange-500 text-white", label: "INC (Inconclusive)" },
-      PNC: { color: "bg-gray-500 text-white", label: "PNC (Position Not Confirmed)" },
-    };
-    const c = config[finding.toUpperCase()] || { color: "bg-gray-400", label: finding };
-    return <Badge className={c.color}>{c.label}</Badge>;
+    if (result === "passed") {
+      return <Badge className="bg-green-600 hover:bg-green-700 text-white">{result}</Badge>;
+    }
+    if (result === "failed") {
+      return <Badge className="bg-red-600 hover:bg-red-700 text-white">{result}</Badge>;
+    }
+    return <Badge variant="secondary">{result}</Badge>;
   };
 
   const displayName = candidateName || 
@@ -163,12 +259,10 @@ export const RiskProfileDialog = ({
           </div>
         ) : (
           <Tabs defaultValue="risk" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="risk">Risk Analysis</TabsTrigger>
               <TabsTrigger value="personal">Personal Info</TabsTrigger>
-              <TabsTrigger value="exam">Exam Questions</TabsTrigger>
-              <TabsTrigger value="popia">POPIA & Location</TabsTrigger>
-              <TabsTrigger value="report">Full Report</TabsTrigger>
+              <TabsTrigger value="report">Full Report Summary</TabsTrigger>
             </TabsList>
 
             {/* Risk Analysis Tab */}
@@ -257,150 +351,23 @@ export const RiskProfileDialog = ({
               </Card>
             </TabsContent>
 
-            {/* Exam Questions Tab */}
-            <TabsContent value="exam" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Examination Questions & Findings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {data?.examQuestions && data.examQuestions.length > 0 ? (
-                    <div className="space-y-4">
-                      {data.examQuestions.map((q, idx) => (
-                        <div key={q.id} className="flex items-start gap-4 p-4 border rounded-lg">
-                          <div className="flex-shrink-0 w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
-                            <span className="text-sm font-medium">{q.question_number || idx + 1}</span>
-                          </div>
-                          <div className="flex-grow">
-                            <p className="font-medium mb-2">{q.question_text}</p>
-                            <div className="flex items-center gap-4">
-                              <span className="text-sm text-muted-foreground">
-                                Response: {q.response === true ? "Yes" : q.response === false ? "No" : "-"}
-                              </span>
-                              {getFindingBadge(q.finding)}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-8">No exam questions on record</p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* POPIA & Location Tab */}
-            <TabsContent value="popia" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    POPIA Declaration
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {data?.popia ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Accepted At</p>
-                          <p className="font-medium">
-                            {format(new Date(data.popia.accepted_at), "PPpp")}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">IP Address</p>
-                          <p className="font-medium">{data.popia.ip_address}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-2">Declaration Text</p>
-                        <p className="text-sm bg-muted p-4 rounded-lg whitespace-pre-wrap">
-                          {data.popia.declaration_text}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-4">No POPIA declaration on record</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5 text-blue-500" />
-                    Geo Location Verification
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {data?.submission?.geolocation_lat && data?.submission?.geolocation_lng ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Coordinates</p>
-                          <p className="font-medium">
-                            {data.submission.geolocation_lat}, {data.submission.geolocation_lng}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Geofence Verified</p>
-                          <Badge variant={data.submission.geofence_verified ? "default" : "destructive"}>
-                            {data.submission.geofence_verified ? "Verified" : "Not Verified"}
-                          </Badge>
-                        </div>
-                        {data.submission.geofence_distance_meters && (
-                          <div>
-                            <p className="text-sm text-muted-foreground">Distance from Store</p>
-                            <p className="font-medium">{Math.round(data.submission.geofence_distance_meters)}m</p>
-                          </div>
-                        )}
-                      </div>
-                      <Button variant="outline" size="sm" asChild>
-                        <a
-                          href={`https://www.google.com/maps?q=${data.submission.geolocation_lat},${data.submission.geolocation_lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          View on Google Maps
-                        </a>
-                      </Button>
-                    </div>
-                  ) : data?.popia?.gps_latitude && data?.popia?.gps_longitude ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Coordinates (from POPIA)</p>
-                          <p className="font-medium">
-                            {data.popia.gps_latitude}, {data.popia.gps_longitude}
-                          </p>
-                        </div>
-                      </div>
-                      <Button variant="outline" size="sm" asChild>
-                        <a
-                          href={`https://www.google.com/maps?q=${data.popia.gps_latitude},${data.popia.gps_longitude}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          View on Google Maps
-                        </a>
-                      </Button>
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-4">No location data on record</p>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Full Report Tab */}
+            {/* Full Report Summary Tab */}
             <TabsContent value="report" className="space-y-4 mt-4">
+              {/* View Original PDF Button */}
+              {data?.polygraphReport?.id && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-primary" />
+                      Original Report Document
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ViewOriginalPdfButton reportId={data.polygraphReport.id} />
+                  </CardContent>
+                </Card>
+              )}
+
               {data?.polygraphReport?.extracted_disclosure && (
                 <Card>
                   <CardHeader>
