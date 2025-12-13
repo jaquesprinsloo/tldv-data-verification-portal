@@ -38,7 +38,7 @@ const EmployeeSubmissionForm = () => {
     nextOfKinContact: "",
   });
 
-  // Load employee data from authenticated session
+  // Load employee data from authenticated session and polygraph report if available
   useEffect(() => {
     const loadEmployeeData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -46,22 +46,93 @@ const EmployeeSubmissionForm = () => {
 
       const { data: employee } = await supabase
         .from('employees')
-        .select('id, employee_number, id_number')
+        .select('id, employee_number, id_number, email')
         .eq('user_id', session.user.id)
         .single();
 
       if (employee) {
         setEmployeeId(employee.id);
+        
+        // Check if this employee came from a polygraph candidate approval
+        const { data: candidate } = await supabase
+          .from('polygraph_candidates')
+          .select(`
+            report_id,
+            first_name,
+            last_name,
+            email,
+            contact_number,
+            physical_address,
+            polygraph_reports (
+              first_name,
+              last_name,
+              id_number,
+              email,
+              contact_number,
+              physical_address
+            )
+          `)
+          .eq('employee_id', employee.id)
+          .eq('status', 'approved')
+          .maybeSingle();
+
+        // Get report data from the candidate's linked report
+        const reportData = candidate?.polygraph_reports as any;
+        
+        // Parse address components from physical_address if available
+        const physicalAddress = reportData?.physical_address || candidate?.physical_address || '';
+        const addressParts = parsePhysicalAddress(physicalAddress);
+
         setFormData(prev => ({
           ...prev,
           employeeNumber: employee.employee_number,
-          idNumber: employee.id_number
+          idNumber: employee.id_number,
+          // Pre-fill from polygraph report data if available
+          firstName: reportData?.first_name || candidate?.first_name || '',
+          lastName: reportData?.last_name || candidate?.last_name || '',
+          email: reportData?.email || candidate?.email || employee.email || '',
+          contactNumber: reportData?.contact_number || candidate?.contact_number || '',
+          // Address fields from parsed address
+          ...addressParts,
         }));
       }
     };
 
     loadEmployeeData();
   }, []);
+
+  // Helper function to parse physical address into components
+  const parsePhysicalAddress = (address: string): Partial<typeof formData> => {
+    if (!address) return {};
+    
+    // Try to extract common address components
+    // This is a basic parser - the address format from polygraph reports may vary
+    const parts = address.split(',').map(p => p.trim());
+    
+    // If we have enough parts, try to map them to fields
+    if (parts.length >= 4) {
+      // Common format: "123 Street Name, Suburb, City, Province, PostalCode"
+      const lastPart = parts[parts.length - 1];
+      const postalMatch = lastPart.match(/\d{4}/);
+      
+      return {
+        streetName: parts[0] || '',
+        suburb: parts.length > 1 ? parts[1] : '',
+        city: parts.length > 2 ? parts[2] : '',
+        province: parts.length > 3 ? parts[3].replace(/\d{4}/, '').trim() : '',
+        postalCode: postalMatch ? postalMatch[0] : '',
+      };
+    } else if (parts.length > 0) {
+      // Just put the whole address in street name for manual editing
+      return {
+        streetName: parts[0] || '',
+        suburb: parts[1] || '',
+        city: parts[2] || '',
+      };
+    }
+    
+    return {};
+  };
 
   const [proofOfResidenceFile, setProofOfResidenceFile] = useState<File | null>(null);
   const [idFile, setIdFile] = useState<File | null>(null);
