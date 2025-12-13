@@ -210,6 +210,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   };
 
   // Extract images from a Word document (.docx)
+  // Returns images in order of appearance, skipping the first (usually a logo)
   const extractImagesFromDocx = async (file: File): Promise<{ base64: string; mimeType: string }[]> => {
     try {
       const arrayBuffer = await file.arrayBuffer();
@@ -223,7 +224,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       const imageFiles = Object.keys(zip.files).filter(name => 
         name.startsWith("word/media/") && 
         (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".gif"))
-      );
+      ).sort(); // Sort to ensure consistent ordering
       
       for (const imagePath of imageFiles) {
         const imageFile = zip.file(imagePath);
@@ -236,6 +237,13 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       }
       
       console.log(`Extracted ${images.length} images from Word document`);
+      
+      // Skip the first image (usually a logo) and return from the second image onwards
+      // The candidate photo is typically on page 2
+      if (images.length > 1) {
+        return images.slice(1); // Return all images except the first (logo)
+      }
+      
       return images;
     } catch (error) {
       console.error("Error extracting images from docx:", error);
