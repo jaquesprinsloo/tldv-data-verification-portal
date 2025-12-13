@@ -210,7 +210,8 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   };
 
   // Extract images from a Word document (.docx)
-  // Returns images in order of appearance, skipping the first (usually a logo)
+  // Returns images in order of appearance and prefers the LAST non-logo image
+  // (candidate photo is expected on page 2 next to personal information)
   const extractImagesFromDocx = async (file: File): Promise<{ base64: string; mimeType: string }[]> => {
     try {
       const arrayBuffer = await file.arrayBuffer();
@@ -238,19 +239,22 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       
       console.log(`Extracted ${images.length} images from Word document`);
       
-      // Skip the first image (usually a logo) and return from the second image onwards
-      // The candidate photo is typically on page 2
+      if (images.length === 0) return images;
+      
+      // Assume first image is logo; prefer the LAST remaining image as candidate photo
       if (images.length > 1) {
-        return images.slice(1); // Return all images except the first (logo)
+        const candidateImages = images.slice(1); // drop potential logo
+        const lastImage = candidateImages[candidateImages.length - 1];
+        return [lastImage];
       }
       
+      // Only one image present – return it
       return images;
     } catch (error) {
       console.error("Error extracting images from docx:", error);
       return [];
     }
   };
-
   const handleUpload = async () => {
     if (!file) {
       toast({
@@ -300,16 +304,16 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
 
       if (data?.success && data?.data) {
         // If we extracted images from the docx but the edge function didn't find a photo,
-        // use the first extracted image as the candidate photo
+        // use the BEST candidate image (we prefer the last non-logo image)
         if (!data.data.candidatePhotoUrl && extractedImages.length > 0) {
-          // Upload the first image as the candidate photo
-          const firstImage = extractedImages[0];
-          const photoBlob = base64ToBlob(firstImage.base64, firstImage.mimeType);
-          const photoFileName = `candidate-photos/extracted-${Date.now()}.${firstImage.mimeType.split('/')[1]}`;
+          // Use the last extracted image, which should be the candidate photo on page 2
+          const bestImage = extractedImages[extractedImages.length - 1];
+          const photoBlob = base64ToBlob(bestImage.base64, bestImage.mimeType);
+          const photoFileName = `candidate-photos/extracted-${Date.now()}.${bestImage.mimeType.split('/')[1]}`;
           
           const { error: uploadError } = await supabase.storage
             .from("polygraph-reports")
-            .upload(photoFileName, photoBlob, { contentType: firstImage.mimeType });
+            .upload(photoFileName, photoBlob, { contentType: bestImage.mimeType });
           
           if (!uploadError) {
             const { data: { publicUrl } } = supabase.storage
