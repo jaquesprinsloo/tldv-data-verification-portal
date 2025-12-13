@@ -137,6 +137,7 @@ const EmployeeSubmissionForm = () => {
   const [proofOfResidenceFile, setProofOfResidenceFile] = useState<File | null>(null);
   const [idFile, setIdFile] = useState<File | null>(null);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [capturingLocation, setCapturingLocation] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "proof" | "id") => {
     const file = e.target.files?.[0];
@@ -170,9 +171,11 @@ const EmployeeSubmissionForm = () => {
       return;
     }
 
+    setCapturingLocation(true);
+    
     toast({
       title: "Capturing Location...",
-      description: "Getting your precise GPS coordinates. This may take up to 30 seconds. Please ensure you are outdoors or near a window for best results.",
+      description: "Getting your precise GPS coordinates. Please wait...",
     });
 
     const MAX_ACCEPTABLE_ACCURACY = 70; // meters - allow margin above 50m geofence threshold
@@ -196,6 +199,7 @@ const EmployeeSubmissionForm = () => {
         
         // Validate accuracy
         if (accuracy > MAX_ACCEPTABLE_ACCURACY) {
+          setCapturingLocation(false);
           toast({
             title: "Poor GPS Accuracy",
             description: `Current accuracy is ±${Math.round(accuracy)}m. For geofence verification (50m), accuracy must be ±${MAX_ACCEPTABLE_ACCURACY}m or better. Please move to a location with better GPS signal (outdoors, near window) and try again.`,
@@ -205,6 +209,7 @@ const EmployeeSubmissionForm = () => {
           return;
         }
         
+        setCapturingLocation(false);
         setLocation(capturedLocation);
         toast({
           title: "Location Captured ✓",
@@ -235,6 +240,7 @@ const EmployeeSubmissionForm = () => {
               
               // Validate accuracy even for fallback
               if (accuracy > MAX_ACCEPTABLE_ACCURACY) {
+                setCapturingLocation(false);
                 toast({
                   title: "Poor GPS Accuracy",
                   description: `Current accuracy is ±${Math.round(accuracy)}m. For geofence verification (50m), accuracy must be ±${MAX_ACCEPTABLE_ACCURACY}m or better. Please move outdoors or near a window for better GPS signal.`,
@@ -244,6 +250,7 @@ const EmployeeSubmissionForm = () => {
                 return;
               }
               
+              setCapturingLocation(false);
               setLocation(capturedLocation);
               toast({
                 title: "Location Captured ✓",
@@ -251,6 +258,7 @@ const EmployeeSubmissionForm = () => {
               });
             },
             (fallbackError) => {
+              setCapturingLocation(false);
               let errorMessage = "Unable to capture location.";
               
               switch(fallbackError.code) {
@@ -282,6 +290,7 @@ const EmployeeSubmissionForm = () => {
           );
         } else {
           // Handle other errors
+          setCapturingLocation(false);
           let errorMessage = "Unable to capture location.";
           
           switch(error.code) {
@@ -846,10 +855,11 @@ const EmployeeSubmissionForm = () => {
                 type="button"
                 variant="outline"
                 onClick={captureLocation}
+                disabled={capturingLocation}
                 className="flex items-center gap-2"
               >
-                <MapPin className="h-4 w-4" />
-                Capture Current Location
+                <MapPin className={`h-4 w-4 ${capturingLocation ? 'animate-pulse' : ''}`} />
+                {capturingLocation ? "Capturing..." : "Capture Current Location"}
               </Button>
               {location && (
                 <p className="text-sm text-green-600">
