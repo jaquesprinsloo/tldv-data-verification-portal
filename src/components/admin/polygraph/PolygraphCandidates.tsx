@@ -226,12 +226,14 @@ const PolygraphCandidates = () => {
 
   const getResultBadge = (result: string | null) => {
     if (!result) return null;
-    const variants: Record<string, "default" | "destructive" | "secondary"> = {
-      passed: "default",
-      failed: "destructive",
-      inconclusive: "secondary",
-    };
-    return <Badge variant={variants[result] || "outline"}>{result}</Badge>;
+    if (result === "passed") {
+      return <Badge className="bg-green-600 hover:bg-green-700 text-white">{result}</Badge>;
+    }
+    if (result === "failed") {
+      return <Badge className="bg-red-600 hover:bg-red-700 text-white">{result}</Badge>;
+    }
+    // inconclusive or other
+    return <Badge variant="secondary">{result}</Badge>;
   };
 
   const filteredCandidates = candidates.filter((c) => {
@@ -384,6 +386,12 @@ const PolygraphCandidates = () => {
                               Reject
                             </Button>
                           </div>
+                        )}
+                        {candidate.status === "approved" && (
+                          <Badge variant="outline" className="text-muted-foreground">Processed</Badge>
+                        )}
+                        {candidate.status === "rejected" && (
+                          <Badge variant="outline" className="text-muted-foreground">Processed</Badge>
                         )}
                       </TableCell>
                     </TableRow>
