@@ -210,22 +210,24 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   };
 
   // Extract images from a Word document (.docx)
-  // Returns images in order of appearance and prefers the LAST non-logo image
-  // (candidate photo is expected on page 2 next to personal information)
+  // Returns the candidate photo which appears on page 2 next to "Examinee Identification"
+  // Image order in Word: image1 = logo/background (page 1), image2 = candidate photo (page 2)
   const extractImagesFromDocx = async (file: File): Promise<{ base64: string; mimeType: string }[]> => {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const zip = await JSZip.loadAsync(arrayBuffer);
-      const images: { base64: string; mimeType: string }[] = [];
+      const images: { base64: string; mimeType: string; path: string }[] = [];
       
       // Word documents store images in word/media/ folder
       const mediaFolder = zip.folder("word/media");
-      if (!mediaFolder) return images;
+      if (!mediaFolder) return [];
       
       const imageFiles = Object.keys(zip.files).filter(name => 
         name.startsWith("word/media/") && 
         (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".gif"))
-      ).sort(); // Sort to ensure consistent ordering
+      ).sort(); // Sort to ensure consistent ordering (image1, image2, image3...)
+      
+      console.log(`Found image files in order: ${imageFiles.join(', ')}`);
       
       for (const imagePath of imageFiles) {
         const imageFile = zip.file(imagePath);
@@ -233,23 +235,24 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
           const imageData = await imageFile.async("base64");
           const extension = imagePath.split('.').pop()?.toLowerCase() || 'png';
           const mimeType = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
-          images.push({ base64: imageData, mimeType });
+          images.push({ base64: imageData, mimeType, path: imagePath });
         }
       }
       
       console.log(`Extracted ${images.length} images from Word document`);
       
-      if (images.length === 0) return images;
+      if (images.length === 0) return [];
       
-      // Assume first image is logo; prefer the LAST remaining image as candidate photo
+      // Image order: image1 = logo/background on page 1, image2 = candidate photo on page 2
+      // We want the SECOND image (index 1) which is the candidate photo
       if (images.length > 1) {
-        const candidateImages = images.slice(1); // drop potential logo
-        const lastImage = candidateImages[candidateImages.length - 1];
-        return [lastImage];
+        const candidatePhoto = images[1]; // Second image = candidate photo on page 2
+        console.log(`Using candidate photo from: ${candidatePhoto.path}`);
+        return [{ base64: candidatePhoto.base64, mimeType: candidatePhoto.mimeType }];
       }
       
       // Only one image present – return it
-      return images;
+      return [{ base64: images[0].base64, mimeType: images[0].mimeType }];
     } catch (error) {
       console.error("Error extracting images from docx:", error);
       return [];
