@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, User, Heart, AlertTriangle, CheckCircle, HelpCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, User, Heart, AlertTriangle, CheckCircle, HelpCircle, Maximize2, Minimize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface FamilyMember {
   Name: string;
@@ -14,15 +17,15 @@ interface FamilyTreeDisplayProps {
   candidateName: string;
 }
 
-const getRelationshipIcon = (relationship: string) => {
+const getRelationshipIcon = (relationship: string, size: string = "h-4 w-4") => {
   const rel = relationship.toLowerCase();
   if (rel.includes("father") || rel.includes("mother") || rel.includes("parent")) {
-    return <Heart className="h-4 w-4" />;
+    return <Heart className={size} />;
   }
   if (rel.includes("brother") || rel.includes("sister") || rel.includes("sibling")) {
-    return <Users className="h-4 w-4" />;
+    return <Users className={size} />;
   }
-  return <User className="h-4 w-4" />;
+  return <User className={size} />;
 };
 
 const getCriminalStatusInfo = (history: string) => {
@@ -47,6 +50,7 @@ const getRelationshipLevel = (relationship: string): number => {
   return 2;
 };
 
+// Detailed view node
 const FamilyMemberNode = ({ member }: { member: FamilyMember }) => {
   const statusInfo = getCriminalStatusInfo(member.CriminalHistory);
   const StatusIcon = statusInfo.icon;
@@ -79,7 +83,45 @@ const FamilyMemberNode = ({ member }: { member: FamilyMember }) => {
   );
 };
 
+// Compact view node
+const CompactMemberNode = ({ member }: { member: FamilyMember }) => {
+  const statusInfo = getCriminalStatusInfo(member.CriminalHistory);
+  const StatusIcon = statusInfo.icon;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all hover:shadow-md cursor-pointer",
+            statusInfo.bgColor
+          )}>
+            <div className={cn(
+              "p-1.5 rounded-full",
+              statusInfo.status === "clear" ? "bg-green-500/20" :
+              statusInfo.status === "flagged" ? "bg-orange-500/20" : "bg-muted"
+            )}>
+              {getRelationshipIcon(member.Relationship, "h-3 w-3")}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-[11px] truncate">{member.Name}</p>
+              <p className="text-[10px] text-muted-foreground">{member.Relationship}</p>
+            </div>
+            <StatusIcon className={cn("h-4 w-4 flex-shrink-0", statusInfo.color)} />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          <p className="font-semibold text-sm">{member.Name}</p>
+          <p className="text-xs text-muted-foreground mt-1">{member.CriminalHistory}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
 export const FamilyTreeDisplay = ({ familyMembers, candidateName }: FamilyTreeDisplayProps) => {
+  const [isCompact, setIsCompact] = useState(false);
+
   if (!familyMembers || familyMembers.length === 0) {
     return (
       <Card className="bg-muted/30">
@@ -96,29 +138,54 @@ export const FamilyTreeDisplay = ({ familyMembers, candidateName }: FamilyTreeDi
   const siblings = familyMembers.filter(m => getRelationshipLevel(m.Relationship) === 2);
   const children = familyMembers.filter(m => getRelationshipLevel(m.Relationship) === 3);
 
+  const MemberNode = isCompact ? CompactMemberNode : FamilyMemberNode;
+
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 border-b">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Users className="h-5 w-5 text-primary" />
-          Family Background
-        </CardTitle>
+      <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 border-b py-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Users className="h-5 w-5 text-primary" />
+            Family Background
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsCompact(!isCompact)}
+            className="h-8 px-2 text-xs gap-1.5"
+          >
+            {isCompact ? (
+              <>
+                <Maximize2 className="h-3.5 w-3.5" />
+                Detailed
+              </>
+            ) : (
+              <>
+                <Minimize2 className="h-3.5 w-3.5" />
+                Compact
+              </>
+            )}
+          </Button>
+        </div>
       </CardHeader>
-      <CardContent className="p-6">
+      <CardContent className={cn("transition-all", isCompact ? "p-4" : "p-6")}>
         <div className="relative">
           {/* Tree Structure */}
-          <div className="space-y-6">
+          <div className={cn("space-y-4", isCompact && "space-y-3")}>
             {/* Parents Row */}
             {parents.length > 0 && (
               <div className="relative">
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2">
                   <div className="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Parents</span>
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Parents</span>
                   <div className="h-px flex-1 bg-gradient-to-l from-primary/20 to-transparent" />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={cn(
+                  "grid gap-3",
+                  isCompact ? "grid-cols-2" : "grid-cols-1 md:grid-cols-2"
+                )}>
                   {parents.map((member, idx) => (
-                    <FamilyMemberNode key={idx} member={member} />
+                    <MemberNode key={idx} member={member} />
                   ))}
                 </div>
               </div>
@@ -127,25 +194,34 @@ export const FamilyTreeDisplay = ({ familyMembers, candidateName }: FamilyTreeDi
             {/* Connecting Line to Candidate */}
             {parents.length > 0 && (
               <div className="flex justify-center">
-                <div className="w-0.5 h-8 bg-gradient-to-b from-primary/30 to-primary/10" />
+                <div className={cn(
+                  "w-0.5 bg-gradient-to-b from-primary/30 to-primary/10",
+                  isCompact ? "h-4" : "h-8"
+                )} />
               </div>
             )}
 
             {/* Candidate Node (Center) */}
             <div className="flex justify-center">
-              <div className="relative px-8 py-4 rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg">
+              <div className={cn(
+                "relative rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg",
+                isCompact ? "px-4 py-2" : "px-8 py-4"
+              )}>
                 <div className="absolute -top-2 left-1/2 -translate-x-1/2">
                   <div className="px-2 py-0.5 bg-background text-foreground text-[10px] font-bold uppercase tracking-wider rounded-full border shadow-sm">
                     Candidate
                   </div>
                 </div>
-                <div className="flex items-center gap-3 mt-2">
-                  <div className="p-2 rounded-full bg-primary-foreground/20">
-                    <User className="h-5 w-5" />
+                <div className={cn("flex items-center gap-2 mt-2", isCompact && "mt-1")}>
+                  <div className={cn(
+                    "rounded-full bg-primary-foreground/20",
+                    isCompact ? "p-1" : "p-2"
+                  )}>
+                    <User className={isCompact ? "h-3 w-3" : "h-5 w-5"} />
                   </div>
                   <div>
-                    <p className="font-bold text-lg">{candidateName}</p>
-                    <p className="text-xs opacity-80">Subject of Examination</p>
+                    <p className={cn("font-bold", isCompact ? "text-sm" : "text-lg")}>{candidateName}</p>
+                    {!isCompact && <p className="text-xs opacity-80">Subject of Examination</p>}
                   </div>
                 </div>
               </div>
@@ -154,21 +230,27 @@ export const FamilyTreeDisplay = ({ familyMembers, candidateName }: FamilyTreeDi
             {/* Connecting Line to Siblings */}
             {siblings.length > 0 && (
               <div className="flex justify-center">
-                <div className="w-0.5 h-8 bg-gradient-to-b from-primary/10 to-primary/30" />
+                <div className={cn(
+                  "w-0.5 bg-gradient-to-b from-primary/10 to-primary/30",
+                  isCompact ? "h-4" : "h-8"
+                )} />
               </div>
             )}
 
             {/* Siblings/Spouse Row */}
             {siblings.length > 0 && (
               <div className="relative">
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2">
                   <div className="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Siblings & Spouse</span>
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Siblings & Spouse</span>
                   <div className="h-px flex-1 bg-gradient-to-l from-primary/20 to-transparent" />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className={cn(
+                  "grid gap-3",
+                  isCompact ? "grid-cols-2" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                )}>
                   {siblings.map((member, idx) => (
-                    <FamilyMemberNode key={idx} member={member} />
+                    <MemberNode key={idx} member={member} />
                   ))}
                 </div>
               </div>
@@ -177,35 +259,40 @@ export const FamilyTreeDisplay = ({ familyMembers, candidateName }: FamilyTreeDi
             {/* Children Row */}
             {children.length > 0 && (
               <div className="relative">
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-2">
                   <div className="h-px flex-1 bg-gradient-to-r from-primary/20 to-transparent" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Children</span>
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Children</span>
                   <div className="h-px flex-1 bg-gradient-to-l from-primary/20 to-transparent" />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className={cn(
+                  "grid gap-3",
+                  isCompact ? "grid-cols-2" : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                )}>
                   {children.map((member, idx) => (
-                    <FamilyMemberNode key={idx} member={member} />
+                    <MemberNode key={idx} member={member} />
                   ))}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Legend */}
-          <div className="mt-6 pt-4 border-t flex flex-wrap items-center justify-center gap-4 text-xs">
-            <div className="flex items-center gap-1.5">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <span className="text-muted-foreground">No Known Criminal History</span>
+          {/* Legend - only in detailed view */}
+          {!isCompact && (
+            <div className="mt-6 pt-4 border-t flex flex-wrap items-center justify-center gap-4 text-xs">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span className="text-muted-foreground">No Known Criminal History</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                <span className="text-muted-foreground">Criminal History Noted</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Status Unknown</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <AlertTriangle className="h-4 w-4 text-orange-500" />
-              <span className="text-muted-foreground">Criminal History Noted</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <HelpCircle className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Status Unknown</span>
-            </div>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
