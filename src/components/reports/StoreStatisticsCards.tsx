@@ -51,8 +51,9 @@ export const StoreStatisticsCards = ({ storeId, canEdit }: StoreStatisticsCardsP
     try {
       const startDate = getDateRange();
 
-      let examsQuery = supabase
-        .from("examinations")
+      // Query polygraph_reports (from PDF uploads) instead of examinations
+      let reportsQuery = supabase
+        .from("polygraph_reports")
         .select("*")
         .eq("store_id", storeId);
       
@@ -62,28 +63,38 @@ export const StoreStatisticsCards = ({ storeId, canEdit }: StoreStatisticsCardsP
         .eq("store_id", storeId);
 
       if (startDate) {
-        examsQuery = examsQuery.gte("examination_date", startDate.toISOString());
+        reportsQuery = reportsQuery.gte("examination_date", startDate.toISOString());
         riskQuery = riskQuery.gte("assessment_date", startDate.toISOString());
       }
 
-      const [examsResult, riskResult] = await Promise.all([
-        examsQuery,
+      const [reportsResult, riskResult] = await Promise.all([
+        reportsQuery,
         riskQuery,
       ]);
 
-      const exams = examsResult.data || [];
+      const reports = reportsResult.data || [];
       const risks = riskResult.data || [];
+
+      // Map polygraph report results to stats
+      // overall_result can be: passed, failed, inconclusive, or null (pending)
+      const getVettingType = (report: any) => {
+        const types = report.vetting_types || [];
+        if (types.includes("periodic_screening")) return "periodic_screening";
+        if (types.includes("pre_employment")) return "pre_employment";
+        if (types.includes("specific")) return "specific";
+        return "pre_employment"; // default
+      };
 
       setStats({
         polygraph: {
-          total: exams.length,
-          pass: exams.filter((e) => e.result === "pass").length,
-          fail: exams.filter((e) => e.result === "fail").length,
-          pending: exams.filter((e) => e.result === "pending").length,
-          inconclusive: exams.filter((e) => e.result === "inconclusive").length,
-          periodic: exams.filter((e) => e.examination_type === "periodic_screening").length,
-          preEmployment: exams.filter((e) => e.examination_type === "pre_employment").length,
-          specific: exams.filter((e) => e.examination_type === "specific").length,
+          total: reports.length,
+          pass: reports.filter((r) => r.overall_result === "passed").length,
+          fail: reports.filter((r) => r.overall_result === "failed").length,
+          pending: reports.filter((r) => !r.overall_result || r.status === "draft").length,
+          inconclusive: reports.filter((r) => r.overall_result === "inconclusive").length,
+          periodic: reports.filter((r) => getVettingType(r) === "periodic_screening").length,
+          preEmployment: reports.filter((r) => getVettingType(r) === "pre_employment").length,
+          specific: reports.filter((r) => getVettingType(r) === "specific").length,
         },
         risk: {
           total: risks.length,
@@ -108,11 +119,11 @@ export const StoreStatisticsCards = ({ storeId, canEdit }: StoreStatisticsCardsP
       const startDate = getDateRange();
 
       if (type === "polygraph") {
+        // Query polygraph_reports instead of examinations
         let query = supabase
-          .from("examinations")
+          .from("polygraph_reports")
           .select(`
             *,
-            employees (employee_number, submissions (first_name, last_name)),
             examiners (name)
           `)
           .eq("store_id", storeId)
@@ -122,15 +133,31 @@ export const StoreStatisticsCards = ({ storeId, canEdit }: StoreStatisticsCardsP
           query = query.gte("examination_date", startDate.toISOString());
         }
 
-        if (filter && ["pass", "fail", "pending", "inconclusive"].includes(filter)) {
-          query = query.eq("result", filter as "pass" | "fail" | "pending" | "inconclusive");
-        } else if (filter && ["periodic_screening", "pre_employment", "specific"].includes(filter)) {
-          query = query.eq("examination_type", filter as "periodic_screening" | "pre_employment" | "specific");
+        // Map filter to polygraph_reports fields
+        if (filter === "pass") {
+          query = query.eq("overall_result", "passed");
+        } else if (filter === "fail") {
+          query = query.eq("overall_result", "failed");
+        } else if (filter === "inconclusive") {
+          query = query.eq("overall_result", "inconclusive");
+        } else if (filter === "pending") {
+          query = query.or("overall_result.is.null,status.eq.draft");
         }
+        // Type filters handled client-side since vetting_types is JSONB
 
         const { data, error } = await query;
         if (error) throw error;
-        setDetailData(data || []);
+        
+        // Filter by type if needed
+        let filtered = data || [];
+        if (filter && ["periodic_screening", "pre_employment", "specific"].includes(filter)) {
+          filtered = filtered.filter((r: any) => {
+            const types = r.vetting_types || [];
+            return types.includes(filter);
+          });
+        }
+        
+        setDetailData(filtered);
       } else {
         let query = supabase
           .from("risk_assessments")
@@ -329,43 +356,37 @@ export const StoreStatisticsCards = ({ storeId, canEdit }: StoreStatisticsCardsP
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>Candidate</TableHead>
+                  <TableHead>ID Number</TableHead>
                   <TableHead>Examiner</TableHead>
+                  <TableHead>Risk Level</TableHead>
                   <TableHead>Result</TableHead>
-                  <TableHead>Admissions</TableHead>
-                  <TableHead>Report</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {detailData.map((exam) => (
-                  <TableRow key={exam.id}>
-                    <TableCell>{format(new Date(exam.examination_date), "PP")}</TableCell>
+                {detailData.map((report) => (
+                  <TableRow key={report.id}>
+                    <TableCell>{format(new Date(report.examination_date), "PP")}</TableCell>
+                    <TableCell>{report.first_name} {report.last_name}</TableCell>
+                    <TableCell>{report.id_number}</TableCell>
+                    <TableCell>{report.examiners?.name || "-"}</TableCell>
                     <TableCell>
-                      {exam.employees?.submissions?.first_name
-                        ? `${exam.employees.submissions.first_name} ${exam.employees.submissions.last_name}`
-                        : exam.employees?.employee_number || "-"}
+                      <Badge variant={
+                        report.risk_level === "LOW RISK" ? "default" :
+                        report.risk_level === "MEDIUM RISK" ? "secondary" :
+                        report.risk_level === "HIGH RISK" ? "destructive" : "outline"
+                      } className={
+                        report.risk_level === "LOW RISK" ? "bg-green-500" :
+                        report.risk_level === "MEDIUM RISK" ? "bg-yellow-500" : ""
+                      }>
+                        {report.risk_level || "Pending"}
+                      </Badge>
                     </TableCell>
-                    <TableCell className="capitalize">{exam.examination_type.replace(/_/g, " ")}</TableCell>
-                    <TableCell>{exam.examiners?.name || "-"}</TableCell>
-                    <TableCell>{getResultBadge(exam.result)}</TableCell>
                     <TableCell>
-                      <div className="text-xs">
-                        {exam.admission_before_exam && <p>Before: {exam.admission_before_exam}</p>}
-                        {exam.admission_after_exam && <p>After: {exam.admission_after_exam}</p>}
-                        {!exam.admission_before_exam && !exam.admission_after_exam && "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {exam.report_url ? (
-                        <Button variant="ghost" size="sm" asChild>
-                          <a href={exam.report_url} target="_blank" rel="noopener noreferrer">
-                            <FileText className="h-4 w-4" />
-                          </a>
-                        </Button>
-                      ) : (
-                        "-"
-                      )}
+                      {report.overall_result 
+                        ? getResultBadge(report.overall_result === "passed" ? "pass" : report.overall_result === "failed" ? "fail" : report.overall_result)
+                        : <Badge variant="secondary">Pending</Badge>
+                      }
                     </TableCell>
                   </TableRow>
                 ))}
