@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Shield, FileText, User, AlertTriangle, ExternalLink, Download, X } from "lucide-react";
 import { format } from "date-fns";
 import RiskAnalysisDisplay from "@/components/reports/RiskAnalysisDisplay";
+import FamilyTreeDisplay from "./FamilyTreeDisplay";
 import { toast } from "sonner";
 
 interface RiskProfileDialogProps {
@@ -265,74 +266,83 @@ export const RiskProfileDialog = ({
 
             {/* Personal Info Tab */}
             <TabsContent value="personal" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Personal Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Full Name</p>
-                      <p className="font-medium">{displayName}</p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Personal Information Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="h-5 w-5" />
+                      Personal Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Full Name</p>
+                        <p className="font-medium">{displayName}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">ID Number</p>
+                        <p className="font-medium">
+                          {data?.employee?.id_number || data?.polygraphReport?.id_number || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Employee Number</p>
+                        <p className="font-medium">{data?.employee?.employee_number || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Contact Number</p>
+                        <p className="font-medium">
+                          {data?.submission?.contact_number || data?.polygraphReport?.contact_number || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Email</p>
+                        <p className="font-medium">
+                          {data?.submission?.email || data?.polygraphReport?.email || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Position</p>
+                        <p className="font-medium">{data?.polygraphReport?.position_applying_for || "-"}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-sm text-muted-foreground">Physical Address</p>
+                        <p className="font-medium">
+                          {data?.submission?.physical_address || data?.polygraphReport?.physical_address || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Store</p>
+                        <p className="font-medium">{data?.polygraphReport?.stores?.store_name || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Examination Date</p>
+                        <p className="font-medium">
+                          {data?.polygraphReport?.examination_date 
+                            ? format(new Date(data.polygraphReport.examination_date), "PP")
+                            : "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Examiner</p>
+                        <p className="font-medium">{data?.polygraphReport?.examiners?.name || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Overall Result</p>
+                        {getResultBadge(data?.polygraphReport?.overall_result)}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">ID Number</p>
-                      <p className="font-medium">
-                        {data?.employee?.id_number || data?.polygraphReport?.id_number || "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Employee Number</p>
-                      <p className="font-medium">{data?.employee?.employee_number || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Contact Number</p>
-                      <p className="font-medium">
-                        {data?.submission?.contact_number || data?.polygraphReport?.contact_number || "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Email</p>
-                      <p className="font-medium">
-                        {data?.submission?.email || data?.polygraphReport?.email || "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Position</p>
-                      <p className="font-medium">{data?.polygraphReport?.position_applying_for || "-"}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-sm text-muted-foreground">Physical Address</p>
-                      <p className="font-medium">
-                        {data?.submission?.physical_address || data?.polygraphReport?.physical_address || "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Store</p>
-                      <p className="font-medium">{data?.polygraphReport?.stores?.store_name || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Examination Date</p>
-                      <p className="font-medium">
-                        {data?.polygraphReport?.examination_date 
-                          ? format(new Date(data.polygraphReport.examination_date), "PP")
-                          : "-"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Examiner</p>
-                      <p className="font-medium">{data?.polygraphReport?.examiners?.name || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Overall Result</p>
-                      {getResultBadge(data?.polygraphReport?.overall_result)}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+
+                {/* Family Tree Card */}
+                <FamilyTreeDisplay 
+                  familyMembers={data?.polygraphReport?.family_criminal_history as any[] || []}
+                  candidateName={displayName}
+                />
+              </div>
             </TabsContent>
 
             {/* Full Report Summary Tab */}
