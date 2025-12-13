@@ -167,22 +167,10 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      const isDocx = selectedFile.name.endsWith('.docx');
-      const isDoc = selectedFile.name.endsWith('.doc');
-      
-      if (!isDocx && !isDoc) {
+      if (!selectedFile.name.endsWith('.pdf')) {
         toast({
           title: "Invalid File Type",
-          description: "Please upload a Word document (.docx) file.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (isDoc) {
-        toast({
-          title: "Unsupported Format",
-          description: "Please use the .docx format. The older .doc format is not supported.",
+          description: "Please upload a PDF file.",
           variant: "destructive",
         });
         return;
@@ -209,55 +197,6 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     });
   };
 
-  // Extract images from a Word document (.docx)
-  // Returns the candidate photo which appears on page 2 next to "Examinee Identification"
-  // Image order in Word: image1 = logo/background (page 1), image2 = candidate photo (page 2)
-  const extractImagesFromDocx = async (file: File): Promise<{ base64: string; mimeType: string }[]> => {
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const zip = await JSZip.loadAsync(arrayBuffer);
-      const images: { base64: string; mimeType: string; path: string }[] = [];
-      
-      // Word documents store images in word/media/ folder
-      const mediaFolder = zip.folder("word/media");
-      if (!mediaFolder) return [];
-      
-      const imageFiles = Object.keys(zip.files).filter(name => 
-        name.startsWith("word/media/") && 
-        (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".gif"))
-      ).sort(); // Sort to ensure consistent ordering (image1, image2, image3...)
-      
-      console.log(`Found image files in order: ${imageFiles.join(', ')}`);
-      
-      for (const imagePath of imageFiles) {
-        const imageFile = zip.file(imagePath);
-        if (imageFile) {
-          const imageData = await imageFile.async("base64");
-          const extension = imagePath.split('.').pop()?.toLowerCase() || 'png';
-          const mimeType = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
-          images.push({ base64: imageData, mimeType, path: imagePath });
-        }
-      }
-      
-      console.log(`Extracted ${images.length} images from Word document`);
-      
-      if (images.length === 0) return [];
-      
-      // Image order: image1 = logo/background on page 1, image2 = candidate photo on page 2
-      // We want the SECOND image (index 1) which is the candidate photo
-      if (images.length > 1) {
-        const candidatePhoto = images[1]; // Second image = candidate photo on page 2
-        console.log(`Using candidate photo from: ${candidatePhoto.path}`);
-        return [{ base64: candidatePhoto.base64, mimeType: candidatePhoto.mimeType }];
-      }
-      
-      // Only one image present – return it
-      return [{ base64: images[0].base64, mimeType: images[0].mimeType }];
-    } catch (error) {
-      console.error("Error extracting images from docx:", error);
-      return [];
-    }
-  };
   const handleUpload = async () => {
     if (!file) {
       toast({
@@ -269,31 +208,21 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     }
 
     setUploading(true);
-    setUploadingStep('extracting');
+    setUploadingStep('processing');
     setExtractedData(null);
     
     try {
       toast({
         title: "Processing Document",
-        description: "Extracting images from the Word document...",
-      });
-
-      // Extract images from Word document
-      const extractedImages = await extractImagesFromDocx(file);
-      
-      setUploadingStep('processing');
-      toast({
-        title: "Processing Document",
-        description: "Extracting text and analyzing data. This may take a moment...",
+        description: "Extracting data from PDF. This may take a moment...",
       });
       
-      const docxBase64 = await fileToBase64(file);
+      const pdfBase64 = await fileToBase64(file);
 
       const { data, error } = await supabase.functions.invoke('extract-polygraph-report', {
         body: { 
-          docxBase64, 
-          fileName: file.name,
-          extractedImages // Pass extracted images to the edge function
+          pdfBase64, 
+          fileName: file.name
         }
       });
 
@@ -306,26 +235,6 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       }
 
       if (data?.success && data?.data) {
-        // If we extracted images from the docx but the edge function didn't find a photo,
-        // use the BEST candidate image (we prefer the last non-logo image)
-        if (!data.data.candidatePhotoUrl && extractedImages.length > 0) {
-          // Use the last extracted image, which should be the candidate photo on page 2
-          const bestImage = extractedImages[extractedImages.length - 1];
-          const photoBlob = base64ToBlob(bestImage.base64, bestImage.mimeType);
-          const photoFileName = `candidate-photos/extracted-${Date.now()}.${bestImage.mimeType.split('/')[1]}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from("polygraph-reports")
-            .upload(photoFileName, photoBlob, { contentType: bestImage.mimeType });
-          
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from("polygraph-reports")
-              .getPublicUrl(photoFileName);
-            data.data.candidatePhotoUrl = publicUrl;
-          }
-        }
-        
         setExtractedData(data.data);
         toast({
           title: "Data Extracted Successfully",
@@ -418,51 +327,21 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
 
     setSaving(true);
     try {
-      // Convert Word document to PDF and upload
+      // Upload the PDF file directly
       let pdfUrl: string | null = null;
       if (file) {
         const reportId = crypto.randomUUID();
+        const fileName = `${reportId}/${file.name}`;
         
-        // First, call edge function to convert Word to PDF
-        toast({
-          title: "Converting to PDF",
-          description: "Converting Word document to PDF format...",
-        });
+        const { error: uploadError } = await supabase.storage
+          .from("polygraph-reports")
+          .upload(fileName, file, { contentType: "application/pdf" });
         
-        const docxBase64 = await fileToBase64(file);
-        const { data: conversionData, error: conversionError } = await supabase.functions.invoke('convert-docx-to-pdf', {
-          body: { docxBase64, fileName: file.name }
-        });
-        
-        if (conversionError) {
-          console.error("Conversion error:", conversionError);
-          // Fall back to storing Word document if conversion fails
-          const fileName = `${reportId}/${file.name}`;
-          const { error: uploadError } = await supabase.storage
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
             .from("polygraph-reports")
-            .upload(fileName, file, { contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-          
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from("polygraph-reports")
-              .getPublicUrl(fileName);
-            pdfUrl = publicUrl;
-          }
-        } else if (conversionData?.pdfBase64) {
-          // Upload the converted PDF
-          const pdfBlob = base64ToBlob(conversionData.pdfBase64, 'application/pdf');
-          const pdfFileName = `${reportId}/${file.name.replace('.docx', '.pdf')}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from("polygraph-reports")
-            .upload(pdfFileName, pdfBlob, { contentType: "application/pdf" });
-          
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from("polygraph-reports")
-              .getPublicUrl(pdfFileName);
-            pdfUrl = publicUrl;
-          }
+            .getPublicUrl(fileName);
+          pdfUrl = publicUrl;
         }
       }
 
@@ -682,7 +561,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
               <CardHeader>
                 <CardTitle>Upload Completed Report</CardTitle>
                 <CardDescription>
-                  Upload a completed polygraph report Word document (.docx) for AI data extraction. The document will be converted to PDF for secure storage.
+                  Upload a completed polygraph report PDF for AI data extraction.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -690,14 +569,14 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                   <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <input
                     type="file"
-                    accept=".docx"
+                    accept=".pdf"
                     onChange={handleFileChange}
                     className="hidden"
                     id="report-upload"
                   />
                   <label htmlFor="report-upload">
                     <Button variant="outline" asChild className="cursor-pointer">
-                      <span>Select Word Document (.docx)</span>
+                      <span>Select PDF File</span>
                     </Button>
                   </label>
                   {file && (
@@ -721,7 +600,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                         {uploading ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {uploadingStep === 'extracting' ? 'Extracting images from document...' : 'Extracting text and analyzing data...'}
+                            Extracting data from PDF...
                           </>
                         ) : (
                           "Extract Report Data"
