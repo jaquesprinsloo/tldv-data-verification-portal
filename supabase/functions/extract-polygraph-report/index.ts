@@ -360,13 +360,35 @@ Use thresholds:
 
 STEP 5 — GENERATE FINAL REPORT (HUMAN-READABLE)
 
-In NarrativeReport field, write a detailed narrative containing:
-1. Summary of Candidate Disclosures
-2. Polygraph Analysis Summary
-3. Risk Score Breakdown (category by category)
-4. Final Risk Rating
-5. Key Risk Concerns
-6. Recommended Mitigations
+IMPORTANT: For consistent, deterministic output:
+- Use EXACT wording from the document for disclosures
+- Use standardized phrases for KeyRiskConcerns and RecommendedMitigations
+- Follow the exact structure below for NarrativeReport
+
+In NarrativeReport field, write a detailed narrative with these EXACT section headers:
+1. "CANDIDATE DISCLOSURES:" - List factual disclosures from the document verbatim
+2. "POLYGRAPH ANALYSIS:" - State number of questions, SR/INC/NSR counts, and overall result
+3. "RISK SCORE BREAKDOWN:" - List each category with its score (e.g., "Criminal/Dishonesty: 0/12")
+4. "FINAL RISK RATING:" - State total score and risk level
+5. "KEY CONCERNS:" - List specific risk concerns based on findings
+6. "RECOMMENDATIONS:" - List mitigation recommendations
+
+For KeyRiskConcerns array, use standardized phrases such as:
+- "No significant risk concerns identified"
+- "Theft admission disclosed"
+- "Prior dismissal for dishonesty"
+- "Financial pressure indicators"
+- "Substance use history"
+- "SR on polygraph question regarding [topic]"
+- "INC on polygraph question regarding [topic]"
+
+For RecommendedMitigations array, use standardized phrases such as:
+- "No additional mitigations required"
+- "Enhanced supervision recommended"
+- "Financial wellness program recommended"
+- "Reference check with previous employer"
+- "Periodic re-screening recommended"
+- "Drug/alcohol testing program recommended"
 
 STEP 6 – NO HALLUCINATIONS
 
@@ -409,6 +431,7 @@ Return ONLY the JSON object, no additional text.`;
     }
 
     // Extract data from the document
+    // Use temperature: 0 for deterministic, consistent results
     const dataResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -425,6 +448,7 @@ Return ONLY the JSON object, no additional text.`;
           }
         ],
         response_format: { type: 'json_object' },
+        temperature: 0,  // Deterministic output for consistent results
       }),
     });
 
