@@ -77,74 +77,32 @@ const PolygraphCandidates = () => {
     setProcessing(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // Generate employee number
-      const employeeNumber = `PG${Date.now().toString().slice(-6)}`;
-
-      // Create employee record
-      const { data: employee, error: empError } = await supabase
-        .from("employees")
-        .insert({
-          employee_number: employeeNumber,
-          id_number: selectedCandidate.id_number,
-          email: selectedCandidate.email,
-          store_id: selectedCandidate.store_id,
-          employment_status: "active",
-        })
-        .select("id")
-        .single();
-
-      if (empError) throw empError;
-
-      // Generate invitation token
-      const token = crypto.randomUUID();
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-      // Create invitation
-      const { error: invError } = await supabase
-        .from("employee_invitations")
-        .insert({
-          employee_id: employee.id,
-          email: selectedCandidate.email || "",
-          token,
-          otp,
-          invitation_method: "polygraph_approval",
+      // Use secure database function to approve candidate
+      const { data, error } = await supabase
+        .rpc("approve_polygraph_candidate", {
+          _candidate_id: selectedCandidate.id,
         });
 
-      if (invError) throw invError;
+      if (error) throw error;
 
-      // Update candidate status
-      const { error: updateError } = await supabase
-        .from("polygraph_candidates")
-        .update({
-          status: "approved",
-          approved_by: user?.id,
-          approved_at: new Date().toISOString(),
-          employee_id: employee.id,
-          invitation_sent: true,
-          invitation_token: token,
-          invitation_sent_at: new Date().toISOString(),
-        })
-        .eq("id", selectedCandidate.id);
-
-      if (updateError) throw updateError;
+      const result = data?.[0];
+      if (!result) throw new Error("No result returned from approval");
 
       // Send invitation email if email exists
-      if (selectedCandidate.email) {
+      if (result.email) {
         await supabase.functions.invoke("send-invitation-email", {
           body: {
-            email: selectedCandidate.email,
-            employeeNumber,
-            token,
-            otp,
+            email: result.email,
+            employeeNumber: result.employee_number,
+            token: result.token,
+            otp: result.otp,
           },
         });
       }
 
       toast({
         title: "Candidate Approved",
-        description: `${selectedCandidate.first_name} ${selectedCandidate.last_name} has been approved and an invitation has been sent.`,
+        description: `${result.first_name} ${result.last_name} has been approved and an invitation has been sent.`,
       });
 
       setActionDialogOpen(false);
