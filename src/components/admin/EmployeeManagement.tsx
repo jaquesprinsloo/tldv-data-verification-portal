@@ -37,6 +37,7 @@ interface EmployeeWithSubmission {
   employment_status: string;
   designation: string | null;
   store_id: string | null;
+  user_id: string | null;
   dismissed_at: string | null;
   dismissal_reason: string | null;
   submission?: any;
@@ -106,6 +107,7 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
           employment_status,
           designation,
           store_id,
+          user_id,
           dismissed_at,
           dismissal_reason,
           store:stores(store_name, store_code)
@@ -163,6 +165,11 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
   };
 
   const getEmployeeStatus = (employee: EmployeeWithSubmission) => {
+    // Check if employee hasn't completed registration (no user_id linked)
+    if (!employee.user_id) {
+      return { status: "awaiting_submission", label: "Awaiting Registration", variant: "secondary" as const };
+    }
+    
     if (!employee.submission) {
       return { status: "awaiting_submission", label: "Awaiting Submission", variant: "outline" as const };
     }
