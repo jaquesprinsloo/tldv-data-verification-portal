@@ -7,6 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Production URL for email links
+const PRODUCTION_URL = "https://tldv-data-verification-portal.lovable.app";
+
 // Server-side validation schema
 const InvitationEmailSchema = z.object({
   email: z.string().email('Invalid email format').max(255, 'Email too long'),
@@ -45,6 +48,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { email, employeeNumber, invitationLink, otp } = validationResult.data;
 
+    // Extract token from invitation link and create production URL
+    const url = new URL(invitationLink);
+    const token = url.searchParams.get('token');
+    const productionLink = `${PRODUCTION_URL}/employee/register?token=${token}`;
+
     console.log('Processing invitation email request');
 
     const GMAIL_EMAIL = Deno.env.get("GMAIL_EMAIL");
@@ -66,62 +74,143 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #272727; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #BC000A; padding: 20px; text-align: center; }
-            .header h1 { color: white; margin: 0; font-family: Arial, sans-serif; }
-            .content { background-color: #f9f9f9; padding: 30px; border-radius: 5px; margin-top: 20px; }
-            .otp-box { background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
-            .otp { font-size: 32px; font-weight: bold; color: #BC000A; letter-spacing: 8px; margin: 10px 0; }
-            .button { display: inline-block; padding: 15px 30px; background-color: #BC000A; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }
-            .footer { text-align: center; margin-top: 30px; color: #60615C; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Employee Verification Portal</h1>
-            </div>
-            <div class="content">
-              <h2>Welcome to the Employee Verification Portal</h2>
-              <p>You have been invited to register for the Employee Verification Portal.</p>
-              <p><strong>Employee Number:</strong> ${employeeNumber}</p>
-              
-              <div class="otp-box">
-                <p style="margin: 0 0 10px 0; color: #666;">Your 6-Digit OTP:</p>
-                <p class="otp">${otp}</p>
-              </div>
-              
-              <p style="text-align: center;">
-                <a href="${invitationLink}" class="button">Complete Registration</a>
-              </p>
-              
-              <p style="font-size: 12px; color: #666;">If the button does not work, copy and paste this link into your browser:<br>
-              <a href="${invitationLink}" style="color: #BC000A;">${invitationLink}</a></p>
-              
-              <p><strong>Important:</strong> You will need to enter the 6-digit OTP shown above when you register.</p>
-              <p><strong>Renewal Process:</strong> After completing your registration and verification, you will need to renew your information every 6 months.</p>
-              <p style="color: #666; font-size: 14px;">This invitation and OTP will expire in 7 days.</p>
-              <p style="color: #666; font-size: 14px;">If you did not expect this invitation, you can safely ignore this email.</p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${new Date().getFullYear()} Employee Verification Portal. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TLDV Employee Portal Invitation</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, Helvetica, sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f4; padding: 40px 20px;">
+<tr>
+<td align="center">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+
+<!-- Header with Logo -->
+<tr>
+<td style="background-color: #000000; padding: 30px 40px; text-align: center;">
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto;">
+<tr>
+<td style="background-color: #BC000A; width: 40px; height: 40px; border-radius: 8px; text-align: center; vertical-align: middle;">
+<span style="color: #ffffff; font-size: 20px; font-weight: bold;">T</span>
+</td>
+<td style="padding-left: 12px;">
+<span style="color: #ffffff; font-size: 20px; font-weight: 600;">Data Verification Portal</span>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+
+<!-- Main Content -->
+<tr>
+<td style="padding: 40px;">
+
+<!-- Welcome Message -->
+<h1 style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 24px; font-weight: 700; text-align: center;">
+You're Invited to Register
+</h1>
+
+<p style="margin: 0 0 30px 0; color: #4a4a4a; font-size: 16px; line-height: 1.6; text-align: center;">
+You have been invited to register for the TLDV Employee Data Verification Portal. Please complete your registration using the details below.
+</p>
+
+<!-- Employee Details Card -->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f8f9fa; border-radius: 8px; margin-bottom: 25px;">
+<tr>
+<td style="padding: 20px;">
+<p style="margin: 0 0 5px 0; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Your Employee Number</p>
+<p style="margin: 0; color: #1a1a1a; font-size: 20px; font-weight: 600;">${employeeNumber}</p>
+</td>
+</tr>
+</table>
+
+<!-- OTP Card -->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #fef2f2; border: 2px solid #BC000A; border-radius: 8px; margin-bottom: 25px;">
+<tr>
+<td style="padding: 25px; text-align: center;">
+<p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">Your 6-Digit Verification Code</p>
+<p style="margin: 0; color: #BC000A; font-size: 36px; font-weight: 700; letter-spacing: 8px; font-family: 'Courier New', monospace;">${otp}</p>
+<p style="margin: 10px 0 0 0; color: #9ca3af; font-size: 12px;">Keep this code safe - you'll need it to complete registration</p>
+</td>
+</tr>
+</table>
+
+<!-- CTA Button -->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+<tr>
+<td align="center" style="padding: 10px 0 25px 0;">
+<a href="${productionLink}" target="_blank" style="display: inline-block; background-color: #BC000A; color: #ffffff; text-decoration: none; padding: 16px 40px; font-size: 16px; font-weight: 600; border-radius: 8px;">Complete Registration</a>
+</td>
+</tr>
+</table>
+
+<!-- Link Fallback -->
+<p style="margin: 0 0 25px 0; color: #9ca3af; font-size: 12px; text-align: center; word-break: break-all;">
+If the button doesn't work, copy this link:<br>
+<a href="${productionLink}" style="color: #BC000A;">${productionLink}</a>
+</p>
+
+<!-- Divider -->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+<tr>
+<td style="border-top: 1px solid #e5e7eb; padding-top: 25px;"></td>
+</tr>
+</table>
+
+<!-- Instructions -->
+<h3 style="margin: 0 0 15px 0; color: #1a1a1a; font-size: 16px; font-weight: 600;">What you'll need to register:</h3>
+<ul style="margin: 0 0 25px 0; padding-left: 20px; color: #4a4a4a; font-size: 14px; line-height: 1.8;">
+<li>Your Employee Number (shown above)</li>
+<li>Your South African ID Number</li>
+<li>The 6-digit verification code (shown above)</li>
+<li>Create a secure password</li>
+</ul>
+
+<!-- Important Notes -->
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; margin-bottom: 20px;">
+<tr>
+<td style="padding: 15px 20px;">
+<p style="margin: 0 0 8px 0; color: #92400e; font-size: 14px; font-weight: 600;">Important Notes:</p>
+<ul style="margin: 0; padding-left: 20px; color: #92400e; font-size: 13px; line-height: 1.6;">
+<li>This invitation expires in <strong>7 days</strong></li>
+<li>After registration, you'll need to verify your information every 6 months</li>
+</ul>
+</td>
+</tr>
+</table>
+
+<p style="margin: 0; color: #9ca3af; font-size: 12px; text-align: center;">
+If you did not expect this invitation, you can safely ignore this email.
+</p>
+
+</td>
+</tr>
+
+<!-- Footer -->
+<tr>
+<td style="background-color: #1a1a1a; padding: 25px 40px; text-align: center;">
+<p style="margin: 0 0 5px 0; color: #9ca3af; font-size: 12px;">
+&copy; ${new Date().getFullYear()} TLDV Data Verification Portal
+</p>
+<p style="margin: 0; color: #6b7280; font-size: 11px;">
+All rights reserved
+</p>
+</td>
+</tr>
+
+</table>
+</td>
+</tr>
+</table>
+</body>
+</html>`;
 
     await client.send({
       from: GMAIL_EMAIL,
       to: email,
-      subject: "Employee Verification Portal - Your Invitation",
-      content: htmlContent,
+      subject: "TLDV Portal - You're Invited to Register",
       html: htmlContent,
     });
 
@@ -137,7 +226,7 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
   } catch (error: any) {
-    console.error("Email sending failed");
+    console.error("Email sending failed:", error);
     return new Response(
       JSON.stringify({ error: 'Failed to send invitation email' }),
       {
