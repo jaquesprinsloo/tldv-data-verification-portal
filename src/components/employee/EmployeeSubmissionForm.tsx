@@ -42,49 +42,59 @@ const EmployeeSubmissionForm = () => {
   useEffect(() => {
     const loadEmployeeData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('EmployeeSubmissionForm: Session:', session?.user?.id);
       if (!session) return;
 
-      const { data: employee } = await supabase
+      const { data: employee, error: empError } = await supabase
         .from('employees')
         .select('id, employee_number, id_number, email')
         .eq('user_id', session.user.id)
         .single();
 
+      console.log('EmployeeSubmissionForm: Employee data:', employee, 'Error:', empError);
+
       if (employee) {
         setEmployeeId(employee.id);
         
         // Check if this employee came from a polygraph candidate approval
-        const { data: candidate } = await supabase
+        const { data: candidate, error: candError } = await supabase
           .from('polygraph_candidates')
           .select(`
+            id,
             report_id,
             first_name,
             last_name,
             email,
             contact_number,
             physical_address,
-            polygraph_reports (
-              first_name,
-              last_name,
-              id_number,
-              email,
-              contact_number,
-              physical_address
-            )
+            status,
+            employee_id
           `)
           .eq('employee_id', employee.id)
           .eq('status', 'approved')
           .maybeSingle();
 
-        // Get report data from the candidate's linked report
-        const reportData = candidate?.polygraph_reports as any;
+        console.log('EmployeeSubmissionForm: Candidate data:', candidate, 'Error:', candError);
+
+        // If we have a candidate, fetch the polygraph report separately
+        let reportData = null;
+        if (candidate?.report_id) {
+          const { data: report, error: reportError } = await supabase
+            .from('polygraph_reports')
+            .select('first_name, last_name, id_number, email, contact_number, physical_address')
+            .eq('id', candidate.report_id)
+            .single();
+          
+          console.log('EmployeeSubmissionForm: Report data:', report, 'Error:', reportError);
+          reportData = report;
+        }
         
         // Parse address components from physical_address if available
         const physicalAddress = reportData?.physical_address || candidate?.physical_address || '';
+        console.log('EmployeeSubmissionForm: Physical address to parse:', physicalAddress);
         const addressParts = parsePhysicalAddress(physicalAddress);
 
-        setFormData(prev => ({
-          ...prev,
+        const newFormData = {
           employeeNumber: employee.employee_number,
           idNumber: employee.id_number,
           // Pre-fill from polygraph report data if available
@@ -94,6 +104,13 @@ const EmployeeSubmissionForm = () => {
           contactNumber: reportData?.contact_number || candidate?.contact_number || '',
           // Address fields from parsed address
           ...addressParts,
+        };
+
+        console.log('EmployeeSubmissionForm: Pre-filling form with:', newFormData);
+
+        setFormData(prev => ({
+          ...prev,
+          ...newFormData,
         }));
       }
     };
