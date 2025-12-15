@@ -34,8 +34,15 @@ const EmployeeSubmissionForm = () => {
     postalCode: "",
     nextOfKinFirstName: "",
     nextOfKinLastName: "",
-    nextOfKinAddress: "",
     nextOfKinContact: "",
+    nextOfKinHouseNumber: "",
+    nextOfKinFloorNumber: "",
+    nextOfKinStreetName: "",
+    nextOfKinComplexName: "",
+    nextOfKinSuburb: "",
+    nextOfKinCity: "",
+    nextOfKinProvince: "",
+    nextOfKinPostalCode: "",
   });
 
   // Load employee data from authenticated session and polygraph report if available
@@ -491,13 +498,25 @@ const EmployeeSubmissionForm = () => {
         return;
       }
 
+      // Build next of kin full address from components
+      const nextOfKinAddress = [
+        formData.nextOfKinHouseNumber,
+        formData.nextOfKinFloorNumber,
+        formData.nextOfKinStreetName,
+        formData.nextOfKinComplexName,
+        formData.nextOfKinSuburb,
+        formData.nextOfKinCity,
+        formData.nextOfKinProvince,
+        formData.nextOfKinPostalCode
+      ].filter(Boolean).join(", ");
+
       // Add next of kin using secure function
       const { error: nokError } = await supabase.rpc('add_next_of_kin', {
         _submission_id: submissionId,
         _first_name: formData.nextOfKinFirstName,
         _last_name: formData.nextOfKinLastName,
         _contact_number: formData.nextOfKinContact,
-        _address: formData.nextOfKinAddress
+        _address: nextOfKinAddress
       });
 
       if (nokError) throw nokError;
@@ -774,7 +793,6 @@ const EmployeeSubmissionForm = () => {
 
             </TabsContent>
 
-            {/* Next of Kin Tab */}
             <TabsContent value="nextofkin" className="space-y-6 mt-6">
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold border-b pb-2">Next of Kin Information</h3>
@@ -807,14 +825,82 @@ const EmployeeSubmissionForm = () => {
                       required
                     />
                   </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">Next of Kin Address</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinHouseNumber">House/Unit Number</Label>
+                    <Input
+                      id="nextOfKinHouseNumber"
+                      value={formData.nextOfKinHouseNumber}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinHouseNumber: e.target.value })}
+                      placeholder="e.g., 12 or Unit 5"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinFloorNumber">Floor Number</Label>
+                    <Input
+                      id="nextOfKinFloorNumber"
+                      value={formData.nextOfKinFloorNumber}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinFloorNumber: e.target.value })}
+                      placeholder="e.g., Ground or 3rd"
+                    />
+                  </div>
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="nextOfKinAddress">Physical Address *</Label>
-                    <Textarea
-                      id="nextOfKinAddress"
-                      value={formData.nextOfKinAddress}
-                      onChange={(e) => setFormData({ ...formData, nextOfKinAddress: e.target.value })}
+                    <Label htmlFor="nextOfKinStreetName">Street Name *</Label>
+                    <Input
+                      id="nextOfKinStreetName"
+                      value={formData.nextOfKinStreetName}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinStreetName: e.target.value })}
                       required
-                      rows={3}
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="nextOfKinComplexName">Complex/Building Name</Label>
+                    <Input
+                      id="nextOfKinComplexName"
+                      value={formData.nextOfKinComplexName}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinComplexName: e.target.value })}
+                      placeholder="Leave blank if not applicable"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinSuburb">Suburb *</Label>
+                    <Input
+                      id="nextOfKinSuburb"
+                      value={formData.nextOfKinSuburb}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinSuburb: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinCity">City/Town *</Label>
+                    <Input
+                      id="nextOfKinCity"
+                      value={formData.nextOfKinCity}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinCity: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinProvince">Province *</Label>
+                    <Input
+                      id="nextOfKinProvince"
+                      value={formData.nextOfKinProvince}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinProvince: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinPostalCode">Postal Code *</Label>
+                    <Input
+                      id="nextOfKinPostalCode"
+                      value={formData.nextOfKinPostalCode}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinPostalCode: e.target.value })}
+                      required
                     />
                   </div>
                 </div>
