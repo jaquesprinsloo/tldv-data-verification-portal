@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FileText, BarChart3, Users, Download, Upload, Loader2, Save, Plus } from "lucide-react";
+import { FileText, BarChart3, Download, Upload, Loader2, Save, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import PolygraphReportsList from "@/components/admin/polygraph/PolygraphReportsList";
 import PolygraphStatistics from "@/components/admin/polygraph/PolygraphStatistics";
-import PolygraphCandidates from "@/components/admin/polygraph/PolygraphCandidates";
+
 import { generatePolygraphTemplate } from "@/utils/polygraphTemplateGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -525,7 +525,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="reports" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Reports</span>
@@ -536,10 +536,6 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
               <span className="hidden sm:inline">Upload</span>
             </TabsTrigger>
           )}
-          <TabsTrigger value="candidates" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Candidates</span>
-          </TabsTrigger>
           <TabsTrigger value="statistics" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Statistics</span>
@@ -801,10 +797,6 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
             </Card>
           </TabsContent>
         )}
-
-        <TabsContent value="candidates" className="mt-6">
-          <PolygraphCandidates />
-        </TabsContent>
 
         <TabsContent value="statistics" className="mt-6">
           <PolygraphStatistics />
