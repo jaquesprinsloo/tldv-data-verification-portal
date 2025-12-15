@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Eye, Check, X, Send, Users, Clock, UserCheck, UserX } from "lucide-react";
+import { Search, Eye, Check, X, Send, Users, Clock, UserCheck, UserX, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 
 interface Candidate {
@@ -42,6 +43,9 @@ const PolygraphCandidates = () => {
   const [actionType, setActionType] = useState<"approve" | "reject" | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [candidateToDelete, setCandidateToDelete] = useState<Candidate | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchCandidates();
@@ -165,6 +169,43 @@ const PolygraphCandidates = () => {
     setActionType(type);
     setActionDialogOpen(true);
     setRejectionReason("");
+  };
+
+  const handleDelete = async () => {
+    if (!candidateToDelete) return;
+    setDeleting(true);
+
+    try {
+      const { error } = await supabase
+        .from("polygraph_candidates")
+        .delete()
+        .eq("id", candidateToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Candidate Deleted",
+        description: `${candidateToDelete.first_name} ${candidateToDelete.last_name} has been deleted.`,
+      });
+
+      setDeleteDialogOpen(false);
+      setCandidateToDelete(null);
+      fetchCandidates();
+    } catch (error: any) {
+      console.error("Error deleting candidate:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete candidate",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const openDeleteDialog = (candidate: Candidate) => {
+    setCandidateToDelete(candidate);
+    setDeleteDialogOpen(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -323,34 +364,44 @@ const PolygraphCandidates = () => {
                       </TableCell>
                       <TableCell>{getStatusBadge(candidate.status)}</TableCell>
                       <TableCell className="text-right">
-                        {candidate.status === "pending_review" && (
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                              onClick={() => openActionDialog(candidate, "approve")}
-                            >
-                              <Check className="h-4 w-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => openActionDialog(candidate, "reject")}
-                            >
-                              <X className="h-4 w-4 mr-1" />
-                              Reject
-                            </Button>
-                          </div>
-                        )}
-                        {candidate.status === "approved" && (
-                          <Badge variant="outline" className="text-muted-foreground">Processed</Badge>
-                        )}
-                        {candidate.status === "rejected" && (
-                          <Badge variant="outline" className="text-muted-foreground">Processed</Badge>
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          {candidate.status === "pending_review" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={() => openActionDialog(candidate, "approve")}
+                              >
+                                <Check className="h-4 w-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => openActionDialog(candidate, "reject")}
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                          {candidate.status === "approved" && (
+                            <Badge variant="outline" className="text-muted-foreground">Processed</Badge>
+                          )}
+                          {candidate.status === "rejected" && (
+                            <Badge variant="outline" className="text-muted-foreground">Processed</Badge>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => openDeleteDialog(candidate)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -407,6 +458,28 @@ const PolygraphCandidates = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Candidate</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {candidateToDelete?.first_name} {candidateToDelete?.last_name}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
