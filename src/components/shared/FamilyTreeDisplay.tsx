@@ -28,9 +28,12 @@ const getRelationshipIcon = (relationship: string, size: string = "h-4 w-4") => 
   return <User className={size} />;
 };
 
-const getCriminalStatusInfo = (history: string) => {
+const getCriminalStatusInfo = (history: string | undefined | null) => {
+  if (!history) {
+    return { status: "unknown", icon: HelpCircle, color: "text-muted-foreground", bgColor: "bg-muted/50 border-muted" };
+  }
   const lower = history.toLowerCase();
-  if (lower.includes("not aware") || lower.includes("no criminal") || lower.includes("never")) {
+  if (lower.includes("not aware") || lower.includes("no criminal") || lower.includes("never") || lower.includes("none")) {
     return { status: "clear", icon: CheckCircle, color: "text-green-500", bgColor: "bg-green-500/10 border-green-500/30" };
   }
   if (lower.includes("arrested") || lower.includes("convicted") || lower.includes("criminal")) {
