@@ -14,8 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
 import JSZip from "jszip";
 
 interface PolygraphReportsSectionProps {
@@ -612,9 +610,22 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
 
                 {extractedData && (
                   <div className="space-y-6">
-                    {/* Risk Analysis Display */}
+                    {/* Risk Analysis Display with extracted data for background summary */}
                     {extractedData.riskAnalysis && (
-                      <RiskAnalysisDisplay riskAnalysis={extractedData.riskAnalysis} />
+                      <RiskAnalysisDisplay 
+                        riskAnalysis={extractedData.riskAnalysis} 
+                        extractedData={{
+                          educationHistory: extractedData.educationHistory,
+                          employmentHistory: extractedData.employmentHistory,
+                          familyCriminalHistory: extractedData.familyCriminalHistory,
+                          friendCriminalHistory: extractedData.friendCriminalHistory,
+                          financialCircumstances: extractedData.financialCircumstances,
+                          permitsLicensing: extractedData.permitsLicensing,
+                          personalLawEncounters: extractedData.personalLawEncounters,
+                          disclosure: extractedData.disclosure,
+                          examQuestions: extractedData.examQuestions,
+                        }}
+                      />
                     )}
 
                     <Card className="bg-muted/50">
@@ -659,38 +670,6 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                               </Badge>
                             </p>
                           </div>
-                        )}
-
-                        {/* Key Risk Concerns from Risk Analysis */}
-                        {extractedData.riskAnalysis?.KeyRiskConcerns && extractedData.riskAnalysis.KeyRiskConcerns.length > 0 && (
-                          <div>
-                            <h4 className="font-medium mb-2">Key Risk Concerns</h4>
-                            <ul className="list-disc list-inside text-sm space-y-1">
-                              {extractedData.riskAnalysis.KeyRiskConcerns.map((concern: string, idx: number) => (
-                                <li key={idx} className="text-destructive">{concern}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Disclosure Summary */}
-                        {extractedData.disclosure && (
-                          <Collapsible>
-                            <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-muted rounded-lg hover:bg-muted/80">
-                              <h4 className="font-medium">Full Disclosure Summary</h4>
-                              <ChevronDown className="h-4 w-4" />
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="pt-3 space-y-2 text-sm">
-                              {Object.entries(extractedData.disclosure).map(([key, value]) => (
-                                <div key={key} className="grid grid-cols-3 gap-2 border-b pb-2">
-                                  <span className="font-medium text-muted-foreground capitalize">{key.replace(/_/g, ' ')}:</span>
-                                  <span className="col-span-2">
-                                    {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value) || 'Not Disclosed'}
-                                  </span>
-                                </div>
-                              ))}
-                            </CollapsibleContent>
-                          </Collapsible>
                         )}
 
                         {/* Account, Store and Examiner Selection */}
