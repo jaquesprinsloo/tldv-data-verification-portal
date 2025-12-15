@@ -243,11 +243,11 @@ export const RiskProfileDialog = ({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : (
-          <Tabs defaultValue="risk" className="w-full">
+          <Tabs defaultValue="personal" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="risk">Risk Analysis</TabsTrigger>
               <TabsTrigger value="personal">Personal Info</TabsTrigger>
               <TabsTrigger value="report">Full Report Summary</TabsTrigger>
+              <TabsTrigger value="risk">Risk Profile</TabsTrigger>
             </TabsList>
 
             {/* Risk Analysis Tab */}
