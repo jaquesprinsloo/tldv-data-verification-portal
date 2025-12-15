@@ -103,6 +103,81 @@ const RiskAnalysisDisplay = ({ riskAnalysis, extractedData }: RiskAnalysisDispla
     { name: 'Administrative Integrity', score: riskAnalysis.AdministrativeIntegrityScore?.Total || 0, max: 4 },
   ];
 
+  // Helper to format array or object into readable string
+  const formatValue = (value: any): string => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) {
+      if (value.length === 0) return '';
+      return value.map((item: any) => {
+        if (typeof item === 'string') return item;
+        if (typeof item === 'object') {
+          const parts: string[] = [];
+          // Handle education objects
+          if (item.Institution || item.institution || item.School || item.school) {
+            parts.push(item.Institution || item.institution || item.School || item.school);
+          }
+          if (item.Qualification || item.qualification || item.Degree || item.degree) {
+            parts.push(item.Qualification || item.qualification || item.Degree || item.degree);
+          }
+          if (item.Year || item.year || item.Period || item.period) {
+            parts.push(`(${item.Year || item.year || item.Period || item.period})`);
+          }
+          // Handle employment objects
+          if (item.Company || item.company || item.Employer || item.employer) {
+            parts.push(item.Company || item.company || item.Employer || item.employer);
+          }
+          if (item.Position || item.position || item.Role || item.role || item.Title || item.title) {
+            parts.push(`- ${item.Position || item.position || item.Role || item.role || item.Title || item.title}`);
+          }
+          if (item.Duration || item.duration || item.Dates || item.dates) {
+            parts.push(`(${item.Duration || item.duration || item.Dates || item.dates})`);
+          }
+          if (item.Reason || item.reason || item.ReasonForLeaving || item.reasonForLeaving) {
+            parts.push(`Reason: ${item.Reason || item.reason || item.ReasonForLeaving || item.reasonForLeaving}`);
+          }
+          // Handle family/friend objects
+          if (item.Name || item.name) parts.push(item.Name || item.name);
+          if (item.Relationship || item.relationship) parts.push(`(${item.Relationship || item.relationship})`);
+          if (item.CriminalHistory || item.criminalHistory || item.History || item.history) {
+            parts.push(item.CriminalHistory || item.criminalHistory || item.History || item.history);
+          }
+          if (parts.length === 0) {
+            return Object.entries(item)
+              .filter(([_, v]) => v && v !== 'Not Disclosed' && v !== 'N/A')
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(', ');
+          }
+          return parts.filter(Boolean).join(' ');
+        }
+        return String(item);
+      }).filter(Boolean).join('; ');
+    }
+    if (typeof value === 'object') {
+      const entries = Object.entries(value)
+        .filter(([_, v]) => v && v !== 'Not Disclosed' && v !== 'N/A' && v !== '' && !(Array.isArray(v) && v.length === 0));
+      if (entries.length === 0) return '';
+      return entries.map(([k, v]) => {
+        const formattedKey = k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim();
+        const formattedValue = formatValue(v);
+        return formattedValue ? `${formattedKey}: ${formattedValue}` : null;
+      }).filter(Boolean).join('. ');
+    }
+    return String(value);
+  };
+
+  // Check if value is meaningful (not empty, not "Not Disclosed", etc.)
+  const isMeaningful = (value: any): boolean => {
+    if (!value) return false;
+    if (typeof value === 'string') {
+      const lower = value.toLowerCase().trim();
+      return lower !== '' && lower !== 'not disclosed' && lower !== 'n/a' && lower !== 'none' && lower !== '{}' && lower !== '[]';
+    }
+    if (Array.isArray(value)) return value.length > 0 && value.some(isMeaningful);
+    if (typeof value === 'object') return Object.values(value).some(isMeaningful);
+    return true;
+  };
+
   // Generate background summary from extracted data
   const generateBackgroundSummary = () => {
     if (!extractedData) return null;
@@ -110,109 +185,58 @@ const RiskAnalysisDisplay = ({ riskAnalysis, extractedData }: RiskAnalysisDispla
     const sections: { title: string; icon: React.ReactNode; content: string }[] = [];
 
     // Education History
-    if (extractedData.educationHistory) {
-      const edu = extractedData.educationHistory;
-      let summary = "";
-      if (typeof edu === 'string') {
-        summary = edu;
-      } else if (Array.isArray(edu)) {
-        summary = edu.map((e: any) => `${e.institution || e.school || ''} (${e.qualification || e.degree || e.year || ''})`).filter(Boolean).join('; ') || 'No education details disclosed.';
-      } else {
-        summary = edu.summary || edu.details || 'No education details disclosed.';
-      }
-      if (summary && summary !== 'Not Disclosed') {
-        sections.push({ title: 'Education', icon: <FileText className="h-4 w-4" />, content: summary });
+    if (isMeaningful(extractedData.educationHistory)) {
+      const content = formatValue(extractedData.educationHistory);
+      if (content) {
+        sections.push({ title: 'Education', icon: <FileText className="h-4 w-4" />, content });
       }
     }
 
     // Employment History
-    if (extractedData.employmentHistory) {
-      const emp = extractedData.employmentHistory;
-      let summary = "";
-      if (typeof emp === 'string') {
-        summary = emp;
-      } else if (Array.isArray(emp)) {
-        summary = emp.map((e: any) => `${e.company || e.employer || ''} - ${e.position || e.role || ''} (${e.period || e.duration || ''})`).filter(Boolean).join('; ') || 'No employment history disclosed.';
-      } else {
-        summary = emp.summary || emp.details || 'No employment history disclosed.';
-      }
-      if (summary && summary !== 'Not Disclosed') {
-        sections.push({ title: 'Employment History', icon: <Briefcase className="h-4 w-4" />, content: summary });
+    if (isMeaningful(extractedData.employmentHistory)) {
+      const content = formatValue(extractedData.employmentHistory);
+      if (content) {
+        sections.push({ title: 'Employment History', icon: <Briefcase className="h-4 w-4" />, content });
       }
     }
 
-    // Family & Friend Background
-    const familyFriend: string[] = [];
-    if (extractedData.familyCriminalHistory) {
-      const fam = extractedData.familyCriminalHistory;
-      if (typeof fam === 'string' && fam !== 'Not Disclosed') {
-        familyFriend.push(`Family: ${fam}`);
-      } else if (fam.summary || fam.details) {
-        familyFriend.push(`Family: ${fam.summary || fam.details}`);
+    // Family Criminal History
+    if (isMeaningful(extractedData.familyCriminalHistory)) {
+      const content = formatValue(extractedData.familyCriminalHistory);
+      if (content) {
+        sections.push({ title: 'Family Background', icon: <Users className="h-4 w-4" />, content });
       }
     }
-    if (extractedData.friendCriminalHistory) {
-      const fri = extractedData.friendCriminalHistory;
-      if (typeof fri === 'string' && fri !== 'Not Disclosed') {
-        familyFriend.push(`Friends: ${fri}`);
-      } else if (fri.summary || fri.details) {
-        familyFriend.push(`Friends: ${fri.summary || fri.details}`);
+
+    // Friend Criminal History  
+    if (isMeaningful(extractedData.friendCriminalHistory)) {
+      const content = formatValue(extractedData.friendCriminalHistory);
+      if (content) {
+        sections.push({ title: 'Friend Background', icon: <Users className="h-4 w-4" />, content });
       }
-    }
-    if (familyFriend.length > 0) {
-      sections.push({ title: 'Family & Friend Background', icon: <Users className="h-4 w-4" />, content: familyFriend.join(' ') });
     }
 
     // Financial Circumstances
-    if (extractedData.financialCircumstances) {
-      const fin = extractedData.financialCircumstances;
-      let summary = "";
-      if (typeof fin === 'string') {
-        summary = fin;
-      } else {
-        const parts: string[] = [];
-        if (fin.activeDebt) parts.push(`Active debt: ${fin.activeDebt}`);
-        if (fin.arrears) parts.push(`Arrears: ${fin.arrears}`);
-        if (fin.blacklisting) parts.push(`Blacklisting: ${fin.blacklisting}`);
-        if (fin.gambling) parts.push(`Gambling impact: ${fin.gambling}`);
-        if (fin.summary) parts.push(fin.summary);
-        summary = parts.join('. ') || 'No financial concerns disclosed.';
-      }
-      if (summary && summary !== 'Not Disclosed') {
-        sections.push({ title: 'Financial Circumstances', icon: <DollarSign className="h-4 w-4" />, content: summary });
+    if (isMeaningful(extractedData.financialCircumstances)) {
+      const content = formatValue(extractedData.financialCircumstances);
+      if (content) {
+        sections.push({ title: 'Financial Circumstances', icon: <DollarSign className="h-4 w-4" />, content });
       }
     }
 
     // Permits & Licensing
-    if (extractedData.permitsLicensing) {
-      const perm = extractedData.permitsLicensing;
-      let summary = "";
-      if (typeof perm === 'string') {
-        summary = perm;
-      } else {
-        summary = perm.summary || perm.details || JSON.stringify(perm);
-      }
-      if (summary && summary !== 'Not Disclosed' && summary !== '{}') {
-        sections.push({ title: 'Permits & Licensing', icon: <Scale className="h-4 w-4" />, content: summary });
+    if (isMeaningful(extractedData.permitsLicensing)) {
+      const content = formatValue(extractedData.permitsLicensing);
+      if (content) {
+        sections.push({ title: 'Permits & Licensing', icon: <Scale className="h-4 w-4" />, content });
       }
     }
 
     // Personal Encounters with the Law
-    if (extractedData.personalLawEncounters) {
-      const law = extractedData.personalLawEncounters;
-      let summary = "";
-      if (typeof law === 'string') {
-        summary = law;
-      } else {
-        const parts: string[] = [];
-        if (law.arrests) parts.push(`Arrests: ${law.arrests}`);
-        if (law.convictions) parts.push(`Convictions: ${law.convictions}`);
-        if (law.courtCases) parts.push(`Court cases: ${law.courtCases}`);
-        if (law.summary) parts.push(law.summary);
-        summary = parts.join('. ') || 'No law encounters disclosed.';
-      }
-      if (summary && summary !== 'Not Disclosed') {
-        sections.push({ title: 'Encounters with the Law', icon: <AlertCircle className="h-4 w-4" />, content: summary });
+    if (isMeaningful(extractedData.personalLawEncounters)) {
+      const content = formatValue(extractedData.personalLawEncounters);
+      if (content) {
+        sections.push({ title: 'Encounters with the Law', icon: <AlertCircle className="h-4 w-4" />, content });
       }
     }
 
@@ -220,30 +244,44 @@ const RiskAnalysisDisplay = ({ riskAnalysis, extractedData }: RiskAnalysisDispla
     if (extractedData.disclosure) {
       const disc = extractedData.disclosure;
       const criminalParts: string[] = [];
-      if (disc.workplaceTheft && disc.workplaceTheft !== 'Not Disclosed') {
-        criminalParts.push(`Workplace theft: ${disc.workplaceTheft}`);
-      }
-      if (disc.bribery && disc.bribery !== 'Not Disclosed') {
-        criminalParts.push(`Bribery: ${disc.bribery}`);
-      }
-      if (disc.drugUse && disc.drugUse !== 'Not Disclosed') {
-        criminalParts.push(`Drug use history: ${disc.drugUse}`);
-      }
-      if (disc.organisedCrime && disc.organisedCrime !== 'Not Disclosed') {
-        criminalParts.push(`Organised crime links: ${disc.organisedCrime}`);
-      }
+      
+      // Handle both PascalCase and camelCase keys
+      const workplaceTheft = disc.WorkplaceTheft || disc.workplaceTheft;
+      const briberyPaid = disc.BriberyPaid || disc.briberyPaid;
+      const briberyAccepted = disc.BriberyAccepted || disc.briberyAccepted;
+      const drugUse = disc.DrugUseHistory || disc.drugUseHistory || disc.drugUse;
+      const organisedCrime = disc.OrganisedCrimeLinks || disc.organisedCrimeLinks || disc.organisedCrime;
+      const arrests = disc.Arrests || disc.arrests;
+      const convictions = disc.Convictions || disc.convictions;
+      const courtCases = disc.CourtCases || disc.courtCases;
+      
+      if (isMeaningful(workplaceTheft)) criminalParts.push(`Workplace theft: ${workplaceTheft}`);
+      if (isMeaningful(briberyPaid)) criminalParts.push(`Bribery paid: ${briberyPaid}`);
+      if (isMeaningful(briberyAccepted)) criminalParts.push(`Bribery accepted: ${briberyAccepted}`);
+      if (isMeaningful(drugUse)) criminalParts.push(`Drug use: ${drugUse}`);
+      if (isMeaningful(organisedCrime)) criminalParts.push(`Organised crime: ${organisedCrime}`);
+      if (isMeaningful(arrests)) criminalParts.push(`Arrests: ${arrests}`);
+      if (isMeaningful(convictions)) criminalParts.push(`Convictions: ${convictions}`);
+      if (isMeaningful(courtCases)) criminalParts.push(`Court cases: ${courtCases}`);
+      
       if (criminalParts.length > 0) {
         sections.push({ title: 'Past Criminal Activity', icon: <AlertTriangle className="h-4 w-4" />, content: criminalParts.join('. ') });
       }
 
-      // General/Other Admissions
+      // General/Other Disclosures
       const generalParts: string[] = [];
-      if (disc.otherAdmissions && disc.otherAdmissions !== 'Not Disclosed') {
-        generalParts.push(disc.otherAdmissions);
-      }
-      if (disc.general && disc.general !== 'Not Disclosed') {
-        generalParts.push(disc.general);
-      }
+      const otherAdmissions = disc.OtherNotableAdmissions || disc.otherNotableAdmissions || disc.otherAdmissions;
+      const driverLicense = disc.DriverLicenseAndBribes || disc.driverLicenseAndBribes;
+      const financialStatus = disc.FinancialStatus || disc.financialStatus;
+      const familyCriminal = disc.FamilyCriminalHistory || disc.familyCriminalHistory;
+      const friendCriminal = disc.FriendCriminalHistory || disc.friendCriminalHistory;
+      
+      if (isMeaningful(otherAdmissions)) generalParts.push(`Other admissions: ${otherAdmissions}`);
+      if (isMeaningful(driverLicense)) generalParts.push(`Driver's license: ${driverLicense}`);
+      if (isMeaningful(financialStatus)) generalParts.push(`Financial: ${formatValue(financialStatus)}`);
+      if (isMeaningful(familyCriminal)) generalParts.push(`Family: ${familyCriminal}`);
+      if (isMeaningful(friendCriminal)) generalParts.push(`Friends: ${friendCriminal}`);
+      
       if (generalParts.length > 0) {
         sections.push({ title: 'General Disclosures', icon: <User className="h-4 w-4" />, content: generalParts.join('. ') });
       }
