@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Eye, Edit, Trash2, FileText, Shield } from "lucide-react";
+import { Plus, Search, Eye, Edit, Trash2, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { RiskProfileDialog } from "@/components/shared/RiskProfileDialog";
 
@@ -226,7 +226,7 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
                           onClick={() => handleViewRiskProfile(report)}
                           title="View Risk Profile"
                         >
-                          <Shield className="h-4 w-4 text-primary" />
+                          <Eye className="h-4 w-4 text-primary" />
                         </Button>
                         <Button
                           variant="ghost"
