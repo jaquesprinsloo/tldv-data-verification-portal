@@ -10,18 +10,22 @@ const corsHeaders = {
 // Production URL for email links
 const PRODUCTION_URL = "https://tldv-data-verification-portal.lovable.app";
 
-// Server-side validation schema
+// Server-side validation schema - accepts either invitationLink OR token
 const InvitationEmailSchema = z.object({
   email: z.string().email('Invalid email format').max(255, 'Email too long'),
   employeeNumber: z.string().trim().min(1).max(50, 'Employee number too long'),
-  invitationLink: z.string().url('Invalid invitation link').max(500, 'Link too long'),
+  invitationLink: z.string().url('Invalid invitation link').max(500, 'Link too long').optional(),
+  token: z.string().min(1).max(500, 'Token too long').optional(),
   otp: z.string().regex(/^\d{6}$/, 'OTP must be exactly 6 digits')
+}).refine(data => data.invitationLink || data.token, {
+  message: 'Either invitationLink or token must be provided'
 });
 
 interface InvitationEmailRequest {
   email: string;
   employeeNumber: string;
-  invitationLink: string;
+  invitationLink?: string;
+  token?: string;
   otp: string;
 }
 
@@ -46,12 +50,19 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const { email, employeeNumber, invitationLink, otp } = validationResult.data;
+    const { email, employeeNumber, invitationLink, token, otp } = validationResult.data;
 
-    // Extract token from invitation link and create production URL
-    const url = new URL(invitationLink);
-    const token = url.searchParams.get('token');
-    const productionLink = `${PRODUCTION_URL}/employee/register?token=${token}`;
+    // Build the production link from either invitationLink or token
+    let productionLink: string;
+    if (invitationLink) {
+      const url = new URL(invitationLink);
+      const extractedToken = url.searchParams.get('token');
+      productionLink = `${PRODUCTION_URL}/employee/register?token=${extractedToken}`;
+    } else if (token) {
+      productionLink = `${PRODUCTION_URL}/employee/register?token=${token}`;
+    } else {
+      throw new Error('No token or invitation link provided');
+    }
 
     console.log('Processing invitation email request');
 
