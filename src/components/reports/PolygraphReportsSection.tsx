@@ -662,9 +662,16 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                             <h4 className="font-medium mb-2">Result</h4>
                             <p className="text-sm">
                               <span className="text-muted-foreground">Overall Result:</span>{" "}
-                              <Badge variant={
-                                extractedData.result.overallResult === 'passed' ? 'default' :
-                                extractedData.result.overallResult === 'failed' ? 'destructive' : 'secondary'
+                              <Badge className={
+                                extractedData.result.overallResult?.toLowerCase().includes('no significant') || 
+                                extractedData.result.overallResult?.toLowerCase() === 'passed' ||
+                                extractedData.result.overallResult?.toLowerCase().includes('nsr')
+                                  ? 'bg-green-500 text-white hover:bg-green-600' :
+                                extractedData.result.overallResult?.toLowerCase().includes('significant reaction') || 
+                                extractedData.result.overallResult?.toLowerCase() === 'failed' ||
+                                extractedData.result.overallResult?.toLowerCase().includes('deception indicated')
+                                  ? 'bg-red-500 text-white hover:bg-red-600' 
+                                  : 'bg-yellow-500 text-white hover:bg-yellow-600'
                               }>
                                 {extractedData.result.overallResult || 'N/A'}
                               </Badge>
