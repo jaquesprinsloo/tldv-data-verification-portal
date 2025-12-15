@@ -34,6 +34,7 @@ const EmployeeSubmissionForm = () => {
     postalCode: "",
     nextOfKinFirstName: "",
     nextOfKinLastName: "",
+    nextOfKinRelationship: "",
     nextOfKinContact: "",
     nextOfKinHouseNumber: "",
     nextOfKinFloorNumber: "",
@@ -516,7 +517,8 @@ const EmployeeSubmissionForm = () => {
         _first_name: formData.nextOfKinFirstName,
         _last_name: formData.nextOfKinLastName,
         _contact_number: formData.nextOfKinContact,
-        _address: nextOfKinAddress
+        _address: nextOfKinAddress,
+        _relationship: formData.nextOfKinRelationship || null
       });
 
       if (nokError) throw nokError;
@@ -815,7 +817,28 @@ const EmployeeSubmissionForm = () => {
                       required
                     />
                   </div>
-                  <div className="space-y-2 md:col-span-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinRelationship">Relationship *</Label>
+                    <select
+                      id="nextOfKinRelationship"
+                      value={formData.nextOfKinRelationship}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinRelationship: e.target.value })}
+                      required
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <option value="">Select relationship</option>
+                      <option value="spouse">Spouse</option>
+                      <option value="parent">Parent</option>
+                      <option value="sibling">Sibling</option>
+                      <option value="child">Child</option>
+                      <option value="grandparent">Grandparent</option>
+                      <option value="aunt_uncle">Aunt/Uncle</option>
+                      <option value="cousin">Cousin</option>
+                      <option value="friend">Friend</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="nextOfKinContact">Contact Number *</Label>
                     <Input
                       id="nextOfKinContact"

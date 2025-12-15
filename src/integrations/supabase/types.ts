@@ -503,6 +503,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          relationship: string | null
           submission_id: string
         }
         Insert: {
@@ -512,6 +513,7 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          relationship?: string | null
           submission_id: string
         }
         Update: {
@@ -521,6 +523,7 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          relationship?: string | null
           submission_id?: string
         }
         Relationships: [
@@ -1474,16 +1477,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      add_next_of_kin: {
-        Args: {
-          _address: string
-          _contact_number: string
-          _first_name: string
-          _last_name: string
-          _submission_id: string
-        }
-        Returns: string
-      }
+      add_next_of_kin:
+        | {
+            Args: {
+              _address: string
+              _contact_number: string
+              _first_name: string
+              _last_name: string
+              _submission_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _address: string
+              _contact_number: string
+              _first_name: string
+              _last_name: string
+              _relationship?: string
+              _submission_id: string
+            }
+            Returns: string
+          }
       approve_polygraph_candidate: {
         Args: { _candidate_id: string }
         Returns: {
