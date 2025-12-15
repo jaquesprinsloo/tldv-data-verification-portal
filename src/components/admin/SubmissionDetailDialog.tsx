@@ -285,10 +285,14 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                   <p className="font-medium">{nextOfKin.first_name} {nextOfKin.last_name}</p>
                 </div>
                 <div>
+                  <span className="text-muted-foreground">Relationship:</span>
+                  <p className="font-medium capitalize">{nextOfKin.relationship?.replace('_', '/') || 'Not specified'}</p>
+                </div>
+                <div>
                   <span className="text-muted-foreground">Contact:</span>
                   <p className="font-medium">{nextOfKin.contact_number}</p>
                 </div>
-                <div className="col-span-2">
+                <div>
                   <span className="text-muted-foreground">Address:</span>
                   <p className="font-medium">{nextOfKin.address}</p>
                 </div>
