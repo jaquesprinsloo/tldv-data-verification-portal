@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { AlertTriangle, CheckCircle2, Shield, XCircle, FileText, User, Briefcase, Users, DollarSign, Scale, AlertCircle, Activity } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Shield, XCircle, FileText, User, Briefcase, Users, DollarSign, Scale, AlertCircle, Activity, GraduationCap } from "lucide-react";
 
 interface RiskAnalysis {
   CriminalDishonestyScore?: {
@@ -183,6 +183,57 @@ const RiskAnalysisDisplay = ({ riskAnalysis, extractedData }: RiskAnalysisDispla
     if (!extractedData) return null;
 
     const sections: { title: string; icon: React.ReactNode; content: string }[] = [];
+
+    // Education History - qualifications obtained
+    const generateEducationSummary = () => {
+      const education = extractedData.educationHistory;
+      if (!education) {
+        return "No education history was disclosed by the candidate.";
+      }
+      
+      const eduArray = Array.isArray(education) ? education : [education];
+      const qualifications: string[] = [];
+      
+      eduArray.forEach((edu: any) => {
+        const qualification = edu.Qualification || edu.qualification || edu.Degree || edu.degree || '';
+        const institution = edu.Institution || edu.institution || edu.School || edu.school || '';
+        const year = edu.Year || edu.year || edu.YearCompleted || edu.yearCompleted || edu.Period || edu.period || '';
+        
+        if (isMeaningful(qualification)) {
+          let qualStr = qualification;
+          if (isMeaningful(institution)) {
+            qualStr += ` from ${institution}`;
+          }
+          if (isMeaningful(year)) {
+            qualStr += ` (${year})`;
+          }
+          qualifications.push(qualStr);
+        } else if (isMeaningful(institution)) {
+          let qualStr = institution;
+          if (isMeaningful(year)) {
+            qualStr += ` (${year})`;
+          }
+          qualifications.push(qualStr);
+        }
+      });
+      
+      // Also check for highest qualification field
+      const highestQual = education.HighestQualification || education.highestQualification;
+      if (isMeaningful(highestQual) && !qualifications.some(q => q.toLowerCase().includes(highestQual.toLowerCase()))) {
+        qualifications.unshift(highestQual);
+      }
+      
+      if (qualifications.length === 0) {
+        // Check if there's a summary or notes field
+        const summary = education.Summary || education.summary || education.Notes || education.notes;
+        if (isMeaningful(summary)) {
+          return `Education: ${summary}`;
+        }
+        return "No specific qualifications were disclosed by the candidate.";
+      }
+      
+      return `The candidate holds the following qualification${qualifications.length > 1 ? 's' : ''}: ${qualifications.join('; ')}.`;
+    };
 
     // Employment History - focus on job count, dismissals, absconding, disciplinary actions
     const generateEmploymentSummary = () => {
@@ -506,6 +557,12 @@ const RiskAnalysisDisplay = ({ riskAnalysis, extractedData }: RiskAnalysisDispla
     };
 
     // Build sections
+    sections.push({ 
+      title: 'Education History', 
+      icon: <GraduationCap className="h-4 w-4" />, 
+      content: generateEducationSummary() 
+    });
+
     sections.push({ 
       title: 'Employment History', 
       icon: <Briefcase className="h-4 w-4" />, 
