@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { FileText, BarChart3, Download, Upload, Loader2, Save, Plus, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import PolygraphReportsList from "@/components/admin/polygraph/PolygraphReportsList";
@@ -45,6 +46,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   const [downloading, setDownloading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingStep, setUploadingStep] = useState<'extracting' | 'processing' | null>(null);
+  const [extractionProgress, setExtractionProgress] = useState(0);
   const [saving, setSaving] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [extractedData, setExtractedData] = useState<any>(null);
@@ -208,16 +210,30 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     }
 
     setUploading(true);
-    setUploadingStep('processing');
+    setUploadingStep('extracting');
     setExtractedData(null);
+    setExtractionProgress(0);
+    
+    // Simulate progress for better UX (extraction takes ~30-60 seconds)
+    const progressInterval = setInterval(() => {
+      setExtractionProgress(prev => {
+        // Slow down as we approach 90% (leave room for completion)
+        if (prev < 30) return prev + 2;
+        if (prev < 60) return prev + 1.5;
+        if (prev < 80) return prev + 0.8;
+        if (prev < 90) return prev + 0.3;
+        return prev;
+      });
+    }, 500);
     
     try {
       toast({
         title: "Processing Document",
-        description: "Extracting data from PDF. This may take a moment...",
+        description: "AI is extracting data from your PDF. This may take up to a minute...",
       });
       
       const pdfBase64 = await fileToBase64(file);
+      setExtractionProgress(15); // File read complete
 
       const { data, error } = await supabase.functions.invoke('extract-polygraph-report', {
         body: { 
@@ -225,6 +241,8 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
           fileName: file.name
         }
       });
+
+      clearInterval(progressInterval);
 
       if (error) {
         throw new Error(error.message || 'Failed to process document');
@@ -235,6 +253,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       }
 
       if (data?.success && data?.data) {
+        setExtractionProgress(100);
         setExtractedData(data.data);
         toast({
           title: "Data Extracted Successfully",
@@ -244,6 +263,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         throw new Error('No data extracted from document');
       }
     } catch (error) {
+      clearInterval(progressInterval);
       console.error("Upload error:", error);
       toast({
         title: "Extraction Failed",
@@ -595,33 +615,48 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                       <span>Select PDF File</span>
                     </Button>
                   </label>
-                  {file && (
+                  {file && !uploading && !extractedData && (
                     <div className="mt-4">
                       <p className="text-sm font-medium">{file.name}</p>
-                      {extractedData?.candidatePhotoUrl && (
-                        <div className="mt-2">
-                          <p className="text-xs text-muted-foreground mb-1">Extracted Photo:</p>
-                          <img 
-                            src={extractedData.candidatePhotoUrl} 
-                            alt="Candidate" 
-                            className="w-16 h-16 object-cover rounded-full mx-auto border"
-                          />
-                        </div>
-                      )}
                       <Button
                         onClick={handleUpload}
                         disabled={uploading}
                         className="mt-2"
                       >
-                        {uploading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Extracting data from PDF...
-                          </>
-                        ) : (
-                          "Extract Report Data"
-                        )}
+                        Extract Report Data
                       </Button>
+                    </div>
+                  )}
+
+                  {/* Progress Bar during extraction */}
+                  {uploading && (
+                    <div className="mt-6 space-y-3">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium">
+                          Extracting data from PDF...
+                        </span>
+                      </div>
+                      <div className="max-w-md mx-auto space-y-2">
+                        <Progress value={extractionProgress} className="h-3" />
+                        <p className="text-center text-sm font-semibold text-primary">
+                          {Math.round(extractionProgress)}%
+                        </p>
+                        <p className="text-xs text-muted-foreground text-center">
+                          AI is analyzing the document. This may take up to a minute.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {extractedData?.candidatePhotoUrl && (
+                    <div className="mt-4">
+                      <p className="text-xs text-muted-foreground mb-1">Extracted Photo:</p>
+                      <img 
+                        src={extractedData.candidatePhotoUrl} 
+                        alt="Candidate" 
+                        className="w-16 h-16 object-cover rounded-full mx-auto border"
+                      />
                     </div>
                   )}
                 </div>

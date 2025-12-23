@@ -33,6 +33,7 @@ interface FileUploadState {
   extractedData?: any;
   error?: string;
   reportId?: string;
+  progress?: number;
 }
 
 interface BatchUploadSectionProps {
@@ -180,10 +181,23 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
     });
   };
 
-  const processFile = async (fileState: FileUploadState, index: number): Promise<FileUploadState> => {
+  const processFile = async (
+    fileState: FileUploadState, 
+    index: number,
+    updateProgress: (index: number, progress: number) => void
+  ): Promise<FileUploadState> => {
     try {
+      updateProgress(index, 10);
       const pdfBase64 = await fileToBase64(fileState.file);
+      updateProgress(index, 20);
       
+      // Simulate progress during API call
+      let currentProgress = 20;
+      const progressInterval = setInterval(() => {
+        currentProgress = Math.min(currentProgress + 2, 90);
+        updateProgress(index, currentProgress);
+      }, 500);
+
       const { data, error } = await supabase.functions.invoke('extract-polygraph-report', {
         body: { 
           pdfBase64, 
@@ -191,14 +205,18 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
         }
       });
 
+      clearInterval(progressInterval);
+
       if (error) throw new Error(error.message || 'Failed to process document');
       if (data?.error) throw new Error(data.error);
 
       if (data?.success && data?.data) {
+        updateProgress(index, 100);
         return {
           ...fileState,
           status: 'completed',
           extractedData: data.data,
+          progress: 100,
         };
       } else {
         throw new Error('No data extracted from document');
@@ -208,6 +226,7 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
         ...fileState,
         status: 'error',
         error: error instanceof Error ? error.message : 'Failed to extract data',
+        progress: 0,
       };
     }
   };
@@ -219,17 +238,27 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
     
     toast({
       title: "Processing Reports",
-      description: `Processing ${files.length} report(s). This may take a moment...`,
+      description: `Processing ${files.length} report(s). This may take a moment per file...`,
     });
+
+    const updateProgress = (index: number, progress: number) => {
+      setFiles(prev => {
+        const updated = [...prev];
+        if (updated[index]) {
+          updated[index] = { ...updated[index], progress };
+        }
+        return updated;
+      });
+    };
 
     // Process files sequentially to avoid overwhelming the API
     const updatedFiles = [...files];
     for (let i = 0; i < updatedFiles.length; i++) {
       if (updatedFiles[i].status === 'pending') {
-        updatedFiles[i] = { ...updatedFiles[i], status: 'processing' };
+        updatedFiles[i] = { ...updatedFiles[i], status: 'processing', progress: 0 };
         setFiles([...updatedFiles]);
         
-        const result = await processFile(updatedFiles[i], i);
+        const result = await processFile(updatedFiles[i], i, updateProgress);
         updatedFiles[i] = result;
         setFiles([...updatedFiles]);
       }
@@ -513,56 +542,68 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
               {files.map((fileState, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                  className="p-3 bg-muted/50 rounded-lg space-y-2"
                 >
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium truncate max-w-[200px]">
-                        {fileState.file.name}
-                      </p>
-                      {fileState.extractedData?.candidate && (
-                        <p className="text-xs text-muted-foreground">
-                          {fileState.extractedData.candidate.firstName} {fileState.extractedData.candidate.lastName}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">
+                          {fileState.file.name}
                         </p>
+                        {fileState.extractedData?.candidate && (
+                          <p className="text-xs text-muted-foreground">
+                            {fileState.extractedData.candidate.firstName} {fileState.extractedData.candidate.lastName}
+                          </p>
+                        )}
+                        {fileState.error && (
+                          <p className="text-xs text-destructive">{fileState.error}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {fileState.status === 'pending' && (
+                        <Badge variant="outline">Pending</Badge>
                       )}
-                      {fileState.error && (
-                        <p className="text-xs text-destructive">{fileState.error}</p>
+                      {fileState.status === 'processing' && (
+                        <Badge variant="secondary" className="flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          {fileState.progress ? `${Math.round(fileState.progress)}%` : 'Processing'}
+                        </Badge>
+                      )}
+                      {fileState.status === 'completed' && (
+                        <Badge variant="default" className="bg-green-500">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Done
+                        </Badge>
+                      )}
+                      {fileState.status === 'error' && (
+                        <Badge variant="destructive">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Error
+                        </Badge>
+                      )}
+                      {!isProcessing && !isSaving && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeFile(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {fileState.status === 'pending' && (
-                      <Badge variant="outline">Pending</Badge>
-                    )}
-                    {fileState.status === 'processing' && (
-                      <Badge variant="secondary" className="flex items-center gap-1">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        Processing
-                      </Badge>
-                    )}
-                    {fileState.status === 'completed' && (
-                      <Badge variant="default" className="bg-green-500">
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Done
-                      </Badge>
-                    )}
-                    {fileState.status === 'error' && (
-                      <Badge variant="destructive">
-                        <AlertCircle className="h-3 w-3 mr-1" />
-                        Error
-                      </Badge>
-                    )}
-                    {!isProcessing && !isSaving && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeFile(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+                  
+                  {/* Per-file progress bar */}
+                  {fileState.status === 'processing' && (
+                    <div className="space-y-1">
+                      <Progress value={fileState.progress || 0} className="h-2" />
+                      <p className="text-xs text-muted-foreground text-center">
+                        AI extracting data... {Math.round(fileState.progress || 0)}%
+                      </p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
