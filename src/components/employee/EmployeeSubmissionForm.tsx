@@ -46,6 +46,14 @@ const EmployeeSubmissionForm = () => {
     nextOfKinPostalCode: "",
   });
 
+  // Helper function to validate lat/lng - defined early so it can be used in useEffect
+  const isValidLatLng = (lat: number, lng: number) =>
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180 &&
+    !(lat === 0 && lng === 0);
+
   // Load employee data from authenticated session and polygraph report if available
   useEffect(() => {
     const loadEmployeeData = async () => {
@@ -81,6 +89,8 @@ const EmployeeSubmissionForm = () => {
         .limit(1)
         .maybeSingle();
 
+      console.log('EmployeeSubmissionForm: POPIA data:', popia, 'Error:', popiaError);
+
       if (popiaError) {
         console.warn('EmployeeSubmissionForm: POPIA lookup error:', popiaError);
       }
@@ -88,9 +98,12 @@ const EmployeeSubmissionForm = () => {
       if (popia?.gps_latitude != null && popia?.gps_longitude != null) {
         const lat = Number(popia.gps_latitude);
         const lng = Number(popia.gps_longitude);
+        console.log('EmployeeSubmissionForm: Setting POPIA location:', { lat, lng, valid: isValidLatLng(lat, lng) });
         if (isValidLatLng(lat, lng)) {
           setPopiaLocation({ lat, lng, acceptedAt: popia.accepted_at });
         }
+      } else {
+        console.log('EmployeeSubmissionForm: No POPIA location found for employee', employee.id);
       }
 
       // Check if this employee came from a polygraph candidate approval
@@ -223,13 +236,6 @@ const EmployeeSubmissionForm = () => {
     verified: boolean;
     threshold: number;
   } | null>(null);
-
-  const isValidLatLng = (lat: number, lng: number) =>
-    Number.isFinite(lat) &&
-    Number.isFinite(lng) &&
-    Math.abs(lat) <= 90 &&
-    Math.abs(lng) <= 180 &&
-    !(lat === 0 && lng === 0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "proof" | "id") => {
     const file = e.target.files?.[0];
