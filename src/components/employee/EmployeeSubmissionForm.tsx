@@ -16,6 +16,7 @@ const EmployeeSubmissionForm = () => {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [employeeId, setEmployeeId] = useState("");
+  const [activeTab, setActiveTab] = useState<"employee" | "nextofkin">("employee");
 
   const [formData, setFormData] = useState({
     employeeNumber: "",
@@ -261,10 +262,36 @@ const EmployeeSubmissionForm = () => {
     try {
       employeeSubmissionSchema.parse(formData);
     } catch (error: any) {
-      const firstError = error.errors[0];
+      const firstError = error?.errors?.[0];
+      const field = firstError?.path?.[0];
+
+      const fieldLabels: Record<string, string> = {
+        employeeNumber: "Employee Number",
+        idNumber: "ID Number",
+        firstName: "First Name",
+        lastName: "Last Name",
+        email: "Email Address",
+        contactNumber: "Contact Number",
+
+        nextOfKinFirstName: "Next of Kin First Name",
+        nextOfKinLastName: "Next of Kin Last Name",
+        nextOfKinContact: "Next of Kin Contact Number",
+      };
+
+      // If the first error is in the Next of Kin section, take the user there.
+      if (typeof field === "string" && field.startsWith("nextOfKin")) {
+        setActiveTab("nextofkin");
+      } else {
+        setActiveTab("employee");
+      }
+
+      const friendlyField = typeof field === "string" ? fieldLabels[field] : undefined;
+
       toast({
         title: "Validation Error",
-        description: firstError.message,
+        description:
+          (friendlyField ? `${friendlyField}: ` : "") +
+          (firstError?.message || "Please complete all required fields."),
         variant: "destructive",
       });
       return;
@@ -560,7 +587,11 @@ const EmployeeSubmissionForm = () => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Tabs defaultValue="employee" className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as "employee" | "nextofkin")}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="employee">Employee Information</TabsTrigger>
               <TabsTrigger value="nextofkin">Next of Kin</TabsTrigger>
@@ -828,12 +859,11 @@ const EmployeeSubmissionForm = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="nextOfKinRelationship">Relationship *</Label>
+                    <Label htmlFor="nextOfKinRelationship">Relationship</Label>
                     <select
                       id="nextOfKinRelationship"
                       value={formData.nextOfKinRelationship}
                       onChange={(e) => setFormData({ ...formData, nextOfKinRelationship: e.target.value })}
-                      required
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
                       <option value="">Select relationship</option>
