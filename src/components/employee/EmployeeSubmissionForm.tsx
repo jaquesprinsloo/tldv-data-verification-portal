@@ -887,19 +887,6 @@ const EmployeeSubmissionForm = () => {
               </div>
             </div>
           </div>
-
-          {/* Location Verification */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold border-b pb-2">Location Verification</h3>
-            <div className="p-4 border rounded-lg bg-muted/50 space-y-2">
-              <p className="text-sm font-medium">No current location capture required</p>
-              <p className="text-xs text-muted-foreground">
-                We use the GPS coordinates captured when you accepted the POPIA declaration.
-                If no POPIA GPS coordinates were captured, your submission will still be accepted and queued for review.
-              </p>
-            </div>
-          </div>
-
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? "Submitting..." : "Submit Verification"}
           </Button>
