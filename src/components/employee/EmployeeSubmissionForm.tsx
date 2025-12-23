@@ -71,7 +71,28 @@ const EmployeeSubmissionForm = () => {
       }
 
       setEmployeeId(employee.id);
-      
+
+      // Load most recent POPIA acceptance location as a fallback (laptops often have inconsistent geolocation)
+      const { data: popia, error: popiaError } = await supabase
+        .from('popia_acceptances')
+        .select('gps_latitude, gps_longitude, accepted_at')
+        .eq('employee_id', employee.id)
+        .order('accepted_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (popiaError) {
+        console.warn('EmployeeSubmissionForm: POPIA lookup error:', popiaError);
+      }
+
+      if (popia?.gps_latitude != null && popia?.gps_longitude != null) {
+        const lat = Number(popia.gps_latitude);
+        const lng = Number(popia.gps_longitude);
+        if (isValidLatLng(lat, lng)) {
+          setPopiaLocation({ lat, lng, acceptedAt: popia.accepted_at });
+        }
+      }
+
       // Check if this employee came from a polygraph candidate approval
       // The new RLS policy allows employees to view their own candidate record
       const { data: candidate, error: candError } = await supabase
@@ -192,6 +213,7 @@ const EmployeeSubmissionForm = () => {
   const [proofOfResidenceFile, setProofOfResidenceFile] = useState<File | null>(null);
   const [idFile, setIdFile] = useState<File | null>(null);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [popiaLocation, setPopiaLocation] = useState<{ lat: number; lng: number; acceptedAt: string } | null>(null);
   const [showManualLocation, setShowManualLocation] = useState(false);
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
@@ -201,6 +223,13 @@ const EmployeeSubmissionForm = () => {
     verified: boolean;
     threshold: number;
   } | null>(null);
+
+  const isValidLatLng = (lat: number, lng: number) =>
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180 &&
+    !(lat === 0 && lng === 0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "proof" | "id") => {
     const file = e.target.files?.[0];
@@ -331,35 +360,54 @@ const EmployeeSubmissionForm = () => {
 
     const handleLocationError = (error: GeolocationPositionError, isFallback: boolean) => {
       console.error(`Geolocation error (${isFallback ? 'fallback' : 'high accuracy'}):`, error);
-      
+
       // If high accuracy times out, try standard accuracy
       if (!isFallback && error.code === error.TIMEOUT) {
         toast({
           title: "Retrying...",
           description: "High accuracy timed out. Trying with standard accuracy...",
         });
-        
+
         navigator.geolocation.getCurrentPosition(
           (position) => handleLocationSuccess(position, 'standard accuracy'),
           (fallbackError) => handleLocationError(fallbackError, true),
           {
             enableHighAccuracy: false,
             timeout: 60000,
-            maximumAge: 60000
+            maximumAge: 60000,
           }
         );
         return;
       }
-      
+
+      // If capture fails, fall back to last POPIA location (if it's valid and recent)
+      const popiaIsFresh = (() => {
+        if (!popiaLocation) return false;
+        const acceptedAtMs = new Date(popiaLocation.acceptedAt).getTime();
+        if (!Number.isFinite(acceptedAtMs)) return false;
+        // 24 hours window (same shift/day)
+        return Date.now() - acceptedAtMs <= 24 * 60 * 60 * 1000;
+      })();
+
+      if (popiaLocation && popiaIsFresh && isValidLatLng(popiaLocation.lat, popiaLocation.lng)) {
+        setCapturingLocation(false);
+        setLocation({ lat: popiaLocation.lat, lng: popiaLocation.lng });
+        toast({
+          title: "Using POPIA Location",
+          description: `Could not get live location (${error.code}). Using the saved POPIA location from ${new Date(popiaLocation.acceptedAt).toLocaleString()}.`,
+        });
+        return;
+      }
+
       setCapturingLocation(false);
       let errorMessage = "Unable to capture location.";
-      
-      switch(error.code) {
+
+      switch (error.code) {
         case error.PERMISSION_DENIED:
           errorMessage = "Location permission denied. Please enable location access in your browser and device settings.";
           break;
         case error.POSITION_UNAVAILABLE:
-          errorMessage = "Location information is unavailable. Please check your device's GPS settings.";
+          errorMessage = "Location information is unavailable. Please check your device's location services.";
           break;
         case error.TIMEOUT:
           errorMessage = "Location request timed out. You can try again or enter coordinates manually.";
@@ -368,7 +416,7 @@ const EmployeeSubmissionForm = () => {
         default:
           errorMessage = `Location error: ${error.message}`;
       }
-      
+
       toast({
         title: "Error",
         description: errorMessage,
@@ -1030,6 +1078,24 @@ const EmployeeSubmissionForm = () => {
                 <MapPin className={`h-4 w-4 ${capturingLocation ? 'animate-pulse' : ''}`} />
                 {capturingLocation ? "Capturing..." : "Capture Current Location"}
               </Button>
+
+              {popiaLocation && !location && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={capturingLocation}
+                  onClick={() => {
+                    setLocation({ lat: popiaLocation.lat, lng: popiaLocation.lng });
+                    toast({
+                      title: "Using POPIA Location",
+                      description: `Using the saved POPIA location from ${new Date(popiaLocation.acceptedAt).toLocaleString()}.`,
+                    });
+                  }}
+                >
+                  Use POPIA Location
+                </Button>
+              )}
+
               {!showManualLocation && !location && (
                 <Button
                   type="button"
@@ -1041,17 +1107,19 @@ const EmployeeSubmissionForm = () => {
                   Enter manually
                 </Button>
               )}
+
               {location && (
                 <div className="flex flex-col gap-1">
                   <p className="text-sm text-green-600">
                     ✓ Location captured ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
                   </p>
                   {geofenceInfo && (
-                    <p className={`text-sm font-medium ${geofenceInfo.verified ? 'text-green-600' : 'text-amber-600'}`}>
-                      {geofenceInfo.verified 
+                    <p
+                      className={`text-sm font-medium ${geofenceInfo.verified ? 'text-green-600' : 'text-amber-600'}`}
+                    >
+                      {geofenceInfo.verified
                         ? `✓ Within geofence: ${geofenceInfo.distance}m from address`
-                        : `⚠ Outside geofence: ${geofenceInfo.distance}m from address (>${geofenceInfo.threshold}m threshold)`
-                      }
+                        : `⚠ Outside geofence: ${geofenceInfo.distance}m from address (>${geofenceInfo.threshold}m threshold)`}
                     </p>
                   )}
                 </div>
