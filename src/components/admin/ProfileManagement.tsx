@@ -21,7 +21,6 @@ export const ProfileManagement = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
@@ -90,7 +89,6 @@ export const ProfileManagement = () => {
       const { data, error } = await supabase.functions.invoke('create-admin-user', {
         body: {
           email,
-          password,
           firstName,
           lastName,
         },
@@ -101,11 +99,10 @@ export const ProfileManagement = () => {
 
       if (error) throw error;
 
-      toast.success("Profile created successfully! A welcome email has been sent.");
+      toast.success("Admin invited successfully! They will receive an email to set their password.");
       setFirstName("");
       setLastName("");
       setEmail("");
-      setPassword("");
       queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
     } catch (error: any) {
       console.error("Error creating profile:", error);
@@ -175,20 +172,8 @@ export const ProfileManagement = () => {
                   className="bg-black border-red-600 text-white"
                 />
               </div>
-              <div>
-                <Label htmlFor="password" className="text-white">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={8}
-                  className="bg-black border-red-600 text-white"
-                />
-              </div>
               <p className="text-gray-400 text-sm">
-                A welcome email with login credentials will be sent to the user.
+                An invitation email will be sent allowing the user to set their own password securely.
               </p>
               <Button
                 type="submit"

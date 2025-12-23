@@ -44,10 +44,9 @@ const InvitationsList = () => {
   const [loading, setLoading] = useState(true);
   const [selectedInvitations, setSelectedInvitations] = useState<Set<string>>(new Set());
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedInvitation, setSelectedInvitation] = useState<Invitation | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-
   useEffect(() => {
     fetchInvitations();
   }, []);
@@ -269,15 +268,8 @@ const InvitationsList = () => {
   };
 
   const handleDelete = async () => {
-    if (adminPassword !== "Admin123") {
-      toast({
-        title: "Access Denied",
-        description: "Incorrect administrator password",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    setIsDeleting(true);
+    
     try {
       const { error } = await supabase
         .from("employee_invitations")
@@ -292,15 +284,16 @@ const InvitationsList = () => {
       });
 
       setSelectedInvitations(new Set());
-      setAdminPassword("");
       setShowDeleteDialog(false);
       fetchInvitations();
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to delete invitations",
         variant: "destructive",
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -426,20 +419,14 @@ const InvitationsList = () => {
           <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
           <AlertDialogDescription>
             You are about to delete {selectedInvitations.size} invitation(s). This action cannot be undone.
-            Please enter the administrator password to confirm.
+            Are you sure you want to proceed?
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="my-4">
-          <Input
-            type="password"
-            placeholder="Enter administrator password"
-            value={adminPassword}
-            onChange={(e) => setAdminPassword(e.target.value)}
-          />
-        </div>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setAdminPassword("")}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+            {isDeleting ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
