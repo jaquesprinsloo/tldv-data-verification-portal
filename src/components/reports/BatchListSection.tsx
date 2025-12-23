@@ -58,6 +58,11 @@ const BatchListSection = () => {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState("");
   const [linking, setLinking] = useState(false);
 
+  // Delete confirmation
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState<Batch | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   // Risk profile dialog
   const [riskProfileOpen, setRiskProfileOpen] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
@@ -208,6 +213,52 @@ const BatchListSection = () => {
     setRiskProfileOpen(true);
   };
 
+  const handleDeleteClick = (batch: Batch) => {
+    setBatchToDelete(batch);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteBatch = async () => {
+    if (!batchToDelete) return;
+
+    setDeleting(true);
+    try {
+      // First delete associated reports (they reference batch_id)
+      const { error: reportsError } = await supabase
+        .from("polygraph_reports")
+        .delete()
+        .eq("batch_id", batchToDelete.id);
+
+      if (reportsError) throw reportsError;
+
+      // Then delete the batch
+      const { error: batchError } = await supabase
+        .from("polygraph_batches")
+        .delete()
+        .eq("id", batchToDelete.id);
+
+      if (batchError) throw batchError;
+
+      toast({
+        title: "Batch Deleted",
+        description: `Batch "${batchToDelete.name || 'Untitled'}" and its reports have been deleted.`,
+      });
+
+      setDeleteConfirmOpen(false);
+      setBatchToDelete(null);
+      fetchBatches();
+    } catch (error: any) {
+      console.error("Error deleting batch:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete batch",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending': return <Badge variant="secondary">Pending</Badge>;
@@ -309,14 +360,24 @@ const BatchListSection = () => {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewBatch(batch)}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewBatch(batch)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteClick(batch)}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -456,6 +517,28 @@ const BatchListSection = () => {
             </Button>
             <Button onClick={handleLinkInvoice} disabled={!selectedInvoiceId || linking}>
               {linking ? "Linking..." : "Link Invoice"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Batch</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{batchToDelete?.name || 'this batch'}"? 
+              This will permanently remove the batch and all {batchToDelete?.total_reports || 0} associated report(s). 
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteBatch} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete Batch"}
             </Button>
           </DialogFooter>
         </DialogContent>
