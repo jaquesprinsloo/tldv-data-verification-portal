@@ -237,6 +237,57 @@ const EmployeeSubmissionForm = () => {
     threshold: number;
   } | null>(null);
 
+  // Auto-set location from POPIA when it becomes available
+  useEffect(() => {
+    if (popiaLocation && !location) {
+      setLocation({ lat: popiaLocation.lat, lng: popiaLocation.lng });
+    }
+  }, [popiaLocation, location]);
+
+  // Auto-calculate geofence distance when address changes and we have a location
+  useEffect(() => {
+    const verifyGeofence = async () => {
+      if (!location) return;
+      
+      const physicalAddress = [
+        formData.houseNumber,
+        formData.streetName,
+        formData.suburb,
+        formData.city,
+        formData.province,
+        formData.postalCode
+      ].filter(Boolean).join(", ");
+      
+      // Only verify if we have a meaningful address (at least street name and city)
+      if (!formData.streetName || !formData.city) return;
+      if (physicalAddress.length < 10) return;
+      
+      try {
+        const { data: geofenceData, error: geoError } = await supabase.functions.invoke('verify-geofence', {
+          body: {
+            address: physicalAddress,
+            latitude: location.lat,
+            longitude: location.lng
+          }
+        });
+        
+        if (!geoError && geofenceData) {
+          setGeofenceInfo({
+            distance: geofenceData.distance,
+            verified: geofenceData.verified,
+            threshold: geofenceData.threshold || 50
+          });
+        }
+      } catch (err) {
+        console.error('Geofence verification error:', err);
+      }
+    };
+    
+    // Debounce the verification to avoid too many API calls
+    const timeoutId = setTimeout(verifyGeofence, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [location, formData.houseNumber, formData.streetName, formData.suburb, formData.city, formData.province, formData.postalCode]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "proof" | "id") => {
     const file = e.target.files?.[0];
     if (file) {
@@ -1070,125 +1121,72 @@ const EmployeeSubmissionForm = () => {
             </div>
           </div>
 
-          {/* Location Capture - Always visible outside tabs */}
+          {/* Location Verification - Auto-populated from POPIA */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold border-b pb-2">Location Verification</h3>
-            <div className="flex items-center gap-4 flex-wrap">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={captureLocation}
-                disabled={capturingLocation}
-                className="flex items-center gap-2"
-              >
-                <MapPin className={`h-4 w-4 ${capturingLocation ? 'animate-pulse' : ''}`} />
-                {capturingLocation ? "Capturing..." : "Capture Current Location"}
-              </Button>
-
-              {popiaLocation && !location && (
+            
+            {location ? (
+              <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-green-600" />
+                  <div className="flex flex-col">
+                    <p className="text-sm font-medium text-green-600">
+                      ✓ Location from POPIA Declaration
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Coordinates: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+                    </p>
+                    {popiaLocation?.acceptedAt && (
+                      <p className="text-xs text-muted-foreground">
+                        Captured: {new Date(popiaLocation.acceptedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                {geofenceInfo ? (
+                  <div className={`p-3 rounded-md ${geofenceInfo.verified ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'} border`}>
+                    <p className={`text-sm font-medium ${geofenceInfo.verified ? 'text-green-700' : 'text-amber-700'}`}>
+                      {geofenceInfo.verified
+                        ? `✓ Within permitted area: ${geofenceInfo.distance}m from your address`
+                        : `⚠ Distance check: ${geofenceInfo.distance}m from your address (threshold: ${geofenceInfo.threshold}m)`}
+                    </p>
+                    {!geofenceInfo.verified && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Please verify your address is correct. Distance will be recorded for review.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Enter your address above to calculate distance verification.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="p-4 border rounded-lg bg-amber-50 border-amber-200 space-y-3">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-amber-600" />
+                  <p className="text-sm font-medium text-amber-700">
+                    No location data available
+                  </p>
+                </div>
+                <p className="text-xs text-amber-600">
+                  Location was not captured during POPIA declaration. Please contact your administrator.
+                </p>
+                
+                {/* Fallback manual entry */}
                 <Button
                   type="button"
-                  variant="secondary"
-                  disabled={capturingLocation}
-                  onClick={async () => {
-                    const popiaLoc = { lat: popiaLocation.lat, lng: popiaLocation.lng };
-                    setLocation(popiaLoc);
-                    
-                    // Build full address for geofence verification
-                    const physicalAddress = [
-                      formData.houseNumber,
-                      formData.streetName,
-                      formData.suburb,
-                      formData.city,
-                      formData.province,
-                      formData.postalCode
-                    ].filter(Boolean).join(", ");
-                    
-                    // Immediately verify geofence distance if we have an address
-                    if (physicalAddress && physicalAddress.length > 5) {
-                      try {
-                        const { data: geofenceData, error: geoError } = await supabase.functions.invoke('verify-geofence', {
-                          body: {
-                            address: physicalAddress,
-                            latitude: popiaLoc.lat,
-                            longitude: popiaLoc.lng
-                          }
-                        });
-                        
-                        if (!geoError && geofenceData) {
-                          setGeofenceInfo({
-                            distance: geofenceData.distance,
-                            verified: geofenceData.verified,
-                            threshold: geofenceData.threshold || 50
-                          });
-                          
-                          const distanceText = geofenceData.distance !== null 
-                            ? `Distance from address: ${geofenceData.distance}m` 
-                            : 'Could not calculate distance';
-                          const statusText = geofenceData.verified 
-                            ? '✓ Within geofence' 
-                            : `⚠ Outside geofence (>${geofenceData.threshold || 50}m)`;
-                          
-                          toast({
-                            title: geofenceData.verified ? "POPIA Location Used ✓" : "POPIA Location Used (Outside Permitted Area)",
-                            description: `${distanceText}\n${statusText}\nFrom: ${new Date(popiaLocation.acceptedAt).toLocaleString()}`,
-                            variant: "default",
-                          });
-                        } else {
-                          console.error('Geofence verification error:', geoError);
-                          toast({
-                            title: "Using POPIA Location",
-                            description: `Using the saved POPIA location from ${new Date(popiaLocation.acceptedAt).toLocaleString()}. Geofence check will occur on submission.`,
-                          });
-                        }
-                      } catch (err) {
-                        console.error('Geofence check failed:', err);
-                        toast({
-                          title: "Using POPIA Location",
-                          description: `Using the saved POPIA location from ${new Date(popiaLocation.acceptedAt).toLocaleString()}.`,
-                        });
-                      }
-                    } else {
-                      toast({
-                        title: "Using POPIA Location",
-                        description: `Using the saved POPIA location from ${new Date(popiaLocation.acceptedAt).toLocaleString()}. Enter your address to verify geofence distance.`,
-                      });
-                    }
-                  }}
-                >
-                  Use POPIA Location
-                </Button>
-              )}
-
-              {!showManualLocation && !location && (
-                <Button
-                  type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => setShowManualLocation(true)}
                   className="text-xs"
                 >
-                  Enter manually
+                  Enter location manually
                 </Button>
-              )}
-
-              {location && (
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm text-green-600">
-                    ✓ Location captured ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
-                  </p>
-                  {geofenceInfo && (
-                    <p
-                      className={`text-sm font-medium ${geofenceInfo.verified ? 'text-green-600' : 'text-amber-600'}`}
-                    >
-                      {geofenceInfo.verified
-                        ? `✓ Within geofence: ${geofenceInfo.distance}m from address`
-                        : `⚠ Outside geofence: ${geofenceInfo.distance}m from address (>${geofenceInfo.threshold}m threshold)`}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
+              </div>
+            )}
             
             {showManualLocation && !location && (
               <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
@@ -1258,7 +1256,7 @@ const EmployeeSubmissionForm = () => {
             )}
             
             <p className="text-xs text-muted-foreground">
-              We need to verify that you are at the address you provided. Please make sure you are at your current physical address before capturing your location.
+              Location is automatically captured from your POPIA declaration. Distance from your address is calculated as you fill in the form.
             </p>
           </div>
 
