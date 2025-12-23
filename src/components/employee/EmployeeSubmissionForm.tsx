@@ -196,6 +196,11 @@ const EmployeeSubmissionForm = () => {
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
   const [capturingLocation, setCapturingLocation] = useState(false);
+  const [geofenceInfo, setGeofenceInfo] = useState<{
+    distance: number | null;
+    verified: boolean;
+    threshold: number;
+  } | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "proof" | "id") => {
     const file = e.target.files?.[0];
@@ -237,7 +242,7 @@ const EmployeeSubmissionForm = () => {
     });
 
     // Always capture location regardless of accuracy - geofence check happens on submission
-    const handleLocationSuccess = (position: GeolocationPosition, mode: string) => {
+    const handleLocationSuccess = async (position: GeolocationPosition, mode: string) => {
       const accuracy = position.coords.accuracy;
       const capturedLocation = {
         lat: position.coords.latitude,
@@ -252,18 +257,75 @@ const EmployeeSubmissionForm = () => {
       console.log('Speed:', position.coords.speed);
       console.log('Timestamp:', new Date(position.timestamp).toISOString());
       
-      setCapturingLocation(false);
       setLocation(capturedLocation);
       
-      // Show accuracy info but always accept the location
-      const accuracyNote = accuracy > 50 
-        ? `Note: Accuracy is ±${Math.round(accuracy)}m - location may be flagged for review.`
-        : `Accuracy: ±${Math.round(accuracy)}m`;
+      // Build full address for geofence verification
+      const physicalAddress = [
+        formData.houseNumber,
+        formData.streetName,
+        formData.suburb,
+        formData.city,
+        formData.province,
+        formData.postalCode
+      ].filter(Boolean).join(", ");
       
-      toast({
-        title: "Location Captured ✓",
-        description: `Lat: ${capturedLocation.lat.toFixed(6)}, Lng: ${capturedLocation.lng.toFixed(6)}\n${accuracyNote}`,
-      });
+      // Immediately verify geofence distance if we have an address
+      if (physicalAddress && physicalAddress.length > 5) {
+        try {
+          const { data: geofenceData, error: geoError } = await supabase.functions.invoke('verify-geofence', {
+            body: {
+              address: physicalAddress,
+              latitude: capturedLocation.lat,
+              longitude: capturedLocation.lng
+            }
+          });
+          
+          if (!geoError && geofenceData) {
+            setGeofenceInfo({
+              distance: geofenceData.distance,
+              verified: geofenceData.verified,
+              threshold: geofenceData.threshold || 50
+            });
+            
+            const distanceText = geofenceData.distance !== null 
+              ? `Distance from address: ${geofenceData.distance}m` 
+              : 'Could not calculate distance';
+            const statusText = geofenceData.verified 
+              ? '✓ Within geofence' 
+              : `⚠ Outside geofence (>${geofenceData.threshold || 50}m)`;
+            
+            toast({
+              title: "Location Captured",
+              description: `${distanceText}\n${statusText}\nAccuracy: ±${Math.round(accuracy)}m`,
+              variant: geofenceData.verified ? "default" : "destructive",
+            });
+          } else {
+            console.error('Geofence verification error:', geoError);
+            toast({
+              title: "Location Captured ✓",
+              description: `Lat: ${capturedLocation.lat.toFixed(6)}, Lng: ${capturedLocation.lng.toFixed(6)}\nAccuracy: ±${Math.round(accuracy)}m\nGeofence check will occur on submission.`,
+            });
+          }
+        } catch (err) {
+          console.error('Geofence check failed:', err);
+          toast({
+            title: "Location Captured ✓",
+            description: `Lat: ${capturedLocation.lat.toFixed(6)}, Lng: ${capturedLocation.lng.toFixed(6)}\nAccuracy: ±${Math.round(accuracy)}m`,
+          });
+        }
+      } else {
+        // No address to verify against
+        const accuracyNote = accuracy > 50 
+          ? `Note: Accuracy is ±${Math.round(accuracy)}m`
+          : `Accuracy: ±${Math.round(accuracy)}m`;
+        
+        toast({
+          title: "Location Captured ✓",
+          description: `Lat: ${capturedLocation.lat.toFixed(6)}, Lng: ${capturedLocation.lng.toFixed(6)}\n${accuracyNote}\nEnter your address to verify geofence distance.`,
+        });
+      }
+      
+      setCapturingLocation(false);
     };
 
     const handleLocationError = (error: GeolocationPositionError, isFallback: boolean) => {
@@ -979,9 +1041,19 @@ const EmployeeSubmissionForm = () => {
                 </Button>
               )}
               {location && (
-                <p className="text-sm text-green-600">
-                  ✓ Location captured ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
-                </p>
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm text-green-600">
+                    ✓ Location captured ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})
+                  </p>
+                  {geofenceInfo && (
+                    <p className={`text-sm font-medium ${geofenceInfo.verified ? 'text-green-600' : 'text-amber-600'}`}>
+                      {geofenceInfo.verified 
+                        ? `✓ Within geofence: ${geofenceInfo.distance}m from address`
+                        : `⚠ Outside geofence: ${geofenceInfo.distance}m from address (>${geofenceInfo.threshold}m threshold)`
+                      }
+                    </p>
+                  )}
+                </div>
               )}
             </div>
             
