@@ -12,15 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const { email, password, firstName, lastName } = await req.json();
+    const { email, firstName, lastName } = await req.json();
 
-    // Validate inputs
-    if (!email || !password || !firstName || !lastName) {
-      throw new Error("All fields are required");
-    }
-
-    if (password.length < 8) {
-      throw new Error("Password must be at least 8 characters");
+    // Validate inputs - password no longer required, will be set via invite link
+    if (!email || !firstName || !lastName) {
+      throw new Error("Email, first name, and last name are required");
     }
 
     // Get the authorization header
@@ -64,25 +60,32 @@ serve(async (req) => {
       throw new Error("Not authorized - master admin only");
     }
 
-    // Create the new user
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
+    // Get the site URL for the login link
+    const siteUrl = Deno.env.get('SITE_URL') || 'https://tldv-data-verification-portal.lovable.app';
+
+    // Generate an invite link instead of creating user with password
+    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      data: {
         full_name: `${firstName} ${lastName}`
-      }
+      },
+      redirectTo: `${siteUrl}/admin/login`
     });
 
-    if (createError) throw createError;
-    if (!newUser.user) throw new Error("Failed to create user");
+    if (inviteError) {
+      console.error("Invite error:", inviteError);
+      throw inviteError;
+    }
+    
+    if (!inviteData.user) {
+      throw new Error("Failed to invite user");
+    }
 
-    // Note: Profile is automatically created by the handle_new_user trigger
+    console.log(`Invite sent to ${email}, user ID: ${inviteData.user.id}`);
 
     // Assign admin role using the database function
     const { error: roleInsertError } = await supabaseAdmin
       .rpc('assign_user_role', {
-        _user_id: newUser.user.id,
+        _user_id: inviteData.user.id,
         _role: 'admin'
       });
 
@@ -91,11 +94,7 @@ serve(async (req) => {
       throw roleInsertError;
     }
 
-    // Get the site URL for the login link
-    const siteUrl = Deno.env.get('SITE_URL') || 'https://tldv-data-verification-portal.lovable.app';
-    const loginUrl = `${siteUrl}/admin/login`;
-
-    // Send welcome email using Resend
+    // Send welcome email using Resend (without password)
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (resendApiKey) {
       try {
@@ -109,8 +108,7 @@ serve(async (req) => {
               .header { background-color: #000; padding: 20px; text-align: center; }
               .header h1 { color: #dc2626; margin: 0; }
               .content { padding: 30px; background-color: #f9f9f9; }
-              .credentials { background-color: #fff; border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 5px; }
-              .button { display: inline-block; padding: 12px 30px; background-color: #dc2626; color: #fff; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+              .info-box { background-color: #fff; border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 5px; }
               .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
             </style>
           </head>
@@ -121,17 +119,16 @@ serve(async (req) => {
               </div>
               <div class="content">
                 <h2>Welcome, ${firstName} ${lastName}!</h2>
-                <p>Your admin account has been successfully created. You can now access the TLDV Admin Portal.</p>
+                <p>Your admin account has been created. You should receive a separate email from the system with a secure link to set your password.</p>
                 
-                <div class="credentials">
-                  <h3>Your Login Credentials</h3>
-                  <p><strong>Email:</strong> ${email}</p>
-                  <p><strong>Password:</strong> ${password}</p>
+                <div class="info-box">
+                  <h3>Next Steps</h3>
+                  <p>1. Check your inbox for the password setup email</p>
+                  <p>2. Click the secure link to set your password</p>
+                  <p>3. Once set, you can log in to the Admin Portal</p>
                 </div>
                 
-                <p><strong>Important:</strong> Please change your password after your first login for security purposes.</p>
-                
-                <a href="${loginUrl}" class="button">Login to Admin Portal</a>
+                <p><strong>Note:</strong> The password setup link expires in 24 hours. If it expires, please contact the master administrator for a new invitation.</p>
                 
                 <p style="margin-top: 30px;">If you have any questions, please contact the master administrator.</p>
               </div>
@@ -166,18 +163,19 @@ serve(async (req) => {
         }
       } catch (emailError) {
         console.error("Failed to send welcome email:", emailError);
-        // Don't throw - user was created successfully, just email failed
+        // Don't throw - user was invited successfully, just supplementary email failed
       }
     } else {
-      console.log("RESEND_API_KEY not configured, skipping welcome email");
+      console.log("RESEND_API_KEY not configured, skipping supplementary welcome email");
     }
 
-    console.log(`Successfully created admin user: ${email}`);
+    console.log(`Successfully invited admin user: ${email}`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        userId: newUser.user.id 
+        userId: inviteData.user.id,
+        message: "Invitation sent. User will receive an email to set their password."
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
