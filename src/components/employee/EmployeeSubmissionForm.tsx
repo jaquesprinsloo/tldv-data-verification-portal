@@ -236,145 +236,91 @@ const EmployeeSubmissionForm = () => {
       description: "Getting your precise GPS coordinates. Please wait...",
     });
 
-    const MAX_ACCEPTABLE_ACCURACY = 70; // meters - allow margin above 50m geofence threshold
+    // Always capture location regardless of accuracy - geofence check happens on submission
+    const handleLocationSuccess = (position: GeolocationPosition, mode: string) => {
+      const accuracy = position.coords.accuracy;
+      const capturedLocation = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      };
+      
+      console.log(`GPS coordinates captured (${mode}):`, capturedLocation);
+      console.log('Accuracy:', accuracy, 'meters');
+      console.log('Altitude:', position.coords.altitude);
+      console.log('Altitude Accuracy:', position.coords.altitudeAccuracy);
+      console.log('Heading:', position.coords.heading);
+      console.log('Speed:', position.coords.speed);
+      console.log('Timestamp:', new Date(position.timestamp).toISOString());
+      
+      setCapturingLocation(false);
+      setLocation(capturedLocation);
+      
+      // Show accuracy info but always accept the location
+      const accuracyNote = accuracy > 50 
+        ? `Note: Accuracy is ±${Math.round(accuracy)}m - location may be flagged for review.`
+        : `Accuracy: ±${Math.round(accuracy)}m`;
+      
+      toast({
+        title: "Location Captured ✓",
+        description: `Lat: ${capturedLocation.lat.toFixed(6)}, Lng: ${capturedLocation.lng.toFixed(6)}\n${accuracyNote}`,
+      });
+    };
 
-    // Try high accuracy first with longer timeout
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const accuracy = position.coords.accuracy;
-        const capturedLocation = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-        
-        console.log('GPS coordinates captured (high accuracy):', capturedLocation);
-        console.log('Accuracy:', accuracy, 'meters');
-        console.log('Altitude:', position.coords.altitude);
-        console.log('Altitude Accuracy:', position.coords.altitudeAccuracy);
-        console.log('Heading:', position.coords.heading);
-        console.log('Speed:', position.coords.speed);
-        console.log('Timestamp:', new Date(position.timestamp).toISOString());
-        
-        // Validate accuracy
-        if (accuracy > MAX_ACCEPTABLE_ACCURACY) {
-          setCapturingLocation(false);
-          toast({
-            title: "Poor GPS Accuracy",
-            description: `Current accuracy is ±${Math.round(accuracy)}m. For geofence verification (50m), accuracy must be ±${MAX_ACCEPTABLE_ACCURACY}m or better. Please move to a location with better GPS signal (outdoors, near window) and try again.`,
-            variant: "destructive",
-          });
-          console.warn('GPS accuracy too poor:', accuracy, 'meters. Needs to be under', MAX_ACCEPTABLE_ACCURACY);
-          return;
-        }
-        
-        setCapturingLocation(false);
-        setLocation(capturedLocation);
+    const handleLocationError = (error: GeolocationPositionError, isFallback: boolean) => {
+      console.error(`Geolocation error (${isFallback ? 'fallback' : 'high accuracy'}):`, error);
+      
+      // If high accuracy times out, try standard accuracy
+      if (!isFallback && error.code === error.TIMEOUT) {
         toast({
-          title: "Location Captured ✓",
-          description: `Lat: ${capturedLocation.lat.toFixed(6)}, Lng: ${capturedLocation.lng.toFixed(6)}\nAccuracy: ±${Math.round(accuracy)}m (Good for 50m geofence)`,
+          title: "Retrying...",
+          description: "High accuracy timed out. Trying with standard accuracy...",
         });
-      },
-      (error) => {
-        console.error('High accuracy geolocation failed:', error);
         
-        // If high accuracy fails with timeout, try with lower accuracy as fallback
-        if (error.code === error.TIMEOUT) {
-          toast({
-            title: "Retrying...",
-            description: "High accuracy timed out. Trying with standard accuracy...",
-          });
-          
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const accuracy = position.coords.accuracy;
-              const capturedLocation = {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-              };
-              
-              console.log('GPS coordinates captured (standard accuracy):', capturedLocation);
-              console.log('Accuracy:', accuracy, 'meters');
-              console.log('Timestamp:', new Date(position.timestamp).toISOString());
-              
-              // Validate accuracy even for fallback
-              if (accuracy > MAX_ACCEPTABLE_ACCURACY) {
-                setCapturingLocation(false);
-                toast({
-                  title: "Poor GPS Accuracy",
-                  description: `Current accuracy is ±${Math.round(accuracy)}m. For geofence verification (50m), accuracy must be ±${MAX_ACCEPTABLE_ACCURACY}m or better. Please move outdoors or near a window for better GPS signal.`,
-                  variant: "destructive",
-                });
-                console.warn('GPS accuracy too poor:', accuracy, 'meters. Needs to be under', MAX_ACCEPTABLE_ACCURACY);
-                return;
-              }
-              
-              setCapturingLocation(false);
-              setLocation(capturedLocation);
-              toast({
-                title: "Location Captured ✓",
-                description: `Lat: ${capturedLocation.lat.toFixed(6)}, Lng: ${capturedLocation.lng.toFixed(6)}\nAccuracy: ±${Math.round(accuracy)}m`,
-              });
-            },
-            (fallbackError) => {
-              setCapturingLocation(false);
-              let errorMessage = "Unable to capture location.";
-              
-              switch(fallbackError.code) {
-                case fallbackError.PERMISSION_DENIED:
-                  errorMessage = "Location permission denied. Please enable location access in your browser and device settings.";
-                  break;
-                case fallbackError.POSITION_UNAVAILABLE:
-                  errorMessage = "Location information is unavailable. Please check your device's GPS settings and ensure you have a clear view of the sky.";
-                  break;
-                case fallbackError.TIMEOUT:
-                  errorMessage = "Location request timed out. You can try again or enter coordinates manually.";
-                  setShowManualLocation(true);
-                  break;
-                default:
-                  errorMessage = `Location error: ${fallbackError.message}`;
-              }
-              
-              console.error('Fallback geolocation error:', fallbackError);
-              toast({
-                title: "Error",
-                description: errorMessage,
-                variant: "destructive",
-              });
-            },
-            {
-              enableHighAccuracy: false,
-              timeout: 60000, // 60 seconds for fallback
-              maximumAge: 60000 // Allow cached position up to 1 minute old
-            }
-          );
-        } else {
-          // Handle other errors
-          setCapturingLocation(false);
-          let errorMessage = "Unable to capture location.";
-          
-          switch(error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage = "Location permission denied. Please enable location access in your browser and device settings.";
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage = "Location information is unavailable. Please check your device's GPS settings and ensure you have a clear view of the sky.";
-              break;
-            default:
-              errorMessage = `Location error: ${error.message}`;
+        navigator.geolocation.getCurrentPosition(
+          (position) => handleLocationSuccess(position, 'standard accuracy'),
+          (fallbackError) => handleLocationError(fallbackError, true),
+          {
+            enableHighAccuracy: false,
+            timeout: 60000,
+            maximumAge: 60000
           }
-          
-          console.error('Geolocation error:', error);
-          toast({
-            title: "Error",
-            description: errorMessage,
-            variant: "destructive",
-          });
-        }
-      },
+        );
+        return;
+      }
+      
+      setCapturingLocation(false);
+      let errorMessage = "Unable to capture location.";
+      
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = "Location permission denied. Please enable location access in your browser and device settings.";
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = "Location information is unavailable. Please check your device's GPS settings.";
+          break;
+        case error.TIMEOUT:
+          errorMessage = "Location request timed out. You can try again or enter coordinates manually.";
+          setShowManualLocation(true);
+          break;
+        default:
+          errorMessage = `Location error: ${error.message}`;
+      }
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    };
+
+    // Try high accuracy first with maximum precision settings
+    navigator.geolocation.getCurrentPosition(
+      (position) => handleLocationSuccess(position, 'high accuracy'),
+      (error) => handleLocationError(error, false),
       {
         enableHighAccuracy: true,
-        timeout: 60000, // 60 seconds for high accuracy
-        maximumAge: 30000 // Allow cached position up to 30 seconds old
+        timeout: 90000, // 90 seconds for maximum precision
+        maximumAge: 0 // Always get fresh position for best accuracy
       }
     );
   };
