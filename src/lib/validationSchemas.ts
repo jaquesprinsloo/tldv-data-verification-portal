@@ -105,7 +105,50 @@ export const employeeSubmissionSchema = z.object({
       message: "Invalid phone number. Use format: 0123456789 or +27123456789" 
     }),
   
-  nextOfKinAddress: addressSchema,
+  nextOfKinRelationship: z.string()
+    .trim()
+    .max(100, { message: "Relationship must be less than 100 characters" })
+    .optional(),
+  
+  nextOfKinHouseNumber: z.string()
+    .trim()
+    .max(20, { message: "House number must be less than 20 characters" })
+    .optional(),
+  
+  nextOfKinFloorNumber: z.string()
+    .trim()
+    .max(10, { message: "Floor number must be less than 10 characters" })
+    .optional(),
+  
+  nextOfKinStreetName: z.string()
+    .trim()
+    .max(200, { message: "Street name must be less than 200 characters" })
+    .optional(),
+  
+  nextOfKinComplexName: z.string()
+    .trim()
+    .max(200, { message: "Complex name must be less than 200 characters" })
+    .optional(),
+  
+  nextOfKinSuburb: z.string()
+    .trim()
+    .max(100, { message: "Suburb must be less than 100 characters" })
+    .optional(),
+  
+  nextOfKinCity: z.string()
+    .trim()
+    .max(100, { message: "City must be less than 100 characters" })
+    .optional(),
+  
+  nextOfKinProvince: z.string()
+    .trim()
+    .max(100, { message: "Province must be less than 100 characters" })
+    .optional(),
+  
+  nextOfKinPostalCode: z.string()
+    .trim()
+    .max(10, { message: "Postal code must be less than 10 characters" })
+    .optional(),
 });
 
 export type EmployeeSubmissionFormData = z.infer<typeof employeeSubmissionSchema>;
