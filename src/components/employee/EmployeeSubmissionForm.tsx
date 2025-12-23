@@ -1084,12 +1084,70 @@ const EmployeeSubmissionForm = () => {
                   type="button"
                   variant="secondary"
                   disabled={capturingLocation}
-                  onClick={() => {
-                    setLocation({ lat: popiaLocation.lat, lng: popiaLocation.lng });
-                    toast({
-                      title: "Using POPIA Location",
-                      description: `Using the saved POPIA location from ${new Date(popiaLocation.acceptedAt).toLocaleString()}.`,
-                    });
+                  onClick={async () => {
+                    const popiaLoc = { lat: popiaLocation.lat, lng: popiaLocation.lng };
+                    setLocation(popiaLoc);
+                    
+                    // Build full address for geofence verification
+                    const physicalAddress = [
+                      formData.houseNumber,
+                      formData.streetName,
+                      formData.suburb,
+                      formData.city,
+                      formData.province,
+                      formData.postalCode
+                    ].filter(Boolean).join(", ");
+                    
+                    // Immediately verify geofence distance if we have an address
+                    if (physicalAddress && physicalAddress.length > 5) {
+                      try {
+                        const { data: geofenceData, error: geoError } = await supabase.functions.invoke('verify-geofence', {
+                          body: {
+                            address: physicalAddress,
+                            latitude: popiaLoc.lat,
+                            longitude: popiaLoc.lng
+                          }
+                        });
+                        
+                        if (!geoError && geofenceData) {
+                          setGeofenceInfo({
+                            distance: geofenceData.distance,
+                            verified: geofenceData.verified,
+                            threshold: geofenceData.threshold || 50
+                          });
+                          
+                          const distanceText = geofenceData.distance !== null 
+                            ? `Distance from address: ${geofenceData.distance}m` 
+                            : 'Could not calculate distance';
+                          const statusText = geofenceData.verified 
+                            ? '✓ Within geofence' 
+                            : `⚠ Outside geofence (>${geofenceData.threshold || 50}m)`;
+                          
+                          toast({
+                            title: geofenceData.verified ? "POPIA Location Used ✓" : "POPIA Location Used (Outside Permitted Area)",
+                            description: `${distanceText}\n${statusText}\nFrom: ${new Date(popiaLocation.acceptedAt).toLocaleString()}`,
+                            variant: "default",
+                          });
+                        } else {
+                          console.error('Geofence verification error:', geoError);
+                          toast({
+                            title: "Using POPIA Location",
+                            description: `Using the saved POPIA location from ${new Date(popiaLocation.acceptedAt).toLocaleString()}. Geofence check will occur on submission.`,
+                          });
+                        }
+                      } catch (err) {
+                        console.error('Geofence check failed:', err);
+                        toast({
+                          title: "Using POPIA Location",
+                          description: `Using the saved POPIA location from ${new Date(popiaLocation.acceptedAt).toLocaleString()}.`,
+                        });
+                      }
+                    } else {
+                      toast({
+                        title: "Using POPIA Location",
+                        description: `Using the saved POPIA location from ${new Date(popiaLocation.acceptedAt).toLocaleString()}. Enter your address to verify geofence distance.`,
+                      });
+                    }
                   }}
                 >
                   Use POPIA Location
