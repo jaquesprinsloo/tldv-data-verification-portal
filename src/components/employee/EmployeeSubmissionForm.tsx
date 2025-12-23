@@ -17,6 +17,7 @@ const EmployeeSubmissionForm = () => {
   const [submitted, setSubmitted] = useState(false);
   const [employeeId, setEmployeeId] = useState("");
   const [activeTab, setActiveTab] = useState<"employee" | "nextofkin">("employee");
+  const [lastValidationErrors, setLastValidationErrors] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     employeeNumber: "",
@@ -260,9 +261,11 @@ const EmployeeSubmissionForm = () => {
     
     // Validate form data with Zod
     try {
+      setLastValidationErrors([]);
       employeeSubmissionSchema.parse(formData);
     } catch (error: any) {
-      const firstError = error?.errors?.[0];
+      const zodErrors = Array.isArray(error?.errors) ? error.errors : [];
+      const firstError = zodErrors[0];
       const field = firstError?.path?.[0];
 
       const fieldLabels: Record<string, string> = {
@@ -292,6 +295,23 @@ const EmployeeSubmissionForm = () => {
       }
 
       const friendlyField = typeof field === "string" ? fieldLabels[field] : undefined;
+
+      // Persist all errors so we can show them on-screen (helps when the toast is too vague)
+      setLastValidationErrors(
+        zodErrors.map((e: any) => {
+          const p = Array.isArray(e?.path) ? e.path.join(".") : "field";
+          return `${p}: ${e?.message ?? "Invalid value"}`;
+        })
+      );
+
+      console.warn("EmployeeSubmissionForm validation failed", {
+        firstError,
+        allErrors: zodErrors,
+        formDataSnapshot: {
+          ...formData,
+          // avoid logging potentially sensitive documents; none here anyway
+        },
+      });
 
       toast({
         title: "Validation Error",
@@ -1111,6 +1131,18 @@ const EmployeeSubmissionForm = () => {
               </div>
             </div>
           </div>
+
+          {lastValidationErrors.length > 0 && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+              <p className="text-sm font-medium text-destructive">Please fix the following:</p>
+              <ul className="mt-2 list-disc pl-5 text-sm text-destructive">
+                {lastValidationErrors.slice(0, 8).map((msg) => (
+                  <li key={msg}>{msg}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? "Submitting..." : "Submit Verification"}
           </Button>
