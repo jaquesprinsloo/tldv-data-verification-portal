@@ -3,9 +3,6 @@ import { z } from "zod";
 // South African ID number validation (13 digits)
 const saIdNumberRegex = /^\d{13}$/;
 
-// Phone number validation (South African format) - more flexible
-const phoneRegex = /^(\+27|0)\s?[0-9]{2}\s?[0-9]{3}\s?[0-9]{4}$/;
-
 // Email validation with length limit
 const emailSchema = z.string()
   .trim()
@@ -19,11 +16,14 @@ const nameSchema = z.string()
   .max(100, { message: "Must be less than 100 characters" })
   .regex(/^[a-zA-Z\s'-]+$/, { message: "Only letters, spaces, hyphens and apostrophes allowed" });
 
-// Address validation
-const addressSchema = z.string()
+// Optional field that allows empty string or N/A
+const optionalFieldSchema = (maxLength: number, message: string) => z.string()
   .trim()
-  .min(5, { message: "Address must be at least 5 characters" })
-  .max(500, { message: "Address must be less than 500 characters" });
+  .max(maxLength, { message })
+  .optional()
+  .or(z.literal(""))
+  .or(z.literal("N/A"))
+  .or(z.literal("n/a"));
 
 // Employee submission form schema
 export const employeeSubmissionSchema = z.object({
@@ -49,53 +49,19 @@ export const employeeSubmissionSchema = z.object({
       message: "Invalid phone number. Use format: 0123456789 or +27123456789" 
     }),
   
-  physicalAddress: z.string()
-    .trim()
-    .max(500, { message: "Address must be less than 500 characters" })
-    .optional(),
+  // Address fields - all optional and allow N/A
+  physicalAddress: optionalFieldSchema(500, "Address must be less than 500 characters"),
+  houseNumber: optionalFieldSchema(20, "House number must be less than 20 characters"),
+  floorNumber: optionalFieldSchema(10, "Floor number must be less than 10 characters"),
+  streetName: optionalFieldSchema(200, "Street name must be less than 200 characters"),
+  complexName: optionalFieldSchema(200, "Complex name must be less than 200 characters"),
+  suburb: optionalFieldSchema(100, "Suburb must be less than 100 characters"),
+  city: optionalFieldSchema(100, "City must be less than 100 characters"),
+  province: optionalFieldSchema(100, "Province must be less than 100 characters"),
+  postalCode: optionalFieldSchema(10, "Postal code must be less than 10 characters"),
   
-  houseNumber: z.string()
-    .trim()
-    .max(20, { message: "House number must be less than 20 characters" })
-    .optional(),
-  
-  floorNumber: z.string()
-    .trim()
-    .max(10, { message: "Floor number must be less than 10 characters" })
-    .optional(),
-  
-  streetName: z.string()
-    .trim()
-    .max(200, { message: "Street name must be less than 200 characters" })
-    .optional(),
-  
-  complexName: z.string()
-    .trim()
-    .max(200, { message: "Complex name must be less than 200 characters" })
-    .optional(),
-  
-  suburb: z.string()
-    .trim()
-    .max(100, { message: "Suburb must be less than 100 characters" })
-    .optional(),
-  
-  city: z.string()
-    .trim()
-    .max(100, { message: "City must be less than 100 characters" })
-    .optional(),
-  
-  province: z.string()
-    .trim()
-    .max(100, { message: "Province must be less than 100 characters" })
-    .optional(),
-  
-  postalCode: z.string()
-    .trim()
-    .max(10, { message: "Postal code must be less than 10 characters" })
-    .optional(),
-  
+  // Next of kin fields
   nextOfKinFirstName: nameSchema,
-  
   nextOfKinLastName: nameSchema,
   
   nextOfKinContact: z.string()
@@ -105,50 +71,17 @@ export const employeeSubmissionSchema = z.object({
       message: "Invalid phone number. Use format: 0123456789 or +27123456789" 
     }),
   
-  nextOfKinRelationship: z.string()
-    .trim()
-    .max(100, { message: "Relationship must be less than 100 characters" })
-    .optional(),
+  nextOfKinRelationship: optionalFieldSchema(100, "Relationship must be less than 100 characters"),
   
-  nextOfKinHouseNumber: z.string()
-    .trim()
-    .max(20, { message: "House number must be less than 20 characters" })
-    .optional(),
-  
-  nextOfKinFloorNumber: z.string()
-    .trim()
-    .max(10, { message: "Floor number must be less than 10 characters" })
-    .optional(),
-  
-  nextOfKinStreetName: z.string()
-    .trim()
-    .max(200, { message: "Street name must be less than 200 characters" })
-    .optional(),
-  
-  nextOfKinComplexName: z.string()
-    .trim()
-    .max(200, { message: "Complex name must be less than 200 characters" })
-    .optional(),
-  
-  nextOfKinSuburb: z.string()
-    .trim()
-    .max(100, { message: "Suburb must be less than 100 characters" })
-    .optional(),
-  
-  nextOfKinCity: z.string()
-    .trim()
-    .max(100, { message: "City must be less than 100 characters" })
-    .optional(),
-  
-  nextOfKinProvince: z.string()
-    .trim()
-    .max(100, { message: "Province must be less than 100 characters" })
-    .optional(),
-  
-  nextOfKinPostalCode: z.string()
-    .trim()
-    .max(10, { message: "Postal code must be less than 10 characters" })
-    .optional(),
+  // Next of kin address fields - all optional and allow N/A
+  nextOfKinHouseNumber: optionalFieldSchema(20, "House number must be less than 20 characters"),
+  nextOfKinFloorNumber: optionalFieldSchema(10, "Floor number must be less than 10 characters"),
+  nextOfKinStreetName: optionalFieldSchema(200, "Street name must be less than 200 characters"),
+  nextOfKinComplexName: optionalFieldSchema(200, "Complex name must be less than 200 characters"),
+  nextOfKinSuburb: optionalFieldSchema(100, "Suburb must be less than 100 characters"),
+  nextOfKinCity: optionalFieldSchema(100, "City must be less than 100 characters"),
+  nextOfKinProvince: optionalFieldSchema(100, "Province must be less than 100 characters"),
+  nextOfKinPostalCode: optionalFieldSchema(10, "Postal code must be less than 10 characters"),
 });
 
 export type EmployeeSubmissionFormData = z.infer<typeof employeeSubmissionSchema>;
