@@ -48,8 +48,16 @@ const EmployeeRegister = () => {
           body: { token }
         });
 
-        if (!error && data?.invitation_method) {
-          setInvitationMethod(data.invitation_method);
+        if (!error && data) {
+          setInvitationMethod(data.invitation_method || 'email');
+          // Pre-fill employee data from invitation
+          if (data.employee_number || data.id_number) {
+            setFormData(prev => ({
+              ...prev,
+              employeeNumber: data.employee_number || '',
+              idNumber: data.id_number || ''
+            }));
+          }
         }
       } catch (error) {
         // Silently default to email if fetch fails

@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const RequestSchema = z.object({
-  token: z.string().uuid('Invalid token format')
+  token: z.string().regex(/^[a-f0-9]{32}$/, 'Invalid token format')
 });
 
 const handler = async (req: Request): Promise<Response> => {
@@ -37,10 +37,17 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Query with service role to bypass RLS
+    // Query with service role to bypass RLS - include employee data
     const { data, error } = await supabase
       .from("employee_invitations")
-      .select("invitation_method")
+      .select(`
+        invitation_method,
+        employee_id,
+        employees (
+          employee_number,
+          id_number
+        )
+      `)
       .eq("token", token)
       .maybeSingle();
 
@@ -54,8 +61,14 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
+    // Return invitation method AND employee details for pre-filling
+    const employees = data.employees as { employee_number?: string; id_number?: string } | null;
     return new Response(
-      JSON.stringify({ invitation_method: data.invitation_method || 'email' }),
+      JSON.stringify({ 
+        invitation_method: data.invitation_method || 'email',
+        employee_number: employees?.employee_number || '',
+        id_number: employees?.id_number || ''
+      }),
       {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
