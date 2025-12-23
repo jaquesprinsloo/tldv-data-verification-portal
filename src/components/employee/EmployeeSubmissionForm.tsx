@@ -525,10 +525,14 @@ const EmployeeSubmissionForm = () => {
       return;
     }
 
-    if (!location) {
+    const effectiveLocation =
+      location ?? (popiaLocation ? { lat: popiaLocation.lat, lng: popiaLocation.lng } : null);
+
+    if (!effectiveLocation) {
       toast({
         title: "Location Required",
-        description: "Please capture your current location before submitting.",
+        description:
+          "We couldn't find a saved POPIA location for your profile. Please enter coordinates manually (or contact your administrator).",
         variant: "destructive",
       });
       return;
@@ -580,8 +584,8 @@ const EmployeeSubmissionForm = () => {
         {
           body: {
             address: physicalAddress,
-            latitude: location.lat,
-            longitude: location.lng,
+            latitude: effectiveLocation.lat,
+            longitude: effectiveLocation.lng,
           },
         }
       );
@@ -616,8 +620,8 @@ const EmployeeSubmissionForm = () => {
         city: formData.city || 'N/A',
         province: formData.province || 'N/A',
         postal_code: formData.postalCode || 'N/A',
-        geolocation_lat: location.lat.toString(),
-        geolocation_lng: location.lng.toString(),
+        geolocation_lat: effectiveLocation.lat.toString(),
+        geolocation_lng: effectiveLocation.lng.toString(),
         geofence_verified: (geofenceData?.verified || false).toString(),
         geofence_distance_meters: (geofenceData?.distance || null)?.toString(),
         proof_of_residence_url: proofUrl,
