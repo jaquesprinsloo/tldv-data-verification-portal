@@ -681,13 +681,24 @@ const EmployeeSubmissionForm = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="streetName">Street Name *</Label>
-                    <Input
-                      id="streetName"
-                      value={formData.streetName}
-                      onChange={(e) => setFormData({ ...formData, streetName: e.target.value })}
-                      required
-                    />
+                    <Label htmlFor="streetName">Street Name</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="streetName"
+                        value={formData.streetName}
+                        onChange={(e) => setFormData({ ...formData, streetName: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, streetName: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="complexName">Complex Name</Label>
@@ -710,40 +721,84 @@ const EmployeeSubmissionForm = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="suburb">Suburb *</Label>
-                    <Input
-                      id="suburb"
-                      value={formData.suburb}
-                      onChange={(e) => setFormData({ ...formData, suburb: e.target.value })}
-                      required
-                    />
+                    <Label htmlFor="suburb">Suburb</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="suburb"
+                        value={formData.suburb}
+                        onChange={(e) => setFormData({ ...formData, suburb: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, suburb: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="city">City *</Label>
-                    <Input
-                      id="city"
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      required
-                    />
+                    <Label htmlFor="city">City</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="city"
+                        value={formData.city}
+                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, city: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="province">Province *</Label>
-                    <Input
-                      id="province"
-                      value={formData.province}
-                      onChange={(e) => setFormData({ ...formData, province: e.target.value })}
-                      required
-                    />
+                    <Label htmlFor="province">Province</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="province"
+                        value={formData.province}
+                        onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, province: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="postalCode">Postal Code *</Label>
-                    <Input
-                      id="postalCode"
-                      value={formData.postalCode}
-                      onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                      required
-                    />
+                    <Label htmlFor="postalCode">Postal Code</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="postalCode"
+                        value={formData.postalCode}
+                        onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, postalCode: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -855,13 +910,24 @@ const EmployeeSubmissionForm = () => {
                     </div>
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="nextOfKinStreetName">Street Name *</Label>
-                    <Input
-                      id="nextOfKinStreetName"
-                      value={formData.nextOfKinStreetName}
-                      onChange={(e) => setFormData({ ...formData, nextOfKinStreetName: e.target.value })}
-                      required
-                    />
+                    <Label htmlFor="nextOfKinStreetName">Street Name</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="nextOfKinStreetName"
+                        value={formData.nextOfKinStreetName}
+                        onChange={(e) => setFormData({ ...formData, nextOfKinStreetName: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, nextOfKinStreetName: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="nextOfKinComplexName">Complex/Building Name</Label>
@@ -885,40 +951,84 @@ const EmployeeSubmissionForm = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="nextOfKinSuburb">Suburb *</Label>
-                    <Input
-                      id="nextOfKinSuburb"
-                      value={formData.nextOfKinSuburb}
-                      onChange={(e) => setFormData({ ...formData, nextOfKinSuburb: e.target.value })}
-                      required
-                    />
+                    <Label htmlFor="nextOfKinSuburb">Suburb</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="nextOfKinSuburb"
+                        value={formData.nextOfKinSuburb}
+                        onChange={(e) => setFormData({ ...formData, nextOfKinSuburb: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, nextOfKinSuburb: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="nextOfKinCity">City/Town *</Label>
-                    <Input
-                      id="nextOfKinCity"
-                      value={formData.nextOfKinCity}
-                      onChange={(e) => setFormData({ ...formData, nextOfKinCity: e.target.value })}
-                      required
-                    />
+                    <Label htmlFor="nextOfKinCity">City/Town</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="nextOfKinCity"
+                        value={formData.nextOfKinCity}
+                        onChange={(e) => setFormData({ ...formData, nextOfKinCity: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, nextOfKinCity: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="nextOfKinProvince">Province *</Label>
-                    <Input
-                      id="nextOfKinProvince"
-                      value={formData.nextOfKinProvince}
-                      onChange={(e) => setFormData({ ...formData, nextOfKinProvince: e.target.value })}
-                      required
-                    />
+                    <Label htmlFor="nextOfKinProvince">Province</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="nextOfKinProvince"
+                        value={formData.nextOfKinProvince}
+                        onChange={(e) => setFormData({ ...formData, nextOfKinProvince: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, nextOfKinProvince: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="nextOfKinPostalCode">Postal Code *</Label>
-                    <Input
-                      id="nextOfKinPostalCode"
-                      value={formData.nextOfKinPostalCode}
-                      onChange={(e) => setFormData({ ...formData, nextOfKinPostalCode: e.target.value })}
-                      required
-                    />
+                    <Label htmlFor="nextOfKinPostalCode">Postal Code</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="nextOfKinPostalCode"
+                        value={formData.nextOfKinPostalCode}
+                        onChange={(e) => setFormData({ ...formData, nextOfKinPostalCode: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, nextOfKinPostalCode: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
