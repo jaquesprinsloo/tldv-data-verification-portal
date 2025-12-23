@@ -668,12 +668,12 @@ const EmployeeSubmissionForm = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b pb-2">
                   <h3 className="text-lg font-semibold">Current Physical Address</h3>
-                  <span className="text-xs text-muted-foreground">Click "N/A" if field is not applicable</span>
+                  <span className="text-xs text-muted-foreground bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded">Click "N/A" if field is not applicable</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="houseNumber">House Number</Label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                       <Input
                         id="houseNumber"
                         value={formData.houseNumber}
@@ -685,7 +685,7 @@ const EmployeeSubmissionForm = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setFormData({ ...formData, houseNumber: "N/A" })}
-                        className="shrink-0 text-xs"
+                        className="shrink-0 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                       >
                         N/A
                       </Button>
@@ -693,7 +693,7 @@ const EmployeeSubmissionForm = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="floorNumber">Floor Number</Label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                       <Input
                         id="floorNumber"
                         value={formData.floorNumber}
@@ -705,15 +705,15 @@ const EmployeeSubmissionForm = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setFormData({ ...formData, floorNumber: "N/A" })}
-                        className="shrink-0 text-xs"
+                        className="shrink-0 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                       >
                         N/A
                       </Button>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="streetName">Street Name</Label>
-                    <div className="flex gap-2">
+                    <Label htmlFor="streetName">Street Name *</Label>
+                    <div className="flex gap-2 items-center">
                       <Input
                         id="streetName"
                         value={formData.streetName}
@@ -725,7 +725,7 @@ const EmployeeSubmissionForm = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setFormData({ ...formData, streetName: "N/A" })}
-                        className="shrink-0 text-xs"
+                        className="shrink-0 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                       >
                         N/A
                       </Button>
@@ -733,7 +733,7 @@ const EmployeeSubmissionForm = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="complexName">Complex Name</Label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                       <Input
                         id="complexName"
                         value={formData.complexName}
@@ -745,15 +745,15 @@ const EmployeeSubmissionForm = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setFormData({ ...formData, complexName: "N/A" })}
-                        className="shrink-0 text-xs"
+                        className="shrink-0 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                       >
                         N/A
                       </Button>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="suburb">Suburb</Label>
-                    <div className="flex gap-2">
+                    <Label htmlFor="suburb">Suburb *</Label>
+                    <div className="flex gap-2 items-center">
                       <Input
                         id="suburb"
                         value={formData.suburb}
@@ -765,15 +765,15 @@ const EmployeeSubmissionForm = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setFormData({ ...formData, suburb: "N/A" })}
-                        className="shrink-0 text-xs"
+                        className="shrink-0 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                       >
                         N/A
                       </Button>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="city">City</Label>
-                    <div className="flex gap-2">
+                    <Label htmlFor="city">City *</Label>
+                    <div className="flex gap-2 items-center">
                       <Input
                         id="city"
                         value={formData.city}
@@ -785,15 +785,15 @@ const EmployeeSubmissionForm = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setFormData({ ...formData, city: "N/A" })}
-                        className="shrink-0 text-xs"
+                        className="shrink-0 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                       >
                         N/A
                       </Button>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="province">Province</Label>
-                    <div className="flex gap-2">
+                    <Label htmlFor="province">Province *</Label>
+                    <div className="flex gap-2 items-center">
                       <Input
                         id="province"
                         value={formData.province}
@@ -805,15 +805,15 @@ const EmployeeSubmissionForm = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setFormData({ ...formData, province: "N/A" })}
-                        className="shrink-0 text-xs"
+                        className="shrink-0 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                       >
                         N/A
                       </Button>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="postalCode">Postal Code</Label>
-                    <div className="flex gap-2">
+                    <Label htmlFor="postalCode">Postal Code *</Label>
+                    <div className="flex gap-2 items-center">
                       <Input
                         id="postalCode"
                         value={formData.postalCode}
@@ -825,7 +825,7 @@ const EmployeeSubmissionForm = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setFormData({ ...formData, postalCode: "N/A" })}
-                        className="shrink-0 text-xs"
+                        className="shrink-0 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                       >
                         N/A
                       </Button>
