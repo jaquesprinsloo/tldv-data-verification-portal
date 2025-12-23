@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { FileText, BarChart3, Download, Upload, Loader2, Save, Plus } from "lucide-react";
+import { FileText, BarChart3, Download, Upload, Loader2, Save, Plus, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import PolygraphReportsList from "@/components/admin/polygraph/PolygraphReportsList";
 import PolygraphStatistics from "@/components/admin/polygraph/PolygraphStatistics";
+import BatchUploadSection from "./BatchUploadSection";
+import BatchListSection from "./BatchListSection";
 
 import { generatePolygraphTemplate } from "@/utils/polygraphTemplateGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -525,15 +527,25 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="reports" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Reports</span>
           </TabsTrigger>
+          <TabsTrigger value="batches" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            <span className="hidden sm:inline">Batches</span>
+          </TabsTrigger>
+          {canEdit && (
+            <TabsTrigger value="batch-upload" className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              <span className="hidden sm:inline">Batch Upload</span>
+            </TabsTrigger>
+          )}
           {canEdit && (
             <TabsTrigger value="upload" className="flex items-center gap-2">
-              <Upload className="h-4 w-4" />
-              <span className="hidden sm:inline">Upload</span>
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Single Upload</span>
             </TabsTrigger>
           )}
           <TabsTrigger value="statistics" className="flex items-center gap-2">
@@ -544,10 +556,20 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
 
         <TabsContent value="reports" className="mt-6">
           <PolygraphReportsList 
-            onCreateNew={() => setActiveTab("upload")} 
+            onCreateNew={() => setActiveTab("batch-upload")} 
             onEditReport={() => {}}
           />
         </TabsContent>
+
+        <TabsContent value="batches" className="mt-6">
+          <BatchListSection />
+        </TabsContent>
+
+        {canEdit && (
+          <TabsContent value="batch-upload" className="mt-6">
+            <BatchUploadSection onBatchCreated={() => setActiveTab("batches")} />
+          </TabsContent>
+        )}
 
         {canEdit && (
           <TabsContent value="upload" className="mt-6">
