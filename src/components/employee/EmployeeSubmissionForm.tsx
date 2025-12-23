@@ -335,14 +335,14 @@ const EmployeeSubmissionForm = () => {
     const effectiveLocation =
       location ?? (popiaLocation ? { lat: popiaLocation.lat, lng: popiaLocation.lng } : null);
 
+    // Location is preferred (for geofence verification), but should not block submission.
+    // If POPIA/manual coordinates are unavailable, we still allow submission and mark it for review.
     if (!effectiveLocation) {
       toast({
-        title: "Location Required",
+        title: "Location not available",
         description:
-          "We couldn't find a saved POPIA location for your profile. Please enter coordinates manually (or contact your administrator).",
-        variant: "destructive",
+          "We couldn't load your saved POPIA location. We'll submit your verification for review without location verification.",
       });
-      return;
     }
 
     if (!proofOfResidenceFile || !idFile) {
@@ -380,36 +380,49 @@ const EmployeeSubmissionForm = () => {
         formData.postalCode
       ].filter(Boolean).join(", ");
 
-      // Verify geofence
-      toast({
-        title: "Verifying Location",
-        description: "Checking if you are at the provided address...",
-      });
+      // Verify geofence (only if we have coordinates)
+      let geofenceData: any = null;
+      let isGeofenceFlagged = true;
 
-      const { data: geofenceData, error: geofenceError } = await supabase.functions.invoke(
-        "verify-geofence",
-        {
-          body: {
-            address: physicalAddress,
-            latitude: effectiveLocation.lat,
-            longitude: effectiveLocation.lng,
-          },
+      if (effectiveLocation) {
+        toast({
+          title: "Verifying Location",
+          description: "Checking if you are at the provided address...",
+        });
+
+        const { data, error: geofenceError } = await supabase.functions.invoke(
+          "verify-geofence",
+          {
+            body: {
+              address: physicalAddress,
+              latitude: effectiveLocation.lat,
+              longitude: effectiveLocation.lng,
+            },
+          }
+        );
+
+        if (geofenceError) {
+          console.warn("Geofence verification error:", geofenceError);
+          geofenceData = null;
+          isGeofenceFlagged = true;
+        } else {
+          geofenceData = data;
+          isGeofenceFlagged = geofenceData?.flagged || false;
         }
-      );
 
-      console.log("Geofence verification result:", geofenceData);
+        console.log("Geofence verification result:", geofenceData);
+      }
 
       // Upload documents
       const proofUrl = await uploadFile(proofOfResidenceFile, "proof-of-residence", employeeId);
       const idUrl = await uploadFile(idFile, "employee-ids", employeeId);
-      
-      // Determine status based on geofence
-      const isGeofenceFlagged = geofenceData?.flagged || false;
-      const submissionStatus = isGeofenceFlagged ? 'flagged' : 'pending';
-      
+
+      // Determine status
+      const submissionStatus = isGeofenceFlagged ? "flagged" : "pending";
+
       // Generate verification token
       const verificationToken = crypto.randomUUID();
-      
+
       // Create submission using secure function
       const submissionData = {
         employee_number: formData.employeeNumber,
@@ -419,24 +432,24 @@ const EmployeeSubmissionForm = () => {
         email: formData.email,
         contact_number: formData.contactNumber,
         physical_address: physicalAddress,
-        house_number: formData.houseNumber || 'N/A',
-        floor_number: formData.floorNumber || 'N/A',
-        street_name: formData.streetName || 'N/A',
-        complex_name: formData.complexName || 'N/A',
-        suburb: formData.suburb || 'N/A',
-        city: formData.city || 'N/A',
-        province: formData.province || 'N/A',
-        postal_code: formData.postalCode || 'N/A',
-        geolocation_lat: effectiveLocation.lat.toString(),
-        geolocation_lng: effectiveLocation.lng.toString(),
-        geofence_verified: (geofenceData?.verified || false).toString(),
-        geofence_distance_meters: (geofenceData?.distance || null)?.toString(),
+        house_number: formData.houseNumber || "N/A",
+        floor_number: formData.floorNumber || "N/A",
+        street_name: formData.streetName || "N/A",
+        complex_name: formData.complexName || "N/A",
+        suburb: formData.suburb || "N/A",
+        city: formData.city || "N/A",
+        province: formData.province || "N/A",
+        postal_code: formData.postalCode || "N/A",
+        geolocation_lat: effectiveLocation?.lat ?? null,
+        geolocation_lng: effectiveLocation?.lng ?? null,
+        geofence_verified: geofenceData?.verified ?? null,
+        geofence_distance_meters: geofenceData?.distance ?? null,
         proof_of_residence_url: proofUrl,
         id_photo_url: idUrl,
         status: submissionStatus,
-        flagged: isGeofenceFlagged.toString(),
+        flagged: isGeofenceFlagged,
         verification_token: verificationToken,
-        verification_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+        verification_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
       };
 
       const { data: submissionId, error: submissionError } = await supabase
@@ -521,7 +534,13 @@ const EmployeeSubmissionForm = () => {
 
       setSubmitted(true);
 
-      if (!geofenceData?.verified) {
+      if (!effectiveLocation) {
+        toast({
+          title: "Submission Received",
+          description:
+            "Your submission was received and queued for review (no POPIA location was available for automatic verification).",
+        });
+      } else if (!geofenceData?.verified) {
         toast({
           title: "Submission Received - Location Flagged",
           description: `Your submission was recorded but flagged because you appear to be ${geofenceData?.distance}m from the provided address.`,
