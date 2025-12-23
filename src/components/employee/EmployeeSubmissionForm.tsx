@@ -635,23 +635,50 @@ const EmployeeSubmissionForm = () => {
 
               {/* Address */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Current Physical Address</h3>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h3 className="text-lg font-semibold">Current Physical Address</h3>
+                  <span className="text-xs text-muted-foreground">Click "N/A" if field is not applicable</span>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="houseNumber">House Number</Label>
-                    <Input
-                      id="houseNumber"
-                      value={formData.houseNumber}
-                      onChange={(e) => setFormData({ ...formData, houseNumber: e.target.value })}
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="houseNumber"
+                        value={formData.houseNumber}
+                        onChange={(e) => setFormData({ ...formData, houseNumber: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, houseNumber: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="floorNumber">Floor Number</Label>
-                    <Input
-                      id="floorNumber"
-                      value={formData.floorNumber}
-                      onChange={(e) => setFormData({ ...formData, floorNumber: e.target.value })}
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="floorNumber"
+                        value={formData.floorNumber}
+                        onChange={(e) => setFormData({ ...formData, floorNumber: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, floorNumber: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="streetName">Street Name *</Label>
@@ -664,11 +691,23 @@ const EmployeeSubmissionForm = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="complexName">Complex Name</Label>
-                    <Input
-                      id="complexName"
-                      value={formData.complexName}
-                      onChange={(e) => setFormData({ ...formData, complexName: e.target.value })}
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="complexName"
+                        value={formData.complexName}
+                        onChange={(e) => setFormData({ ...formData, complexName: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, complexName: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="suburb">Suburb *</Label>
@@ -768,25 +807,52 @@ const EmployeeSubmissionForm = () => {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Next of Kin Address</h3>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h3 className="text-lg font-semibold">Next of Kin Address</h3>
+                  <span className="text-xs text-muted-foreground">Click "N/A" if field is not applicable</span>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="nextOfKinHouseNumber">House/Unit Number</Label>
-                    <Input
-                      id="nextOfKinHouseNumber"
-                      value={formData.nextOfKinHouseNumber}
-                      onChange={(e) => setFormData({ ...formData, nextOfKinHouseNumber: e.target.value })}
-                      placeholder="e.g., 12 or Unit 5"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="nextOfKinHouseNumber"
+                        value={formData.nextOfKinHouseNumber}
+                        onChange={(e) => setFormData({ ...formData, nextOfKinHouseNumber: e.target.value })}
+                        placeholder="e.g., 12 or Unit 5"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, nextOfKinHouseNumber: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="nextOfKinFloorNumber">Floor Number</Label>
-                    <Input
-                      id="nextOfKinFloorNumber"
-                      value={formData.nextOfKinFloorNumber}
-                      onChange={(e) => setFormData({ ...formData, nextOfKinFloorNumber: e.target.value })}
-                      placeholder="e.g., Ground or 3rd"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="nextOfKinFloorNumber"
+                        value={formData.nextOfKinFloorNumber}
+                        onChange={(e) => setFormData({ ...formData, nextOfKinFloorNumber: e.target.value })}
+                        placeholder="e.g., Ground or 3rd"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, nextOfKinFloorNumber: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="nextOfKinStreetName">Street Name *</Label>
@@ -799,12 +865,24 @@ const EmployeeSubmissionForm = () => {
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="nextOfKinComplexName">Complex/Building Name</Label>
-                    <Input
-                      id="nextOfKinComplexName"
-                      value={formData.nextOfKinComplexName}
-                      onChange={(e) => setFormData({ ...formData, nextOfKinComplexName: e.target.value })}
-                      placeholder="Leave blank if not applicable"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="nextOfKinComplexName"
+                        value={formData.nextOfKinComplexName}
+                        onChange={(e) => setFormData({ ...formData, nextOfKinComplexName: e.target.value })}
+                        placeholder="Leave blank if not applicable"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, nextOfKinComplexName: "N/A" })}
+                        className="shrink-0 text-xs"
+                      >
+                        N/A
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="nextOfKinSuburb">Suburb *</Label>
