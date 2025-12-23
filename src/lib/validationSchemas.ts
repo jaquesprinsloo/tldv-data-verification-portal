@@ -60,9 +60,16 @@ export const employeeSubmissionSchema = z.object({
   province: optionalFieldSchema(100, "Province must be less than 100 characters"),
   postalCode: optionalFieldSchema(10, "Postal code must be less than 10 characters"),
   
-  // Next of kin fields
-  nextOfKinFirstName: nameSchema,
-  nextOfKinLastName: nameSchema,
+  // Next of kin fields - more lenient validation to allow various name formats
+  nextOfKinFirstName: z.string()
+    .trim()
+    .min(1, { message: "Next of kin first name is required" })
+    .max(100, { message: "Must be less than 100 characters" }),
+  
+  nextOfKinLastName: z.string()
+    .trim()
+    .min(1, { message: "Next of kin last name is required" })
+    .max(100, { message: "Must be less than 100 characters" }),
   
   nextOfKinContact: z.string()
     .trim()
