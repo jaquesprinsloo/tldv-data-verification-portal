@@ -655,6 +655,76 @@ export type Database = {
           },
         ]
       }
+      polygraph_batches: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          examination_date: string
+          examiner_id: string | null
+          id: string
+          invoice_id: string | null
+          name: string | null
+          notes: string | null
+          processed_reports: number
+          status: string
+          store_id: string | null
+          total_reports: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          examination_date?: string
+          examiner_id?: string | null
+          id?: string
+          invoice_id?: string | null
+          name?: string | null
+          notes?: string | null
+          processed_reports?: number
+          status?: string
+          store_id?: string | null
+          total_reports?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          examination_date?: string
+          examiner_id?: string | null
+          id?: string
+          invoice_id?: string | null
+          name?: string | null
+          notes?: string | null
+          processed_reports?: number
+          status?: string
+          store_id?: string | null
+          total_reports?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polygraph_batches_examiner_id_fkey"
+            columns: ["examiner_id"]
+            isOneToOne: false
+            referencedRelation: "examiners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polygraph_batches_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polygraph_batches_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       polygraph_candidates: {
         Row: {
           approved_at: string | null
@@ -786,6 +856,7 @@ export type Database = {
       }
       polygraph_reports: {
         Row: {
+          batch_id: string | null
           candidate_photo_url: string | null
           contact_number: string | null
           created_at: string
@@ -821,6 +892,7 @@ export type Database = {
           vetting_types: Json | null
         }
         Insert: {
+          batch_id?: string | null
           candidate_photo_url?: string | null
           contact_number?: string | null
           created_at?: string
@@ -856,6 +928,7 @@ export type Database = {
           vetting_types?: Json | null
         }
         Update: {
+          batch_id?: string | null
           candidate_photo_url?: string | null
           contact_number?: string | null
           created_at?: string
@@ -891,6 +964,13 @@ export type Database = {
           vetting_types?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "polygraph_reports_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "polygraph_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "polygraph_reports_examiner_id_fkey"
             columns: ["examiner_id"]
