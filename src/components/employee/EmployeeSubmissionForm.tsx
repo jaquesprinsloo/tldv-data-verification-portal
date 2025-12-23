@@ -273,6 +273,12 @@ const EmployeeSubmissionForm = () => {
         email: "Email Address",
         contactNumber: "Contact Number",
 
+        streetName: "Street Name",
+        suburb: "Suburb",
+        city: "City",
+        province: "Province",
+        postalCode: "Postal Code",
+
         nextOfKinFirstName: "Next of Kin First Name",
         nextOfKinLastName: "Next of Kin Last Name",
         nextOfKinContact: "Next of Kin Contact Number",
@@ -670,7 +676,7 @@ const EmployeeSubmissionForm = () => {
                   <h3 className="text-lg font-semibold">Current Physical Address</h3>
                   <span className="text-xs text-muted-foreground bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded">Click "N/A" if field is not applicable</span>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="houseNumber">House Number</Label>
                     <div className="flex gap-2 items-center">
