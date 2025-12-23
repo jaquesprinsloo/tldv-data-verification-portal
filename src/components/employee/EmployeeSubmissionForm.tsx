@@ -227,10 +227,7 @@ const EmployeeSubmissionForm = () => {
   const [idFile, setIdFile] = useState<File | null>(null);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [popiaLocation, setPopiaLocation] = useState<{ lat: number; lng: number; acceptedAt: string } | null>(null);
-  const [showManualLocation, setShowManualLocation] = useState(false);
-  const [manualLat, setManualLat] = useState("");
-  const [manualLng, setManualLng] = useState("");
-  
+
   const [geofenceInfo, setGeofenceInfo] = useState<{
     distance: number | null;
     verified: boolean;
@@ -994,97 +991,23 @@ const EmployeeSubmissionForm = () => {
                 )}
               </div>
             ) : (
-              <div className="p-4 border rounded-lg bg-amber-50 border-amber-200 space-y-3">
+              <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
                 <div className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-amber-600" />
-                  <p className="text-sm font-medium text-amber-700">
-                    No location data available
+                  <MapPin className="h-5 w-5 text-muted-foreground" />
+                  <p className="text-sm font-medium">
+                    Location will be taken from your POPIA declaration
                   </p>
                 </div>
-                <p className="text-xs text-amber-600">
-                  Location was not captured during POPIA declaration. Please contact your administrator.
-                </p>
-                
-                {/* Fallback manual entry */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowManualLocation(true)}
-                  className="text-xs"
-                >
-                  Enter location manually
-                </Button>
-              </div>
-            )}
-            
-            {showManualLocation && !location && (
-              <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
-                <p className="text-sm font-medium">Enter GPS Coordinates Manually</p>
                 <p className="text-xs text-muted-foreground">
-                  You can find your coordinates using Google Maps (long-press on your location) or any GPS app.
+                  If your POPIA declaration didn’t capture GPS coordinates, you can still submit.
+                  Your submission will be queued for review without location verification.
                 </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="manualLat" className="text-xs">Latitude</Label>
-                    <Input
-                      id="manualLat"
-                      type="number"
-                      step="any"
-                      placeholder="-26.2041"
-                      value={manualLat}
-                      onChange={(e) => setManualLat(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="manualLng" className="text-xs">Longitude</Label>
-                    <Input
-                      id="manualLng"
-                      type="number"
-                      step="any"
-                      placeholder="28.0473"
-                      value={manualLng}
-                      onChange={(e) => setManualLng(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => {
-                      const lat = parseFloat(manualLat);
-                      const lng = parseFloat(manualLng);
-                      if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-                        toast({
-                          title: "Invalid Coordinates",
-                          description: "Please enter valid latitude (-90 to 90) and longitude (-180 to 180).",
-                          variant: "destructive",
-                        });
-                        return;
-                      }
-                      setLocation({ lat, lng });
-                      setShowManualLocation(false);
-                      toast({
-                        title: "Location Set ✓",
-                        description: `Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`,
-                      });
-                    }}
-                  >
-                    Confirm Location
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowManualLocation(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
               </div>
             )}
             
+            <p className="text-xs text-muted-foreground">
+              Location is automatically captured from your POPIA declaration. Distance from your address is calculated as you fill in the form.
+            </p>
             <p className="text-xs text-muted-foreground">
               Location is automatically captured from your POPIA declaration. Distance from your address is calculated as you fill in the form.
             </p>
