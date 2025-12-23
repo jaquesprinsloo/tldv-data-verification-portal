@@ -295,9 +295,10 @@ const EmployeeSubmissionForm = () => {
               : `⚠ Outside geofence (>${geofenceData.threshold || 50}m)`;
             
             toast({
-              title: "Location Captured",
+              title: geofenceData.verified ? "Location Captured ✓" : "Location Captured (Outside Permitted Area)",
               description: `${distanceText}\n${statusText}\nAccuracy: ±${Math.round(accuracy)}m`,
-              variant: geofenceData.verified ? "default" : "destructive",
+              // Keep this non-blocking (not destructive). Being outside the area is allowed.
+              variant: "default",
             });
           } else {
             console.error('Geofence verification error:', geoError);
