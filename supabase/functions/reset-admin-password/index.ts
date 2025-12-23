@@ -18,8 +18,21 @@ serve(async (req) => {
       throw new Error("User ID and new password are required");
     }
 
-    if (newPassword.length < 8) {
-      throw new Error("Password must be at least 8 characters");
+    // Strong password validation for admin accounts
+    if (newPassword.length < 12) {
+      throw new Error("Password must be at least 12 characters");
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      throw new Error("Password must include at least one uppercase letter");
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      throw new Error("Password must include at least one lowercase letter");
+    }
+    if (!/[0-9]/.test(newPassword)) {
+      throw new Error("Password must include at least one number");
+    }
+    if (!/[^A-Za-z0-9]/.test(newPassword)) {
+      throw new Error("Password must include at least one special character");
     }
 
     const authHeader = req.headers.get('Authorization');
