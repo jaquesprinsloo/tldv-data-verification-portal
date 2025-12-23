@@ -278,13 +278,71 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
     setEmployees((prev) => prev.filter((e) => e.id !== id));
 
     try {
-      const { error: submissionsError } = await supabase
+      // Delete all related records first (order matters due to foreign keys)
+      
+      // 1. Get submissions to delete next_of_kin records
+      const { data: submissions } = await supabase
+        .from("submissions")
+        .select("id")
+        .eq("employee_id", id);
+      
+      if (submissions && submissions.length > 0) {
+        const submissionIds = submissions.map(s => s.id);
+        await supabase
+          .from("next_of_kin")
+          .delete()
+          .in("submission_id", submissionIds);
+      }
+
+      // 2. Delete submissions
+      await supabase
         .from("submissions")
         .delete()
         .eq("employee_id", id);
 
-      if (submissionsError) throw submissionsError;
+      // 3. Delete POPIA acceptances
+      await supabase
+        .from("popia_acceptances")
+        .delete()
+        .eq("employee_id", id);
 
+      // 4. Delete employee invitations
+      await supabase
+        .from("employee_invitations")
+        .delete()
+        .eq("employee_id", id);
+
+      // 5. Delete renewal requests
+      await supabase
+        .from("renewal_requests")
+        .delete()
+        .eq("employee_id", id);
+
+      // 6. Delete employee store assignments
+      await supabase
+        .from("employee_store_assignments")
+        .delete()
+        .eq("employee_id", id);
+
+      // 7. Delete polygraph candidates (unlink only, keep the report)
+      await supabase
+        .from("polygraph_candidates")
+        .update({ employee_id: null })
+        .eq("employee_id", id);
+
+      // 8. Delete examinations linked to this employee
+      await supabase
+        .from("examinations")
+        .delete()
+        .eq("employee_id", id);
+
+      // 9. Delete risk assessments linked to this employee
+      await supabase
+        .from("risk_assessments")
+        .delete()
+        .eq("employee_id", id);
+
+      // Finally delete the employee
       const { error: employeeError } = await supabase
         .from("employees")
         .delete()
@@ -294,15 +352,16 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
 
       toast({
         title: "Employee Deleted",
-        description: "Employee and all associated submissions have been removed from the system",
+        description: "Employee and all associated data have been removed from the system",
       });
 
       fetchEmployees();
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Delete employee error:", error);
       fetchEmployees();
       toast({
         title: "Error",
-        description: "Failed to delete employee",
+        description: error?.message || "Failed to delete employee",
         variant: "destructive",
       });
     } finally {
