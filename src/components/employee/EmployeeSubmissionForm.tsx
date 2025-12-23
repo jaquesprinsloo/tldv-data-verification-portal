@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ const EmployeeSubmissionForm = () => {
   const [employeeId, setEmployeeId] = useState("");
   const [activeTab, setActiveTab] = useState<"employee" | "nextofkin">("employee");
   const [lastValidationErrors, setLastValidationErrors] = useState<string[]>([]);
+  const validationSummaryRef = useRef<HTMLDivElement | null>(null);
 
   const [formData, setFormData] = useState({
     employeeNumber: "",
@@ -304,19 +305,20 @@ const EmployeeSubmissionForm = () => {
         })
       );
 
+      // Bring the user to the error summary immediately
+      setTimeout(() => {
+        validationSummaryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+
       console.warn("EmployeeSubmissionForm validation failed", {
         firstError,
         allErrors: zodErrors,
-        formDataSnapshot: {
-          ...formData,
-          // avoid logging potentially sensitive documents; none here anyway
-        },
       });
 
       toast({
         title: "Validation Error",
         description:
-          (friendlyField ? `${friendlyField}: ` : "") +
+          (friendlyField ? `${friendlyField}: ` : field ? `${String(field)}: ` : "") +
           (firstError?.message || "Please complete all required fields."),
         variant: "destructive",
       });
@@ -613,6 +615,20 @@ const EmployeeSubmissionForm = () => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {lastValidationErrors.length > 0 && (
+            <div
+              ref={validationSummaryRef}
+              className="rounded-md border border-destructive/30 bg-destructive/5 p-3"
+            >
+              <p className="text-sm font-medium text-destructive">Please fix the following:</p>
+              <ul className="mt-2 list-disc pl-5 text-sm text-destructive">
+                {lastValidationErrors.slice(0, 12).map((msg) => (
+                  <li key={msg}>{msg}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <Tabs
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as "employee" | "nextofkin")}
@@ -1132,16 +1148,6 @@ const EmployeeSubmissionForm = () => {
             </div>
           </div>
 
-          {lastValidationErrors.length > 0 && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
-              <p className="text-sm font-medium text-destructive">Please fix the following:</p>
-              <ul className="mt-2 list-disc pl-5 text-sm text-destructive">
-                {lastValidationErrors.slice(0, 8).map((msg) => (
-                  <li key={msg}>{msg}</li>
-                ))}
-              </ul>
-            </div>
-          )}
 
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? "Submitting..." : "Submit Verification"}
