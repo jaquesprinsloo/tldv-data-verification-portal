@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Eye, Check, X, Send, Users, Clock, UserCheck, UserX, Trash2 } from "lucide-react";
+import { Search, Eye, Check, X, Send, Users, Clock, UserCheck, UserX, Trash2, FileText } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
+import RiskProfileDialog from "@/components/shared/RiskProfileDialog";
 
 interface Candidate {
   id: string;
@@ -25,6 +26,7 @@ interface Candidate {
   created_at: string;
   report_id: string;
   store_id: string | null;
+  employee_id: string | null;
   stores?: { store_name: string } | null;
   polygraph_reports?: {
     overall_result: string | null;
@@ -46,6 +48,8 @@ const PolygraphCandidates = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [candidateToDelete, setCandidateToDelete] = useState<Candidate | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [riskProfileOpen, setRiskProfileOpen] = useState(false);
+  const [riskProfileCandidate, setRiskProfileCandidate] = useState<Candidate | null>(null);
 
   useEffect(() => {
     fetchCandidates();
@@ -365,6 +369,17 @@ const PolygraphCandidates = () => {
                       <TableCell>{getStatusBadge(candidate.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setRiskProfileCandidate(candidate);
+                              setRiskProfileOpen(true);
+                            }}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Risk Profile
+                          </Button>
                           {candidate.status === "pending_review" && (
                             <>
                               <Button
@@ -480,6 +495,15 @@ const PolygraphCandidates = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Risk Profile Dialog */}
+      <RiskProfileDialog
+        open={riskProfileOpen}
+        onOpenChange={setRiskProfileOpen}
+        employeeId={riskProfileCandidate?.employee_id || undefined}
+        reportId={riskProfileCandidate?.report_id}
+        candidateName={riskProfileCandidate ? `${riskProfileCandidate.first_name} ${riskProfileCandidate.last_name}` : undefined}
+      />
     </>
   );
 };
