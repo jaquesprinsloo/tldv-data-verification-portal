@@ -9,7 +9,7 @@ const corsHeaders = {
 
 // Server-side validation schema
 const RegistrationSchema = z.object({
-  token: z.string().uuid('Invalid token format'),
+  token: z.string().regex(/^[a-f0-9]{32}$/, 'Invalid token format'),
   employeeNumber: z.string().trim().min(1).max(50, 'Employee number too long'),
   idNumber: z.string().regex(/^\d{13}$/, 'ID number must be exactly 13 digits'),
   otp: z.string().regex(/^\d{6}$/, 'OTP must be exactly 6 digits'),
