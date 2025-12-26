@@ -30,15 +30,13 @@ const EmployeeRegister = () => {
 
   const token = searchParams.get("token");
 
+  const [invalidToken, setInvalidToken] = useState(false);
+
   useEffect(() => {
     const validateToken = async () => {
       if (!token) {
-        toast({
-          title: "Invalid Link",
-          description: "This invitation link is invalid",
-          variant: "destructive",
-        });
-        navigate("/");
+        setInvalidToken(true);
+        setValidatingToken(false);
         return;
       }
 
@@ -183,6 +181,31 @@ const EmployeeRegister = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Show invalid token error without navigation
+  if (invalidToken) {
+    return (
+      <div className="min-h-screen bg-background">
+        <TLDVHeader />
+        <div className="flex items-center justify-center p-4 mt-8">
+          <Card className="w-full max-w-md border-0 shadow-none">
+            <CardContent className="pt-12 pb-12 text-center">
+              <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-6">
+                <span className="text-3xl">⚠️</span>
+              </div>
+              <h2 className="text-2xl font-bold mb-4 text-destructive">Invalid Link</h2>
+              <p className="text-muted-foreground mb-6">
+                This invitation link is invalid or has expired. Please contact your administrator for a new invitation.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                You may close this page.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
