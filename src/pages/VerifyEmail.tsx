@@ -44,52 +44,33 @@ const VerifyEmail = () => {
       }
 
       try {
-        // Find submission with this token and check expiry
-        const { data: submission, error: fetchError } = await supabase
-          .from("submissions")
-          .select("id, verification_token_expires_at, email_verified")
-          .eq("verification_token", token)
-          .single();
+        // Call edge function to verify email (bypasses RLS for anonymous users)
+        const { data, error } = await supabase.functions.invoke('verify-email-token', {
+          body: { token },
+        });
 
-        if (fetchError || !submission) {
+        if (error) {
+          console.error("Edge function error:", error);
           setVerificationStatus("error");
-          setMessage("Invalid or expired verification link.");
+          setMessage("An error occurred during verification. Please try again.");
           return;
         }
 
-        // Check if already verified
-        if (submission.email_verified) {
-          setVerificationStatus("success");
-          setMessage("Your email has already been verified. Your submission is awaiting admin review.");
-          return;
-        }
-
-        // Check if token is expired
-        if (new Date(submission.verification_token_expires_at) < new Date()) {
+        if (!data.success) {
           setVerificationStatus("error");
-          setMessage("This verification link has expired (7 days). Please contact support for a new link.");
+          setMessage(data.message || "Invalid or expired verification link.");
           return;
         }
-
-        // Update submission to mark email as verified and nullify token
-        const { error: updateError } = await supabase
-          .from("submissions")
-          .update({ 
-            email_verified: true,
-            verified_at: new Date().toISOString(),
-            verification_token: null, // Deactivate link after use
-          })
-          .eq("id", submission.id);
-
-        if (updateError) throw updateError;
 
         setVerificationStatus("success");
-        setMessage("Email verified successfully! Your submission to the Employee Verification Portal is complete and awaiting admin review. Remember: verification renewals are required every 6 months.");
+        setMessage(data.message);
         
-        // Redirect to home after 3 seconds
-        setTimeout(() => {
-          navigate("/");
-        }, 3000);
+        // Redirect to home after 3 seconds (unless already verified)
+        if (!data.alreadyVerified) {
+          setTimeout(() => {
+            navigate("/");
+          }, 3000);
+        }
       } catch (error) {
         console.error("Verification error:", error);
         setVerificationStatus("error");
