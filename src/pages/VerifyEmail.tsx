@@ -1,23 +1,21 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import TLDVHeader from "@/components/employee/TLDVHeader";
 
 const VerifyEmail = () => {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const [verificationStatus, setVerificationStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     const handleRequest = async () => {
-      const token = searchParams.get("token");
       const action = searchParams.get("action");
       const employeeId = searchParams.get("employeeId");
 
-      // Handle renewal request
+      // Handle renewal request only
       if (action === "renewal-request" && employeeId) {
         try {
           const { error } = await supabase.functions.invoke('request-renewal-invitation', {
@@ -31,59 +29,57 @@ const VerifyEmail = () => {
         } catch (error) {
           console.error("Renewal request error:", error);
           setVerificationStatus("error");
-          setMessage("Failed to submit renewal request. Please try again or contact support.");
+          setMessage("Failed to submit renewal request. Please try again or contact your administrator.");
         }
         return;
       }
 
-      // Email verification has been removed - employees should not access the portal
+      // Any other request - show not available
       setVerificationStatus("error");
-      setMessage("This page is not available. Please contact your administrator.");
+      setMessage("This page is not available. Please contact your administrator if you need assistance.");
     };
 
     handleRequest();
-  }, [searchParams, navigate]);
+  }, [searchParams]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-      <Card className="max-w-md w-full">
-        <CardContent className="pt-12 pb-12 text-center">
-          {verificationStatus === "loading" && (
-            <>
-              <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto mb-6" />
-              <h2 className="text-2xl font-bold mb-4">Processing Request</h2>
-              <p className="text-muted-foreground">Please wait while we process your request...</p>
-            </>
-          )}
+    <div className="min-h-screen bg-background">
+      <TLDVHeader />
+      <div className="flex items-center justify-center p-4 mt-8">
+        <Card className="max-w-md w-full border-0 shadow-none">
+          <CardContent className="pt-12 pb-12 text-center">
+            {verificationStatus === "loading" && (
+              <>
+                <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto mb-6" />
+                <h2 className="text-2xl font-bold mb-4">Processing Request</h2>
+                <p className="text-muted-foreground">Please wait while we process your request...</p>
+              </>
+            )}
 
-          {verificationStatus === "success" && (
-            <>
-              <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-6" />
-              <h2 className="text-2xl font-bold mb-4 text-green-600">Success!</h2>
-              <p className="text-muted-foreground mb-6">{message}</p>
-              {searchParams.get("action") !== "renewal-request" && (
-                <p className="text-sm text-muted-foreground mb-6">
-                  Redirecting you to the homepage in 3 seconds...
+            {verificationStatus === "success" && (
+              <>
+                <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-6" />
+                <h2 className="text-2xl font-bold mb-4 text-green-600">Request Submitted</h2>
+                <p className="text-muted-foreground mb-6">{message}</p>
+                <p className="text-sm text-muted-foreground">
+                  You may now close this page.
                 </p>
-              )}
-              <Button onClick={() => navigate("/")} className="mt-4">
-                Return to Home
-              </Button>
-            </>
-          )}
+              </>
+            )}
 
-          {verificationStatus === "error" && (
-            <>
-              <XCircle className="h-16 w-16 text-destructive mx-auto mb-6" />
-              <h2 className="text-2xl font-bold mb-4 text-destructive">Request Failed</h2>
-              <p className="text-muted-foreground mb-6">{message}</p>
-              <Button onClick={() => navigate("/")} variant="outline" className="mt-4">
-                Return to Home
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            {verificationStatus === "error" && (
+              <>
+                <XCircle className="h-16 w-16 text-destructive mx-auto mb-6" />
+                <h2 className="text-2xl font-bold mb-4 text-destructive">Request Failed</h2>
+                <p className="text-muted-foreground mb-6">{message}</p>
+                <p className="text-sm text-muted-foreground">
+                  You may close this page.
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
