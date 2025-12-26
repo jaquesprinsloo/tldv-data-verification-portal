@@ -259,13 +259,13 @@ const EmployeeSubmissionForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate form data with Zod
-    try {
-      setLastValidationErrors([]);
-      employeeSubmissionSchema.parse(formData);
-    } catch (error: any) {
-      const zodErrors = Array.isArray(error?.errors) ? error.errors : [];
+
+    setLastValidationErrors([]);
+
+    // Validate form data with Zod (never throw a generic error to the user)
+    const validation = employeeSubmissionSchema.safeParse(formData);
+    if (!validation.success) {
+      const zodErrors = validation.error?.errors ?? [];
       const firstError = zodErrors[0];
       const field = firstError?.path?.[0];
 
@@ -299,10 +299,12 @@ const EmployeeSubmissionForm = () => {
 
       // Persist all errors so we can show them on-screen (helps when the toast is too vague)
       setLastValidationErrors(
-        zodErrors.map((e: any) => {
-          const p = Array.isArray(e?.path) ? e.path.join(".") : "field";
-          return `${p}: ${e?.message ?? "Invalid value"}`;
-        })
+        zodErrors.length
+          ? zodErrors.map((e: any) => {
+              const p = Array.isArray(e?.path) ? e.path.join(".") : "field";
+              return `${p}: ${e?.message ?? "Invalid value"}`;
+            })
+          : ["Unknown validation error. Please double-check all required fields."]
       );
 
       // Bring the user to the error summary immediately
@@ -324,7 +326,6 @@ const EmployeeSubmissionForm = () => {
       });
       return;
     }
-
     const effectiveLocation = popiaLocation ? { lat: popiaLocation.lat, lng: popiaLocation.lng } : null;
 
     // Location is preferred (for geofence verification), but should not block submission.
