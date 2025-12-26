@@ -52,3 +52,21 @@ verify_jwt = true
 
 [functions.extract-polygraph-report]
 verify_jwt = true
+
+[functions.verify-email-token]
+verify_jwt = false
+
+[functions.get-invitation-method]
+verify_jwt = false
+
+[functions.verify-employee-login]
+verify_jwt = false
+
+[functions.link-employee-user]
+verify_jwt = false
+
+[functions.extract-invoice-data]
+verify_jwt = true
+
+[functions.convert-docx-to-pdf]
+verify_jwt = true
