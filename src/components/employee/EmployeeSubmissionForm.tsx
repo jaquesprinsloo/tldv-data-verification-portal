@@ -262,101 +262,24 @@ const EmployeeSubmissionForm = () => {
 
     setLastValidationErrors([]);
 
-    // Validate form data with Zod (never throw a generic error to the user)
+    // Soft-validate: if validation fails, still allow submission but mark it for admin review
     const validation = employeeSubmissionSchema.safeParse(formData);
-    if (!validation.success) {
+    const validationPassed = validation.success;
+    const validationWarnings: string[] = [];
+
+    if (!validationPassed) {
       const issues = validation.error?.issues ?? [];
-      const firstIssue = issues[0];
-
-      // If Zod reports a root-level "Required" it usually means a required key is missing (undefined)
-      const requiredKeys: Array<keyof typeof formData> = [
-        "employeeNumber",
-        "idNumber",
-        "firstName",
-        "lastName",
-        "email",
-        "contactNumber",
-        "nextOfKinFirstName",
-        "nextOfKinLastName",
-        "nextOfKinContact",
-      ];
-
-      const missingKeys = requiredKeys.filter((k) => {
-        const v = (formData as any)[k];
-        return typeof v !== "string" || v.trim().length === 0;
+      issues.forEach((i) => {
+        const p = Array.isArray(i?.path) && i.path.length ? i.path.join(".") : "form";
+        validationWarnings.push(`${p}: ${i.message ?? "Invalid value"}`);
       });
 
-      const field = firstIssue?.path?.[0];
-
-      const fieldLabels: Record<string, string> = {
-        employeeNumber: "Employee Number",
-        idNumber: "ID Number",
-        firstName: "First Name",
-        lastName: "Last Name",
-        email: "Email Address",
-        contactNumber: "Contact Number",
-
-        streetName: "Street Name",
-        suburb: "Suburb",
-        city: "City",
-        province: "Province",
-        postalCode: "Postal Code",
-
-        nextOfKinFirstName: "Next of Kin First Name",
-        nextOfKinLastName: "Next of Kin Last Name",
-        nextOfKinContact: "Next of Kin Contact Number",
-      };
-
-      // If the first issue is in the Next of Kin section, take the user there.
-      if (typeof field === "string" && field.startsWith("nextOfKin")) {
-        setActiveTab("nextofkin");
-      } else {
-        setActiveTab("employee");
-      }
-
-      const friendlyField = typeof field === "string" ? fieldLabels[field] : undefined;
-
-      const formattedIssues = issues.length
-        ? issues.map((i) => {
-            const p = Array.isArray(i?.path) && i.path.length ? i.path.join(".") : "form";
-            return `${p}: ${i.message ?? "Invalid value"}`;
-          })
-        : [];
-
-      const derivedMissing = missingKeys.length
-        ? [`Missing/blank required fields: ${missingKeys.map((k) => fieldLabels[String(k)] ?? String(k)).join(", ")}`]
-        : [];
-
-      // Persist all issues so we can show them on-screen (helps when the toast is too vague)
-      setLastValidationErrors(
-        [...derivedMissing, ...formattedIssues].length
-          ? [...derivedMissing, ...formattedIssues]
-          : ["Unknown validation error. Please double-check all required fields."]
-      );
-
-      // Bring the user to the error summary immediately
-      setTimeout(() => {
-        validationSummaryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 0);
-
-      console.warn("EmployeeSubmissionForm validation failed", {
-        firstIssue,
-        issues,
-        missingKeys,
-        formDataTypes: Object.fromEntries(Object.entries(formData as any).map(([k, v]) => [k, typeof v])),
-      });
-
-      const toastLine =
-        derivedMissing[0] ||
-        (friendlyField ? `${friendlyField}: ` : field ? `${String(field)}: ` : "") +
-          (firstIssue?.message || "Please complete all required fields.");
-
+      // Show a warning toast but do NOT block submission
       toast({
-        title: "Validation Error",
-        description: toastLine,
-        variant: "destructive",
+        title: "Validation Warning",
+        description: "Some fields may have issues. Your submission will be flagged for admin review.",
+        variant: "default",
       });
-      return;
     }
     const effectiveLocation = popiaLocation ? { lat: popiaLocation.lat, lng: popiaLocation.lng } : null;
 
@@ -442,8 +365,9 @@ const EmployeeSubmissionForm = () => {
       const proofUrl = await uploadFile(proofOfResidenceFile, "proof-of-residence", employeeId);
       const idUrl = await uploadFile(idFile, "employee-ids", employeeId);
 
-      // Determine status
-      const submissionStatus = isGeofenceFlagged ? "flagged" : "pending";
+      // Determine status - flag if geofence failed OR validation failed
+      const submissionStatus = isGeofenceFlagged || !validationPassed ? "flagged" : "pending";
+      const shouldFlag = isGeofenceFlagged || !validationPassed;
 
       // Generate verification token
       const verificationToken = crypto.randomUUID();
@@ -472,7 +396,8 @@ const EmployeeSubmissionForm = () => {
         proof_of_residence_url: proofUrl,
         id_photo_url: idUrl,
         status: submissionStatus,
-        flagged: isGeofenceFlagged,
+        flagged: shouldFlag,
+        flag_reason: !validationPassed ? `Validation issues: ${validationWarnings.join("; ")}` : null,
         verification_token: verificationToken,
         verification_token_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
       };
