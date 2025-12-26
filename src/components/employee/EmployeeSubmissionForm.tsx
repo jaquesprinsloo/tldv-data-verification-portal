@@ -265,9 +265,28 @@ const EmployeeSubmissionForm = () => {
     // Validate form data with Zod (never throw a generic error to the user)
     const validation = employeeSubmissionSchema.safeParse(formData);
     if (!validation.success) {
-      const zodErrors = validation.error?.errors ?? [];
-      const firstError = zodErrors[0];
-      const field = firstError?.path?.[0];
+      const issues = validation.error?.issues ?? [];
+      const firstIssue = issues[0];
+
+      // If Zod reports a root-level "Required" it usually means a required key is missing (undefined)
+      const requiredKeys: Array<keyof typeof formData> = [
+        "employeeNumber",
+        "idNumber",
+        "firstName",
+        "lastName",
+        "email",
+        "contactNumber",
+        "nextOfKinFirstName",
+        "nextOfKinLastName",
+        "nextOfKinContact",
+      ];
+
+      const missingKeys = requiredKeys.filter((k) => {
+        const v = (formData as any)[k];
+        return typeof v !== "string" || v.trim().length === 0;
+      });
+
+      const field = firstIssue?.path?.[0];
 
       const fieldLabels: Record<string, string> = {
         employeeNumber: "Employee Number",
@@ -288,7 +307,7 @@ const EmployeeSubmissionForm = () => {
         nextOfKinContact: "Next of Kin Contact Number",
       };
 
-      // If the first error is in the Next of Kin section, take the user there.
+      // If the first issue is in the Next of Kin section, take the user there.
       if (typeof field === "string" && field.startsWith("nextOfKin")) {
         setActiveTab("nextofkin");
       } else {
@@ -297,13 +316,21 @@ const EmployeeSubmissionForm = () => {
 
       const friendlyField = typeof field === "string" ? fieldLabels[field] : undefined;
 
-      // Persist all errors so we can show them on-screen (helps when the toast is too vague)
+      const formattedIssues = issues.length
+        ? issues.map((i) => {
+            const p = Array.isArray(i?.path) && i.path.length ? i.path.join(".") : "form";
+            return `${p}: ${i.message ?? "Invalid value"}`;
+          })
+        : [];
+
+      const derivedMissing = missingKeys.length
+        ? [`Missing/blank required fields: ${missingKeys.map((k) => fieldLabels[String(k)] ?? String(k)).join(", ")}`]
+        : [];
+
+      // Persist all issues so we can show them on-screen (helps when the toast is too vague)
       setLastValidationErrors(
-        zodErrors.length
-          ? zodErrors.map((e: any) => {
-              const p = Array.isArray(e?.path) ? e.path.join(".") : "field";
-              return `${p}: ${e?.message ?? "Invalid value"}`;
-            })
+        [...derivedMissing, ...formattedIssues].length
+          ? [...derivedMissing, ...formattedIssues]
           : ["Unknown validation error. Please double-check all required fields."]
       );
 
@@ -313,15 +340,20 @@ const EmployeeSubmissionForm = () => {
       }, 0);
 
       console.warn("EmployeeSubmissionForm validation failed", {
-        firstError,
-        allErrors: zodErrors,
+        firstIssue,
+        issues,
+        missingKeys,
+        formDataTypes: Object.fromEntries(Object.entries(formData as any).map(([k, v]) => [k, typeof v])),
       });
+
+      const toastLine =
+        derivedMissing[0] ||
+        (friendlyField ? `${friendlyField}: ` : field ? `${String(field)}: ` : "") +
+          (firstIssue?.message || "Please complete all required fields.");
 
       toast({
         title: "Validation Error",
-        description:
-          (friendlyField ? `${friendlyField}: ` : field ? `${String(field)}: ` : "") +
-          (firstError?.message || "Please complete all required fields."),
+        description: toastLine,
         variant: "destructive",
       });
       return;
