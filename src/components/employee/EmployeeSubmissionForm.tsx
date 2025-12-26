@@ -654,11 +654,13 @@ const EmployeeSubmissionForm = () => {
               className="rounded-md border border-destructive/30 bg-destructive/5 p-3"
             >
               <p className="text-sm font-medium text-destructive">Please fix the following:</p>
-              <ul className="mt-2 list-disc pl-5 text-sm text-destructive">
-                {lastValidationErrors.slice(0, 12).map((msg) => (
-                  <li key={msg}>{msg}</li>
+              <div className="mt-2 space-y-1">
+                {lastValidationErrors.slice(0, 12).map((msg, idx) => (
+                  <p key={`${idx}-${msg}`} className="text-sm text-destructive">
+                    • {msg}
+                  </p>
                 ))}
-              </ul>
+              </div>
             </div>
           )}
 
