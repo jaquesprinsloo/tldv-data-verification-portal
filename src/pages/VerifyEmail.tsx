@@ -36,46 +36,9 @@ const VerifyEmail = () => {
         return;
       }
 
-      // Handle email verification
-      if (!token) {
-        setVerificationStatus("error");
-        setMessage("Invalid verification link. No token provided.");
-        return;
-      }
-
-      try {
-        // Call edge function to verify email (bypasses RLS for anonymous users)
-        const { data, error } = await supabase.functions.invoke('verify-email-token', {
-          body: { token },
-        });
-
-        if (error) {
-          console.error("Edge function error:", error);
-          setVerificationStatus("error");
-          setMessage("An error occurred during verification. Please try again.");
-          return;
-        }
-
-        if (!data.success) {
-          setVerificationStatus("error");
-          setMessage(data.message || "Invalid or expired verification link.");
-          return;
-        }
-
-        setVerificationStatus("success");
-        setMessage(data.message);
-        
-        // Redirect to home after 3 seconds (unless already verified)
-        if (!data.alreadyVerified) {
-          setTimeout(() => {
-            navigate("/");
-          }, 3000);
-        }
-      } catch (error) {
-        console.error("Verification error:", error);
-        setVerificationStatus("error");
-        setMessage("An error occurred during verification. Please try again.");
-      }
+      // Email verification has been removed - employees should not access the portal
+      setVerificationStatus("error");
+      setMessage("This page is not available. Please contact your administrator.");
     };
 
     handleRequest();
