@@ -470,25 +470,13 @@ const EmployeeSubmissionForm = () => {
         }).catch(err => console.error("ID verification error:", err));
       }
 
-      // Send verification email with token (fire and forget)
-      const appUrl = `https://${window.location.hostname}`;
-      supabase.functions.invoke("send-verification-email", {
-        body: {
-          email: formData.email,
-          name: `${formData.firstName} ${formData.lastName}`,
-          employeeNumber: formData.employeeNumber,
-          verificationToken: verificationToken,
-          appUrl: appUrl,
-        },
-      }).catch(err => console.error("Email verification error:", err));
-
       setSubmitted(true);
 
       if (!effectiveLocation) {
         toast({
           title: "Submission Received",
           description:
-            "Your submission was received and queued for review (no POPIA location was available for automatic verification).",
+            "Your submission was received and queued for admin review.",
         });
       } else if (!geofenceData?.verified) {
         toast({
@@ -499,7 +487,7 @@ const EmployeeSubmissionForm = () => {
       } else {
         toast({
           title: "Submission Successful",
-          description: "Your verification has been submitted. Check your email for confirmation.",
+          description: "Your verification has been submitted successfully and is awaiting admin review.",
         });
       }
     } catch (error: any) {
