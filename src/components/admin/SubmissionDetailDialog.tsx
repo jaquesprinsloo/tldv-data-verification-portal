@@ -665,12 +665,12 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
             </div>
 
             {/* Distance Calculation */}
-            {calculatedDistance !== null && (
+            {calculatedDistance !== null && popiaCoords && addressCoords && (
               <div className="p-3 border rounded-lg bg-background">
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-muted-foreground font-medium">Distance Between Locations</span>
-                    <p className="text-xs text-muted-foreground">Difference between submission location and provided address</p>
+                    <p className="text-xs text-muted-foreground">Straight-line distance from submission location to provided address</p>
                   </div>
                   <div className="text-right">
                     <p className={`text-lg font-bold ${calculatedDistance > 500 ? 'text-destructive' : calculatedDistance > 200 ? 'text-orange-500' : 'text-green-600'}`}>
@@ -683,6 +683,14 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                     )}
                   </div>
                 </div>
+                <a 
+                  href={`https://www.google.com/maps/dir/${popiaCoords.lat},${popiaCoords.lng}/${addressCoords.lat},${addressCoords.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary text-xs underline inline-flex items-center gap-1 mt-2"
+                >
+                  View route on Google Maps
+                </a>
               </div>
             )}
 
