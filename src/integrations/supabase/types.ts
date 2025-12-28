@@ -1736,6 +1736,7 @@ export type Database = {
         | "resigned"
         | "retrenched"
         | "employed"
+        | "absconded"
       exam_question_finding: "SR" | "NSR" | "INC" | "PNC"
       examination_result: "pass" | "fail" | "inconclusive" | "pending"
       examination_type: "periodic_screening" | "pre_employment" | "specific"
@@ -1901,6 +1902,7 @@ export const Constants = {
         "resigned",
         "retrenched",
         "employed",
+        "absconded",
       ],
       exam_question_finding: ["SR", "NSR", "INC", "PNC"],
       examination_result: ["pass", "fail", "inconclusive", "pending"],
