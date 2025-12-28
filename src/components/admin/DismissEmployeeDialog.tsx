@@ -14,7 +14,7 @@ interface DismissEmployeeDialogProps {
   onOpenChange: (open: boolean) => void;
   employeeId: string;
   employeeName: string;
-  statusType: "dismissed" | "retrenched";
+  statusType: "dismissed" | "retrenched" | "suspended" | "resigned" | "employed";
   onSuccess: () => void;
 }
 
@@ -29,12 +29,25 @@ export function DismissEmployeeDialog({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [employmentStatus, setEmploymentStatus] = useState<Database['public']['Enums']['employment_status']>(statusType);
-  const [dismissalDate, setDismissalDate] = useState(new Date().toISOString().split('T')[0]);
+  const [statusDate, setStatusDate] = useState(new Date().toISOString().split('T')[0]);
   const [reason, setReason] = useState("");
   const [document, setDocument] = useState<File | null>(null);
 
+  // Statuses that require a reason
+  const requiresReason = ['dismissed', 'suspended', 'retrenched'].includes(employmentStatus);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (requiresReason && !reason.trim()) {
+      toast({
+        title: "Reason Required",
+        description: `Please provide a reason for marking the employee as ${employmentStatus}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -43,7 +56,7 @@ export function DismissEmployeeDialog({
       // Upload document if provided
       if (document) {
         const fileExt = document.name.split('.').pop();
-        const fileName = `${employeeId}_${statusType}_${Date.now()}.${fileExt}`;
+        const fileName = `${employeeId}_${employmentStatus}_${Date.now()}.${fileExt}`;
         const filePath = `${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -59,15 +72,26 @@ export function DismissEmployeeDialog({
         documentUrl = publicUrl;
       }
 
+      // Build update data
+      const updateData: Record<string, any> = {
+        employment_status: employmentStatus,
+      };
+
+      if (requiresReason) {
+        updateData.dismissed_at = statusDate;
+        updateData.dismissal_reason = reason;
+        updateData.dismissal_document_url = documentUrl;
+      } else {
+        // Clear dismissal fields for employed/resigned
+        updateData.dismissed_at = null;
+        updateData.dismissal_reason = null;
+        updateData.dismissal_document_url = null;
+      }
+
       // Update employee status
       const { error } = await supabase
         .from('employees')
-        .update({
-          employment_status: employmentStatus,
-          dismissed_at: dismissalDate,
-          dismissal_reason: reason,
-          dismissal_document_url: documentUrl,
-        })
+        .update(updateData)
         .eq('id', employeeId);
 
       if (error) throw error;
@@ -117,48 +141,54 @@ export function DismissEmployeeDialog({
                 <SelectItem value="employed">Employed</SelectItem>
                 <SelectItem value="dismissed">Dismissed</SelectItem>
                 <SelectItem value="retrenched">Retrenched</SelectItem>
+                <SelectItem value="resigned">Resigned</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="dismissalDate">
-              Date of Status Change
-            </Label>
-            <Input
-              id="dismissalDate"
-              type="date"
-              value={dismissalDate}
-              onChange={(e) => setDismissalDate(e.target.value)}
-              required
-              max={new Date().toISOString().split('T')[0]}
-            />
-          </div>
+          {requiresReason && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="statusDate">
+                  Date of Status Change
+                </Label>
+                <Input
+                  id="statusDate"
+                  type="date"
+                  value={statusDate}
+                  onChange={(e) => setStatusDate(e.target.value)}
+                  required
+                  max={new Date().toISOString().split('T')[0]}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="reason">Reason</Label>
-            <Textarea
-              id="reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Provide the reason for this decision..."
-              required
-              rows={4}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="reason">Reason *</Label>
+                <Textarea
+                  id="reason"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder={`Provide the reason for ${employmentStatus}...`}
+                  required
+                  rows={4}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="document">Supporting Document (Optional)</Label>
-            <Input
-              id="document"
-              type="file"
-              onChange={(e) => setDocument(e.target.files?.[0] || null)}
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-            />
-            {document && (
-              <p className="text-sm text-muted-foreground">{document.name}</p>
-            )}
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="document">Supporting Document (Optional)</Label>
+                <Input
+                  id="document"
+                  type="file"
+                  onChange={(e) => setDocument(e.target.files?.[0] || null)}
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                />
+                {document && (
+                  <p className="text-sm text-muted-foreground">{document.name}</p>
+                )}
+              </div>
+            </>
+          )}
 
           <DialogFooter>
             <Button

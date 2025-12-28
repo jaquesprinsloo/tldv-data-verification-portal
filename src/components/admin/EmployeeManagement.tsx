@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Copy, Upload, Download, Eye, Mail, Store, Users, Briefcase, History } from "lucide-react";
+import { UserPlus, Trash2, Copy, Upload, Download, Eye, Mail, Store, Users, Briefcase, History, FileText } from "lucide-react";
 import InviteEmployeeDialog from "./InviteEmployeeDialog";
 import AuditHistoryDialog from "./AuditHistoryDialog";
 import { DismissEmployeeDialog } from "./DismissEmployeeDialog";
@@ -16,6 +16,7 @@ import { StoreManagementDialog } from "./StoreManagementDialog";
 import { MultiStoreAssignmentDialog } from "./MultiStoreAssignmentDialog";
 import { EmploymentDetailsDialog } from "./EmploymentDetailsDialog";
 import { BulkEmploymentStatusDialog } from "./BulkEmploymentStatusDialog";
+import { EmployeeDocumentsDialog } from "./EmployeeDocumentsDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
@@ -73,17 +74,19 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [employeeToInvite, setEmployeeToInvite] = useState<{ id: string; number: string; email: string | null } | null>(null);
   const [dismissDialogOpen, setDismissDialogOpen] = useState(false);
-  const [employeeToDismiss, setEmployeeToDismiss] = useState<{ id: string; name: string; type: "dismissed" | "retrenched" } | null>(null);
+  const [employeeToDismiss, setEmployeeToDismiss] = useState<{ id: string; name: string; type: "dismissed" | "retrenched" | "suspended" | "resigned" | "employed" } | null>(null);
   const [storeManagementOpen, setStoreManagementOpen] = useState(false);
   const [multiStoreDialogOpen, setMultiStoreDialogOpen] = useState(false);
   const [employeeForMultiStore, setEmployeeForMultiStore] = useState<{ id: string; name: string } | null>(null);
   const [employmentDetailsOpen, setEmploymentDetailsOpen] = useState(false);
   const [selectedEmployeeDetails, setSelectedEmployeeDetails] = useState<any>(null);
   const [bulkStatusDialogOpen, setBulkStatusDialogOpen] = useState(false);
-  const [bulkStatusType, setBulkStatusType] = useState<"employed" | "dismissed" | "retrenched">("employed");
+  const [bulkStatusType, setBulkStatusType] = useState<"employed" | "dismissed" | "retrenched" | "resigned" | "suspended">("employed");
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(new Set());
   const [employeeStatuses, setEmployeeStatuses] = useState<Map<string, string>>(new Map());
   const [auditHistoryOpen, setAuditHistoryOpen] = useState(false);
+  const [documentsDialogOpen, setDocumentsDialogOpen] = useState(false);
+  const [employeeForDocuments, setEmployeeForDocuments] = useState<{ id: string; name: string } | null>(null);
   const [formData, setFormData] = useState({
     employeeNumber: "",
     idNumber: "",
@@ -493,9 +496,14 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
     }
   };
 
-  const handleDismissEmployee = (employeeId: string, employeeName: string, type: "dismissed" | "retrenched") => {
+  const handleDismissEmployee = (employeeId: string, employeeName: string, type: "dismissed" | "retrenched" | "suspended" | "resigned" | "employed") => {
     setEmployeeToDismiss({ id: employeeId, name: employeeName, type });
     setDismissDialogOpen(true);
+  };
+
+  const handleOpenDocuments = (employeeId: string, employeeName: string) => {
+    setEmployeeForDocuments({ id: employeeId, name: employeeName });
+    setDocumentsDialogOpen(true);
   };
 
   const handleOpenMultiStore = (employeeId: string, employeeName: string) => {
@@ -534,7 +542,7 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
     }
   };
 
-  const handleBulkStatusUpdate = (status: "employed" | "dismissed" | "retrenched") => {
+  const handleBulkStatusUpdate = (status: "employed" | "dismissed" | "retrenched" | "resigned" | "suspended") => {
     if (selectedEmployeeIds.size === 0) {
       toast({
         title: "No Selection",
@@ -547,7 +555,7 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
     setBulkStatusDialogOpen(true);
   };
 
-  const handleStatusUpdate = (employeeId: string, status: "employed" | "dismissed" | "retrenched") => {
+  const handleStatusUpdate = (employeeId: string, status: "employed" | "dismissed" | "retrenched" | "resigned" | "suspended") => {
     setSelectedEmployeeIds(new Set([employeeId]));
     setBulkStatusType(status);
     setBulkStatusDialogOpen(true);
@@ -832,12 +840,12 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
                           <div className="flex flex-col gap-2">
                             <Badge variant={variant}>{label}</Badge>
                             {activeFilter === "approved" && variant === "success" && (
-                              <div className="flex gap-1">
+                              <div className="flex flex-wrap gap-1">
                                 <Button
                                   size="sm"
-                                  variant={employee.employment_status === 'employed' || employee.employment_status === 'active' ? "default" : "outline"}
+                                  variant={employee.employment_status === 'employed' ? "default" : "outline"}
                                   className={
-                                    employee.employment_status === 'employed' || employee.employment_status === 'active'
+                                    employee.employment_status === 'employed'
                                       ? 'bg-green-600 hover:bg-green-700 text-white h-6 text-xs'
                                       : 'border-green-600 text-green-600 hover:bg-green-600 hover:text-white h-6 text-xs'
                                   }
@@ -869,6 +877,30 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
                                 >
                                   Retrenched
                                 </Button>
+                                <Button
+                                  size="sm"
+                                  variant={employee.employment_status === 'resigned' ? "default" : "outline"}
+                                  className={
+                                    employee.employment_status === 'resigned'
+                                      ? 'bg-gray-600 hover:bg-gray-700 text-white h-6 text-xs'
+                                      : 'border-gray-600 text-gray-600 hover:bg-gray-600 hover:text-white h-6 text-xs'
+                                  }
+                                  onClick={() => handleStatusUpdate(employee.id, 'resigned')}
+                                >
+                                  Resigned
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant={employee.employment_status === 'suspended' ? "default" : "outline"}
+                                  className={
+                                    employee.employment_status === 'suspended'
+                                      ? 'bg-orange-600 hover:bg-orange-700 text-white h-6 text-xs'
+                                      : 'border-orange-600 text-orange-600 hover:bg-orange-600 hover:text-white h-6 text-xs'
+                                  }
+                                  onClick={() => handleStatusUpdate(employee.id, 'suspended')}
+                                >
+                                  Suspended
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -887,6 +919,16 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
                               >
                                 <Eye className="h-4 w-4 mr-1" />
                                 <span className="text-xs">View Profile</span>
+                              </Button>
+                            )}
+                            {activeFilter === "approved" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleOpenDocuments(employee.id, employeeName)}
+                                title="Additional Documents"
+                              >
+                                <FileText className="h-4 w-4 text-blue-600" />
                               </Button>
                             )}
                             <Button
@@ -997,6 +1039,15 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
         open={auditHistoryOpen}
         onOpenChange={setAuditHistoryOpen}
       />
+
+      {employeeForDocuments && (
+        <EmployeeDocumentsDialog
+          open={documentsDialogOpen}
+          onOpenChange={setDocumentsDialogOpen}
+          employeeId={employeeForDocuments.id}
+          employeeName={employeeForDocuments.name}
+        />
+      )}
     </div>
   );
 };
