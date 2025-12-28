@@ -170,9 +170,20 @@ export function EmployeeDocumentsDialog({
     }
   };
 
+  // Extract file path from URL or return as-is if already a path
+  const extractFilePath = (fileUrl: string): string => {
+    // If it's a full URL, extract just the path after the bucket name
+    if (fileUrl.includes('employee-documents/')) {
+      const parts = fileUrl.split('employee-documents/');
+      return parts[parts.length - 1];
+    }
+    return fileUrl;
+  };
+
   // Generate a signed URL for viewing/downloading
-  const getSignedUrl = async (filePath: string): Promise<string | null> => {
+  const getSignedUrl = async (fileUrl: string): Promise<string | null> => {
     try {
+      const filePath = extractFilePath(fileUrl);
       const { data, error } = await supabase.storage
         .from('employee-documents')
         .createSignedUrl(filePath, 3600); // 1 hour expiry
