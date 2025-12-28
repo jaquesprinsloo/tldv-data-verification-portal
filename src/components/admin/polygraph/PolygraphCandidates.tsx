@@ -128,10 +128,10 @@ const PolygraphCandidates = () => {
             otp: result.otp,
           },
         });
-      } else if (invitationMethod === "whatsapp" && selectedCandidate.contact_number) {
+      } else if (invitationMethod === "whatsapp" && result.contact_number) {
         const { error: whatsappError } = await supabase.functions.invoke("send-whatsapp-invitation", {
           body: {
-            phoneNumber: selectedCandidate.contact_number,
+            phoneNumber: result.contact_number,
             employeeNumber: result.employee_number,
             firstName: result.first_name,
             lastName: result.last_name,
