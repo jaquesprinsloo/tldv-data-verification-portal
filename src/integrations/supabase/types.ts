@@ -1626,6 +1626,7 @@ export type Database = {
       approve_polygraph_candidate: {
         Args: { _candidate_id: string }
         Returns: {
+          contact_number: string
           email: string
           employee_id: string
           employee_number: string
