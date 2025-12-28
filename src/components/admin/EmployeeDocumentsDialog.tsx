@@ -93,26 +93,22 @@ export function EmployeeDocumentsDialog({
     try {
       // Upload file to storage
       const fileExt = file.name.split('.').pop();
-      const fileName = `${employeeId}/${documentType}_${Date.now()}.${fileExt}`;
+      const filePath = `${employeeId}/${documentType}_${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('employee-documents')
-        .upload(fileName, file);
+        .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('employee-documents')
-        .getPublicUrl(fileName);
-
-      // Save document record
+      // Save document record with file path (not public URL since bucket is private)
       const { error: insertError } = await supabase
         .from('employee_documents')
         .insert({
           employee_id: employeeId,
           document_type: documentType,
           file_name: file.name,
-          file_url: publicUrl,
+          file_url: filePath, // Store the path, we'll generate signed URLs when viewing
           description: description || null,
         });
 
@@ -139,12 +135,12 @@ export function EmployeeDocumentsDialog({
     }
   };
 
-  const handleDelete = async (documentId: string, fileName: string) => {
+  const handleDelete = async (documentId: string, filePath: string) => {
     try {
-      // Delete from storage
+      // Delete from storage using the stored path
       const { error: storageError } = await supabase.storage
         .from('employee-documents')
-        .remove([`${employeeId}/${fileName}`]);
+        .remove([filePath]);
 
       if (storageError) {
         console.error('Storage delete error:', storageError);
@@ -169,6 +165,47 @@ export function EmployeeDocumentsDialog({
       toast({
         title: "Delete Failed",
         description: error.message || "Failed to delete document.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Generate a signed URL for viewing/downloading
+  const getSignedUrl = async (filePath: string): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('employee-documents')
+        .createSignedUrl(filePath, 3600); // 1 hour expiry
+      
+      if (error) throw error;
+      return data?.signedUrl || null;
+    } catch (error) {
+      console.error('Error creating signed URL:', error);
+      return null;
+    }
+  };
+
+  const handleViewDocument = async (doc: EmployeeDocument) => {
+    const signedUrl = await getSignedUrl(doc.file_url);
+    if (signedUrl) {
+      setPreviewDoc({ ...doc, file_url: signedUrl });
+    } else {
+      toast({
+        title: "Error",
+        description: "Could not load document preview.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDownload = async (doc: EmployeeDocument) => {
+    const signedUrl = await getSignedUrl(doc.file_url);
+    if (signedUrl) {
+      window.open(signedUrl, '_blank');
+    } else {
+      toast({
+        title: "Error",
+        description: "Could not download document.",
         variant: "destructive",
       });
     }
@@ -333,7 +370,7 @@ export function EmployeeDocumentsDialog({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => setPreviewDoc(doc)}
+                                  onClick={() => handleViewDocument(doc)}
                                   title="Preview"
                                 >
                                   <Eye className="h-4 w-4 text-blue-600" />
@@ -342,7 +379,7 @@ export function EmployeeDocumentsDialog({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => window.open(doc.file_url, '_blank')}
+                                onClick={() => handleDownload(doc)}
                                 title="Download"
                               >
                                 <Download className="h-4 w-4" />
@@ -350,7 +387,7 @@ export function EmployeeDocumentsDialog({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleDelete(doc.id, doc.file_name)}
+                                onClick={() => handleDelete(doc.id, doc.file_url)}
                                 title="Delete"
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
