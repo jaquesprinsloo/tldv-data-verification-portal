@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Upload, Trash2, Download, Loader2 } from "lucide-react";
+import { FileText, Upload, Trash2, Download, Loader2, Eye, X } from "lucide-react";
 import { format } from "date-fns";
 
 interface EmployeeDocumentsDialogProps {
@@ -47,6 +47,7 @@ export function EmployeeDocumentsDialog({
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState("contract");
+  const [previewDoc, setPreviewDoc] = useState<EmployeeDocument | null>(null);
   
   // Upload form state
   const [documentType, setDocumentType] = useState<string>("contract");
@@ -189,6 +190,50 @@ export function EmployeeDocumentsDialog({
     return <Badge variant={variants[type] || "default"}>{getDocumentTypeLabel(type)}</Badge>;
   };
 
+  const isPreviewable = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '');
+  };
+
+  const getPreviewContent = (doc: EmployeeDocument) => {
+    const ext = doc.file_name.split('.').pop()?.toLowerCase();
+    
+    if (ext === 'pdf') {
+      return (
+        <iframe
+          src={doc.file_url}
+          className="w-full h-full rounded-lg"
+          title={doc.file_name}
+        />
+      );
+    }
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
+      return (
+        <img
+          src={doc.file_url}
+          alt={doc.file_name}
+          className="max-w-full max-h-full object-contain rounded-lg"
+        />
+      );
+    }
+    
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+        <FileText className="h-16 w-16 mb-4" />
+        <p>Preview not available for this file type</p>
+        <Button 
+          variant="outline" 
+          className="mt-4"
+          onClick={() => window.open(doc.file_url, '_blank')}
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Download to view
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
@@ -284,10 +329,21 @@ export function EmployeeDocumentsDialog({
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
+                              {isPreviewable(doc.file_name) && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setPreviewDoc(doc)}
+                                  title="Preview"
+                                >
+                                  <Eye className="h-4 w-4 text-blue-600" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => window.open(doc.file_url, '_blank')}
+                                title="Download"
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -295,6 +351,7 @@ export function EmployeeDocumentsDialog({
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleDelete(doc.id, doc.file_name)}
+                                title="Delete"
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
@@ -314,6 +371,45 @@ export function EmployeeDocumentsDialog({
             </TabsContent>
           ))}
         </Tabs>
+
+        {/* Preview Modal */}
+        {previewDoc && (
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+            <div className="relative w-full max-w-5xl h-[80vh] bg-background rounded-lg shadow-lg flex flex-col">
+              <div className="flex items-center justify-between p-4 border-b">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5" />
+                  <div>
+                    <h3 className="font-medium">{previewDoc.file_name}</h3>
+                    {previewDoc.description && (
+                      <p className="text-sm text-muted-foreground">{previewDoc.description}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(previewDoc.file_url, '_blank')}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setPreviewDoc(null)}
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+              <div className="flex-1 p-4 overflow-auto flex items-center justify-center">
+                {getPreviewContent(previewDoc)}
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
