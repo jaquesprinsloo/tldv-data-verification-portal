@@ -182,8 +182,14 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
         body: { address: submission.physical_address }
       });
       
-      if (response.data?.lat && response.data?.lng) {
-        setAddressCoords({ lat: response.data.lat, lng: response.data.lng });
+      console.log('Geocode response:', response.data);
+      
+      // The function returns addressCoordinates object
+      if (response.data?.addressCoordinates?.lat && response.data?.addressCoordinates?.lng) {
+        setAddressCoords({ 
+          lat: response.data.addressCoordinates.lat, 
+          lng: response.data.addressCoordinates.lng 
+        });
       }
     } catch (error) {
       console.error('Error geocoding address:', error);
