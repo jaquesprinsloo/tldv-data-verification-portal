@@ -883,9 +883,10 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleViewSubmission(employee)}
-                                title="View submission details"
+                                title="View Profile"
                               >
-                                <Eye className="h-4 w-4" />
+                                <Eye className="h-4 w-4 mr-1" />
+                                <span className="text-xs">View Profile</span>
                               </Button>
                             )}
                             <Button
