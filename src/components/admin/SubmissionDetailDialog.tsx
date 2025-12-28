@@ -627,28 +627,24 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                     <p className="font-medium">
                       {popiaCoords.lat.toFixed(6)}, {popiaCoords.lng.toFixed(6)}
                     </p>
-                    <a 
-                      href={`https://www.google.com/maps?q=${popiaCoords.lat},${popiaCoords.lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary text-xs underline inline-flex items-center gap-1"
+                    <button 
+                      onClick={() => window.open(`https://www.google.com/maps?q=${popiaCoords.lat},${popiaCoords.lng}`, '_blank', 'noopener,noreferrer')}
+                      className="text-primary text-xs underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
                     >
                       View on Google Maps
-                    </a>
+                    </button>
                   </>
                 ) : submission.geolocation_lat && submission.geolocation_lng ? (
                   <>
                     <p className="font-medium">
                       {submission.geolocation_lat}, {submission.geolocation_lng}
                     </p>
-                    <a 
-                      href={`https://www.google.com/maps?q=${submission.geolocation_lat},${submission.geolocation_lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary text-xs underline inline-flex items-center gap-1"
+                    <button 
+                      onClick={() => window.open(`https://www.google.com/maps?q=${submission.geolocation_lat},${submission.geolocation_lng}`, '_blank', 'noopener,noreferrer')}
+                      className="text-primary text-xs underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
                     >
                       View on Google Maps
-                    </a>
+                    </button>
                   </>
                 ) : (
                   <p className="text-muted-foreground italic">Location not captured</p>
@@ -666,14 +662,12 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                     <p className="font-medium">
                       {addressCoords.lat.toFixed(6)}, {addressCoords.lng.toFixed(6)}
                     </p>
-                    <a 
-                      href={`https://www.google.com/maps?q=${addressCoords.lat},${addressCoords.lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary text-xs underline inline-flex items-center gap-1"
+                    <button 
+                      onClick={() => window.open(`https://www.google.com/maps?q=${addressCoords.lat},${addressCoords.lng}`, '_blank', 'noopener,noreferrer')}
+                      className="text-primary text-xs underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
                     >
                       View on Google Maps
-                    </a>
+                    </button>
                   </>
                 ) : (
                   <p className="text-muted-foreground italic">Could not geocode address</p>
@@ -700,14 +694,12 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                     )}
                   </div>
                 </div>
-                <a 
-                  href={`https://www.google.com/maps/dir/${popiaCoords.lat},${popiaCoords.lng}/${addressCoords.lat},${addressCoords.lng}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary text-xs underline inline-flex items-center gap-1 mt-2"
+                <button 
+                  onClick={() => window.open(`https://www.google.com/maps/dir/${popiaCoords.lat},${popiaCoords.lng}/${addressCoords.lat},${addressCoords.lng}`, '_blank', 'noopener,noreferrer')}
+                  className="text-primary text-xs underline inline-flex items-center gap-1 mt-2 cursor-pointer bg-transparent border-none p-0"
                 >
                   View route on Google Maps
-                </a>
+                </button>
               </div>
             )}
 
