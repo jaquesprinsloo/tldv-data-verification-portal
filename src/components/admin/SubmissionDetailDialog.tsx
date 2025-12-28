@@ -263,6 +263,19 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
 
   const candidateName = `${submission.first_name} ${submission.last_name}`;
 
+  const cleanAddress = (value?: string | null) => {
+    if (!value) return "";
+    return value
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0)
+      .filter((p) => !/^n\/?a$/i.test(p) && p.toLowerCase() !== "na")
+      .join(", ");
+  };
+
+  const cleanedPhysicalAddress = cleanAddress(submission.physical_address);
+  const cleanedNextOfKinAddress = cleanAddress(nextOfKin?.address);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -462,10 +475,10 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                   )}
                 </div>
               )}
-              {submission.physical_address && (
+              {cleanedPhysicalAddress && (
                 <div className="col-span-2">
                   <span className="text-muted-foreground">Physical Address:</span>
-                  <p className="font-medium">{submission.physical_address}</p>
+                  <p className="font-medium">{cleanedPhysicalAddress}</p>
                 </div>
               )}
             </div>
@@ -495,10 +508,10 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                     <p className="font-medium">{nextOfKin.contact_number}</p>
                   </div>
                 )}
-                {nextOfKin.address && (
+                {cleanedNextOfKinAddress && (
                   <div>
                     <span className="text-muted-foreground">Address:</span>
-                    <p className="font-medium">{nextOfKin.address}</p>
+                    <p className="font-medium">{cleanedNextOfKinAddress}</p>
                   </div>
                 )}
               </div>
