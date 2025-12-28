@@ -174,12 +174,29 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
   };
 
   const geocodeAddress = async () => {
-    if (!submission?.physical_address) return;
+    if (!submission) return;
+    
+    // Construct a clean address from individual fields, filtering out null/N/A/empty values
+    const addressParts = [
+      submission.house_number,
+      submission.street_name,
+      submission.complex_name,
+      submission.suburb,
+      submission.city,
+      submission.province,
+      submission.postal_code
+    ].filter(part => part && part.trim() !== '' && part.trim().toUpperCase() !== 'N/A');
+
+    const cleanAddress = addressParts.join(', ');
+    
+    if (!cleanAddress) return;
+    
+    console.log('Geocoding clean address:', cleanAddress);
     
     setGeocodingAddress(true);
     try {
       const response = await supabase.functions.invoke('verify-geofence', {
-        body: { address: submission.physical_address }
+        body: { address: cleanAddress }
       });
       
       console.log('Geocode response:', response.data);
