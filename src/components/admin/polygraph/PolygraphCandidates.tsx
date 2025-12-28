@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, Eye, Check, X, Send, Users, Clock, UserCheck, UserX, Trash2, FileText } from "lucide-react";
+import { Search, Eye, Check, X, Send, Users, Clock, UserCheck, UserX, Trash2, FileText, Mail, MessageSquare } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { format } from "date-fns";
 import RiskProfileDialog from "@/components/shared/RiskProfileDialog";
 
@@ -50,6 +51,7 @@ const PolygraphCandidates = () => {
   const [deleting, setDeleting] = useState(false);
   const [riskProfileOpen, setRiskProfileOpen] = useState(false);
   const [riskProfileCandidate, setRiskProfileCandidate] = useState<Candidate | null>(null);
+  const [invitationMethod, setInvitationMethod] = useState<"email" | "whatsapp">("email");
 
   useEffect(() => {
     fetchCandidates();
@@ -82,6 +84,26 @@ const PolygraphCandidates = () => {
 
   const handleApprove = async () => {
     if (!selectedCandidate) return;
+    
+    // Validate that we have the required contact method
+    if (invitationMethod === "email" && !selectedCandidate.email) {
+      toast({
+        title: "Email Required",
+        description: "This candidate does not have an email address. Please select WhatsApp instead.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (invitationMethod === "whatsapp" && !selectedCandidate.contact_number) {
+      toast({
+        title: "Phone Number Required",
+        description: "This candidate does not have a phone number. Please select Email instead.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setProcessing(true);
 
     try {
@@ -96,8 +118,8 @@ const PolygraphCandidates = () => {
       const result = data?.[0];
       if (!result) throw new Error("No result returned from approval");
 
-      // Send invitation email if email exists
-      if (result.email) {
+      // Send invitation based on selected method
+      if (invitationMethod === "email" && result.email) {
         await supabase.functions.invoke("send-invitation-email", {
           body: {
             email: result.email,
@@ -106,15 +128,29 @@ const PolygraphCandidates = () => {
             otp: result.otp,
           },
         });
+      } else if (invitationMethod === "whatsapp" && selectedCandidate.contact_number) {
+        const { error: whatsappError } = await supabase.functions.invoke("send-whatsapp-invitation", {
+          body: {
+            phoneNumber: selectedCandidate.contact_number,
+            employeeNumber: result.employee_number,
+            firstName: result.first_name,
+            lastName: result.last_name,
+            token: result.token,
+            otp: result.otp,
+          },
+        });
+        
+        if (whatsappError) throw whatsappError;
       }
 
       toast({
         title: "Candidate Approved",
-        description: `${result.first_name} ${result.last_name} has been approved and an invitation has been sent.`,
+        description: `${result.first_name} ${result.last_name} has been approved and an invitation has been sent via ${invitationMethod === "email" ? "email" : "WhatsApp"}.`,
       });
 
       setActionDialogOpen(false);
       setSelectedCandidate(null);
+      setInvitationMethod("email");
       fetchCandidates();
     } catch (error: any) {
       console.error("Error approving candidate:", error);
@@ -173,6 +209,16 @@ const PolygraphCandidates = () => {
     setActionType(type);
     setActionDialogOpen(true);
     setRejectionReason("");
+    // Set default invitation method based on available contact info
+    if (type === "approve") {
+      if (candidate.email) {
+        setInvitationMethod("email");
+      } else if (candidate.contact_number) {
+        setInvitationMethod("whatsapp");
+      } else {
+        setInvitationMethod("email");
+      }
+    }
   };
 
   const handleDelete = async () => {
@@ -429,17 +475,79 @@ const PolygraphCandidates = () => {
 
       {/* Action Dialog */}
       <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
               {actionType === "approve" ? "Approve Candidate" : "Reject Candidate"}
             </DialogTitle>
             <DialogDescription>
               {actionType === "approve"
-                ? `Are you sure you want to approve ${selectedCandidate?.first_name} ${selectedCandidate?.last_name}? This will create an employee record and send them an invitation to complete their profile.`
+                ? `Approve ${selectedCandidate?.first_name} ${selectedCandidate?.last_name} and send an invitation to complete their profile.`
                 : `Please provide a reason for rejecting ${selectedCandidate?.first_name} ${selectedCandidate?.last_name}.`}
             </DialogDescription>
           </DialogHeader>
+
+          {actionType === "approve" && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Invitation Method *</Label>
+                <RadioGroup
+                  value={invitationMethod}
+                  onValueChange={(value) => setInvitationMethod(value as "email" | "whatsapp")}
+                  className="grid grid-cols-2 gap-4"
+                >
+                  <div className="relative">
+                    <RadioGroupItem
+                      value="email"
+                      id="method-email"
+                      className="peer sr-only"
+                      disabled={!selectedCandidate?.email}
+                    />
+                    <Label
+                      htmlFor="method-email"
+                      className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all
+                        ${!selectedCandidate?.email ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted'}
+                        ${invitationMethod === 'email' && selectedCandidate?.email ? 'border-primary bg-primary/5' : 'border-muted'}
+                      `}
+                    >
+                      <Mail className={`h-6 w-6 mb-2 ${invitationMethod === 'email' ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <span className="font-medium">Email</span>
+                      <span className="text-xs text-muted-foreground mt-1 text-center truncate max-w-full">
+                        {selectedCandidate?.email || "Not available"}
+                      </span>
+                    </Label>
+                  </div>
+                  <div className="relative">
+                    <RadioGroupItem
+                      value="whatsapp"
+                      id="method-whatsapp"
+                      className="peer sr-only"
+                      disabled={!selectedCandidate?.contact_number}
+                    />
+                    <Label
+                      htmlFor="method-whatsapp"
+                      className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all
+                        ${!selectedCandidate?.contact_number ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted'}
+                        ${invitationMethod === 'whatsapp' && selectedCandidate?.contact_number ? 'border-primary bg-primary/5' : 'border-muted'}
+                      `}
+                    >
+                      <MessageSquare className={`h-6 w-6 mb-2 ${invitationMethod === 'whatsapp' ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <span className="font-medium">WhatsApp</span>
+                      <span className="text-xs text-muted-foreground mt-1 text-center truncate max-w-full">
+                        {selectedCandidate?.contact_number || "Not available"}
+                      </span>
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+              
+              {!selectedCandidate?.email && !selectedCandidate?.contact_number && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  This candidate has no email or phone number. Please add contact information before approving.
+                </div>
+              )}
+            </div>
+          )}
 
           {actionType === "reject" && (
             <div className="space-y-2">
@@ -458,8 +566,13 @@ const PolygraphCandidates = () => {
               Cancel
             </Button>
             {actionType === "approve" ? (
-              <Button onClick={handleApprove} disabled={processing}>
-                {processing ? "Processing..." : "Approve & Send Invitation"}
+              <Button 
+                onClick={handleApprove} 
+                disabled={processing || (!selectedCandidate?.email && !selectedCandidate?.contact_number)}
+                className="gap-2"
+              >
+                {invitationMethod === "email" ? <Mail className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
+                {processing ? "Processing..." : `Approve & Send via ${invitationMethod === "email" ? "Email" : "WhatsApp"}`}
               </Button>
             ) : (
               <Button
