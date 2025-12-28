@@ -228,6 +228,20 @@ export const RiskProfileDialog = ({
     (data?.submission ? `${data.submission.first_name} ${data.submission.last_name}` : 
     (data?.polygraphReport ? `${data.polygraphReport.first_name} ${data.polygraphReport.last_name}` : "Profile"));
 
+  const cleanAddress = (value?: string | null) => {
+    if (!value) return "";
+    return value
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0)
+      .filter((p) => !/^n\/?a$/i.test(p) && p.toLowerCase() !== "na")
+      .join(", ");
+  };
+
+  const cleanedPersonalAddress = cleanAddress(
+    data?.submission?.physical_address || data?.polygraphReport?.physical_address
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -317,12 +331,10 @@ export const RiskProfileDialog = ({
                           <p className="font-medium">{data.polygraphReport.position_applying_for}</p>
                         </div>
                       )}
-                      {(data?.submission?.physical_address || data?.polygraphReport?.physical_address) && (
+                      {cleanedPersonalAddress && (
                         <div className="col-span-2">
                           <p className="text-sm text-muted-foreground">Physical Address</p>
-                          <p className="font-medium">
-                            {data?.submission?.physical_address || data?.polygraphReport?.physical_address}
-                          </p>
+                          <p className="font-medium">{cleanedPersonalAddress}</p>
                         </div>
                       )}
                       {data?.polygraphReport?.stores?.store_name && (
