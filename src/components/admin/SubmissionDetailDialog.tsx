@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle, AlertTriangle, MapPin, User, Phone, Home, Calendar, FileText, Briefcase, Shield, Edit2, Save, X } from "lucide-react";
+import { AlertTriangle, MapPin, User, Phone, Calendar, FileText, Briefcase, Shield, Edit2, Save, X } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -46,6 +46,12 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
   const [availableStores, setAvailableStores] = useState<Store[]>([]);
   const [savingEmployeeNumber, setSavingEmployeeNumber] = useState(false);
 
+  // Location verification state
+  const [popiaCoords, setPopiaCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [addressCoords, setAddressCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geocodingAddress, setGeocodingAddress] = useState(false);
+  const [calculatedDistance, setCalculatedDistance] = useState<number | null>(null);
+
   useEffect(() => {
     if (submission && open) {
       const displayStatus = submission.status === "verified" ? "approved" : submission.status;
@@ -55,10 +61,15 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
       fetchEmployeeDetails();
       fetchAvailableStores();
       generateSignedUrls();
+      fetchPopiaCoords();
+      geocodeAddress();
     } else {
       setProofOfResidenceUrl(null);
       setIdUrl(null);
       setIsEditingEmployeeNumber(false);
+      setPopiaCoords(null);
+      setAddressCoords(null);
+      setCalculatedDistance(null);
     }
   }, [submission, open]);
 
@@ -145,6 +156,64 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
       console.error('Error creating signed URLs:', e);
     }
   };
+
+  const fetchPopiaCoords = async () => {
+    if (!submission?.employee_id) return;
+    
+    const { data } = await supabase
+      .from("popia_acceptances")
+      .select("gps_latitude, gps_longitude")
+      .eq("employee_id", submission.employee_id)
+      .order("accepted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (data?.gps_latitude && data?.gps_longitude) {
+      setPopiaCoords({ lat: data.gps_latitude, lng: data.gps_longitude });
+    }
+  };
+
+  const geocodeAddress = async () => {
+    if (!submission?.physical_address) return;
+    
+    setGeocodingAddress(true);
+    try {
+      const response = await supabase.functions.invoke('verify-geofence', {
+        body: { address: submission.physical_address }
+      });
+      
+      if (response.data?.lat && response.data?.lng) {
+        setAddressCoords({ lat: response.data.lat, lng: response.data.lng });
+      }
+    } catch (error) {
+      console.error('Error geocoding address:', error);
+    } finally {
+      setGeocodingAddress(false);
+    }
+  };
+
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  useEffect(() => {
+    if (popiaCoords && addressCoords) {
+      const distance = calculateDistance(
+        popiaCoords.lat, popiaCoords.lng,
+        addressCoords.lat, addressCoords.lng
+      );
+      setCalculatedDistance(distance);
+    }
+  }, [popiaCoords, addressCoords]);
 
   const handleStatusUpdate = async (newStatus: string) => {
     setLoading(true);
@@ -518,56 +587,105 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
             </div>
           )}
 
-          {/* Location & Geofence */}
-          <div className="border rounded-lg p-4 space-y-3">
+          {/* Location Verification */}
+          <div className="border rounded-lg p-4 space-y-4">
             <h3 className="font-semibold flex items-center gap-2">
               <MapPin className="h-4 w-4" />
-              Location & Geofence Verification
+              Location Verification
             </h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                {submission.geofence_verified ? (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              {/* Submission Location (POPIA) */}
+              <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                <span className="text-muted-foreground font-medium">Submission Location</span>
+                <p className="text-xs text-muted-foreground">Where the employee was when completing their submission</p>
+                {popiaCoords ? (
+                  <>
+                    <p className="font-medium">
+                      {popiaCoords.lat.toFixed(6)}, {popiaCoords.lng.toFixed(6)}
+                    </p>
+                    <a 
+                      href={`https://www.google.com/maps?q=${popiaCoords.lat},${popiaCoords.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary text-xs underline inline-flex items-center gap-1"
+                    >
+                      View on Google Maps
+                    </a>
+                  </>
+                ) : submission.geolocation_lat && submission.geolocation_lng ? (
+                  <>
+                    <p className="font-medium">
+                      {submission.geolocation_lat}, {submission.geolocation_lng}
+                    </p>
+                    <a 
+                      href={`https://www.google.com/maps?q=${submission.geolocation_lat},${submission.geolocation_lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary text-xs underline inline-flex items-center gap-1"
+                    >
+                      View on Google Maps
+                    </a>
+                  </>
                 ) : (
-                  <AlertTriangle className="h-4 w-4 text-primary" />
+                  <p className="text-muted-foreground italic">Location not captured</p>
                 )}
-                <span className="font-medium">
-                  {submission.geofence_verified ? "Verified" : "Not Verified"}
-                </span>
               </div>
-              {submission.geolocation_lat && submission.geolocation_lng && (
-                <div>
-                  <span className="text-muted-foreground">Coordinates:</span>
-                  <p className="font-medium">
-                    {submission.geolocation_lat}, {submission.geolocation_lng}
-                  </p>
-                  <a 
-                    href={`https://www.google.com/maps?q=${submission.geolocation_lat},${submission.geolocation_lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary text-xs underline"
-                  >
-                    View on Google Maps
-                  </a>
-                </div>
-              )}
-              {submission.geofence_distance_meters !== null && submission.geofence_distance_meters !== undefined && (
-                <div>
-                  <span className="text-muted-foreground">Distance from address:</span>
-                  <p className="font-medium">
-                    {typeof submission.geofence_distance_meters === 'number' 
-                      ? `${Math.round(submission.geofence_distance_meters)}m`
-                      : `${submission.geofence_distance_meters}m`}
-                  </p>
-                </div>
-              )}
-              {submission.flag_reason && (
-                <div className="bg-destructive/10 p-2 rounded">
-                  <span className="text-muted-foreground">Flag Reason:</span>
-                  <p className="text-destructive font-medium">{submission.flag_reason}</p>
-                </div>
-              )}
+
+              {/* Address Coordinates */}
+              <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                <span className="text-muted-foreground font-medium">Provided Address Location</span>
+                <p className="text-xs text-muted-foreground">Geocoded coordinates of the supplied address</p>
+                {geocodingAddress ? (
+                  <p className="text-muted-foreground italic">Geocoding address...</p>
+                ) : addressCoords ? (
+                  <>
+                    <p className="font-medium">
+                      {addressCoords.lat.toFixed(6)}, {addressCoords.lng.toFixed(6)}
+                    </p>
+                    <a 
+                      href={`https://www.google.com/maps?q=${addressCoords.lat},${addressCoords.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary text-xs underline inline-flex items-center gap-1"
+                    >
+                      View on Google Maps
+                    </a>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground italic">Could not geocode address</p>
+                )}
+              </div>
             </div>
+
+            {/* Distance Calculation */}
+            {calculatedDistance !== null && (
+              <div className="p-3 border rounded-lg bg-background">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-muted-foreground font-medium">Distance Between Locations</span>
+                    <p className="text-xs text-muted-foreground">Difference between submission location and provided address</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-lg font-bold ${calculatedDistance > 500 ? 'text-destructive' : calculatedDistance > 200 ? 'text-orange-500' : 'text-green-600'}`}>
+                      {calculatedDistance >= 1000 
+                        ? `${(calculatedDistance / 1000).toFixed(2)} km`
+                        : `${Math.round(calculatedDistance)} m`}
+                    </p>
+                    {calculatedDistance > 500 && (
+                      <p className="text-xs text-destructive">Significant distance detected</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {submission.flag_reason && (
+              <div className="bg-destructive/10 p-3 rounded">
+                <span className="text-muted-foreground">Flag Reason:</span>
+                <p className="text-destructive font-medium">{submission.flag_reason}</p>
+              </div>
+            )}
           </div>
 
           {/* Documents */}
