@@ -921,16 +921,14 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
                                 <span className="text-xs">View Profile</span>
                               </Button>
                             )}
-                            {activeFilter === "approved" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenDocuments(employee.id, employeeName)}
-                                title="Additional Documents"
-                              >
-                                <FileText className="h-4 w-4 text-blue-600" />
-                              </Button>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenDocuments(employee.id, employeeName)}
+                              title="Additional Documents"
+                            >
+                              <FileText className="h-4 w-4 text-blue-600" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
