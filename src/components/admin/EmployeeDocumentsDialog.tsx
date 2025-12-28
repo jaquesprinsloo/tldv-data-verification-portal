@@ -444,11 +444,13 @@ export function EmployeeDocumentsDialog({
                     Download
                   </Button>
                   <Button
-                    variant="ghost"
-                    size="icon"
+                    variant="destructive"
+                    size="sm"
                     onClick={() => setPreviewDoc(null)}
+                    className="gap-2"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-4 w-4" />
+                    Close
                   </Button>
                 </div>
               </div>
