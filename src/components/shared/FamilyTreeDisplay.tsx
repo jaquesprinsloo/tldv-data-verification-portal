@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface FamilyMember {
-  Name: string;
-  Relationship: string;
-  CriminalHistory: string;
+  Name?: string;
+  Relationship?: string;
+  CriminalHistory?: string;
 }
 
 interface FamilyTreeDisplayProps {
@@ -17,8 +17,8 @@ interface FamilyTreeDisplayProps {
   candidateName: string;
 }
 
-const getRelationshipIcon = (relationship: string, size: string = "h-4 w-4") => {
-  const rel = relationship.toLowerCase();
+const getRelationshipIcon = (relationship: string | undefined | null, size: string = "h-4 w-4") => {
+  const rel = (relationship || '').toLowerCase();
   if (rel.includes("father") || rel.includes("mother") || rel.includes("parent")) {
     return <Heart className={size} />;
   }
@@ -42,8 +42,8 @@ const getCriminalStatusInfo = (history: string | undefined | null) => {
   return { status: "unknown", icon: HelpCircle, color: "text-muted-foreground", bgColor: "bg-muted/50 border-muted" };
 };
 
-const getRelationshipLevel = (relationship: string): number => {
-  const rel = relationship.toLowerCase();
+const getRelationshipLevel = (relationship: string | undefined | null): number => {
+  const rel = (relationship || '').toLowerCase();
   if (rel.includes("father") || rel.includes("mother")) return 1;
   if (rel.includes("stepfather") || rel.includes("stepmother")) return 1;
   if (rel.includes("brother") || rel.includes("sister")) return 2;
@@ -65,15 +65,15 @@ const FamilyMemberNode = ({ member }: { member: FamilyMember }) => {
     )}>
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-xs break-words">{member.Name}</p>
+          <p className="font-semibold text-xs break-words">{member.Name || 'Unknown'}</p>
           <Badge variant="outline" className="text-[10px] mt-1">
-            {member.Relationship}
+            {member.Relationship || 'Unknown'}
           </Badge>
         </div>
         <StatusIcon className={cn("h-4 w-4 flex-shrink-0", statusInfo.color)} />
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground line-clamp-3">
-        {member.CriminalHistory}
+        {member.CriminalHistory || 'No information available'}
       </p>
     </div>
   );
@@ -93,15 +93,15 @@ const CompactMemberNode = ({ member }: { member: FamilyMember }) => {
             statusInfo.bgColor
           )}>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-[11px] truncate">{member.Name}</p>
-              <p className="text-[10px] text-muted-foreground">{member.Relationship}</p>
+              <p className="font-medium text-[11px] truncate">{member.Name || 'Unknown'}</p>
+              <p className="text-[10px] text-muted-foreground">{member.Relationship || 'Unknown'}</p>
             </div>
             <StatusIcon className={cn("h-3.5 w-3.5 flex-shrink-0", statusInfo.color)} />
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs">
-          <p className="font-semibold text-sm">{member.Name}</p>
-          <p className="text-xs text-muted-foreground mt-1">{member.CriminalHistory}</p>
+          <p className="font-semibold text-sm">{member.Name || 'Unknown'}</p>
+          <p className="text-xs text-muted-foreground mt-1">{member.CriminalHistory || 'No information available'}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
