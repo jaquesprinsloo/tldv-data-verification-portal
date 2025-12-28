@@ -462,10 +462,12 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                   )}
                 </div>
               )}
-              <div className="col-span-2">
-                <span className="text-muted-foreground">Physical Address:</span>
-                <p className="font-medium">{submission.physical_address}</p>
-              </div>
+              {submission.physical_address && (
+                <div className="col-span-2">
+                  <span className="text-muted-foreground">Physical Address:</span>
+                  <p className="font-medium">{submission.physical_address}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -481,18 +483,24 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                   <span className="text-muted-foreground">Name:</span>
                   <p className="font-medium">{nextOfKin.first_name} {nextOfKin.last_name}</p>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Relationship:</span>
-                  <p className="font-medium capitalize">{nextOfKin.relationship?.replace('_', '/') || 'Not specified'}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Contact:</span>
-                  <p className="font-medium">{nextOfKin.contact_number}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Address:</span>
-                  <p className="font-medium">{nextOfKin.address}</p>
-                </div>
+                {nextOfKin.relationship && (
+                  <div>
+                    <span className="text-muted-foreground">Relationship:</span>
+                    <p className="font-medium capitalize">{nextOfKin.relationship.replace('_', '/')}</p>
+                  </div>
+                )}
+                {nextOfKin.contact_number && (
+                  <div>
+                    <span className="text-muted-foreground">Contact:</span>
+                    <p className="font-medium">{nextOfKin.contact_number}</p>
+                  </div>
+                )}
+                {nextOfKin.address && (
+                  <div>
+                    <span className="text-muted-foreground">Address:</span>
+                    <p className="font-medium">{nextOfKin.address}</p>
+                  </div>
+                )}
               </div>
             </div>
           )}

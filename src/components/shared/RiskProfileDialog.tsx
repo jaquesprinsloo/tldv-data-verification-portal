@@ -281,58 +281,76 @@ export const RiskProfileDialog = ({
                         <p className="text-sm text-muted-foreground">Full Name</p>
                         <p className="font-medium">{displayName}</p>
                       </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">ID Number</p>
-                        <p className="font-medium">
-                          {data?.employee?.id_number || data?.polygraphReport?.id_number || "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Employee Number</p>
-                        <p className="font-medium">{data?.employee?.employee_number || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Contact Number</p>
-                        <p className="font-medium">
-                          {data?.submission?.contact_number || data?.polygraphReport?.contact_number || "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Email</p>
-                        <p className="font-medium">
-                          {data?.submission?.email || data?.polygraphReport?.email || "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Position</p>
-                        <p className="font-medium">{data?.polygraphReport?.position_applying_for || "-"}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <p className="text-sm text-muted-foreground">Physical Address</p>
-                        <p className="font-medium">
-                          {data?.submission?.physical_address || data?.polygraphReport?.physical_address || "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Store</p>
-                        <p className="font-medium">{data?.polygraphReport?.stores?.store_name || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Examination Date</p>
-                        <p className="font-medium">
-                          {data?.polygraphReport?.examination_date 
-                            ? format(new Date(data.polygraphReport.examination_date), "PP")
-                            : "-"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Examiner</p>
-                        <p className="font-medium">{data?.polygraphReport?.examiners?.name || "-"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Overall Result</p>
-                        {getResultBadge(data?.polygraphReport?.overall_result)}
-                      </div>
+                      {(data?.employee?.id_number || data?.polygraphReport?.id_number) && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">ID Number</p>
+                          <p className="font-medium">
+                            {data?.employee?.id_number || data?.polygraphReport?.id_number}
+                          </p>
+                        </div>
+                      )}
+                      {data?.employee?.employee_number && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Employee Number</p>
+                          <p className="font-medium">{data.employee.employee_number}</p>
+                        </div>
+                      )}
+                      {(data?.submission?.contact_number || data?.polygraphReport?.contact_number) && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Contact Number</p>
+                          <p className="font-medium">
+                            {data?.submission?.contact_number || data?.polygraphReport?.contact_number}
+                          </p>
+                        </div>
+                      )}
+                      {(data?.submission?.email || data?.polygraphReport?.email) && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Email</p>
+                          <p className="font-medium">
+                            {data?.submission?.email || data?.polygraphReport?.email}
+                          </p>
+                        </div>
+                      )}
+                      {data?.polygraphReport?.position_applying_for && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Position</p>
+                          <p className="font-medium">{data.polygraphReport.position_applying_for}</p>
+                        </div>
+                      )}
+                      {(data?.submission?.physical_address || data?.polygraphReport?.physical_address) && (
+                        <div className="col-span-2">
+                          <p className="text-sm text-muted-foreground">Physical Address</p>
+                          <p className="font-medium">
+                            {data?.submission?.physical_address || data?.polygraphReport?.physical_address}
+                          </p>
+                        </div>
+                      )}
+                      {data?.polygraphReport?.stores?.store_name && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Store</p>
+                          <p className="font-medium">{data.polygraphReport.stores.store_name}</p>
+                        </div>
+                      )}
+                      {data?.polygraphReport?.examination_date && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Examination Date</p>
+                          <p className="font-medium">
+                            {format(new Date(data.polygraphReport.examination_date), "PP")}
+                          </p>
+                        </div>
+                      )}
+                      {data?.polygraphReport?.examiners?.name && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Examiner</p>
+                          <p className="font-medium">{data.polygraphReport.examiners.name}</p>
+                        </div>
+                      )}
+                      {data?.polygraphReport?.overall_result && (
+                        <div>
+                          <p className="text-sm text-muted-foreground">Overall Result</p>
+                          {getResultBadge(data.polygraphReport.overall_result)}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
