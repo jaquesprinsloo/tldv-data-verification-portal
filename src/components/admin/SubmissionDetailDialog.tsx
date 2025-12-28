@@ -2,13 +2,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle, AlertTriangle, MapPin, User, Phone, Home, Calendar, FileText, Briefcase } from "lucide-react";
+import { CheckCircle, AlertTriangle, MapPin, User, Phone, Home, Calendar, FileText, Briefcase, Shield, Edit2, Save, X } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import POPIAViewDialog from "./POPIAViewDialog";
 import { EmploymentDetailsDialog } from "./EmploymentDetailsDialog";
+import RiskProfileDialog from "@/components/shared/RiskProfileDialog";
 
 interface SubmissionDetailDialogProps {
   submission: any;
@@ -16,6 +19,12 @@ interface SubmissionDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   onUpdate: () => void;
   readOnly?: boolean;
+}
+
+interface Store {
+  id: string;
+  store_name: string;
+  store_code: string;
 }
 
 const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, readOnly = false }: SubmissionDetailDialogProps) => {
@@ -26,18 +35,30 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
   const [idUrl, setIdUrl] = useState<string | null>(null);
   const [popiaDialogOpen, setPopiaDialogOpen] = useState(false);
   const [employmentDetailsOpen, setEmploymentDetailsOpen] = useState(false);
+  const [riskProfileOpen, setRiskProfileOpen] = useState(false);
   const [employeeDetails, setEmployeeDetails] = useState<any>(null);
+  
+  // Editable fields
+  const [isEditingEmployeeNumber, setIsEditingEmployeeNumber] = useState(false);
+  const [editableEmployeeNumber, setEditableEmployeeNumber] = useState("");
+  const [employmentStatus, setEmploymentStatus] = useState("");
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [availableStores, setAvailableStores] = useState<Store[]>([]);
+  const [savingEmployeeNumber, setSavingEmployeeNumber] = useState(false);
 
   useEffect(() => {
     if (submission && open) {
       const displayStatus = submission.status === "verified" ? "approved" : submission.status;
       setStatus(displayStatus);
+      setEditableEmployeeNumber(submission.employee_number || "");
       fetchNextOfKin();
       fetchEmployeeDetails();
+      fetchAvailableStores();
       generateSignedUrls();
     } else {
       setProofOfResidenceUrl(null);
       setIdUrl(null);
+      setIsEditingEmployeeNumber(false);
     }
   }, [submission, open]);
 
@@ -59,34 +80,63 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
     const { data } = await supabase
       .from("employees")
       .select(`
+        id,
+        employee_number,
         designation,
         employment_status,
+        store_id,
         dismissed_at,
         dismissal_reason,
         dismissal_document_url,
-        store:stores(store_name, store_code)
+        store:stores(id, store_name, store_code)
       `)
       .eq("id", submission.employee_id)
       .single();
     
     setEmployeeDetails(data);
+    setEmploymentStatus(data?.employment_status || "");
+    setSelectedStoreId(data?.store_id || null);
+  };
+
+  const fetchAvailableStores = async () => {
+    // Fetch stores from accounts that the admin has access to
+    const { data: stores, error } = await supabase
+      .from("stores")
+      .select("id, store_name, store_code")
+      .order("store_name");
+    
+    if (!error && stores) {
+      setAvailableStores(stores);
+    }
   };
 
   const generateSignedUrls = async () => {
     if (!submission) return;
     try {
       if (submission.proof_of_residence_url) {
-        const { data } = await supabase.storage
+        // The URL stored could be a full path or just the filename
+        const path = submission.proof_of_residence_url;
+        const { data, error } = await supabase.storage
           .from('proof-of-residence')
-          .createSignedUrl(submission.proof_of_residence_url, 3600);
+          .createSignedUrl(path, 3600);
+        
+        if (error) {
+          console.error('Error creating proof of residence signed URL:', error);
+        }
         setProofOfResidenceUrl(data?.signedUrl ?? null);
       } else {
         setProofOfResidenceUrl(null);
       }
+      
       if (submission.id_photo_url) {
-        const { data } = await supabase.storage
+        const path = submission.id_photo_url;
+        const { data, error } = await supabase.storage
           .from('employee-ids')
-          .createSignedUrl(submission.id_photo_url, 3600);
+          .createSignedUrl(path, 3600);
+        
+        if (error) {
+          console.error('Error creating ID photo signed URL:', error);
+        }
         setIdUrl(data?.signedUrl ?? null);
       } else {
         setIdUrl(null);
@@ -116,7 +166,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
       setStatus(newStatus);
       toast.success("Status updated successfully");
       onUpdate();
-      onOpenChange(false); // Close dialog after successful update
+      onOpenChange(false);
     } catch (error) {
       console.error("Error updating status:", error);
       toast.error("Failed to update status");
@@ -125,14 +175,100 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
     }
   };
 
+  const handleEmploymentStatusChange = async (newStatus: string) => {
+    if (!submission?.employee_id) return;
+    
+    try {
+      const updateData: any = { employment_status: newStatus };
+      
+      // If changing to dismissed or retrenched, set dismissed_at
+      if (newStatus === 'dismissed' || newStatus === 'retrenched' || newStatus === 'absconded') {
+        updateData.dismissed_at = new Date().toISOString();
+      } else {
+        updateData.dismissed_at = null;
+        updateData.dismissal_reason = null;
+      }
+      
+      const { error } = await supabase
+        .from("employees")
+        .update(updateData)
+        .eq("id", submission.employee_id);
+
+      if (error) throw error;
+
+      setEmploymentStatus(newStatus);
+      toast.success("Employment status updated");
+      onUpdate();
+      fetchEmployeeDetails();
+    } catch (error) {
+      console.error("Error updating employment status:", error);
+      toast.error("Failed to update employment status");
+    }
+  };
+
+  const handleStoreChange = async (storeId: string) => {
+    if (!submission?.employee_id) return;
+    
+    try {
+      const { error } = await supabase
+        .from("employees")
+        .update({ store_id: storeId === "none" ? null : storeId })
+        .eq("id", submission.employee_id);
+
+      if (error) throw error;
+
+      setSelectedStoreId(storeId === "none" ? null : storeId);
+      toast.success("Store assignment updated");
+      onUpdate();
+      fetchEmployeeDetails();
+    } catch (error) {
+      console.error("Error updating store:", error);
+      toast.error("Failed to update store assignment");
+    }
+  };
+
+  const handleSaveEmployeeNumber = async () => {
+    if (!submission?.employee_id || !editableEmployeeNumber.trim()) return;
+    
+    setSavingEmployeeNumber(true);
+    try {
+      // Update employee table
+      const { error: empError } = await supabase
+        .from("employees")
+        .update({ employee_number: editableEmployeeNumber.trim() })
+        .eq("id", submission.employee_id);
+
+      if (empError) throw empError;
+
+      // Update submission table
+      const { error: subError } = await supabase
+        .from("submissions")
+        .update({ employee_number: editableEmployeeNumber.trim() })
+        .eq("id", submission.id);
+
+      if (subError) throw subError;
+
+      setIsEditingEmployeeNumber(false);
+      toast.success("Employee number updated");
+      onUpdate();
+    } catch (error) {
+      console.error("Error updating employee number:", error);
+      toast.error("Failed to update employee number");
+    } finally {
+      setSavingEmployeeNumber(false);
+    }
+  };
+
   if (!submission) return null;
+
+  const candidateName = `${submission.first_name} ${submission.last_name}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Submission Details</span>
+            <span>Employee Profile</span>
             <Badge variant={submission.flagged ? "destructive" : "default"}>
               {submission.flagged ? "Flagged" : status}
             </Badge>
@@ -141,7 +277,7 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
 
         <div className="space-y-6">
           {/* Status Update and Action Buttons */}
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             {!readOnly && (
               <div className="flex items-center gap-4">
                 <label className="text-sm font-medium">Update Status:</label>
@@ -158,7 +294,14 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                 </Select>
               </div>
             )}
-            <div className="flex gap-2 ml-auto">
+            <div className="flex gap-2 ml-auto flex-wrap">
+              <Button 
+                variant="outline" 
+                onClick={() => setRiskProfileOpen(true)}
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Risk Profile
+              </Button>
               <Button 
                 variant="outline" 
                 onClick={() => setPopiaDialogOpen(true)}
@@ -191,7 +334,49 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
               </div>
               <div>
                 <span className="text-muted-foreground">Employee #:</span>
-                <p className="font-medium">{submission.employee_number}</p>
+                <div className="flex items-center gap-2">
+                  {isEditingEmployeeNumber ? (
+                    <>
+                      <Input
+                        value={editableEmployeeNumber}
+                        onChange={(e) => setEditableEmployeeNumber(e.target.value)}
+                        className="h-8 w-32"
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={handleSaveEmployeeNumber}
+                        disabled={savingEmployeeNumber}
+                      >
+                        <Save className="h-4 w-4 text-green-600" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => {
+                          setIsEditingEmployeeNumber(false);
+                          setEditableEmployeeNumber(submission.employee_number || "");
+                        }}
+                      >
+                        <X className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium">{submission.employee_number}</p>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => setIsEditingEmployeeNumber(true)}
+                      >
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">ID Number:</span>
@@ -213,22 +398,44 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                   </p>
                 </div>
               )}
-              {employeeDetails?.store && (
-                <div>
-                  <span className="text-muted-foreground">Store:</span>
-                  <p className="font-medium">
-                    {employeeDetails.store.store_name} ({employeeDetails.store.store_code})
-                  </p>
-                </div>
-              )}
-              {employeeDetails?.employment_status && (
-                <div>
-                  <span className="text-muted-foreground">Employment Status:</span>
-                  <p className="font-medium capitalize">
-                    {employeeDetails.employment_status}
-                  </p>
-                </div>
-              )}
+              
+              {/* Editable Employment Status */}
+              <div>
+                <Label className="text-muted-foreground">Employment Status:</Label>
+                <Select value={employmentStatus} onValueChange={handleEmploymentStatusChange}>
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="employed">Employed</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="dismissed">Dismissed</SelectItem>
+                    <SelectItem value="retrenched">Retrenched</SelectItem>
+                    <SelectItem value="absconded">Absconded</SelectItem>
+                    <SelectItem value="resigned">Resigned</SelectItem>
+                    <SelectItem value="suspended">Suspended</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Editable Primary Store */}
+              <div>
+                <Label className="text-muted-foreground">Primary Store:</Label>
+                <Select value={selectedStoreId || "none"} onValueChange={handleStoreChange}>
+                  <SelectTrigger className="w-full mt-1">
+                    <SelectValue placeholder="Select store" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Store</SelectItem>
+                    {availableStores.map((store) => (
+                      <SelectItem key={store.id} value={store.id}>
+                        {store.store_name} ({store.store_code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {employeeDetails?.dismissed_at && (
                 <div className="col-span-2 border-t pt-3">
                   <span className="text-muted-foreground">Date of Dismissal/Retrenchment:</span>
@@ -256,18 +463,6 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
               <div className="col-span-2">
                 <span className="text-muted-foreground">Physical Address:</span>
                 <p className="font-medium">{submission.physical_address}</p>
-              </div>
-              <div className="col-span-2">
-                <div className="flex items-center gap-2">
-                  {submission.email_verified ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  )}
-                  <span className="text-sm">
-                    Email {submission.email_verified ? 'Verified' : 'Not Verified'}
-                  </span>
-                </div>
               </div>
             </div>
           </div>
@@ -323,12 +518,24 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                   <p className="font-medium">
                     {submission.geolocation_lat}, {submission.geolocation_lng}
                   </p>
+                  <a 
+                    href={`https://www.google.com/maps?q=${submission.geolocation_lat},${submission.geolocation_lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary text-xs underline"
+                  >
+                    View on Google Maps
+                  </a>
                 </div>
               )}
-              {submission.geofence_distance_meters && (
+              {submission.geofence_distance_meters !== null && submission.geofence_distance_meters !== undefined && (
                 <div>
                   <span className="text-muted-foreground">Distance from address:</span>
-                  <p className="font-medium">{submission.geofence_distance_meters}m</p>
+                  <p className="font-medium">
+                    {typeof submission.geofence_distance_meters === 'number' 
+                      ? `${Math.round(submission.geofence_distance_meters)}m`
+                      : `${submission.geofence_distance_meters}m`}
+                  </p>
                 </div>
               )}
               {submission.flag_reason && (
@@ -344,12 +551,12 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
           <div className="border rounded-lg p-4 space-y-3">
             <h3 className="font-semibold">Uploaded Documents</h3>
             <div className="grid grid-cols-2 gap-4">
-              {proofOfResidenceUrl && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Proof of Residence</p>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Should show name, ID number, and physical address
-                  </p>
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Proof of Residence</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Should show name, ID number, and physical address
+                </p>
+                {proofOfResidenceUrl ? (
                   <img 
                     src={proofOfResidenceUrl} 
                     alt="Proof of residence document" 
@@ -357,14 +564,18 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                     loading="lazy"
                     onClick={() => window.open(proofOfResidenceUrl, '_blank')}
                   />
-                </div>
-              )}
-              {idUrl && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">ID Photo</p>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    For verification of name, surname, and ID number
-                  </p>
+                ) : (
+                  <div className="w-full h-48 flex items-center justify-center rounded border bg-muted">
+                    <p className="text-muted-foreground text-sm">No document uploaded</p>
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">ID Photo</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  For verification of name, surname, and ID number
+                </p>
+                {idUrl ? (
                   <img 
                     src={idUrl} 
                     alt="Government ID document photo" 
@@ -372,8 +583,12 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                     loading="lazy"
                     onClick={() => window.open(idUrl, '_blank')}
                   />
-                </div>
-              )}
+                ) : (
+                  <div className="w-full h-48 flex items-center justify-center rounded border bg-muted">
+                    <p className="text-muted-foreground text-sm">No document uploaded</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -404,12 +619,20 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
         />
 
         {/* Employment Details Dialog */}
-          <EmploymentDetailsDialog
-            open={employmentDetailsOpen}
-            onOpenChange={setEmploymentDetailsOpen}
-            employeeId={submission.employee_id}
-            employeeDetails={employeeDetails}
-          />
+        <EmploymentDetailsDialog
+          open={employmentDetailsOpen}
+          onOpenChange={setEmploymentDetailsOpen}
+          employeeId={submission.employee_id}
+          employeeDetails={employeeDetails}
+        />
+
+        {/* Risk Profile Dialog */}
+        <RiskProfileDialog
+          open={riskProfileOpen}
+          onOpenChange={setRiskProfileOpen}
+          employeeId={submission.employee_id}
+          candidateName={candidateName}
+        />
       </DialogContent>
     </Dialog>
   );
