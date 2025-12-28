@@ -125,30 +125,50 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
     if (!submission) return;
     try {
       if (submission.proof_of_residence_url) {
-        // The URL stored could be a full path or just the filename
         const path = submission.proof_of_residence_url;
+        console.log('Generating signed URL for proof of residence:', path);
+        
+        // Try createSignedUrl first
         const { data, error } = await supabase.storage
           .from('proof-of-residence')
           .createSignedUrl(path, 3600);
         
         if (error) {
           console.error('Error creating proof of residence signed URL:', error);
+          // Try to get public URL as fallback if bucket is public
+          const { data: publicData } = supabase.storage
+            .from('proof-of-residence')
+            .getPublicUrl(path);
+          if (publicData?.publicUrl) {
+            setProofOfResidenceUrl(publicData.publicUrl);
+          }
+        } else {
+          setProofOfResidenceUrl(data?.signedUrl ?? null);
         }
-        setProofOfResidenceUrl(data?.signedUrl ?? null);
       } else {
         setProofOfResidenceUrl(null);
       }
       
       if (submission.id_photo_url) {
         const path = submission.id_photo_url;
+        console.log('Generating signed URL for ID photo:', path);
+        
         const { data, error } = await supabase.storage
           .from('employee-ids')
           .createSignedUrl(path, 3600);
         
         if (error) {
           console.error('Error creating ID photo signed URL:', error);
+          // Try to get public URL as fallback if bucket is public
+          const { data: publicData } = supabase.storage
+            .from('employee-ids')
+            .getPublicUrl(path);
+          if (publicData?.publicUrl) {
+            setIdUrl(publicData.publicUrl);
+          }
+        } else {
+          setIdUrl(data?.signedUrl ?? null);
         }
-        setIdUrl(data?.signedUrl ?? null);
       } else {
         setIdUrl(null);
       }
@@ -721,13 +741,31 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                   Should show name, ID number, and physical address
                 </p>
                 {proofOfResidenceUrl ? (
-                  <img 
-                    src={proofOfResidenceUrl} 
-                    alt="Proof of residence document" 
-                    className="w-full h-48 object-cover rounded border cursor-pointer hover:opacity-80"
-                    loading="lazy"
-                    onClick={() => window.open(proofOfResidenceUrl, '_blank')}
-                  />
+                  submission.proof_of_residence_url?.toLowerCase().endsWith('.pdf') ? (
+                    <div className="w-full h-48 flex flex-col items-center justify-center rounded border bg-muted gap-2">
+                      <FileText className="h-12 w-12 text-muted-foreground" />
+                      <button
+                        onClick={() => window.open(proofOfResidenceUrl, '_blank', 'noopener,noreferrer')}
+                        className="text-primary text-sm underline"
+                      >
+                        View PDF Document
+                      </button>
+                    </div>
+                  ) : (
+                    <img 
+                      src={proofOfResidenceUrl} 
+                      alt="Proof of residence document" 
+                      className="w-full h-48 object-cover rounded border cursor-pointer hover:opacity-80"
+                      loading="lazy"
+                      onClick={() => window.open(proofOfResidenceUrl, '_blank', 'noopener,noreferrer')}
+                    />
+                  )
+                ) : submission.proof_of_residence_url ? (
+                  <div className="w-full h-48 flex flex-col items-center justify-center rounded border bg-muted gap-2">
+                    <FileText className="h-12 w-12 text-muted-foreground" />
+                    <p className="text-muted-foreground text-sm">Unable to load document</p>
+                    <p className="text-xs text-muted-foreground">File: {submission.proof_of_residence_url.split('/').pop()}</p>
+                  </div>
                 ) : (
                   <div className="w-full h-48 flex items-center justify-center rounded border bg-muted">
                     <p className="text-muted-foreground text-sm">No document uploaded</p>
@@ -740,13 +778,31 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                   For verification of name, surname, and ID number
                 </p>
                 {idUrl ? (
-                  <img 
-                    src={idUrl} 
-                    alt="Government ID document photo" 
-                    className="w-full h-48 object-cover rounded border cursor-pointer hover:opacity-80"
-                    loading="lazy"
-                    onClick={() => window.open(idUrl, '_blank')}
-                  />
+                  submission.id_photo_url?.toLowerCase().endsWith('.pdf') ? (
+                    <div className="w-full h-48 flex flex-col items-center justify-center rounded border bg-muted gap-2">
+                      <FileText className="h-12 w-12 text-muted-foreground" />
+                      <button
+                        onClick={() => window.open(idUrl, '_blank', 'noopener,noreferrer')}
+                        className="text-primary text-sm underline"
+                      >
+                        View PDF Document
+                      </button>
+                    </div>
+                  ) : (
+                    <img 
+                      src={idUrl} 
+                      alt="Government ID document photo" 
+                      className="w-full h-48 object-cover rounded border cursor-pointer hover:opacity-80"
+                      loading="lazy"
+                      onClick={() => window.open(idUrl, '_blank', 'noopener,noreferrer')}
+                    />
+                  )
+                ) : submission.id_photo_url ? (
+                  <div className="w-full h-48 flex flex-col items-center justify-center rounded border bg-muted gap-2">
+                    <FileText className="h-12 w-12 text-muted-foreground" />
+                    <p className="text-muted-foreground text-sm">Unable to load document</p>
+                    <p className="text-xs text-muted-foreground">File: {submission.id_photo_url.split('/').pop()}</p>
+                  </div>
                 ) : (
                   <div className="w-full h-48 flex items-center justify-center rounded border bg-muted">
                     <p className="text-muted-foreground text-sm">No document uploaded</p>
