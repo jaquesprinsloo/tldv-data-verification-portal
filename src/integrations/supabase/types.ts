@@ -118,6 +118,50 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_documents: {
+        Row: {
+          created_at: string
+          description: string | null
+          document_type: string
+          employee_id: string
+          file_name: string
+          file_url: string
+          id: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          document_type: string
+          employee_id: string
+          file_name: string
+          file_url: string
+          id?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          document_type?: string
+          employee_id?: string
+          file_name?: string
+          file_url?: string
+          id?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_documents_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_invitations: {
         Row: {
           created_at: string
