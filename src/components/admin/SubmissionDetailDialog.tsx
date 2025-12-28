@@ -386,10 +386,12 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
                 <span className="text-muted-foreground">Email:</span>
                 <p className="font-medium">{submission.email}</p>
               </div>
-              <div>
-                <span className="text-muted-foreground">Contact:</span>
-                <p className="font-medium">{submission.contact_number || 'N/A'}</p>
-              </div>
+              {submission.contact_number && (
+                <div>
+                  <span className="text-muted-foreground">Contact:</span>
+                  <p className="font-medium">{submission.contact_number}</p>
+                </div>
+              )}
               {employeeDetails?.designation && (
                 <div>
                   <span className="text-muted-foreground">Designation:</span>
