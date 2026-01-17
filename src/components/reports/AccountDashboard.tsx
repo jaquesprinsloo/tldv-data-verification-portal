@@ -36,6 +36,7 @@ import {
 import { DocumentUploadTab } from "./DocumentUploadTab";
 import { PendingUploadsReviewTab } from "./PendingUploadsReviewTab";
 import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
+import { toast } from "sonner";
 
 interface Account {
   id: string;
@@ -48,6 +49,7 @@ interface AccountDashboardProps {
   onBack: () => void;
   onViewStores: () => void;
   canEdit: boolean;
+  viewDetailsEnabled?: boolean;
 }
 
 interface AggregatedStats {
@@ -83,7 +85,7 @@ interface RecentInvoice {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
-export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: AccountDashboardProps) => {
+export const AccountDashboard = ({ account, onBack, onViewStores, canEdit, viewDetailsEnabled = true }: AccountDashboardProps) => {
   const [loading, setLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -106,6 +108,15 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
   // Check specific permissions - while loading, default to canEdit prop for backwards compatibility
   const canSingleUpload = isStillLoadingPermissions ? canEdit : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_SINGLE_UPLOAD));
   const canViewReports = isStillLoadingPermissions ? true : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_VIEW_REPORTS));
+  
+  // Restrict access when user has only "Select Accounts" permission
+  const canViewFinancials = viewDetailsEnabled;
+  
+  const handleRestrictedTabClick = (tabName: string) => {
+    if (!viewDetailsEnabled) {
+      toast.info(`Access to ${tabName} is restricted. Your profile can only select accounts for report placement.`);
+    }
+  };
   const [stats, setStats] = useState<AggregatedStats>({
     totalStores: 0,
     totalEmployees: 0,
@@ -323,7 +334,9 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
               <DollarSign className="h-4 w-4 text-yellow-500" />
               <span className="text-xs text-muted-foreground">Total Spend</span>
             </div>
-            <p className="text-2xl font-bold text-primary">R {stats.totalSpend.toLocaleString()}</p>
+            <p className={`text-2xl font-bold text-primary ${!canViewFinancials ? 'blur-sm select-none' : ''}`}>
+              R {stats.totalSpend.toLocaleString()}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -331,18 +344,40 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1 bg-muted p-1">
-          <TabsTrigger value="overview" className="flex-1 min-w-[100px]">Overview</TabsTrigger>
-          <TabsTrigger value="breakdown" className="flex-1 min-w-[100px]">Expense Breakdown</TabsTrigger>
-          <TabsTrigger value="stores" className="flex-1 min-w-[100px]">By Sub-Account</TabsTrigger>
-          <TabsTrigger value="upload" className="flex-1 min-w-[100px] gap-1">
-            Upload Documents
-            {!isStillLoadingPermissions && !canSingleUpload && <Lock className="h-3 w-3" />}
+          <TabsTrigger value="overview" className="flex-1 min-w-[100px] gap-1">
+            Overview
+            {!canViewFinancials && <Lock className="h-3 w-3" />}
           </TabsTrigger>
-          <TabsTrigger value="review" className="flex-1 min-w-[100px]">Review ({pendingCount})</TabsTrigger>
+          <TabsTrigger value="breakdown" className="flex-1 min-w-[100px] gap-1">
+            Expense Breakdown
+            {!canViewFinancials && <Lock className="h-3 w-3" />}
+          </TabsTrigger>
+          <TabsTrigger value="stores" className="flex-1 min-w-[100px] gap-1">
+            By Sub-Account
+            {!canViewFinancials && <Lock className="h-3 w-3" />}
+          </TabsTrigger>
+          <TabsTrigger 
+            value="upload" 
+            className="flex-1 min-w-[100px] gap-1"
+            disabled={!canViewFinancials}
+            onClick={() => handleRestrictedTabClick("Upload Documents")}
+          >
+            Upload Documents
+            {(!canViewFinancials || (!isStillLoadingPermissions && !canSingleUpload)) && <Lock className="h-3 w-3" />}
+          </TabsTrigger>
+          <TabsTrigger 
+            value="review" 
+            className="flex-1 min-w-[100px] gap-1"
+            disabled={!canViewFinancials}
+            onClick={() => handleRestrictedTabClick("Review")}
+          >
+            Review ({pendingCount})
+            {!canViewFinancials && <Lock className="h-3 w-3" />}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 mt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className={`grid grid-cols-1 lg:grid-cols-2 gap-4 ${!canViewFinancials ? 'blur-sm select-none pointer-events-none' : ''}`}>
             {/* Expense Breakdown Pie Chart */}
             <Card>
               <CardHeader>
@@ -409,114 +444,142 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
               </CardContent>
             </Card>
           </div>
+          {!canViewFinancials && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Badge variant="secondary" className="text-sm">
+                <Lock className="h-3 w-3 mr-1" />
+                Financial details restricted
+              </Badge>
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="breakdown" className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {[
-              { label: "Polygraph Exams", value: stats.polygraphAmount, icon: ClipboardCheck, color: "text-purple-500" },
-              { label: "Risk Assessments", value: stats.riskAssessmentAmount, icon: ShieldCheck, color: "text-orange-500" },
-              { label: "Travel", value: stats.travelAmount, icon: Car, color: "text-blue-500" },
-              { label: "Tolls", value: stats.tollsAmount, icon: MapPin, color: "text-green-500" },
-              { label: "Accommodation", value: stats.accommodationAmount, icon: Bed, color: "text-pink-500" },
-              { label: "Other", value: stats.otherAmount, icon: Receipt, color: "text-gray-500" },
-            ].map((item, idx) => (
-              <Card key={idx}>
-                <CardContent className="pt-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <item.icon className={`h-5 w-5 ${item.color}`} />
-                    <span className="text-sm text-muted-foreground">{item.label}</span>
-                  </div>
-                  <p className="text-2xl font-bold">R {item.value.toLocaleString()}</p>
-                  {stats.totalSpend > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {((item.value / stats.totalSpend) * 100).toFixed(1)}% of total
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        <TabsContent value="breakdown" className="space-y-4 relative">
+          <div className={`${!canViewFinancials ? 'blur-sm select-none pointer-events-none' : ''}`}>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {[
+                { label: "Polygraph Exams", value: stats.polygraphAmount, icon: ClipboardCheck, color: "text-purple-500" },
+                { label: "Risk Assessments", value: stats.riskAssessmentAmount, icon: ShieldCheck, color: "text-orange-500" },
+                { label: "Travel", value: stats.travelAmount, icon: Car, color: "text-blue-500" },
+                { label: "Tolls", value: stats.tollsAmount, icon: MapPin, color: "text-green-500" },
+                { label: "Accommodation", value: stats.accommodationAmount, icon: Bed, color: "text-pink-500" },
+                { label: "Other", value: stats.otherAmount, icon: Receipt, color: "text-gray-500" },
+              ].map((item, idx) => (
+                <Card key={idx}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <item.icon className={`h-5 w-5 ${item.color}`} />
+                      <span className="text-sm text-muted-foreground">{item.label}</span>
+                    </div>
+                    <p className="text-2xl font-bold">R {item.value.toLocaleString()}</p>
+                    {stats.totalSpend > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {((item.value / stats.totalSpend) * 100).toFixed(1)}% of total
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
 
-          {/* Bar Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Expense Categories</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={expenseBreakdown}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis tickFormatter={(value) => `R${(value / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(value: number) => `R ${value.toLocaleString()}`} />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="stores" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Sub-Account Performance
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {storeStats.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Sub-Account</TableHead>
-                      <TableHead className="text-center">Employees</TableHead>
-                      <TableHead className="text-center">Polygraph</TableHead>
-                      <TableHead className="text-center">Risk Assessments</TableHead>
-                      <TableHead className="text-right">Total Spend</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {storeStats.map((store) => (
-                      <TableRow key={store.id}>
-                        <TableCell className="font-medium">{store.store_name}</TableCell>
-                        <TableCell className="text-center">{store.employees_count}</TableCell>
-                        <TableCell className="text-center">{store.examinations_count}</TableCell>
-                        <TableCell className="text-center">{store.risk_assessments_count}</TableCell>
-                        <TableCell className="text-right font-medium">
-                          R {store.total_spend.toLocaleString()}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
-                  No sub-accounts found
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Spend by Store Bar Chart */}
-          {storeStats.length > 0 && (
-            <Card>
+            {/* Bar Chart */}
+            <Card className="mt-4">
               <CardHeader>
-                <CardTitle className="text-lg">Spend by Sub-Account</CardTitle>
+                <CardTitle className="text-lg">Expense Categories</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={storeStats.slice(0, 10)} layout="vertical">
+                  <BarChart data={expenseBreakdown}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" tickFormatter={(value) => `R${(value / 1000).toFixed(0)}k`} />
-                    <YAxis type="category" dataKey="store_name" width={150} />
+                    <XAxis dataKey="name" />
+                    <YAxis tickFormatter={(value) => `R${(value / 1000).toFixed(0)}k`} />
                     <Tooltip formatter={(value: number) => `R ${value.toLocaleString()}`} />
-                    <Bar dataKey="total_spend" fill="hsl(var(--primary))" />
+                    <Bar dataKey="value" fill="hsl(var(--primary))" />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
+          </div>
+          {!canViewFinancials && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+              <Badge variant="secondary" className="text-sm">
+                <Lock className="h-3 w-3 mr-1" />
+                Financial details restricted
+              </Badge>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="stores" className="space-y-4 relative">
+          <div className={`${!canViewFinancials ? 'blur-sm select-none pointer-events-none' : ''}`}>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Sub-Account Performance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {storeStats.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Sub-Account</TableHead>
+                        <TableHead className="text-center">Employees</TableHead>
+                        <TableHead className="text-center">Polygraph</TableHead>
+                        <TableHead className="text-center">Risk Assessments</TableHead>
+                        <TableHead className="text-right">Total Spend</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {storeStats.map((store) => (
+                        <TableRow key={store.id}>
+                          <TableCell className="font-medium">{store.store_name}</TableCell>
+                          <TableCell className="text-center">{store.employees_count}</TableCell>
+                          <TableCell className="text-center">{store.examinations_count}</TableCell>
+                          <TableCell className="text-center">{store.risk_assessments_count}</TableCell>
+                          <TableCell className="text-right font-medium">
+                            R {store.total_spend.toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="flex items-center justify-center h-32 text-muted-foreground">
+                    No sub-accounts found
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Spend by Store Bar Chart */}
+            {storeStats.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Spend by Sub-Account</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={storeStats.slice(0, 10)} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" tickFormatter={(value) => `R${(value / 1000).toFixed(0)}k`} />
+                      <YAxis type="category" dataKey="store_name" width={150} />
+                      <Tooltip formatter={(value: number) => `R ${value.toLocaleString()}`} />
+                      <Bar dataKey="total_spend" fill="hsl(var(--primary))" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+          {!canViewFinancials && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+              <Badge variant="secondary" className="text-sm">
+                <Lock className="h-3 w-3 mr-1" />
+                Financial details restricted
+              </Badge>
+            </div>
           )}
         </TabsContent>
 
