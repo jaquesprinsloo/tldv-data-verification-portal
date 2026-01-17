@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { FileText, Users, ClipboardCheck, Mail } from "lucide-react";
+import { FileText, Users, ClipboardCheck, Mail, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NotificationsDialog } from "@/components/admin/NotificationsDialog";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
 import { useQuery } from "@tanstack/react-query";
+import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
 
 const AdminPortalDashboard = () => {
   const navigate = useNavigate();
@@ -23,6 +24,9 @@ const AdminPortalDashboard = () => {
 
   const [isMasterAdmin, setIsMasterAdmin] = useState(cachedIsMasterAdmin);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+
+  // Permissions hook
+  const { hasPermission, checkAccessWithNotification, isMasterAdmin: isPermMasterAdmin } = usePermissions(currentUserId);
 
   const { data: pendingRequests } = useQuery({
     queryKey: ['pending-requests-count'],
@@ -111,7 +115,9 @@ const AdminPortalDashboard = () => {
       icon: Users,
       path: "/admin/data-employee-management",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: null
+      badge: null,
+      permissionKey: PERMISSION_KEYS.PORTAL_DATA_MANAGEMENT,
+      requiresMasterAdmin: false
     },
     {
       title: "Polygraph & Vetting",
@@ -119,7 +125,9 @@ const AdminPortalDashboard = () => {
       icon: ClipboardCheck,
       path: "/admin/polygraph-vetting",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: null
+      badge: null,
+      permissionKey: PERMISSION_KEYS.PORTAL_POLYGRAPH_VETTING,
+      requiresMasterAdmin: false
     },
     {
       title: "Reports & Accounts",
@@ -127,7 +135,9 @@ const AdminPortalDashboard = () => {
       icon: FileText,
       path: "/admin/reports-accounts",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: null
+      badge: null,
+      permissionKey: PERMISSION_KEYS.PORTAL_REPORTS_ACCOUNTS,
+      requiresMasterAdmin: false
     },
     ...(isMasterAdmin ? [{
       title: "Profile Management",
@@ -135,16 +145,33 @@ const AdminPortalDashboard = () => {
       icon: Users,
       path: "/admin/profile-management",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: null
+      badge: null,
+      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
+      requiresMasterAdmin: true
     }, {
       title: "Request Inbox",
       description: "View and respond to profile requests",
       icon: Mail,
       path: "/admin/request-inbox",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: pendingRequests
+      badge: pendingRequests,
+      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
+      requiresMasterAdmin: true
     }] : [])
   ];
+
+  const handlePortalClick = (portal: typeof portals[0]) => {
+    // Master admin always has access
+    if (isMasterAdmin) {
+      navigate(portal.path);
+      return;
+    }
+
+    // Check permission
+    if (checkAccessWithNotification(portal.permissionKey, portal.title)) {
+      navigate(portal.path);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
@@ -245,30 +272,52 @@ const AdminPortalDashboard = () => {
             {isMasterAdmin ? "Master Profile - Portal Selection" : "Portal Selection"}
           </h1>
           <div className={`grid grid-cols-1 ${isMasterAdmin ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'} gap-6`}>
-            {portals.map((portal) => (
-              <Card
-                key={portal.path}
-                onClick={() => navigate(portal.path)}
-                className={`p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-[3px] border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)] relative`}
-              >
-                {portal.badge !== null && portal.badge !== undefined && portal.badge > 0 && (
-                  <Badge className="absolute top-4 right-4 bg-red-600 text-white">
-                    {portal.badge}
-                  </Badge>
-                )}
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="p-6 rounded-full bg-red-600/30 border-2 border-red-600 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
-                    <portal.icon className="w-16 h-16 text-red-500" strokeWidth={2.5} />
+            {portals.map((portal) => {
+              const hasAccess = isMasterAdmin || hasPermission(portal.permissionKey);
+              
+              return (
+                <Card
+                  key={portal.path}
+                  onClick={() => handlePortalClick(portal)}
+                  className={`p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-[3px] ${
+                    hasAccess 
+                      ? 'border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)]' 
+                      : 'border-gray-600 hover:border-gray-500'
+                  } relative`}
+                >
+                  {portal.badge !== null && portal.badge !== undefined && portal.badge > 0 && (
+                    <Badge className="absolute top-4 right-4 bg-red-600 text-white">
+                      {portal.badge}
+                    </Badge>
+                  )}
+                  {!hasAccess && (
+                    <div className="absolute top-4 left-4">
+                      <Lock className="w-5 h-5 text-gray-500" />
+                    </div>
+                  )}
+                  <div className="flex flex-col items-center text-center space-y-4">
+                    <div className={`p-6 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
+                      hasAccess 
+                        ? 'bg-red-600/30 border-red-600' 
+                        : 'bg-gray-600/30 border-gray-600'
+                    }`}>
+                      <portal.icon className={`w-16 h-16 ${hasAccess ? 'text-red-500' : 'text-gray-500'}`} strokeWidth={2.5} />
+                    </div>
+                    <h2 className={`text-2xl font-bold ${hasAccess ? 'text-white' : 'text-gray-500'}`}>
+                      {portal.title}
+                    </h2>
+                    <p className={hasAccess ? 'text-gray-300' : 'text-gray-600'}>
+                      {portal.description}
+                    </p>
+                    {!hasAccess && (
+                      <p className="text-xs text-yellow-500/80 italic">
+                        Contact Master Admin for access
+                      </p>
+                    )}
                   </div>
-                  <h2 className="text-2xl font-bold text-white">
-                    {portal.title}
-                  </h2>
-                  <p className="text-gray-300">
-                    {portal.description}
-                  </p>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         </div>
       </div>

@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useUserPermissions, PERMISSION_KEYS, PERMISSION_LABELS, PermissionKey } from "@/hooks/usePermissions";
+import { Separator } from "@/components/ui/separator";
 
 interface Profile {
   id: string;
@@ -29,7 +31,7 @@ interface ProfileDetailsDialogProps {
   onUpdate: () => void;
 }
 
-type AppRole = "admin" | "master_admin" | "employee";
+type AppRole = "admin" | "master_admin";
 
 export const ProfileDetailsDialog = ({
   profile,
@@ -50,6 +52,15 @@ export const ProfileDetailsDialog = ({
   const [userAccountAccess, setUserAccountAccess] = useState<string[]>([]);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const [isSavingAccess, setIsSavingAccess] = useState(false);
+
+  // Permissions hook
+  const { 
+    permissions: userPermissions, 
+    isLoading: isLoadingPermissions, 
+    isSaving: isSavingPermissions,
+    setPermission,
+    setAllPermissions 
+  } = useUserPermissions(profile?.id || null);
 
   useEffect(() => {
     if (profile && open) {
@@ -282,9 +293,10 @@ export const ProfileDetailsDialog = ({
         </DialogHeader>
 
         <Tabs defaultValue="details" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-black border border-red-600">
+          <TabsList className="grid w-full grid-cols-5 bg-black border border-red-600">
             <TabsTrigger value="details" className="data-[state=active]:bg-red-600 text-xs">Details</TabsTrigger>
             <TabsTrigger value="roles" className="data-[state=active]:bg-red-600 text-xs">Roles</TabsTrigger>
+            <TabsTrigger value="permissions" className="data-[state=active]:bg-red-600 text-xs">Permissions</TabsTrigger>
             <TabsTrigger value="accounts" className="data-[state=active]:bg-red-600 text-xs">Accounts</TabsTrigger>
             <TabsTrigger value="password" className="data-[state=active]:bg-red-600 text-xs">Password</TabsTrigger>
           </TabsList>
@@ -324,7 +336,7 @@ export const ProfileDetailsDialog = ({
 
           <TabsContent value="roles" className="space-y-4 mt-4">
             <p className="text-gray-400 text-sm mb-4">
-              Assign roles to this user. Users can have multiple roles.
+              Assign roles to this user. Master Admin has full access to all features.
             </p>
             <div className="space-y-3">
               <div className="flex items-center space-x-3 p-3 border border-red-600/50 rounded-lg">
@@ -337,7 +349,7 @@ export const ProfileDetailsDialog = ({
                 />
                 <div>
                   <Label htmlFor="role-admin" className="text-white font-medium">Admin</Label>
-                  <p className="text-gray-400 text-xs">Can manage employees, submissions, and stores</p>
+                  <p className="text-gray-400 text-xs">Can access features based on permissions set in the Permissions tab</p>
                 </div>
               </div>
               <div className="flex items-center space-x-3 p-3 border border-red-600/50 rounded-lg">
@@ -350,23 +362,99 @@ export const ProfileDetailsDialog = ({
                 />
                 <div>
                   <Label htmlFor="role-master-admin" className="text-white font-medium">Master Admin</Label>
-                  <p className="text-gray-400 text-xs">Full access including user management</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 p-3 border border-red-600/50 rounded-lg">
-                <Checkbox
-                  id="role-employee"
-                  checked={roles.includes("employee")}
-                  onCheckedChange={(checked) => handleRoleToggle("employee", checked as boolean)}
-                  disabled={isSavingRoles}
-                  className="border-red-600 data-[state=checked]:bg-red-600"
-                />
-                <div>
-                  <Label htmlFor="role-employee" className="text-white font-medium">Employee</Label>
-                  <p className="text-gray-400 text-xs">Can submit and view own data</p>
+                  <p className="text-gray-400 text-xs">Full access to all features including user and permission management</p>
                 </div>
               </div>
             </div>
+            {!roles.includes("master_admin") && (
+              <div className="mt-4 p-3 bg-yellow-600/10 border border-yellow-600/50 rounded-lg">
+                <p className="text-yellow-400 text-xs">
+                  💡 For Admin role users, configure granular access in the Permissions tab.
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="permissions" className="space-y-4 mt-4">
+            {roles.includes("master_admin") ? (
+              <div className="p-4 border border-green-600/50 rounded-lg bg-green-600/10">
+                <p className="text-green-400 text-sm">
+                  ✓ This user has the Master Admin role and automatically has access to all features.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between items-center">
+                  <p className="text-gray-400 text-sm">
+                    Configure what features this user can access.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAllPermissions(true)}
+                      disabled={isSavingPermissions}
+                      className="text-xs border-green-600 text-green-400 hover:bg-green-600/20"
+                    >
+                      Grant All
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAllPermissions(false)}
+                      disabled={isSavingPermissions}
+                      className="text-xs border-red-600 text-red-400 hover:bg-red-600/20"
+                    >
+                      Revoke All
+                    </Button>
+                  </div>
+                </div>
+
+                {isLoadingPermissions ? (
+                  <p className="text-gray-400">Loading permissions...</p>
+                ) : (
+                  <ScrollArea className="h-[300px] pr-4">
+                    <div className="space-y-4">
+                      {/* Group permissions by category */}
+                      {Object.entries(
+                        Object.entries(PERMISSION_LABELS).reduce((acc, [key, value]) => {
+                          if (!acc[value.category]) acc[value.category] = [];
+                          acc[value.category].push({ key: key as PermissionKey, ...value });
+                          return acc;
+                        }, {} as Record<string, Array<{ key: PermissionKey; label: string; description: string; category: string }>>)
+                      ).map(([category, perms]) => (
+                        <div key={category}>
+                          <h4 className="text-white font-medium text-sm mb-2">{category}</h4>
+                          <div className="space-y-2">
+                            {perms.map((perm) => (
+                              <div 
+                                key={perm.key}
+                                className="flex items-center space-x-3 p-2 border border-red-600/30 rounded-lg hover:bg-red-600/10"
+                              >
+                                <Checkbox
+                                  id={`perm-${perm.key}`}
+                                  checked={userPermissions[perm.key] === true}
+                                  onCheckedChange={(checked) => setPermission(perm.key, checked as boolean)}
+                                  disabled={isSavingPermissions}
+                                  className="border-red-600 data-[state=checked]:bg-red-600"
+                                />
+                                <div className="flex-1">
+                                  <Label htmlFor={`perm-${perm.key}`} className="text-white text-sm cursor-pointer">
+                                    {perm.label}
+                                  </Label>
+                                  <p className="text-gray-500 text-xs">{perm.description}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <Separator className="my-3 bg-red-600/20" />
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="accounts" className="space-y-4 mt-4">
