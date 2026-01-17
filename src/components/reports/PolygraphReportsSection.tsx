@@ -199,24 +199,34 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         size: selectedFile.size,
       });
 
-      const fileName = selectedFile.name.toLowerCase();
-      const isPdf = fileName.endsWith('.pdf');
-      const isDocx = fileName.endsWith('.docx');
-      const isOldDoc = fileName.endsWith('.doc') && !fileName.endsWith('.docx');
+      const normalizedName = selectedFile.name.trim();
+      const lowerName = normalizedName.toLowerCase();
+
+      const isPdf = /\.pdf$/i.test(lowerName);
+      const isDocx = /\.docx$/i.test(lowerName);
+      const isOldDoc = /\.doc$/i.test(lowerName) && !isDocx;
+
+      // Some environments provide an empty MIME type for Office files.
+      // We still accept based on extension, but we also allow by MIME when present.
+      const mime = (selectedFile.type || "").toLowerCase();
+      const isAllowedMime =
+        mime === "application/pdf" ||
+        mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
       if (isOldDoc) {
         toast({
           title: "Unsupported Format",
-          description: "The older .doc format is not supported. Please save your document as .docx (Word 2007+) or PDF and try again.",
+          description:
+            "The older .doc format is not supported. Please save your document as .docx (Word 2007+) or PDF and try again.",
           variant: "destructive",
         });
         return;
       }
 
-      if (!isPdf && !isDocx) {
+      if (!(isPdf || isDocx || isAllowedMime)) {
         toast({
           title: "Invalid File Type",
-          description: "Please upload a PDF or Word document (.pdf, .docx).",
+          description: `Please upload a PDF or Word document (.pdf, .docx). Detected: \"${normalizedName}\" (${selectedFile.type || "no MIME"}).`,
           variant: "destructive",
         });
         return;

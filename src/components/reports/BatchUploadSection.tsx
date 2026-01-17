@@ -141,10 +141,13 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
 
     console.info('[polygraph-batch] selected files', selectedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })));
 
+    // Normalize names to avoid issues with trailing spaces (common on Windows)
+    const normalizeName = (name: string) => name.trim().toLowerCase();
+
     // Check for unsupported .doc files (older binary format)
     const oldDocFiles = selectedFiles.filter(file => {
-      const fileName = file.name.toLowerCase();
-      return fileName.endsWith('.doc') && !fileName.endsWith('.docx');
+      const fileName = normalizeName(file.name);
+      return /\.doc$/i.test(fileName) && !/\.docx$/i.test(fileName);
     });
 
     if (oldDocFiles.length > 0) {
@@ -156,8 +159,13 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
     }
 
     const validFiles = selectedFiles.filter(file => {
-      const fileName = file.name.toLowerCase();
-      return fileName.endsWith('.pdf') || fileName.endsWith('.docx');
+      const fileName = normalizeName(file.name);
+      const mime = (file.type || "").toLowerCase();
+      const isAllowedMime =
+        mime === "application/pdf" ||
+        mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+      return /\.(pdf|docx)$/i.test(fileName) || isAllowedMime;
     });
 
     if (validFiles.length !== selectedFiles.length && oldDocFiles.length === 0) {
