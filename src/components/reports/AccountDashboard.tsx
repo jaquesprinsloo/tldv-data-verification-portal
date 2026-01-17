@@ -112,6 +112,12 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit, viewD
   // Restrict access when user has only "Select Accounts" permission
   const canViewFinancials = viewDetailsEnabled;
   
+  // Debug logging
+  console.log('[AccountDashboard] Permissions debug:', {
+    viewDetailsEnabled,
+    canViewFinancials,
+  });
+  
   const handleRestrictedTabClick = (tabName: string) => {
     if (!viewDetailsEnabled) {
       toast.info(`Access to ${tabName} is restricted. Your profile can only select accounts for report placement.`);

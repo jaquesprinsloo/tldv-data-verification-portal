@@ -117,6 +117,17 @@ const ReportsAccounts = () => {
   const isStillLoadingPermissions = !currentUserId || permissionsLoading;
   const canSelectAccounts = isStillLoadingPermissions ? true : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_SELECT_ACCOUNTS));
   const canViewSubAccountDetails = isStillLoadingPermissions ? isMasterAdmin : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_VIEW_SUB_ACCOUNTS));
+  
+  // Debug logging
+  console.log('[ReportsAccounts] Permissions debug:', {
+    currentUserId,
+    isMasterAdmin,
+    isStillLoadingPermissions,
+    canSelectAccounts,
+    canViewSubAccountDetails,
+    hasSelectPermission: hasPermission(PERMISSION_KEYS.ACCOUNTS_SELECT_ACCOUNTS),
+    hasViewSubAccountsPermission: hasPermission(PERMISSION_KEYS.ACCOUNTS_VIEW_SUB_ACCOUNTS),
+  });
 
   return (
     <div className="min-h-screen bg-background">
