@@ -1570,6 +1570,51 @@ export type Database = {
           },
         ]
       }
+      user_permissions: {
+        Row: {
+          created_at: string
+          granted: boolean
+          granted_at: string | null
+          granted_by: string | null
+          id: string
+          permission_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted?: boolean
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          permission_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted?: boolean
+          granted_at?: string | null
+          granted_by?: string | null
+          id?: string
+          permission_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permissions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_permissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -1651,6 +1696,10 @@ export type Database = {
         Args: { _employee_number: string }
         Returns: boolean
       }
+      check_user_access: {
+        Args: { _permission_key: string; _user_id: string }
+        Returns: boolean
+      }
       cleanup_expired_invitation_locks: { Args: never; Returns: undefined }
       cleanup_old_audit_trail: { Args: never; Returns: undefined }
       constant_time_compare: {
@@ -1684,6 +1733,10 @@ export type Database = {
       }
       has_employee_access: {
         Args: { _employee_id: string; _user_id: string }
+        Returns: boolean
+      }
+      has_permission: {
+        Args: { _permission_key: string; _user_id: string }
         Returns: boolean
       }
       has_role: {
