@@ -12,11 +12,16 @@ serve(async (req) => {
   }
 
   try {
-    const { email, firstName, lastName } = await req.json();
+    const { email, firstName, lastName, role = 'admin' } = await req.json();
 
     // Validate inputs - password no longer required, will be set via invite link
     if (!email || !firstName || !lastName) {
       throw new Error("Email, first name, and last name are required");
+    }
+
+    // Validate role
+    if (!['admin', 'master_admin'].includes(role)) {
+      throw new Error("Invalid role. Must be 'admin' or 'master_admin'");
     }
 
     // Get the authorization header
@@ -80,14 +85,14 @@ serve(async (req) => {
       throw new Error("Failed to invite user");
     }
 
-    console.log(`Invite sent to ${email}, user ID: ${inviteData.user.id}`);
+    console.log(`Invite sent to ${email}, user ID: ${inviteData.user.id}, role: ${role}`);
 
-    // Assign admin role directly using service role (we've already verified caller is master admin)
+    // Assign role directly using service role (we've already verified caller is master admin)
     const { error: roleInsertError } = await supabaseAdmin
       .from('user_roles')
       .insert({
         user_id: inviteData.user.id,
-        role: 'admin'
+        role: role
       });
 
     if (roleInsertError) {

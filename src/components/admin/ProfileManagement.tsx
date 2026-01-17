@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProfileDetailsDialog } from "./ProfileDetailsDialog";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Profile {
   id: string;
@@ -21,6 +22,7 @@ export const ProfileManagement = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [selectedRole, setSelectedRole] = useState<"admin" | "master_admin">("admin");
   const [isLoading, setIsLoading] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
@@ -91,6 +93,7 @@ export const ProfileManagement = () => {
           email,
           firstName,
           lastName,
+          role: selectedRole,
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`
@@ -99,10 +102,11 @@ export const ProfileManagement = () => {
 
       if (error) throw error;
 
-      toast.success("Admin invited successfully! They will receive an email to set their password.");
+      toast.success(`${selectedRole === 'master_admin' ? 'Master Admin' : 'Admin'} invited successfully! They will receive an email to set their password.`);
       setFirstName("");
       setLastName("");
       setEmail("");
+      setSelectedRole("admin");
       queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
     } catch (error: any) {
       console.error("Error creating profile:", error);
@@ -171,6 +175,23 @@ export const ProfileManagement = () => {
                   required
                   className="bg-black border-red-600 text-white"
                 />
+              </div>
+              <div>
+                <Label htmlFor="role" className="text-white">Role</Label>
+                <Select value={selectedRole} onValueChange={(value: "admin" | "master_admin") => setSelectedRole(value)}>
+                  <SelectTrigger className="bg-black border-red-600 text-white">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-black border-red-600">
+                    <SelectItem value="admin" className="text-white hover:bg-red-600/20">Admin</SelectItem>
+                    <SelectItem value="master_admin" className="text-white hover:bg-red-600/20">Master Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-gray-500 text-xs mt-1">
+                  {selectedRole === 'master_admin' 
+                    ? 'Master Admins have full access including user management' 
+                    : 'Admins have access based on assigned permissions'}
+                </p>
               </div>
               <p className="text-gray-400 text-sm">
                 An invitation email will be sent allowing the user to set their own password securely.
