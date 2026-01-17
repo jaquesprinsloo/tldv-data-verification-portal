@@ -193,10 +193,14 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (!selectedFile.name.endsWith('.pdf')) {
+      const fileName = selectedFile.name.toLowerCase();
+      const isPdf = fileName.endsWith('.pdf');
+      const isWord = fileName.endsWith('.docx') || fileName.endsWith('.doc');
+      
+      if (!isPdf && !isWord) {
         toast({
           title: "Invalid File Type",
-          description: "Please upload a PDF file.",
+          description: "Please upload a PDF or Word document (.pdf, .docx, .doc).",
           variant: "destructive",
         });
         return;
@@ -251,19 +255,24 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     }, 500);
     
     try {
+      const fileName = file.name.toLowerCase();
+      const isWordDoc = fileName.endsWith('.docx') || fileName.endsWith('.doc');
+      
       toast({
         title: "Processing Document",
-        description: "AI is extracting data from your PDF. This may take up to a minute...",
+        description: `AI is extracting data from your ${isWordDoc ? 'Word document' : 'PDF'}. This may take up to a minute...`,
       });
       
-      const pdfBase64 = await fileToBase64(file);
+      const fileBase64 = await fileToBase64(file);
       setExtractionProgress(15); // File read complete
 
+      // Send as docxBase64 for Word docs, pdfBase64 for PDFs
+      const requestBody = isWordDoc 
+        ? { docxBase64: fileBase64, fileName: file.name }
+        : { pdfBase64: fileBase64, fileName: file.name };
+
       const { data, error } = await supabase.functions.invoke('extract-polygraph-report', {
-        body: { 
-          pdfBase64, 
-          fileName: file.name
-        }
+        body: requestBody
       });
 
       clearInterval(progressInterval);
@@ -371,6 +380,8 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
 
     setSaving(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
       // Upload the PDF file directly
       let pdfUrl: string | null = null;
       if (file) {
@@ -379,7 +390,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         
         const { error: uploadError } = await supabase.storage
           .from("polygraph-reports")
-          .upload(fileName, file, { contentType: "application/pdf" });
+          .upload(fileName, file, { contentType: file.type });
         
         if (!uploadError) {
           const { data: { publicUrl } } = supabase.storage
@@ -405,6 +416,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         status: "completed",
         report_pdf_url: pdfUrl,
         candidate_photo_url: extractedData.candidatePhotoUrl || null,
+        uploaded_by: user?.id || null,
       };
 
       // Add risk analysis data
@@ -604,6 +616,8 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
             <PolygraphReportsList 
               onCreateNew={() => setActiveTab("batch-upload")} 
               onEditReport={() => {}}
+              filterByUploader={!isMasterAdmin && canViewReports}
+              currentUserId={currentUserId}
             />
           ) : (
             <Card>
@@ -674,7 +688,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
               <CardHeader>
                 <CardTitle>Upload Completed Report</CardTitle>
                 <CardDescription>
-                  Upload a completed polygraph report PDF for AI data extraction.
+                  Upload a completed polygraph report (PDF or Word document) for AI data extraction.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -682,14 +696,14 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                   <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <input
                     type="file"
-                    accept=".pdf"
+                    accept=".pdf,.docx,.doc"
                     onChange={handleFileChange}
                     className="hidden"
                     id="report-upload"
                   />
                   <label htmlFor="report-upload">
                     <Button variant="outline" asChild className="cursor-pointer">
-                      <span>Select PDF File</span>
+                      <span>Select PDF or Word File</span>
                     </Button>
                   </label>
                   {file && !uploading && !extractedData && (

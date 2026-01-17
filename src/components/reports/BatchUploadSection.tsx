@@ -138,19 +138,22 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-    const pdfFiles = selectedFiles.filter(file => file.name.endsWith('.pdf'));
+    const validFiles = selectedFiles.filter(file => {
+      const fileName = file.name.toLowerCase();
+      return fileName.endsWith('.pdf') || fileName.endsWith('.docx') || fileName.endsWith('.doc');
+    });
     
-    if (pdfFiles.length !== selectedFiles.length) {
+    if (validFiles.length !== selectedFiles.length) {
       toast({
         title: "Invalid Files",
-        description: "Only PDF files are accepted. Some files were skipped.",
+        description: "Only PDF and Word documents (.pdf, .docx, .doc) are accepted. Some files were skipped.",
         variant: "destructive",
       });
     }
 
-    if (pdfFiles.length === 0) return;
+    if (validFiles.length === 0) return;
 
-    const newFiles: FileUploadState[] = pdfFiles.map(file => ({
+    const newFiles: FileUploadState[] = validFiles.map(file => ({
       file,
       status: 'pending',
     }));
@@ -158,9 +161,9 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
     setFiles(prev => [...prev, ...newFiles]);
     
     // Auto-generate batch name if empty
-    if (!batchName && pdfFiles.length > 0) {
+    if (!batchName && validFiles.length > 0) {
       const date = new Date().toLocaleDateString('en-GB');
-      setBatchName(`Batch - ${date} (${files.length + pdfFiles.length} reports)`);
+      setBatchName(`Batch - ${date} (${files.length + validFiles.length} reports)`);
     }
   };
 
@@ -188,8 +191,12 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
   ): Promise<FileUploadState> => {
     try {
       updateProgress(index, 10);
-      const pdfBase64 = await fileToBase64(fileState.file);
+      const fileBase64 = await fileToBase64(fileState.file);
       updateProgress(index, 20);
+      
+      // Detect file type
+      const fileName = fileState.file.name.toLowerCase();
+      const isWordDoc = fileName.endsWith('.docx') || fileName.endsWith('.doc');
       
       // Simulate progress during API call
       let currentProgress = 20;
@@ -198,11 +205,13 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
         updateProgress(index, currentProgress);
       }, 500);
 
+      // Send as docxBase64 for Word docs, pdfBase64 for PDFs
+      const requestBody = isWordDoc 
+        ? { docxBase64: fileBase64, fileName: fileState.file.name }
+        : { pdfBase64: fileBase64, fileName: fileState.file.name };
+
       const { data, error } = await supabase.functions.invoke('extract-polygraph-report', {
-        body: { 
-          pdfBase64, 
-          fileName: fileState.file.name
-        }
+        body: requestBody
       });
 
       clearInterval(progressInterval);
@@ -358,14 +367,14 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
       for (const fileState of completedFiles) {
         const extractedData = fileState.extractedData;
 
-        // Upload PDF
+        // Upload document
         let pdfUrl: string | null = null;
         const reportId = crypto.randomUUID();
         const fileName = `${reportId}/${fileState.file.name}`;
         
         const { error: uploadError } = await supabase.storage
           .from("polygraph-reports")
-          .upload(fileName, fileState.file, { contentType: "application/pdf" });
+          .upload(fileName, fileState.file, { contentType: fileState.file.type });
         
         if (!uploadError) {
           const { data: { publicUrl } } = supabase.storage
@@ -391,6 +400,7 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
           status: "completed",
           report_pdf_url: pdfUrl,
           candidate_photo_url: extractedData.candidatePhotoUrl || null,
+          uploaded_by: user?.id || null,
         };
 
         // Add risk analysis data
@@ -513,7 +523,7 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
           <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <input
             type="file"
-            accept=".pdf"
+            accept=".pdf,.docx,.doc"
             multiple
             onChange={handleFileSelect}
             className="hidden"
@@ -522,11 +532,11 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
           />
           <label htmlFor="batch-upload">
             <Button variant="outline" asChild className="cursor-pointer">
-              <span>Select PDF Files (Multiple)</span>
+              <span>Select Files (PDF or Word)</span>
             </Button>
           </label>
           <p className="text-sm text-muted-foreground mt-2">
-            Select multiple PDF files to upload as a batch
+            Select multiple PDF or Word documents to upload as a batch
           </p>
         </div>
 
