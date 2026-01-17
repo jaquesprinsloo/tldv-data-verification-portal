@@ -9,7 +9,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProfileDetailsDialog } from "./ProfileDetailsDialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Send } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Profile {
   id: string;
@@ -31,6 +32,7 @@ export const ProfileManagement = () => {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [emailStatus, setEmailStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const [resendingId, setResendingId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Debounced email availability check
@@ -194,6 +196,40 @@ export const ProfileManagement = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
   };
 
+  const handleResendCredentials = async (e: React.MouseEvent, profile: Profile) => {
+    e.stopPropagation(); // Prevent opening the profile dialog
+    
+    setResendingId(profile.id);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const response = await supabase.functions.invoke('resend-admin-credentials', {
+        body: {
+          userId: profile.id,
+          email: profile.email,
+          fullName: profile.full_name,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      const responseError = response.error ? ((response.data as any)?.error || response.error.message) : (response.data as any)?.error;
+      if (responseError) {
+        toast.error(responseError);
+        return;
+      }
+
+      toast.success(`Password reset email sent to ${profile.email}`);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to resend credentials");
+    } finally {
+      setResendingId(null);
+    }
+  };
+
   const filteredProfiles = profiles?.filter(profile => 
     (profile.full_name?.toLowerCase() || '').includes(searchFilter.toLowerCase()) ||
     profile.email.toLowerCase().includes(searchFilter.toLowerCase())
@@ -345,24 +381,48 @@ export const ProfileManagement = () => {
                     className="p-4 border border-red-600/50 rounded-lg hover:bg-red-600/10 transition-colors cursor-pointer"
                   >
                     <div className="flex justify-between items-start">
-                      <div>
+                      <div className="flex-1">
                         <p className="text-white font-semibold">{profile.full_name || 'No name'}</p>
                         <p className="text-gray-400 text-sm">{profile.email}</p>
                       </div>
-                      <div className="flex gap-1 flex-wrap justify-end">
-                        {profile.roles?.map(role => (
-                          <Badge 
-                            key={role} 
-                            variant="outline" 
-                            className={`text-xs ${
-                              role === 'master_admin' 
-                                ? 'border-yellow-500 text-yellow-500' 
-                                : 'border-red-500 text-red-500'
-                            }`}
-                          >
-                            {role === 'master_admin' ? 'Master' : 'Admin'}
-                          </Badge>
-                        ))}
+                      <div className="flex items-center gap-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => handleResendCredentials(e, profile)}
+                                disabled={resendingId === profile.id}
+                                className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-red-600/20"
+                              >
+                                {resendingId === profile.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Send className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Resend password reset email</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <div className="flex gap-1 flex-wrap justify-end">
+                          {profile.roles?.map(role => (
+                            <Badge 
+                              key={role} 
+                              variant="outline" 
+                              className={`text-xs ${
+                                role === 'master_admin' 
+                                  ? 'border-yellow-500 text-yellow-500' 
+                                  : 'border-red-500 text-red-500'
+                              }`}
+                            >
+                              {role === 'master_admin' ? 'Master' : 'Admin'}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                     </div>
                     <p className="text-gray-500 text-xs mt-1">
