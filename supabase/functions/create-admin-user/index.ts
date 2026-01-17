@@ -81,6 +81,18 @@ serve(async (req) => {
     });
 
     if (createError) {
+      const msg = createError.message || "Failed to create user";
+      // Important: return 200 so the client can show a friendly message without triggering a FunctionsHttpError overlay
+      if (msg.includes("already been registered") || msg.includes("already exists")) {
+        return new Response(
+          JSON.stringify({ success: false, error: "A user with this email address already exists." }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          }
+        );
+      }
+
       console.error("User creation error:", createError);
       throw createError;
     }
