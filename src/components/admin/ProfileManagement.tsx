@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProfileDetailsDialog } from "./ProfileDetailsDialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -29,7 +30,45 @@ export const ProfileManagement = () => {
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
   const queryClient = useQueryClient();
+
+  // Debounced email availability check
+  const checkEmailAvailability = useCallback(async (emailToCheck: string) => {
+    if (!emailToCheck || !emailToCheck.includes("@")) {
+      setEmailStatus("idle");
+      return;
+    }
+
+    setEmailStatus("checking");
+
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", emailToCheck.toLowerCase().trim())
+        .maybeSingle();
+
+      if (error) {
+        console.error("Email check error:", error);
+        setEmailStatus("idle");
+        return;
+      }
+
+      setEmailStatus(data ? "taken" : "available");
+    } catch (err) {
+      console.error("Email check failed:", err);
+      setEmailStatus("idle");
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      checkEmailAvailability(email);
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [email, checkEmailAvailability]);
 
   const { data: profiles, isLoading: isLoadingProfiles } = useQuery({
     queryKey: ['admin-profiles'],
@@ -85,6 +124,11 @@ export const ProfileManagement = () => {
   const handleCreateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (emailStatus === "taken") {
+      toast.error("This email is already in use. Please choose a different email.");
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast.error("Passwords do not match");
       return;
@@ -187,14 +231,36 @@ export const ProfileManagement = () => {
               </div>
               <div>
                 <Label htmlFor="email" className="text-white">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="bg-black border-red-600 text-white"
-                />
+                <div className="relative">
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className={`bg-black border-red-600 text-white pr-10 ${
+                      emailStatus === "taken" ? "border-red-500" : 
+                      emailStatus === "available" ? "border-green-500" : ""
+                    }`}
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {emailStatus === "checking" && (
+                      <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+                    )}
+                    {emailStatus === "available" && (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    )}
+                    {emailStatus === "taken" && (
+                      <XCircle className="h-4 w-4 text-red-500" />
+                    )}
+                  </div>
+                </div>
+                {emailStatus === "taken" && (
+                  <p className="text-red-500 text-xs mt-1">This email is already in use</p>
+                )}
+                {emailStatus === "available" && (
+                  <p className="text-green-500 text-xs mt-1">Email is available</p>
+                )}
               </div>
               <div>
                 <Label htmlFor="password" className="text-white">Password</Label>
@@ -242,10 +308,10 @@ export const ProfileManagement = () => {
               </p>
               <Button
                 type="submit"
-                disabled={isLoading}
-                className="w-full bg-red-600 hover:bg-red-700 text-white"
+                disabled={isLoading || emailStatus === "taken" || emailStatus === "checking"}
+                className="w-full bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
               >
-                {isLoading ? "Creating..." : "Create Profile"}
+                {isLoading ? "Creating..." : emailStatus === "checking" ? "Checking email..." : "Create Profile"}
               </Button>
             </form>
           </Card>
