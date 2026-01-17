@@ -78,10 +78,12 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   const isStillLoadingPermissions = !currentUserId || permissionsLoading;
   
   // Check specific permissions - while loading, default to checking canEdit prop for backwards compatibility
+  const canSelectAccounts = isStillLoadingPermissions ? true : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_SELECT_ACCOUNTS));
   const canBatchUpload = isStillLoadingPermissions ? canEdit : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_BATCH_UPLOAD));
   const canSingleUpload = isStillLoadingPermissions ? canEdit : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_SINGLE_UPLOAD));
   const canViewBatches = isStillLoadingPermissions ? true : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_BATCHES));
   const canViewStatistics = isStillLoadingPermissions ? true : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_STATISTICS));
+  const canViewReports = isStillLoadingPermissions ? true : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_VIEW_REPORTS));
 
   // Fetch accounts the user has access to on mount
   useEffect(() => {
@@ -570,9 +572,10 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="reports" className="flex items-center gap-2">
+          <TabsTrigger value="reports" className="flex items-center gap-1">
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Reports</span>
+            {!isStillLoadingPermissions && !canViewReports && <Lock className="h-3 w-3" />}
           </TabsTrigger>
           <TabsTrigger value="batches" className="flex items-center gap-1">
             <Package className="h-4 w-4" />
@@ -597,10 +600,28 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         </TabsList>
 
         <TabsContent value="reports" className="mt-6">
-          <PolygraphReportsList 
-            onCreateNew={() => setActiveTab("batch-upload")} 
-            onEditReport={() => {}}
-          />
+          {canViewReports ? (
+            <PolygraphReportsList 
+              onCreateNew={() => setActiveTab("batch-upload")} 
+              onEditReport={() => {}}
+            />
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Access Restricted</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Your profile does not have permission to view reports. 
+                    Please contact a Master Admin to request access.
+                  </p>
+                  <Badge variant="outline" className="mt-4">
+                    Permission Required: View Reports
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="batches" className="mt-6">

@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Building2, Search, Users, Settings } from "lucide-react";
+import { Plus, Building2, Search, Users, Settings, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { ManageAccessDialog } from "./ManageAccessDialog";
+import { Badge } from "@/components/ui/badge";
 
 interface Account {
   id: string;
@@ -30,13 +31,15 @@ interface AccountSelectorProps {
   canEdit?: boolean;
   currentUserId?: string;
   isMasterAdmin?: boolean;
+  viewDetailsEnabled?: boolean;
 }
 
 export const AccountSelector = ({ 
   onSelectAccount, 
   canEdit = false, 
   currentUserId,
-  isMasterAdmin = false 
+  isMasterAdmin = false,
+  viewDetailsEnabled = true
 }: AccountSelectorProps) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [adminProfiles, setAdminProfiles] = useState<AdminProfile[]>([]);
@@ -324,16 +327,22 @@ export const AccountSelector = ({
           {filteredAccounts.map((account) => (
             <Card
               key={account.id}
-              className="cursor-pointer hover:border-primary transition-colors group"
+              className={`transition-colors group ${viewDetailsEnabled ? 'cursor-pointer hover:border-primary' : 'cursor-default'}`}
             >
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center justify-between">
                   <div 
                     className="flex items-center gap-2 flex-1"
-                    onClick={() => onSelectAccount(account)}
+                    onClick={() => viewDetailsEnabled && onSelectAccount(account)}
                   >
                     <Building2 className="h-5 w-5 text-primary" />
                     {account.name}
+                    {!viewDetailsEnabled && (
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        <EyeOff className="h-3 w-3 mr-1" />
+                        View Only
+                      </Badge>
+                    )}
                   </div>
                   {canEdit && (
                     <Button
@@ -350,9 +359,14 @@ export const AccountSelector = ({
                   )}
                 </CardTitle>
               </CardHeader>
-              <CardContent onClick={() => onSelectAccount(account)}>
+              <CardContent onClick={() => viewDetailsEnabled && onSelectAccount(account)}>
                 <p className="text-sm text-muted-foreground mb-2">Code: {account.code}</p>
                 <p className="text-sm font-medium">{account.stores_count} Sub Account(s)</p>
+                {!viewDetailsEnabled && (
+                  <p className="text-xs text-muted-foreground mt-2 italic">
+                    Account details viewing is disabled. Contact Master Admin for access.
+                  </p>
+                )}
               </CardContent>
             </Card>
           ))}
