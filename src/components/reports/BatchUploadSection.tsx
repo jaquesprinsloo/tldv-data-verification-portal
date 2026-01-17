@@ -540,7 +540,7 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
           <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <input
             type="file"
-            accept=".pdf,.docx"
+            accept=".pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
             multiple
             onChange={handleFileSelect}
             className="hidden"
