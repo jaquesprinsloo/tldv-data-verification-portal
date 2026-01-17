@@ -36,7 +36,7 @@ const Install = () => {
               <p className="text-muted-foreground mb-4">
                 The TLDV Portal is now installed. You can find it on your desktop or in your applications.
               </p>
-              <Button onClick={() => navigate("/admin")}>
+              <Button onClick={() => navigate("/admin/login")}>
                 Go to Admin Portal
               </Button>
             </div>
@@ -100,7 +100,7 @@ const Install = () => {
               </div>
 
               <div className="text-center pt-4">
-                <Button variant="outline" onClick={() => navigate("/admin")}>
+                <Button variant="outline" onClick={() => navigate("/admin/login")}>
                   Continue to Admin Portal
                 </Button>
               </div>
