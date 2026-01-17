@@ -162,7 +162,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: "TLDV Admin <onboarding@resend.dev>",
+        from: "TLDV Portal <noreply@tldvportal.co.za>",
         to: [email],
         subject: `TLDV Portal - Password Reset for Your ${roleDisplay} Account`,
         html: emailHtml,
