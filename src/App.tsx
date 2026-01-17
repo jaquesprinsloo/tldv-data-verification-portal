@@ -18,6 +18,7 @@ import ProfileManagement from "./pages/ProfileManagement";
 import RequestInboxPage from "./pages/RequestInboxPage";
 import NotFound from "./pages/NotFound";
 import VerifyEmail from "./pages/VerifyEmail";
+import Install from "./pages/Install";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
           <Route path="/admin/profile-management" element={<ProfileManagement />} />
           <Route path="/admin/request-inbox" element={<RequestInboxPage />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/install" element={<Install />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
