@@ -195,12 +195,22 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     if (selectedFile) {
       const fileName = selectedFile.name.toLowerCase();
       const isPdf = fileName.endsWith('.pdf');
-      const isWord = fileName.endsWith('.docx') || fileName.endsWith('.doc');
+      const isDocx = fileName.endsWith('.docx');
+      const isOldDoc = fileName.endsWith('.doc') && !fileName.endsWith('.docx');
       
-      if (!isPdf && !isWord) {
+      if (isOldDoc) {
+        toast({
+          title: "Unsupported Format",
+          description: "The older .doc format is not supported. Please save your document as .docx (Word 2007+) or PDF and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!isPdf && !isDocx) {
         toast({
           title: "Invalid File Type",
-          description: "Please upload a PDF or Word document (.pdf, .docx, .doc).",
+          description: "Please upload a PDF or Word document (.pdf, .docx).",
           variant: "destructive",
         });
         return;
@@ -696,7 +706,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                   <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <input
                     type="file"
-                    accept=".pdf,.docx,.doc"
+                    accept=".pdf,.docx"
                     onChange={handleFileChange}
                     className="hidden"
                     id="report-upload"
