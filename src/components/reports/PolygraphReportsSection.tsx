@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { FileText, BarChart3, Download, Upload, Loader2, Save, Plus, Package } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { FileText, BarChart3, Download, Upload, Loader2, Save, Plus, Package, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import PolygraphReportsList from "@/components/admin/polygraph/PolygraphReportsList";
 import PolygraphStatistics from "@/components/admin/polygraph/PolygraphStatistics";
@@ -16,8 +17,8 @@ import RiskAnalysisDisplay from "./RiskAnalysisDisplay";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import JSZip from "jszip";
+import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
 
 interface PolygraphReportsSectionProps {
   canEdit: boolean;
@@ -53,6 +54,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   const [stores, setStores] = useState<Store[]>([]);
   const [examiners, setExaminers] = useState<Examiner[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   // Form fields for candidate
   const [selectedAccountId, setSelectedAccountId] = useState("");
@@ -60,6 +62,23 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   const [selectedExaminerId, setSelectedExaminerId] = useState("");
   const [newExaminerName, setNewExaminerName] = useState("");
   const [showAddExaminer, setShowAddExaminer] = useState(false);
+  
+  // Get user ID for permissions
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setCurrentUserId(user.id);
+    };
+    getUser();
+  }, []);
+  
+  const { hasPermission, isMasterAdmin } = usePermissions(currentUserId || undefined);
+  
+  // Check specific permissions
+  const canBatchUpload = isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_BATCH_UPLOAD);
+  const canSingleUpload = isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_SINGLE_UPLOAD);
+  const canViewBatches = isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_BATCHES);
+  const canViewStatistics = isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_STATISTICS);
 
   // Fetch accounts the user has access to on mount
   useEffect(() => {
@@ -533,16 +552,16 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
             <Download className="h-4 w-4" />
             {downloading ? "Generating..." : "Download Template"}
           </Button>
-          {canEdit && (
-            <Button
-              variant="outline"
-              onClick={() => setActiveTab("upload")}
-              className="flex items-center gap-2"
-            >
-              <Upload className="h-4 w-4" />
-              Upload Report
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            onClick={() => setActiveTab("upload")}
+            disabled={!canSingleUpload}
+            className="flex items-center gap-2"
+          >
+            <Upload className="h-4 w-4" />
+            Upload Report
+            {!canSingleUpload && <Lock className="h-3 w-3 ml-1" />}
+          </Button>
         </div>
       </div>
 
@@ -552,25 +571,25 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Reports</span>
           </TabsTrigger>
-          <TabsTrigger value="batches" className="flex items-center gap-2">
+          <TabsTrigger value="batches" className="flex items-center gap-1">
             <Package className="h-4 w-4" />
             <span className="hidden sm:inline">Batches</span>
+            {!canViewBatches && <Lock className="h-3 w-3" />}
           </TabsTrigger>
-          {canEdit && (
-            <TabsTrigger value="batch-upload" className="flex items-center gap-2">
-              <Upload className="h-4 w-4" />
-              <span className="hidden sm:inline">Batch Upload</span>
-            </TabsTrigger>
-          )}
-          {canEdit && (
-            <TabsTrigger value="upload" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Single Upload</span>
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="statistics" className="flex items-center gap-2">
+          <TabsTrigger value="batch-upload" className="flex items-center gap-1">
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Batch Upload</span>
+            {!canBatchUpload && <Lock className="h-3 w-3" />}
+          </TabsTrigger>
+          <TabsTrigger value="upload" className="flex items-center gap-1">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Single Upload</span>
+            {!canSingleUpload && <Lock className="h-3 w-3" />}
+          </TabsTrigger>
+          <TabsTrigger value="statistics" className="flex items-center gap-1">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Statistics</span>
+            {!canViewStatistics && <Lock className="h-3 w-3" />}
           </TabsTrigger>
         </TabsList>
 
@@ -582,17 +601,51 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         </TabsContent>
 
         <TabsContent value="batches" className="mt-6">
-          <BatchListSection />
+          {canViewBatches ? (
+            <BatchListSection />
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Access Restricted</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Your profile does not have permission to view batches. 
+                    Please contact a Master Admin to request access.
+                  </p>
+                  <Badge variant="outline" className="mt-4">
+                    Permission Required: Batches
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
-        {canEdit && (
-          <TabsContent value="batch-upload" className="mt-6">
+        <TabsContent value="batch-upload" className="mt-6">
+          {canBatchUpload ? (
             <BatchUploadSection onBatchCreated={() => setActiveTab("batches")} />
-          </TabsContent>
-        )}
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Access Restricted</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Your profile does not have permission to upload batches. 
+                    Please contact a Master Admin to request access.
+                  </p>
+                  <Badge variant="outline" className="mt-4">
+                    Permission Required: Batch Upload
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
-        {canEdit && (
-          <TabsContent value="upload" className="mt-6">
+        <TabsContent value="upload" className="mt-6">
+          {canSingleUpload ? (
             <Card>
               <CardHeader>
                 <CardTitle>Upload Completed Report</CardTitle>
@@ -852,11 +905,45 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        )}
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Access Restricted</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Your profile does not have permission to upload single reports. 
+                    Please contact a Master Admin to request access.
+                  </p>
+                  <Badge variant="outline" className="mt-4">
+                    Permission Required: Single Upload
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
         <TabsContent value="statistics" className="mt-6">
-          <PolygraphStatistics />
+          {canViewStatistics ? (
+            <PolygraphStatistics />
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Access Restricted</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Your profile does not have permission to view statistics. 
+                    Please contact a Master Admin to request access.
+                  </p>
+                  <Badge variant="outline" className="mt-4">
+                    Permission Required: Statistics
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
