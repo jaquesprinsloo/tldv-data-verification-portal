@@ -64,3 +64,6 @@ verify_jwt = true
 
 [functions.convert-docx-to-pdf]
 verify_jwt = true
+
+[functions.delete-admin-profile]
+verify_jwt = true

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUserPermissions, PERMISSION_KEYS, PERMISSION_LABELS, PermissionKey } from "@/hooks/usePermissions";
 import { Separator } from "@/components/ui/separator";
+import { Trash2 } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -46,6 +48,7 @@ export const ProfileDetailsDialog = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingRoles, setIsSavingRoles] = useState(false);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Account access state
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -280,13 +283,92 @@ export const ProfileDetailsDialog = ({
     }
   };
 
+  const handleDeleteProfile = async () => {
+    if (!profile) return;
+    setIsDeleting(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase.functions.invoke('delete-admin-profile', {
+        body: { userId: profile.id },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success("Profile deleted successfully");
+      onOpenChange(false);
+      onUpdate();
+    } catch (error: any) {
+      console.error("Error deleting profile:", error);
+      toast.error(error.message || "Failed to delete profile");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (!profile) return null;
+
+  const isMasterAdminProfile = roles.includes("master_admin");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-black border-2 border-red-600 text-white max-w-lg max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle className="text-white text-xl">Manage Profile</DialogTitle>
+          <DialogTitle className="text-white text-xl flex items-center justify-between">
+            <span>Manage Profile</span>
+            {!isMasterAdminProfile && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-400 hover:bg-red-600/20"
+                    disabled={isDeleting}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="bg-black border-2 border-red-600">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-white">Delete Admin Profile</AlertDialogTitle>
+                    <AlertDialogDescription className="text-gray-400">
+                      <div className="space-y-3">
+                        <p>
+                          Are you sure you want to delete <strong className="text-white">{profile.full_name || profile.email}</strong>?
+                        </p>
+                        <div className="p-3 bg-yellow-600/10 border border-yellow-600/50 rounded-lg">
+                          <p className="text-yellow-400 text-sm">
+                            <strong>Note:</strong> This will permanently delete the admin profile, their roles, permissions, and account access. However, any data they uploaded (documents, reports, etc.) will remain in the system.
+                          </p>
+                        </div>
+                        <p className="text-red-400 font-medium">
+                          This action cannot be undone.
+                        </p>
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="border-gray-600 text-white hover:bg-gray-800">
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeleteProfile}
+                      disabled={isDeleting}
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      {isDeleting ? "Deleting..." : "Delete Profile"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </DialogTitle>
           <DialogDescription className="text-gray-400">
             Edit profile details, assign roles, and manage account access.
           </DialogDescription>
