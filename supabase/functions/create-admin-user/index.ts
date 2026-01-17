@@ -82,16 +82,31 @@ serve(async (req) => {
 
     console.log(`Invite sent to ${email}, user ID: ${inviteData.user.id}`);
 
-    // Assign admin role using the database function
+    // Assign admin role directly using service role (we've already verified caller is master admin)
     const { error: roleInsertError } = await supabaseAdmin
-      .rpc('assign_user_role', {
-        _user_id: inviteData.user.id,
-        _role: 'admin'
+      .from('user_roles')
+      .insert({
+        user_id: inviteData.user.id,
+        role: 'admin'
       });
 
     if (roleInsertError) {
       console.error("Role assignment error:", roleInsertError);
       throw roleInsertError;
+    }
+
+    // Create profile for the new admin
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .insert({
+        id: inviteData.user.id,
+        email: email,
+        full_name: `${firstName} ${lastName}`
+      });
+
+    if (profileError) {
+      console.error("Profile creation error:", profileError);
+      // Don't throw - role was assigned, profile creation is secondary
     }
 
     // Send welcome email using Resend (without password)
