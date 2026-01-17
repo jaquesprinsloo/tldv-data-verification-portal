@@ -126,8 +126,9 @@ export const ProfileManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
     } catch (error: any) {
       console.error("Error creating profile:", error);
-      const errorMessage = error.message || "Failed to create profile";
-      if (errorMessage.includes("already been registered")) {
+      // Extract error message from various possible formats
+      const errorMessage = error?.context?.body?.error || error?.message || "Failed to create profile";
+      if (errorMessage.includes("already been registered") || errorMessage.includes("already exists")) {
         toast.error("A user with this email address already exists. Please use a different email.");
       } else {
         toast.error(errorMessage);
