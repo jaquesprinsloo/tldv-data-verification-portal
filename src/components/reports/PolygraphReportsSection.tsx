@@ -582,12 +582,10 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
           <Button
             variant="outline"
             onClick={() => setActiveTab("upload")}
-            disabled={!canSingleUpload}
             className="flex items-center gap-2"
           >
             <Upload className="h-4 w-4" />
             Upload Report
-            {!canSingleUpload && <Lock className="h-3 w-3 ml-1" />}
           </Button>
         </div>
       </div>
@@ -612,7 +610,6 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
           <TabsTrigger value="upload" className="flex items-center gap-1">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Single Upload</span>
-            {!isStillLoadingPermissions && !canSingleUpload && <Lock className="h-3 w-3" />}
           </TabsTrigger>
           <TabsTrigger value="statistics" className="flex items-center gap-1">
             <BarChart3 className="h-4 w-4" />
@@ -693,7 +690,6 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         </TabsContent>
 
         <TabsContent value="upload" className="mt-6">
-          {canSingleUpload ? (
             <Card>
               <CardHeader>
                 <CardTitle>Upload Completed Report</CardTitle>
@@ -953,23 +949,6 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                 </div>
               </CardContent>
             </Card>
-          ) : (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <Lock className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Access Restricted</h3>
-                  <p className="text-muted-foreground max-w-md">
-                    Your profile does not have permission to upload single reports. 
-                    Please contact a Master Admin to request access.
-                  </p>
-                  <Badge variant="outline" className="mt-4">
-                    Permission Required: Single Upload
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
 
         <TabsContent value="statistics" className="mt-6">
