@@ -138,15 +138,30 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-    const validFiles = selectedFiles.filter(file => {
+    
+    // Check for unsupported .doc files (older binary format)
+    const oldDocFiles = selectedFiles.filter(file => {
       const fileName = file.name.toLowerCase();
-      return fileName.endsWith('.pdf') || fileName.endsWith('.docx') || fileName.endsWith('.doc');
+      return fileName.endsWith('.doc') && !fileName.endsWith('.docx');
     });
     
-    if (validFiles.length !== selectedFiles.length) {
+    if (oldDocFiles.length > 0) {
+      toast({
+        title: "Unsupported Format",
+        description: "The older .doc format is not supported. Please save documents as .docx (Word 2007+) or PDF.",
+        variant: "destructive",
+      });
+    }
+    
+    const validFiles = selectedFiles.filter(file => {
+      const fileName = file.name.toLowerCase();
+      return fileName.endsWith('.pdf') || fileName.endsWith('.docx');
+    });
+    
+    if (validFiles.length !== selectedFiles.length && oldDocFiles.length === 0) {
       toast({
         title: "Invalid Files",
-        description: "Only PDF and Word documents (.pdf, .docx, .doc) are accepted. Some files were skipped.",
+        description: "Only PDF and Word documents (.pdf, .docx) are accepted. Some files were skipped.",
         variant: "destructive",
       });
     }
@@ -523,7 +538,7 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
           <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <input
             type="file"
-            accept=".pdf,.docx,.doc"
+            accept=".pdf,.docx"
             multiple
             onChange={handleFileSelect}
             className="hidden"
