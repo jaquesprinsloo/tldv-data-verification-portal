@@ -9,7 +9,10 @@ import { AccountStoresList } from "@/components/reports/AccountStoresList";
 import { SubAccountDetailView } from "@/components/reports/SubAccountDetailView";
 import PolygraphReportsSection from "@/components/reports/PolygraphReportsSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, FileText } from "lucide-react";
+import { Building2, FileText, Lock } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
 
 type ViewState = "accounts" | "accountDashboard" | "stores" | "storeDashboard";
 type UserRole = "admin" | "master_admin";
@@ -106,6 +109,14 @@ const ReportsAccounts = () => {
   };
 
   const isMasterAdmin = userRole === "master_admin";
+  
+  // Use permissions hook
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions(currentUserId || undefined);
+  
+  // Permission checks
+  const isStillLoadingPermissions = !currentUserId || permissionsLoading;
+  const canSelectAccounts = isStillLoadingPermissions ? true : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_SELECT_ACCOUNTS));
+  const canViewSubAccountDetails = isStillLoadingPermissions ? isMasterAdmin : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_VIEW_SUB_ACCOUNTS));
 
   return (
     <div className="min-h-screen bg-background">
@@ -129,23 +140,42 @@ const ReportsAccounts = () => {
                 <div className="mb-8">
                   <h2 className="text-2xl font-bold">Select Account</h2>
                   <p className="text-muted-foreground mt-2">
-                    {isMasterAdmin 
+                    {canViewSubAccountDetails
                       ? "Select an account to view sub accounts and examination statistics"
-                      : "View your assigned accounts and examination statistics"
+                      : "View your assigned accounts for report selection"
                     }
                   </p>
                 </div>
 
-                <AccountSelector 
-                  onSelectAccount={handleSelectAccount} 
-                  canEdit={isMasterAdmin}
-                  currentUserId={currentUserId || undefined}
-                  isMasterAdmin={isMasterAdmin}
-                />
+                {canSelectAccounts ? (
+                  <AccountSelector 
+                    onSelectAccount={canViewSubAccountDetails ? handleSelectAccount : () => {}}
+                    canEdit={isMasterAdmin}
+                    currentUserId={currentUserId || undefined}
+                    isMasterAdmin={isMasterAdmin}
+                    viewDetailsEnabled={canViewSubAccountDetails}
+                  />
+                ) : (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">Access Restricted</h3>
+                        <p className="text-muted-foreground max-w-md">
+                          Your profile does not have permission to access accounts. 
+                          Please contact a Master Admin to request access.
+                        </p>
+                        <Badge variant="outline" className="mt-4">
+                          Permission Required: Select Accounts for Reports
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </>
             )}
 
-            {view === "accountDashboard" && selectedAccount && (
+            {view === "accountDashboard" && selectedAccount && canViewSubAccountDetails && (
               <AccountDashboard
                 account={selectedAccount}
                 onBack={handleBackToAccounts}
@@ -154,7 +184,7 @@ const ReportsAccounts = () => {
               />
             )}
 
-            {view === "stores" && selectedAccount && (
+            {view === "stores" && selectedAccount && canViewSubAccountDetails && (
               <AccountStoresList
                 account={selectedAccount}
                 onBack={handleBackToAccountDashboard}
@@ -163,7 +193,7 @@ const ReportsAccounts = () => {
               />
             )}
 
-            {view === "storeDashboard" && selectedStore && selectedAccount && (
+            {view === "storeDashboard" && selectedStore && selectedAccount && canViewSubAccountDetails && (
               <SubAccountDetailView
                 subAccount={selectedStore}
                 accountName={selectedAccount.name}

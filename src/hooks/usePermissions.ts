@@ -11,6 +11,7 @@ export const PERMISSION_KEYS = {
   PORTAL_PROFILE_MANAGEMENT: "portal.profile_management",
   
   // Reports & Accounts permissions
+  ACCOUNTS_SELECT_ACCOUNTS: "accounts.select_accounts",
   ACCOUNTS_VIEW_SUB_ACCOUNTS: "accounts.view_sub_accounts",
   ACCOUNTS_ADD_ACCOUNTS: "accounts.add_accounts",
   ACCOUNTS_VIEW_REPORTS: "accounts.view_reports",
@@ -62,9 +63,14 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   },
   
   // Reports & Accounts
+  [PERMISSION_KEYS.ACCOUNTS_SELECT_ACCOUNTS]: {
+    label: "Select Accounts for Reports",
+    description: "Select main and sub-accounts when loading reports (no access to account details)",
+    category: "Reports & Accounts",
+  },
   [PERMISSION_KEYS.ACCOUNTS_VIEW_SUB_ACCOUNTS]: {
-    label: "View Sub Accounts",
-    description: "View sub-accounts/stores within an account",
+    label: "View Sub Account Details",
+    description: "View detailed sub-account/store information and dashboards",
     category: "Reports & Accounts",
   },
   [PERMISSION_KEYS.ACCOUNTS_ADD_ACCOUNTS]: {
