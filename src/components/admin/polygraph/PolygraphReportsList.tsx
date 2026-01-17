@@ -6,9 +6,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Eye, Edit, Trash2, FileText } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, Search, Eye, Edit, Trash2, FileText, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { RiskProfileDialog } from "@/components/shared/RiskProfileDialog";
+import { extractStoragePath } from "@/lib/storageUtils";
 
 interface PolygraphReport {
   id: string;
@@ -21,6 +32,8 @@ interface PolygraphReport {
   risk_level: string | null;
   store_id: string | null;
   created_at: string;
+  report_pdf_url?: string | null;
+  candidate_photo_url?: string | null;
   stores?: { store_name: string } | null;
   examiners?: { name: string } | null;
 }
@@ -40,6 +53,11 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
   const [riskProfileOpen, setRiskProfileOpen] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [selectedCandidateName, setSelectedCandidateName] = useState<string>("");
+  
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState<PolygraphReport | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchReports();
@@ -70,22 +88,49 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
     }
   };
 
-  const handleDelete = async (reportId: string) => {
-    if (!confirm("Are you sure you want to delete this report?")) return;
+  const openDeleteDialog = (report: PolygraphReport) => {
+    setReportToDelete(report);
+    setDeleteDialogOpen(true);
+  };
 
+  const handleDelete = async () => {
+    if (!reportToDelete) return;
+    
+    setDeleting(true);
     try {
+      // ========== STORAGE CLEANUP FIRST ==========
+      
+      // Delete report PDF from polygraph-reports bucket
+      if (reportToDelete.report_pdf_url) {
+        const pdfPath = extractStoragePath(reportToDelete.report_pdf_url, "polygraph-reports");
+        if (pdfPath) {
+          await supabase.storage.from("polygraph-reports").remove([pdfPath]);
+        }
+      }
+
+      // Delete candidate photo from employee-selfies bucket
+      if (reportToDelete.candidate_photo_url) {
+        const photoPath = extractStoragePath(reportToDelete.candidate_photo_url, "employee-selfies");
+        if (photoPath) {
+          await supabase.storage.from("employee-selfies").remove([photoPath]);
+        }
+      }
+
+      // ========== DATABASE CLEANUP ==========
       const { error } = await supabase
         .from("polygraph_reports")
         .delete()
-        .eq("id", reportId);
+        .eq("id", reportToDelete.id);
 
       if (error) throw error;
 
       toast({
-        title: "Report Deleted",
-        description: "The polygraph report has been deleted.",
+        title: "Report Permanently Deleted",
+        description: "The polygraph report and all associated files have been completely removed.",
       });
       
+      setDeleteDialogOpen(false);
+      setReportToDelete(null);
       fetchReports();
     } catch (error: any) {
       console.error("Error deleting report:", error);
@@ -94,6 +139,8 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
         description: "Failed to delete the report",
         variant: "destructive",
       });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -238,7 +285,7 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(report.id)}
+                          onClick={() => openDeleteDialog(report)}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -259,6 +306,50 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
         reportId={selectedReportId || undefined}
         candidateName={selectedCandidateName}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Permanent Deletion Warning
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p className="font-medium text-foreground">
+                This action will permanently delete:
+              </p>
+              <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                <li>The polygraph report and all assessment data</li>
+                <li>The uploaded PDF report file (if any)</li>
+                <li>Candidate photo (if uploaded)</li>
+                <li>All examination questions and findings</li>
+                <li>Risk analysis and admissions data</li>
+              </ul>
+              {reportToDelete && (
+                <p className="text-sm bg-muted p-2 rounded">
+                  <strong>Candidate:</strong> {reportToDelete.first_name} {reportToDelete.last_name}
+                  <br />
+                  <strong>ID:</strong> {reportToDelete.id_number}
+                </p>
+              )}
+              <p className="text-sm font-semibold text-destructive pt-2">
+                All associated files will be removed from storage. This action cannot be undone.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete Permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

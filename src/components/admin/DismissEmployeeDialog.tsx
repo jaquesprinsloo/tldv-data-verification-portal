@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
+import { extractStoragePath } from "@/lib/storageUtils";
 
 interface DismissEmployeeDialogProps {
   open: boolean;
@@ -53,7 +54,22 @@ export function DismissEmployeeDialog({
     try {
       let documentUrl = null;
 
-      // Upload document if provided
+      // Check for existing dismissal document to delete
+      const { data: existingEmployee } = await supabase
+        .from('employees')
+        .select('dismissal_document_url')
+        .eq('id', employeeId)
+        .single();
+
+      // Delete old document from storage if uploading a new one or clearing status
+      if (existingEmployee?.dismissal_document_url) {
+        const oldPath = extractStoragePath(existingEmployee.dismissal_document_url, "dismissal-documents");
+        if (oldPath) {
+          await supabase.storage.from('dismissal-documents').remove([oldPath]);
+        }
+      }
+
+      // Upload new document if provided
       if (document) {
         const fileExt = document.name.split('.').pop();
         const fileName = `${employeeId}_${employmentStatus}_${Date.now()}.${fileExt}`;
