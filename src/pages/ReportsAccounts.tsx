@@ -149,7 +149,7 @@ const ReportsAccounts = () => {
 
                 {canSelectAccounts ? (
                   <AccountSelector 
-                    onSelectAccount={canViewSubAccountDetails ? handleSelectAccount : () => {}}
+                    onSelectAccount={handleSelectAccount}
                     canEdit={isMasterAdmin}
                     currentUserId={currentUserId || undefined}
                     isMasterAdmin={isMasterAdmin}
@@ -175,16 +175,17 @@ const ReportsAccounts = () => {
               </>
             )}
 
-            {view === "accountDashboard" && selectedAccount && canViewSubAccountDetails && (
+            {view === "accountDashboard" && selectedAccount && (
               <AccountDashboard
                 account={selectedAccount}
                 onBack={handleBackToAccounts}
                 onViewStores={handleViewStores}
                 canEdit={isMasterAdmin}
+                viewDetailsEnabled={canViewSubAccountDetails}
               />
             )}
 
-            {view === "stores" && selectedAccount && canViewSubAccountDetails && (
+            {view === "stores" && selectedAccount && (
               <AccountStoresList
                 account={selectedAccount}
                 onBack={handleBackToAccountDashboard}
@@ -193,12 +194,13 @@ const ReportsAccounts = () => {
               />
             )}
 
-            {view === "storeDashboard" && selectedStore && selectedAccount && canViewSubAccountDetails && (
+            {view === "storeDashboard" && selectedStore && selectedAccount && (
               <SubAccountDetailView
                 subAccount={selectedStore}
                 accountName={selectedAccount.name}
                 onBack={handleBackToStores}
                 canEdit={isMasterAdmin}
+                viewDetailsEnabled={canViewSubAccountDetails}
               />
             )}
           </TabsContent>
