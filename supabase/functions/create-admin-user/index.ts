@@ -12,16 +12,21 @@ serve(async (req) => {
   }
 
   try {
-    const { email, firstName, lastName, role = 'admin' } = await req.json();
+    const { email, firstName, lastName, password, role = 'admin' } = await req.json();
 
-    // Validate inputs - password no longer required, will be set via invite link
-    if (!email || !firstName || !lastName) {
-      throw new Error("Email, first name, and last name are required");
+    // Validate inputs
+    if (!email || !firstName || !lastName || !password) {
+      throw new Error("Email, first name, last name, and password are required");
     }
 
     // Validate role
     if (!['admin', 'master_admin'].includes(role)) {
       throw new Error("Invalid role. Must be 'admin' or 'master_admin'");
+    }
+
+    // Validate password length
+    if (password.length < 8) {
+      throw new Error("Password must be at least 8 characters");
     }
 
     // Get the authorization header
@@ -65,33 +70,32 @@ serve(async (req) => {
       throw new Error("Not authorized - master admin only");
     }
 
-    // Get the site URL for the login link
-    const siteUrl = Deno.env.get('SITE_URL') || 'https://tldv-data-verification-portal.lovable.app';
-
-    // Generate an invite link instead of creating user with password
-    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      data: {
+    // Create the user with the provided password
+    const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm email
+      user_metadata: {
         full_name: `${firstName} ${lastName}`
-      },
-      redirectTo: `${siteUrl}/admin/login`
+      }
     });
 
-    if (inviteError) {
-      console.error("Invite error:", inviteError);
-      throw inviteError;
+    if (createError) {
+      console.error("User creation error:", createError);
+      throw createError;
     }
     
-    if (!inviteData.user) {
-      throw new Error("Failed to invite user");
+    if (!createData.user) {
+      throw new Error("Failed to create user");
     }
 
-    console.log(`Invite sent to ${email}, user ID: ${inviteData.user.id}, role: ${role}`);
+    console.log(`User created: ${email}, user ID: ${createData.user.id}, role: ${role}`);
 
     // Assign role directly using service role (we've already verified caller is master admin)
     const { error: roleInsertError } = await supabaseAdmin
       .from('user_roles')
       .insert({
-        user_id: inviteData.user.id,
+        user_id: createData.user.id,
         role: role
       });
 
@@ -104,7 +108,7 @@ serve(async (req) => {
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .insert({
-        id: inviteData.user.id,
+        id: createData.user.id,
         email: email,
         full_name: `${firstName} ${lastName}`
       });
@@ -114,10 +118,13 @@ serve(async (req) => {
       // Don't throw - role was assigned, profile creation is secondary
     }
 
-    // Send welcome email using Resend (without password)
+    // Send credentials email using Resend API
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (resendApiKey) {
       try {
+        const siteUrl = Deno.env.get('SITE_URL') || 'https://tldv-data-verification-portal.lovable.app';
+        const roleDisplay = role === 'master_admin' ? 'Master Admin' : 'Admin';
+
         const emailHtml = `
           <!DOCTYPE html>
           <html>
@@ -128,8 +135,13 @@ serve(async (req) => {
               .header { background-color: #000; padding: 20px; text-align: center; }
               .header h1 { color: #dc2626; margin: 0; }
               .content { padding: 30px; background-color: #f9f9f9; }
-              .info-box { background-color: #fff; border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 5px; }
+              .credentials-box { background-color: #fff; border: 2px solid #dc2626; padding: 20px; margin: 20px 0; border-radius: 5px; }
+              .credential-item { margin: 10px 0; padding: 10px; background-color: #f5f5f5; border-radius: 3px; }
+              .credential-label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
+              .credential-value { font-size: 16px; color: #000; margin-top: 5px; font-family: monospace; }
+              .warning { background-color: #fef2f2; border: 1px solid #dc2626; padding: 15px; border-radius: 5px; margin: 20px 0; }
               .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+              .button { display: inline-block; background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
             </style>
           </head>
           <body>
@@ -139,16 +151,32 @@ serve(async (req) => {
               </div>
               <div class="content">
                 <h2>Welcome, ${firstName} ${lastName}!</h2>
-                <p>Your admin account has been created. You should receive a separate email from the system with a secure link to set your password.</p>
+                <p>Your <strong>${roleDisplay}</strong> account has been created. Below are your login credentials:</p>
                 
-                <div class="info-box">
-                  <h3>Next Steps</h3>
-                  <p>1. Check your inbox for the password setup email</p>
-                  <p>2. Click the secure link to set your password</p>
-                  <p>3. Once set, you can log in to the Admin Portal</p>
+                <div class="credentials-box">
+                  <h3 style="margin-top: 0; color: #dc2626;">Your Login Credentials</h3>
+                  <div class="credential-item">
+                    <div class="credential-label">Email Address</div>
+                    <div class="credential-value">${email}</div>
+                  </div>
+                  <div class="credential-item">
+                    <div class="credential-label">Password</div>
+                    <div class="credential-value">${password}</div>
+                  </div>
+                  <div class="credential-item">
+                    <div class="credential-label">Role</div>
+                    <div class="credential-value">${roleDisplay}</div>
+                  </div>
                 </div>
                 
-                <p><strong>Note:</strong> The password setup link expires in 24 hours. If it expires, please contact the master administrator for a new invitation.</p>
+                <div class="warning">
+                  <strong>⚠️ Security Notice:</strong>
+                  <p style="margin-bottom: 0;">For security purposes, we strongly recommend changing your password after your first login. Keep these credentials confidential and do not share them with anyone.</p>
+                </div>
+                
+                <center>
+                  <a href="${siteUrl}/admin/login" class="button">Login to Portal</a>
+                </center>
                 
                 <p style="margin-top: 30px;">If you have any questions, please contact the master administrator.</p>
               </div>
@@ -170,32 +198,32 @@ serve(async (req) => {
           body: JSON.stringify({
             from: "TLDV Admin <onboarding@resend.dev>",
             to: [email],
-            subject: "Your TLDV Admin Account Has Been Created",
+            subject: `Your TLDV ${roleDisplay} Account Has Been Created`,
             html: emailHtml,
           }),
         });
 
         if (emailResponse.ok) {
-          console.log("Welcome email sent successfully");
+          console.log("Credentials email sent successfully");
         } else {
           const errorData = await emailResponse.text();
-          console.error("Failed to send welcome email:", errorData);
+          console.error("Failed to send credentials email:", errorData);
         }
       } catch (emailError) {
-        console.error("Failed to send welcome email:", emailError);
-        // Don't throw - user was invited successfully, just supplementary email failed
+        console.error("Failed to send credentials email:", emailError);
+        // Don't throw - user was created successfully, just email failed
       }
     } else {
-      console.log("RESEND_API_KEY not configured, skipping supplementary welcome email");
+      console.log("RESEND_API_KEY not configured, skipping credentials email");
     }
 
-    console.log(`Successfully invited admin user: ${email}`);
+    console.log(`Successfully created ${role} user: ${email}`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        userId: inviteData.user.id,
-        message: "Invitation sent. User will receive an email to set their password."
+        userId: createData.user.id,
+        message: "Profile created. Login credentials have been sent to their email."
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

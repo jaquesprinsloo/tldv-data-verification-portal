@@ -22,6 +22,8 @@ export const ProfileManagement = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<"admin" | "master_admin">("admin");
   const [isLoading, setIsLoading] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
@@ -82,6 +84,17 @@ export const ProfileManagement = () => {
 
   const handleCreateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -93,6 +106,7 @@ export const ProfileManagement = () => {
           email,
           firstName,
           lastName,
+          password,
           role: selectedRole,
         },
         headers: {
@@ -102,10 +116,12 @@ export const ProfileManagement = () => {
 
       if (error) throw error;
 
-      toast.success(`${selectedRole === 'master_admin' ? 'Master Admin' : 'Admin'} invited successfully! They will receive an email to set their password.`);
+      toast.success(`${selectedRole === 'master_admin' ? 'Master Admin' : 'Admin'} created successfully! Login credentials have been sent to their email.`);
       setFirstName("");
       setLastName("");
       setEmail("");
+      setPassword("");
+      setConfirmPassword("");
       setSelectedRole("admin");
       queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
     } catch (error: any) {
@@ -177,6 +193,30 @@ export const ProfileManagement = () => {
                 />
               </div>
               <div>
+                <Label htmlFor="password" className="text-white">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  className="bg-black border-red-600 text-white"
+                  placeholder="Minimum 8 characters"
+                />
+              </div>
+              <div>
+                <Label htmlFor="confirmPassword" className="text-white">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="bg-black border-red-600 text-white"
+                />
+              </div>
+              <div>
                 <Label htmlFor="role" className="text-white">Role</Label>
                 <Select value={selectedRole} onValueChange={(value: "admin" | "master_admin") => setSelectedRole(value)}>
                   <SelectTrigger className="bg-black border-red-600 text-white">
@@ -194,7 +234,7 @@ export const ProfileManagement = () => {
                 </p>
               </div>
               <p className="text-gray-400 text-sm">
-                An invitation email will be sent allowing the user to set their own password securely.
+                Login credentials will be emailed to the user securely.
               </p>
               <Button
                 type="submit"
