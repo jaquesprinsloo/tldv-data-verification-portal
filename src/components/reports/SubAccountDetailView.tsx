@@ -33,10 +33,10 @@ interface SubAccountDetailViewProps {
   accountName: string;
   onBack: () => void;
   canEdit: boolean;
-  viewDetailsEnabled?: boolean;
+  restrictedMode?: boolean;
 }
 
-export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit, viewDetailsEnabled = true }: SubAccountDetailViewProps) => {
+export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit, restrictedMode = false }: SubAccountDetailViewProps) => {
   const [activeTab, setActiveTab] = useState("overview");
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
@@ -56,9 +56,8 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit,
     riskAssessmentCount: 0,
     totalSpend: 0,
   });
-  
   const handleRestrictedTabClick = (tabName: string) => {
-    if (!viewDetailsEnabled) {
+    if (restrictedMode) {
       toast.info(`Access to ${tabName} is restricted. Your profile can only select accounts for report placement.`);
     }
   };
@@ -168,11 +167,18 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit,
             </p>
           </div>
         </div>
-        {!canEdit && (
-          <Badge variant="secondary">View Only</Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {restrictedMode && (
+            <Badge variant="secondary" className="gap-1">
+              <Lock className="h-3 w-3" />
+              View Restricted
+            </Badge>
+          )}
+          {!canEdit && (
+            <Badge variant="secondary">View Only</Badge>
+          )}
+        </div>
       </div>
-
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card 
@@ -225,17 +231,17 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit,
 
         <Card 
           className="cursor-pointer hover:border-primary transition-colors"
-          onClick={() => viewDetailsEnabled ? setActiveTab("invoices") : handleRestrictedTabClick("Invoices")}
+          onClick={() => !restrictedMode ? setActiveTab("invoices") : handleRestrictedTabClick("Invoices")}
         >
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-yellow-500" />
               Total Spend
-              {!viewDetailsEnabled && <Lock className="h-3 w-3 ml-auto" />}
+              {restrictedMode && <Lock className="h-3 w-3 ml-auto" />}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${!viewDetailsEnabled ? 'blur-sm select-none' : ''}`}>
+            <p className={`text-2xl font-bold ${restrictedMode ? 'blur-sm select-none' : ''}`}>
               R {stats.totalSpend.toLocaleString()}
             </p>
             <p className="text-xs text-muted-foreground">On examinations & assessments</p>
@@ -245,7 +251,7 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit,
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(val) => {
-        if (!viewDetailsEnabled && ['employees', 'statistics', 'reports', 'invoices'].includes(val)) {
+        if (restrictedMode && ['employees', 'statistics', 'reports', 'invoices'].includes(val)) {
           handleRestrictedTabClick(val.charAt(0).toUpperCase() + val.slice(1));
           return;
         }
@@ -253,21 +259,21 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit,
       }} className="w-full">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Store Details</TabsTrigger>
-          <TabsTrigger value="employees" className="gap-1" disabled={!viewDetailsEnabled}>
+          <TabsTrigger value="employees" className="gap-1" disabled={restrictedMode}>
             Employees
-            {!viewDetailsEnabled && <Lock className="h-3 w-3" />}
+            {restrictedMode && <Lock className="h-3 w-3" />}
           </TabsTrigger>
-          <TabsTrigger value="statistics" className="gap-1" disabled={!viewDetailsEnabled}>
+          <TabsTrigger value="statistics" className="gap-1" disabled={restrictedMode}>
             Statistics
-            {!viewDetailsEnabled && <Lock className="h-3 w-3" />}
+            {restrictedMode && <Lock className="h-3 w-3" />}
           </TabsTrigger>
-          <TabsTrigger value="reports" className="gap-1" disabled={!viewDetailsEnabled}>
+          <TabsTrigger value="reports" className="gap-1" disabled={restrictedMode}>
             Reports
-            {!viewDetailsEnabled && <Lock className="h-3 w-3" />}
+            {restrictedMode && <Lock className="h-3 w-3" />}
           </TabsTrigger>
-          <TabsTrigger value="invoices" className="gap-1" disabled={!viewDetailsEnabled}>
+          <TabsTrigger value="invoices" className="gap-1" disabled={restrictedMode}>
             Invoices
-            {!viewDetailsEnabled && <Lock className="h-3 w-3" />}
+            {restrictedMode && <Lock className="h-3 w-3" />}
           </TabsTrigger>
         </TabsList>
 

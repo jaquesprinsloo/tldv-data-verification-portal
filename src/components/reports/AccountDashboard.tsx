@@ -49,7 +49,7 @@ interface AccountDashboardProps {
   onBack: () => void;
   onViewStores: () => void;
   canEdit: boolean;
-  viewDetailsEnabled?: boolean;
+  restrictedMode?: boolean;
 }
 
 interface AggregatedStats {
@@ -85,7 +85,7 @@ interface RecentInvoice {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
-export const AccountDashboard = ({ account, onBack, onViewStores, canEdit, viewDetailsEnabled = true }: AccountDashboardProps) => {
+export const AccountDashboard = ({ account, onBack, onViewStores, canEdit, restrictedMode = false }: AccountDashboardProps) => {
   const [loading, setLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -108,18 +108,11 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit, viewD
   // Check specific permissions - while loading, default to canEdit prop for backwards compatibility
   const canSingleUpload = isStillLoadingPermissions ? canEdit : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_SINGLE_UPLOAD));
   const canViewReports = isStillLoadingPermissions ? true : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_VIEW_REPORTS));
-  
-  // Restrict access when user has only "Select Accounts" permission
-  const canViewFinancials = viewDetailsEnabled;
-  
-  // Debug logging
-  console.log('[AccountDashboard] Permissions debug:', {
-    viewDetailsEnabled,
-    canViewFinancials,
-  });
-  
+  // Restrict access when user is in "select-only" mode
+  const canViewFinancials = !restrictedMode;
+
   const handleRestrictedTabClick = (tabName: string) => {
-    if (!viewDetailsEnabled) {
+    if (restrictedMode) {
       toast.info(`Access to ${tabName} is restricted. Your profile can only select accounts for report placement.`);
     }
   };
@@ -274,7 +267,7 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit, viewD
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
@@ -290,10 +283,18 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit, viewD
             <p className="text-sm text-muted-foreground">Account Code: {account.code}</p>
           </div>
         </div>
-        <Button onClick={onViewStores}>
-          <Building2 className="h-4 w-4 mr-2" />
-          View Sub-Accounts ({stats.totalStores})
-        </Button>
+        <div className="flex items-center gap-2">
+          {restrictedMode && (
+            <Badge variant="secondary" className="gap-1">
+              <Lock className="h-3 w-3" />
+              View Restricted
+            </Badge>
+          )}
+          <Button onClick={onViewStores}>
+            <Building2 className="h-4 w-4 mr-2" />
+            View Sub-Accounts ({stats.totalStores})
+          </Button>
+        </div>
       </div>
 
       {/* Overview Stats */}
