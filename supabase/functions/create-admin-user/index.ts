@@ -208,7 +208,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: "TLDV Admin <onboarding@resend.dev>",
+            from: "TLDV Portal <noreply@tldvportal.co.za>",
             to: [email],
             subject: `Your TLDV ${roleDisplay} Account Has Been Created`,
             html: emailHtml,
