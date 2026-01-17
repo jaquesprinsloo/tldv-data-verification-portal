@@ -114,12 +114,13 @@ export const ProfileManagement = () => {
         }
       });
 
-      if (response.error) {
-        const errorMessage = (response.data as any)?.error || response.error.message || "Failed to create profile";
-        if (errorMessage.includes("already been registered") || errorMessage.includes("already exists")) {
+      // Handle both non-2xx errors and "soft" errors returned as 200
+      const responseError = response.error ? ((response.data as any)?.error || response.error.message) : (response.data as any)?.error;
+      if (responseError) {
+        if (responseError.includes("already been registered") || responseError.includes("already exists")) {
           toast.error("A user with this email address already exists. Please use a different email.");
         } else {
-          toast.error(errorMessage);
+          toast.error(responseError);
         }
         return;
       }
