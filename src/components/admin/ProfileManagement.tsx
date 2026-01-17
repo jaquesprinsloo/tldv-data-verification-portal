@@ -101,7 +101,7 @@ export const ProfileManagement = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const { data, error } = await supabase.functions.invoke('create-admin-user', {
+      const response = await supabase.functions.invoke('create-admin-user', {
         body: {
           email,
           firstName,
@@ -114,7 +114,12 @@ export const ProfileManagement = () => {
         }
       });
 
-      if (error) throw error;
+      if (response.error) {
+        // Try to parse error from response data
+        const errorData = response.data;
+        const errorMessage = errorData?.error || response.error.message || "Failed to create profile";
+        throw new Error(errorMessage);
+      }
 
       toast.success(`${selectedRole === 'master_admin' ? 'Master Admin' : 'Admin'} created successfully! Login credentials have been sent to their email.`);
       setFirstName("");
