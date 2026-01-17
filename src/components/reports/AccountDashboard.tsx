@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft, 
   Building2, 
@@ -15,7 +16,8 @@ import {
   Car,
   Bed,
   MapPin,
-  Receipt
+  Receipt,
+  Lock
 } from "lucide-react";
 import { format } from "date-fns";
 import { 
@@ -33,6 +35,7 @@ import {
 } from "recharts";
 import { DocumentUploadTab } from "./DocumentUploadTab";
 import { PendingUploadsReviewTab } from "./PendingUploadsReviewTab";
+import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
 
 interface Account {
   id: string;
@@ -84,6 +87,22 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
   const [loading, setLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  // Get user ID for permissions
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setCurrentUserId(user.id);
+    };
+    getUser();
+  }, []);
+  
+  const { hasPermission, isMasterAdmin } = usePermissions(currentUserId || undefined);
+  
+  // Check specific permissions
+  const canSingleUpload = isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_SINGLE_UPLOAD);
+  const canViewReports = isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_VIEW_REPORTS);
   const [stats, setStats] = useState<AggregatedStats>({
     totalStores: 0,
     totalEmployees: 0,
@@ -312,7 +331,10 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
           <TabsTrigger value="overview" className="flex-1 min-w-[100px]">Overview</TabsTrigger>
           <TabsTrigger value="breakdown" className="flex-1 min-w-[100px]">Expense Breakdown</TabsTrigger>
           <TabsTrigger value="stores" className="flex-1 min-w-[100px]">By Sub-Account</TabsTrigger>
-          <TabsTrigger value="upload" className="flex-1 min-w-[100px]">Upload Documents</TabsTrigger>
+          <TabsTrigger value="upload" className="flex-1 min-w-[100px] gap-1">
+            Upload Documents
+            {!canSingleUpload && <Lock className="h-3 w-3" />}
+          </TabsTrigger>
           <TabsTrigger value="review" className="flex-1 min-w-[100px]">Review ({pendingCount})</TabsTrigger>
         </TabsList>
 
@@ -496,10 +518,28 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
         </TabsContent>
 
         <TabsContent value="upload" className="space-y-4">
-          <DocumentUploadTab 
-            accountId={account.id} 
-            onUploadComplete={handleUploadComplete} 
-          />
+          {canSingleUpload ? (
+            <DocumentUploadTab 
+              accountId={account.id} 
+              onUploadComplete={handleUploadComplete} 
+            />
+          ) : (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Lock className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Access Restricted</h3>
+                  <p className="text-muted-foreground max-w-md">
+                    Your profile does not have permission to upload documents. 
+                    Please contact a Master Admin to request access to the "Single Upload" permission.
+                  </p>
+                  <Badge variant="outline" className="mt-4">
+                    Permission Required: Single Upload
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="review" className="space-y-4">
