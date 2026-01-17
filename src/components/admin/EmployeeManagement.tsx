@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Trash2, Copy, Upload, Download, Eye, Mail, Store, Users, Briefcase, History, FileText } from "lucide-react";
+import { UserPlus, Trash2, Copy, Upload, Download, Eye, Mail, Store, Users, Briefcase, History, FileText, AlertTriangle } from "lucide-react";
 import InviteEmployeeDialog from "./InviteEmployeeDialog";
 import AuditHistoryDialog from "./AuditHistoryDialog";
 import { DismissEmployeeDialog } from "./DismissEmployeeDialog";
@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import SubmissionDetailDialog from "./SubmissionDetailDialog";
+import { extractStoragePath } from "@/lib/storageUtils";
 
 interface EmployeeWithSubmission {
   id: string;
@@ -281,14 +282,99 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
     setEmployees((prev) => prev.filter((e) => e.id !== id));
 
     try {
-      // Delete all related records first (order matters due to foreign keys)
+      // ========== STORAGE CLEANUP FIRST ==========
       
-      // 1. Get submissions to delete next_of_kin records
+      // 1. Get submissions with file URLs for storage cleanup
       const { data: submissions } = await supabase
         .from("submissions")
-        .select("id")
+        .select("id, id_photo_url, proof_of_residence_url")
         .eq("employee_id", id);
       
+      // Delete ID photos from employee-ids bucket
+      if (submissions) {
+        for (const sub of submissions) {
+          if (sub.id_photo_url) {
+            const path = extractStoragePath(sub.id_photo_url, "employee-ids");
+            if (path) {
+              await supabase.storage.from("employee-ids").remove([path]);
+            }
+          }
+          // Delete proof of residence from proof-of-residence bucket
+          if (sub.proof_of_residence_url) {
+            const path = extractStoragePath(sub.proof_of_residence_url, "proof-of-residence");
+            if (path) {
+              await supabase.storage.from("proof-of-residence").remove([path]);
+            }
+          }
+        }
+      }
+
+      // 2. Get employee record for dismissal document
+      const { data: employee } = await supabase
+        .from("employees")
+        .select("dismissal_document_url")
+        .eq("id", id)
+        .single();
+
+      // Delete dismissal document if exists
+      if (employee?.dismissal_document_url) {
+        const path = extractStoragePath(employee.dismissal_document_url, "dismissal-documents");
+        if (path) {
+          await supabase.storage.from("dismissal-documents").remove([path]);
+        }
+      }
+
+      // 3. Get and delete all employee documents from storage
+      const { data: employeeDocs } = await supabase
+        .from("employee_documents")
+        .select("file_url")
+        .eq("employee_id", id);
+
+      if (employeeDocs) {
+        for (const doc of employeeDocs) {
+          if (doc.file_url) {
+            await supabase.storage.from("employee-documents").remove([doc.file_url]);
+          }
+        }
+      }
+
+      // 4. Get and delete examination reports from storage
+      const { data: exams } = await supabase
+        .from("examinations")
+        .select("report_url")
+        .eq("employee_id", id);
+
+      if (exams) {
+        for (const exam of exams) {
+          if (exam.report_url) {
+            const path = extractStoragePath(exam.report_url, "polygraph-reports");
+            if (path) {
+              await supabase.storage.from("polygraph-reports").remove([path]);
+            }
+          }
+        }
+      }
+
+      // 5. Get and delete risk assessment reports from storage
+      const { data: assessments } = await supabase
+        .from("risk_assessments")
+        .select("report_url")
+        .eq("employee_id", id);
+
+      if (assessments) {
+        for (const assessment of assessments) {
+          if (assessment.report_url) {
+            const path = extractStoragePath(assessment.report_url, "polygraph-reports");
+            if (path) {
+              await supabase.storage.from("polygraph-reports").remove([path]);
+            }
+          }
+        }
+      }
+
+      // ========== DATABASE CLEANUP ==========
+      
+      // Delete next_of_kin records
       if (submissions && submissions.length > 0) {
         const submissionIds = submissions.map(s => s.id);
         await supabase
@@ -297,49 +383,55 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
           .in("submission_id", submissionIds);
       }
 
-      // 2. Delete submissions
+      // Delete submissions
       await supabase
         .from("submissions")
         .delete()
         .eq("employee_id", id);
 
-      // 3. Delete POPIA acceptances
+      // Delete POPIA acceptances
       await supabase
         .from("popia_acceptances")
         .delete()
         .eq("employee_id", id);
 
-      // 4. Delete employee invitations
+      // Delete employee invitations
       await supabase
         .from("employee_invitations")
         .delete()
         .eq("employee_id", id);
 
-      // 5. Delete renewal requests
+      // Delete renewal requests
       await supabase
         .from("renewal_requests")
         .delete()
         .eq("employee_id", id);
 
-      // 6. Delete employee store assignments
+      // Delete employee store assignments
       await supabase
         .from("employee_store_assignments")
         .delete()
         .eq("employee_id", id);
 
-      // 7. Delete polygraph candidates (unlink only, keep the report)
+      // Delete employee documents records
+      await supabase
+        .from("employee_documents")
+        .delete()
+        .eq("employee_id", id);
+
+      // Unlink polygraph candidates (keep the report)
       await supabase
         .from("polygraph_candidates")
         .update({ employee_id: null })
         .eq("employee_id", id);
 
-      // 8. Delete examinations linked to this employee
+      // Delete examinations linked to this employee
       await supabase
         .from("examinations")
         .delete()
         .eq("employee_id", id);
 
-      // 9. Delete risk assessments linked to this employee
+      // Delete risk assessments linked to this employee
       await supabase
         .from("risk_assessments")
         .delete()
@@ -354,8 +446,8 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
       if (employeeError) throw employeeError;
 
       toast({
-        title: "Employee Deleted",
-        description: "Employee and all associated data have been removed from the system",
+        title: "Employee Permanently Deleted",
+        description: "Employee and all associated data and files have been completely removed from the system.",
       });
 
       fetchEmployees();
@@ -958,17 +1050,39 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
       </Card>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Employee</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this employee? This will permanently remove the employee and all their submitted information from the system. This action cannot be undone.
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Permanent Deletion Warning
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p className="font-medium text-foreground">
+                This action will permanently delete ALL of the following:
+              </p>
+              <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                <li>Employee profile and personal information</li>
+                <li>ID photos and verification documents</li>
+                <li>Proof of residence documents</li>
+                <li>All uploaded employee documents</li>
+                <li>Dismissal/termination documents</li>
+                <li>Polygraph examination records and reports</li>
+                <li>Risk assessment records and reports</li>
+                <li>POPIA consent records</li>
+                <li>Invitation and registration history</li>
+              </ul>
+              <p className="text-sm font-semibold text-destructive pt-2">
+                All associated files will be removed from storage. This action cannot be undone.
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>No</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEmployee}>
-              Yes
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteEmployee}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

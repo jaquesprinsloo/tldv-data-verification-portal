@@ -235,6 +235,31 @@ serve(async (req) => {
     }
 
     if (action === "reject") {
+      // Delete file from pending-documents bucket before rejecting
+      if (pendingUpload.file_url) {
+        try {
+          const urlObj = new URL(pendingUpload.file_url);
+          const pathParts = urlObj.pathname.split('/pending-documents/');
+          if (pathParts[1]) {
+            const filePath = decodeURIComponent(pathParts[1]);
+            console.log("Deleting rejected file from storage:", filePath);
+            const { error: storageError } = await supabase.storage
+              .from("pending-documents")
+              .remove([filePath]);
+            
+            if (storageError) {
+              console.error("Error deleting file from storage:", storageError);
+              // Continue with rejection even if storage delete fails
+            } else {
+              console.log("Successfully deleted rejected file from storage");
+            }
+          }
+        } catch (e) {
+          console.error("Error parsing file URL for deletion:", e);
+          // Continue with rejection even if URL parsing fails
+        }
+      }
+
       // Update status to rejected
       const { error: updateError } = await supabase
         .from("pending_document_uploads")
@@ -254,7 +279,7 @@ serve(async (req) => {
         });
       }
 
-      return new Response(JSON.stringify({ success: true, message: "Upload rejected" }), {
+      return new Response(JSON.stringify({ success: true, message: "Upload rejected and file deleted" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

@@ -59,7 +59,7 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: "polygraph" | "risk"; reportUrl?: string | null } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: "polygraph" | "risk"; reportUrl?: string | null; itemName?: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -225,8 +225,8 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
     return emp?.employee_number || "-";
   };
 
-  const handleDeleteClick = (id: string, type: "polygraph" | "risk", reportUrl?: string | null) => {
-    setItemToDelete({ id, type, reportUrl });
+  const handleDeleteClick = (id: string, type: "polygraph" | "risk", reportUrl?: string | null, itemName?: string) => {
+    setItemToDelete({ id, type, reportUrl, itemName });
     setDeleteDialogOpen(true);
   };
 
@@ -235,11 +235,17 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
     
     setDeleting(true);
     try {
-      // Delete from storage if there's a file
+      // Delete from storage if there's a file - use correct bucket name
       if (itemToDelete.reportUrl) {
-        const urlParts = itemToDelete.reportUrl.split("/invoices/");
+        const urlParts = itemToDelete.reportUrl.split("/polygraph-reports/");
         if (urlParts[1]) {
-          await supabase.storage.from("invoices").remove([urlParts[1]]);
+          await supabase.storage.from("polygraph-reports").remove([decodeURIComponent(urlParts[1])]);
+        } else {
+          // Fallback: try invoices bucket for legacy files
+          const invoiceParts = itemToDelete.reportUrl.split("/invoices/");
+          if (invoiceParts[1]) {
+            await supabase.storage.from("invoices").remove([decodeURIComponent(invoiceParts[1])]);
+          }
         }
       }
 
@@ -252,7 +258,7 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
 
       if (error) throw error;
 
-      toast.success(`${itemToDelete.type === "polygraph" ? "Polygraph examination" : "Risk assessment"} deleted successfully`);
+      toast.success(`${itemToDelete.type === "polygraph" ? "Polygraph examination" : "Risk assessment"} and associated files have been permanently deleted`);
       setDeleteDialogOpen(false);
       setItemToDelete(null);
       fetchData();
@@ -416,7 +422,7 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
                                 variant="ghost" 
                                 size="sm" 
                                 className="text-destructive hover:text-destructive"
-                                onClick={() => handleDeleteClick(report.id, "polygraph", report.report_url)}
+                                onClick={() => handleDeleteClick(report.id, "polygraph", report.report_url, getEmployeeName(report.employees))}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -714,12 +720,29 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {itemToDelete?.type === "polygraph" ? "Polygraph Examination" : "Risk Assessment"}</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this {itemToDelete?.type === "polygraph" ? "polygraph examination" : "risk assessment"}? 
-              This action cannot be undone and will also remove the associated report file if present.
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              Permanent Deletion Warning
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p className="font-medium text-foreground">
+                This action will permanently delete:
+              </p>
+              <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                <li>The {itemToDelete?.type === "polygraph" ? "polygraph examination" : "risk assessment"} record</li>
+                <li>The uploaded report file (if any)</li>
+                <li>All associated notes and findings</li>
+              </ul>
+              {itemToDelete?.itemName && (
+                <p className="text-sm bg-muted p-2 rounded">
+                  <strong>Employee:</strong> {itemToDelete.itemName}
+                </p>
+              )}
+              <p className="text-sm font-semibold text-destructive pt-2">
+                All associated files will be removed from storage. This action cannot be undone.
+              </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -729,7 +752,7 @@ export const StoreReportsTab = ({ storeId, canEdit }: StoreReportsTabProps) => {
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting ? "Deleting..." : "Delete"}
+              {deleting ? "Deleting..." : "Delete Permanently"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
