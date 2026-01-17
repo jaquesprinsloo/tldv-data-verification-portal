@@ -115,10 +115,13 @@ export const ProfileManagement = () => {
       });
 
       if (response.error) {
-        // Try to parse error from response data
-        const errorData = response.data;
-        const errorMessage = errorData?.error || response.error.message || "Failed to create profile";
-        throw new Error(errorMessage);
+        const errorMessage = (response.data as any)?.error || response.error.message || "Failed to create profile";
+        if (errorMessage.includes("already been registered") || errorMessage.includes("already exists")) {
+          toast.error("A user with this email address already exists. Please use a different email.");
+        } else {
+          toast.error(errorMessage);
+        }
+        return;
       }
 
       toast.success(`${selectedRole === 'master_admin' ? 'Master Admin' : 'Admin'} created successfully! Login credentials have been sent to their email.`);
@@ -130,14 +133,8 @@ export const ProfileManagement = () => {
       setSelectedRole("admin");
       queryClient.invalidateQueries({ queryKey: ['admin-profiles'] });
     } catch (error: any) {
-      console.error("Error creating profile:", error);
-      // Extract error message from various possible formats
-      const errorMessage = error?.context?.body?.error || error?.message || "Failed to create profile";
-      if (errorMessage.includes("already been registered") || errorMessage.includes("already exists")) {
-        toast.error("A user with this email address already exists. Please use a different email.");
-      } else {
-        toast.error(errorMessage);
-      }
+      const errorMessage = error?.message || "Failed to create profile";
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
