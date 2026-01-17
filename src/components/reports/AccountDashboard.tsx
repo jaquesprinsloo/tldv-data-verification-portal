@@ -98,11 +98,11 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
     getUser();
   }, []);
   
-  const { hasPermission, isMasterAdmin } = usePermissions(currentUserId || undefined);
+  const { hasPermission, isMasterAdmin, isLoading: permissionsLoading } = usePermissions(currentUserId || undefined);
   
-  // Check specific permissions
-  const canSingleUpload = isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_SINGLE_UPLOAD);
-  const canViewReports = isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_VIEW_REPORTS);
+  // Check specific permissions - while loading, default to canEdit prop for backwards compatibility
+  const canSingleUpload = permissionsLoading ? canEdit : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_SINGLE_UPLOAD));
+  const canViewReports = permissionsLoading ? true : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_VIEW_REPORTS));
   const [stats, setStats] = useState<AggregatedStats>({
     totalStores: 0,
     totalEmployees: 0,
@@ -333,7 +333,7 @@ export const AccountDashboard = ({ account, onBack, onViewStores, canEdit }: Acc
           <TabsTrigger value="stores" className="flex-1 min-w-[100px]">By Sub-Account</TabsTrigger>
           <TabsTrigger value="upload" className="flex-1 min-w-[100px] gap-1">
             Upload Documents
-            {!canSingleUpload && <Lock className="h-3 w-3" />}
+            {!permissionsLoading && !canSingleUpload && <Lock className="h-3 w-3" />}
           </TabsTrigger>
           <TabsTrigger value="review" className="flex-1 min-w-[100px]">Review ({pendingCount})</TabsTrigger>
         </TabsList>

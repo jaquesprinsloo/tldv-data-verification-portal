@@ -72,13 +72,13 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     getUser();
   }, []);
   
-  const { hasPermission, isMasterAdmin } = usePermissions(currentUserId || undefined);
+  const { hasPermission, isMasterAdmin, isLoading: permissionsLoading } = usePermissions(currentUserId || undefined);
   
-  // Check specific permissions
-  const canBatchUpload = isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_BATCH_UPLOAD);
-  const canSingleUpload = isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_SINGLE_UPLOAD);
-  const canViewBatches = isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_BATCHES);
-  const canViewStatistics = isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_STATISTICS);
+  // Check specific permissions - while loading, default to checking canEdit prop for backwards compatibility
+  const canBatchUpload = permissionsLoading ? canEdit : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_BATCH_UPLOAD));
+  const canSingleUpload = permissionsLoading ? canEdit : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_SINGLE_UPLOAD));
+  const canViewBatches = permissionsLoading ? true : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_BATCHES));
+  const canViewStatistics = permissionsLoading ? true : (isMasterAdmin || hasPermission(PERMISSION_KEYS.ACCOUNTS_STATISTICS));
 
   // Fetch accounts the user has access to on mount
   useEffect(() => {
@@ -574,22 +574,22 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
           <TabsTrigger value="batches" className="flex items-center gap-1">
             <Package className="h-4 w-4" />
             <span className="hidden sm:inline">Batches</span>
-            {!canViewBatches && <Lock className="h-3 w-3" />}
+            {!permissionsLoading && !canViewBatches && <Lock className="h-3 w-3" />}
           </TabsTrigger>
           <TabsTrigger value="batch-upload" className="flex items-center gap-1">
             <Upload className="h-4 w-4" />
             <span className="hidden sm:inline">Batch Upload</span>
-            {!canBatchUpload && <Lock className="h-3 w-3" />}
+            {!permissionsLoading && !canBatchUpload && <Lock className="h-3 w-3" />}
           </TabsTrigger>
           <TabsTrigger value="upload" className="flex items-center gap-1">
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Single Upload</span>
-            {!canSingleUpload && <Lock className="h-3 w-3" />}
+            {!permissionsLoading && !canSingleUpload && <Lock className="h-3 w-3" />}
           </TabsTrigger>
           <TabsTrigger value="statistics" className="flex items-center gap-1">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Statistics</span>
-            {!canViewStatistics && <Lock className="h-3 w-3" />}
+            {!permissionsLoading && !canViewStatistics && <Lock className="h-3 w-3" />}
           </TabsTrigger>
         </TabsList>
 
