@@ -138,13 +138,15 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-    
+
+    console.info('[polygraph-batch] selected files', selectedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })));
+
     // Check for unsupported .doc files (older binary format)
     const oldDocFiles = selectedFiles.filter(file => {
       const fileName = file.name.toLowerCase();
       return fileName.endsWith('.doc') && !fileName.endsWith('.docx');
     });
-    
+
     if (oldDocFiles.length > 0) {
       toast({
         title: "Unsupported Format",
@@ -152,12 +154,12 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
         variant: "destructive",
       });
     }
-    
+
     const validFiles = selectedFiles.filter(file => {
       const fileName = file.name.toLowerCase();
       return fileName.endsWith('.pdf') || fileName.endsWith('.docx');
     });
-    
+
     if (validFiles.length !== selectedFiles.length && oldDocFiles.length === 0) {
       toast({
         title: "Invalid Files",

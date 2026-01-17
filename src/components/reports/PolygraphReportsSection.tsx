@@ -193,11 +193,17 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
+      console.info('[polygraph] selected file', {
+        name: selectedFile.name,
+        type: selectedFile.type,
+        size: selectedFile.size,
+      });
+
       const fileName = selectedFile.name.toLowerCase();
       const isPdf = fileName.endsWith('.pdf');
       const isDocx = fileName.endsWith('.docx');
       const isOldDoc = fileName.endsWith('.doc') && !fileName.endsWith('.docx');
-      
+
       if (isOldDoc) {
         toast({
           title: "Unsupported Format",
@@ -206,7 +212,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         });
         return;
       }
-      
+
       if (!isPdf && !isDocx) {
         toast({
           title: "Invalid File Type",
@@ -215,7 +221,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
         });
         return;
       }
-      
+
       setFile(selectedFile);
       setExtractedData(null);
       setSelectedAccountId("");
