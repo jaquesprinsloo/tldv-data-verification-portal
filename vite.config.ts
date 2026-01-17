@@ -15,11 +15,18 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "tldv-logo.png", "og-image.png"],
+      includeAssets: [
+        "favicon.ico",
+        "tldv-logo.png",
+        "og-image.png",
+        "tldv-icon-192.png",
+        "tldv-icon-512.png",
+      ],
       manifest: {
         name: "TLDV - Employee Data Verification Portal",
         short_name: "TLDV Portal",
-        description: "Secure employee data verification and vetting portal by TLDV - True Lie Detectors & Vetting",
+        description:
+          "Secure employee data verification and vetting portal by TLDV - True Lie Detectors & Vetting",
         theme_color: "#000000",
         background_color: "#000000",
         display: "fullscreen",
@@ -28,15 +35,15 @@ export default defineConfig(({ mode }) => ({
         scope: "/",
         icons: [
           {
-            src: "/tldv-icon-512.jpg",
+            src: "/tldv-icon-192.png",
             sizes: "192x192",
-            type: "image/jpeg",
+            type: "image/png",
             purpose: "any maskable",
           },
           {
-            src: "/tldv-icon-512.jpg",
+            src: "/tldv-icon-512.png",
             sizes: "512x512",
-            type: "image/jpeg",
+            type: "image/png",
             purpose: "any maskable",
           },
         ],
