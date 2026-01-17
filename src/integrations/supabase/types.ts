@@ -933,6 +933,7 @@ export type Database = {
           status: Database["public"]["Enums"]["polygraph_report_status"]
           store_id: string | null
           updated_at: string
+          uploaded_by: string | null
           vetting_types: Json | null
         }
         Insert: {
@@ -969,6 +970,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["polygraph_report_status"]
           store_id?: string | null
           updated_at?: string
+          uploaded_by?: string | null
           vetting_types?: Json | null
         }
         Update: {
@@ -1005,6 +1007,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["polygraph_report_status"]
           store_id?: string | null
           updated_at?: string
+          uploaded_by?: string | null
           vetting_types?: Json | null
         }
         Relationships: [

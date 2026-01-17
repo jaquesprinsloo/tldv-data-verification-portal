@@ -41,9 +41,11 @@ interface PolygraphReport {
 interface PolygraphReportsListProps {
   onCreateNew: () => void;
   onEditReport: (reportId: string) => void;
+  filterByUploader?: boolean;
+  currentUserId?: string | null;
 }
 
-const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsListProps) => {
+const PolygraphReportsList = ({ onCreateNew, onEditReport, filterByUploader = false, currentUserId }: PolygraphReportsListProps) => {
   const { toast } = useToast();
   const [reports, setReports] = useState<PolygraphReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,11 +63,11 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
 
   useEffect(() => {
     fetchReports();
-  }, []);
+  }, [filterByUploader, currentUserId]);
 
   const fetchReports = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("polygraph_reports")
         .select(`
           *,
@@ -73,6 +75,13 @@ const PolygraphReportsList = ({ onCreateNew, onEditReport }: PolygraphReportsLis
           examiners(name)
         `)
         .order("created_at", { ascending: false });
+
+      // Filter by uploader if required and user ID is available
+      if (filterByUploader && currentUserId) {
+        query = query.eq("uploaded_by", currentUserId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setReports(data || []);
