@@ -408,11 +408,11 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Upload the PDF file directly
-      let pdfUrl: string | null = null;
+      // Upload the original file to storage
+      let fileUrl: string | null = null;
       if (file) {
-        const reportId = crypto.randomUUID();
-        const fileName = `${reportId}/${file.name}`;
+        const uploadId = crypto.randomUUID();
+        const fileName = `pending/${uploadId}/${file.name}`;
         
         const { error: uploadError } = await supabase.storage
           .from("polygraph-reports")
@@ -422,133 +422,58 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
           const { data: { publicUrl } } = supabase.storage
             .from("polygraph-reports")
             .getPublicUrl(fileName);
-          pdfUrl = publicUrl;
+          fileUrl = publicUrl;
         }
       }
 
-      const reportPayload: Record<string, any> = {
-        store_id: selectedStoreId || null,
-        examiner_id: selectedExaminerId || null,
-        examination_date: parseExaminationDate(extractedData.examination?.date),
-        first_name: extractedData.candidate?.firstName || "",
-        last_name: extractedData.candidate?.lastName || "",
-        id_number: extractedData.candidate?.idNumber || "",
-        contact_number: extractedData.candidate?.contactNumber || null,
-        email: extractedData.candidate?.email || null,
-        physical_address: extractedData.candidate?.physicalAddress || null,
-        position_applying_for: extractedData.candidate?.positionApplyingFor || null,
-        overall_result: mapOverallResult(extractedData.examQuestions),
-        examiner_notes: extractedData.result?.examinerNotes || null,
-        status: "completed",
-        report_pdf_url: pdfUrl,
-        candidate_photo_url: extractedData.candidatePhotoUrl || null,
-        uploaded_by: user?.id || null,
-      };
+      if (!fileUrl) {
+        throw new Error("Failed to upload file");
+      }
 
-      // Add risk analysis data
+      // Prepare risk analysis data
+      let riskScore: number | null = null;
+      let riskLevel: string | null = null;
       if (extractedData.riskAnalysis) {
-        reportPayload.risk_score = extractedData.riskAnalysis.TotalRiskScore || null;
-        // Map risk level to allowed values: LOW, MEDIUM, HIGH, VERY HIGH
+        riskScore = extractedData.riskAnalysis.TotalRiskScore || null;
         const rawLevel = extractedData.riskAnalysis.RiskLevel || '';
         let mappedLevel = rawLevel.toUpperCase().replace(' RISK', '');
-        // Map UNACCEPTABLE to VERY HIGH
         if (mappedLevel === 'UNACCEPTABLE') mappedLevel = 'VERY HIGH';
-        reportPayload.risk_level = ['LOW', 'MEDIUM', 'HIGH', 'VERY HIGH'].includes(mappedLevel) ? mappedLevel : null;
-        reportPayload.risk_analysis = extractedData.riskAnalysis;
-      }
-      if (extractedData.disclosure) {
-        reportPayload.extracted_disclosure = extractedData.disclosure;
-      }
-      if (extractedData.educationHistory) {
-        reportPayload.education_history = extractedData.educationHistory;
-      }
-      if (extractedData.employmentHistory) {
-        reportPayload.employment_history = extractedData.employmentHistory;
-      }
-      if (extractedData.familyCriminalHistory) {
-        reportPayload.family_criminal_history = extractedData.familyCriminalHistory;
-      }
-      if (extractedData.friendCriminalHistory) {
-        reportPayload.friend_criminal_history = extractedData.friendCriminalHistory;
-      }
-      if (extractedData.financialCircumstances) {
-        reportPayload.financial_circumstances = extractedData.financialCircumstances;
-      }
-      if (extractedData.permitsLicensing) {
-        reportPayload.permits_licensing = extractedData.permitsLicensing;
-      }
-      if (extractedData.personalLawEncounters) {
-        reportPayload.personal_law_encounters = extractedData.personalLawEncounters;
-      }
-      if (extractedData.postExamAdmissions) {
-        reportPayload.post_exam_admissions = extractedData.postExamAdmissions;
+        riskLevel = ['LOW', 'MEDIUM', 'HIGH', 'VERY HIGH'].includes(mappedLevel) ? mappedLevel : null;
       }
 
-      const { data: reportData, error: reportError } = await supabase
-        .from("polygraph_reports")
-        .insert(reportPayload as any)
-        .select("id")
-        .single();
-
-      if (reportError) throw reportError;
-
-      // Ensure an employee record exists for this candidate so they appear in the
-      // Data & Employee Management portal's employee list
-      const candidateIdNumber = extractedData.candidate?.idNumber || "";
-      let employeeId: string | null = null;
-
-      if (candidateIdNumber) {
-        // Check if an employee with this ID number already exists
-        const { data: existingEmployee } = await supabase
-          .from("employees")
-          .select("id")
-          .eq("id_number", candidateIdNumber)
-          .maybeSingle();
-
-        if (existingEmployee) {
-          employeeId = existingEmployee.id;
-        } else {
-          // Generate an employee number indicating polygraph origin
-          const employeeNumber = `PG${Date.now().toString().slice(-6)}`;
-
-          const { data: newEmployee, error: empError } = await supabase
-            .from("employees")
-            .insert({
-              employee_number: employeeNumber,
-              id_number: candidateIdNumber,
-              email: extractedData.candidate?.email || null,
-              store_id: selectedStoreId || null,
-              employment_status: "active",
-            })
-            .select("id")
-            .single();
-
-          if (!empError && newEmployee) {
-            employeeId = newEmployee.id;
-          }
-        }
-      }
-
-      // Create candidate profile linked to the employee (if created)
-      const candidatePayload = {
-        report_id: reportData.id,
-        first_name: extractedData.candidate?.firstName || "",
-        last_name: extractedData.candidate?.lastName || "",
-        id_number: candidateIdNumber,
+      // Save to pending_polygraph_uploads table for master admin review
+      const pendingPayload = {
+        account_id: selectedAccountId || null,
+        store_id: selectedStoreId || null,
+        examiner_id: selectedExaminerId || null,
+        original_file_url: fileUrl,
+        original_file_name: file?.name || "report",
+        extracted_data: extractedData,
+        first_name: extractedData.candidate?.firstName || null,
+        last_name: extractedData.candidate?.lastName || null,
+        id_number: extractedData.candidate?.idNumber || null,
         email: extractedData.candidate?.email || null,
         contact_number: extractedData.candidate?.contactNumber || null,
         physical_address: extractedData.candidate?.physicalAddress || null,
-        position: extractedData.candidate?.positionApplyingFor || null,
-        store_id: selectedStoreId || null,
-        status: "pending_review" as const,
-        employee_id: employeeId,
+        position_applying_for: extractedData.candidate?.positionApplyingFor || null,
+        risk_score: riskScore,
+        risk_level: riskLevel,
+        risk_analysis: extractedData.riskAnalysis || null,
+        examination_date: parseExaminationDate(extractedData.examination?.date),
+        overall_result: mapOverallResult(extractedData.examQuestions),
+        status: "pending",
+        uploaded_by: user?.id,
       };
 
-      await supabase.from("polygraph_candidates").insert([candidatePayload]);
+      const { error: pendingError } = await supabase
+        .from("pending_polygraph_uploads")
+        .insert([pendingPayload]);
+
+      if (pendingError) throw pendingError;
 
       toast({
-        title: "Report Saved",
-        description: "Report completed and candidate profile created for review.",
+        title: "Upload Submitted",
+        description: "Your report has been submitted for review by a Master Admin.",
       });
 
       // Reset and go to reports list
@@ -562,7 +487,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       console.error("Error saving report:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to save report",
+        description: error.message || "Failed to submit report for review",
         variant: "destructive",
       });
     } finally {

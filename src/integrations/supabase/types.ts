@@ -652,6 +652,118 @@ export type Database = {
           },
         ]
       }
+      pending_polygraph_uploads: {
+        Row: {
+          account_id: string | null
+          contact_number: string | null
+          converted_pdf_url: string | null
+          created_at: string
+          email: string | null
+          examination_date: string | null
+          examiner_id: string | null
+          extracted_data: Json | null
+          first_name: string | null
+          id: string
+          id_number: string | null
+          last_name: string | null
+          original_file_name: string
+          original_file_url: string
+          overall_result: string | null
+          physical_address: string | null
+          position_applying_for: string | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          risk_analysis: Json | null
+          risk_level: string | null
+          risk_score: number | null
+          status: string
+          store_id: string | null
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          account_id?: string | null
+          contact_number?: string | null
+          converted_pdf_url?: string | null
+          created_at?: string
+          email?: string | null
+          examination_date?: string | null
+          examiner_id?: string | null
+          extracted_data?: Json | null
+          first_name?: string | null
+          id?: string
+          id_number?: string | null
+          last_name?: string | null
+          original_file_name: string
+          original_file_url: string
+          overall_result?: string | null
+          physical_address?: string | null
+          position_applying_for?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_analysis?: Json | null
+          risk_level?: string | null
+          risk_score?: number | null
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          account_id?: string | null
+          contact_number?: string | null
+          converted_pdf_url?: string | null
+          created_at?: string
+          email?: string | null
+          examination_date?: string | null
+          examiner_id?: string | null
+          extracted_data?: Json | null
+          first_name?: string | null
+          id?: string
+          id_number?: string | null
+          last_name?: string | null
+          original_file_name?: string
+          original_file_url?: string
+          overall_result?: string | null
+          physical_address?: string | null
+          position_applying_for?: string | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_analysis?: Json | null
+          risk_level?: string | null
+          risk_score?: number | null
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_polygraph_uploads_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_polygraph_uploads_examiner_id_fkey"
+            columns: ["examiner_id"]
+            isOneToOne: false
+            referencedRelation: "examiners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_polygraph_uploads_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       polygraph_admissions: {
         Row: {
           category: string
