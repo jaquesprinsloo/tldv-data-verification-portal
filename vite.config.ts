@@ -23,8 +23,8 @@ export default defineConfig(({ mode }) => ({
         "tldv-icon-512.png",
       ],
       manifest: {
-        name: "TLDV - Employee Data Verification Portal",
-        short_name: "TLDV Portal",
+        name: "TLDV",
+        short_name: "TLDV",
         description:
           "Secure employee data verification and vetting portal by TLDV - True Lie Detectors & Vetting",
         theme_color: "#000000",
