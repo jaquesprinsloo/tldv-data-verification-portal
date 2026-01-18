@@ -371,31 +371,15 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Create the batch
-      const { data: batch, error: batchError } = await supabase
-        .from("polygraph_batches")
-        .insert({
-          name: batchName || `Batch - ${new Date().toLocaleDateString()}`,
-          store_id: selectedStoreId,
-          examiner_id: selectedExaminerId,
-          total_reports: completedFiles.length,
-          processed_reports: completedFiles.length,
-          status: 'completed',
-          created_by: user?.id,
-        })
-        .select("id")
-        .single();
-
-      if (batchError) throw batchError;
-
-      // Save each report
+      // Save each report to pending_polygraph_uploads for master admin review
+      let successCount = 0;
       for (const fileState of completedFiles) {
         const extractedData = fileState.extractedData;
 
-        // Upload document
-        let pdfUrl: string | null = null;
-        const reportId = crypto.randomUUID();
-        const fileName = `${reportId}/${fileState.file.name}`;
+        // Upload document to pending folder
+        let fileUrl: string | null = null;
+        const uploadId = crypto.randomUUID();
+        const fileName = `pending/${uploadId}/${fileState.file.name}`;
         
         const { error: uploadError } = await supabase.storage
           .from("polygraph-reports")
@@ -405,108 +389,64 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
           const { data: { publicUrl } } = supabase.storage
             .from("polygraph-reports")
             .getPublicUrl(fileName);
-          pdfUrl = publicUrl;
+          fileUrl = publicUrl;
         }
 
-        const reportPayload: Record<string, any> = {
-          batch_id: batch.id,
-          store_id: selectedStoreId,
-          examiner_id: selectedExaminerId,
-          examination_date: parseExaminationDate(extractedData.examination?.date),
-          first_name: extractedData.candidate?.firstName || "",
-          last_name: extractedData.candidate?.lastName || "",
-          id_number: extractedData.candidate?.idNumber || "",
-          contact_number: extractedData.candidate?.contactNumber || null,
-          email: extractedData.candidate?.email || null,
-          physical_address: extractedData.candidate?.physicalAddress || null,
-          position_applying_for: extractedData.candidate?.positionApplyingFor || null,
-          overall_result: mapOverallResult(extractedData.examQuestions),
-          examiner_notes: extractedData.result?.examinerNotes || null,
-          status: "completed",
-          report_pdf_url: pdfUrl,
-          candidate_photo_url: extractedData.candidatePhotoUrl || null,
-          uploaded_by: user?.id || null,
-        };
-
-        // Add risk analysis data
-        if (extractedData.riskAnalysis) {
-          reportPayload.risk_score = extractedData.riskAnalysis.TotalRiskScore || null;
-          let mappedLevel = (extractedData.riskAnalysis.RiskLevel || '').toUpperCase().replace(' RISK', '');
-          if (mappedLevel === 'UNACCEPTABLE') mappedLevel = 'VERY HIGH';
-          reportPayload.risk_level = ['LOW', 'MEDIUM', 'HIGH', 'VERY HIGH'].includes(mappedLevel) ? mappedLevel : null;
-          reportPayload.risk_analysis = extractedData.riskAnalysis;
-        }
-        if (extractedData.disclosure) reportPayload.extracted_disclosure = extractedData.disclosure;
-        if (extractedData.educationHistory) reportPayload.education_history = extractedData.educationHistory;
-        if (extractedData.employmentHistory) reportPayload.employment_history = extractedData.employmentHistory;
-        if (extractedData.familyCriminalHistory) reportPayload.family_criminal_history = extractedData.familyCriminalHistory;
-        if (extractedData.friendCriminalHistory) reportPayload.friend_criminal_history = extractedData.friendCriminalHistory;
-        if (extractedData.financialCircumstances) reportPayload.financial_circumstances = extractedData.financialCircumstances;
-        if (extractedData.permitsLicensing) reportPayload.permits_licensing = extractedData.permitsLicensing;
-        if (extractedData.personalLawEncounters) reportPayload.personal_law_encounters = extractedData.personalLawEncounters;
-        if (extractedData.postExamAdmissions) reportPayload.post_exam_admissions = extractedData.postExamAdmissions;
-
-        const { data: reportData, error: reportError } = await supabase
-          .from("polygraph_reports")
-          .insert(reportPayload as any)
-          .select("id")
-          .single();
-
-        if (reportError) {
-          console.error("Error saving report:", reportError);
+        if (!fileUrl) {
+          console.error("Failed to upload file:", fileState.file.name);
           continue;
         }
 
-        // Create employee and candidate
-        const candidateIdNumber = extractedData.candidate?.idNumber || "";
-        let employeeId: string | null = null;
-
-        if (candidateIdNumber) {
-          const { data: existingEmployee } = await supabase
-            .from("employees")
-            .select("id")
-            .eq("id_number", candidateIdNumber)
-            .maybeSingle();
-
-          if (existingEmployee) {
-            employeeId = existingEmployee.id;
-          } else {
-            const employeeNumber = `PG${Date.now().toString().slice(-6)}`;
-            const { data: newEmployee } = await supabase
-              .from("employees")
-              .insert({
-                employee_number: employeeNumber,
-                id_number: candidateIdNumber,
-                email: extractedData.candidate?.email || null,
-                store_id: selectedStoreId || null,
-                employment_status: "active",
-              })
-              .select("id")
-              .single();
-
-            if (newEmployee) employeeId = newEmployee.id;
-          }
+        // Prepare risk analysis data
+        let riskScore: number | null = null;
+        let riskLevel: string | null = null;
+        if (extractedData.riskAnalysis) {
+          riskScore = extractedData.riskAnalysis.TotalRiskScore || null;
+          const rawLevel = extractedData.riskAnalysis.RiskLevel || '';
+          let mappedLevel = rawLevel.toUpperCase().replace(' RISK', '');
+          if (mappedLevel === 'UNACCEPTABLE') mappedLevel = 'VERY HIGH';
+          riskLevel = ['LOW', 'MEDIUM', 'HIGH', 'VERY HIGH'].includes(mappedLevel) ? mappedLevel : null;
         }
 
-        // Create candidate profile
-        await supabase.from("polygraph_candidates").insert([{
-          report_id: reportData.id,
-          first_name: extractedData.candidate?.firstName || "",
-          last_name: extractedData.candidate?.lastName || "",
-          id_number: candidateIdNumber,
+        // Save to pending_polygraph_uploads table for master admin review
+        const pendingPayload = {
+          account_id: selectedAccountId || null,
+          store_id: selectedStoreId || null,
+          examiner_id: selectedExaminerId || null,
+          original_file_url: fileUrl,
+          original_file_name: fileState.file.name,
+          extracted_data: extractedData,
+          first_name: extractedData.candidate?.firstName || null,
+          last_name: extractedData.candidate?.lastName || null,
+          id_number: extractedData.candidate?.idNumber || null,
           email: extractedData.candidate?.email || null,
           contact_number: extractedData.candidate?.contactNumber || null,
           physical_address: extractedData.candidate?.physicalAddress || null,
-          position: extractedData.candidate?.positionApplyingFor || null,
-          store_id: selectedStoreId || null,
-          status: "pending_review" as const,
-          employee_id: employeeId,
-        }]);
+          position_applying_for: extractedData.candidate?.positionApplyingFor || null,
+          risk_score: riskScore,
+          risk_level: riskLevel,
+          risk_analysis: extractedData.riskAnalysis || null,
+          examination_date: parseExaminationDate(extractedData.examination?.date),
+          overall_result: mapOverallResult(extractedData.examQuestions),
+          status: "pending",
+          uploaded_by: user?.id,
+        };
+
+        const { error: pendingError } = await supabase
+          .from("pending_polygraph_uploads")
+          .insert([pendingPayload]);
+
+        if (pendingError) {
+          console.error("Error saving pending upload:", pendingError);
+          continue;
+        }
+
+        successCount++;
       }
 
       toast({
-        title: "Batch Saved Successfully",
-        description: `${completedFiles.length} report(s) saved and linked to the batch.`,
+        title: "Batch Submitted for Review",
+        description: `${successCount} report(s) submitted for Master Admin review.`,
       });
 
       // Reset state
@@ -761,12 +701,12 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving Batch...
+                  Submitting for Review...
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Save Batch ({completedCount} reports)
+                  Submit for Review ({completedCount} reports)
                 </>
               )}
             </Button>
@@ -781,7 +721,7 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
             <li>Click "Process All Reports" to extract data from each report</li>
             <li>Review the results - each report is processed individually</li>
             <li>Select the account, store, and examiner for the batch</li>
-            <li>Save the batch - all reports will be grouped together</li>
+            <li>Submit for review - Master Admin will approve before distribution</li>
           </ol>
         </div>
       </CardContent>
