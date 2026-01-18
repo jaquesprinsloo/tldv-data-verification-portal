@@ -1,5 +1,6 @@
 import { User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { Home } from "lucide-react";
 import tldvLogo from "@/assets/tldv-logo.jpg";
 
@@ -12,14 +13,52 @@ interface AdminHeaderProps {
 
 const AdminHeader = ({ user, showUserDetails = true, showMainPortalButton = true, title = "Data & Employee Management Portal" }: AdminHeaderProps) => {
   const navigate = useNavigate();
+  const [isVisible, setIsVisible] = useState(true);
+  const [isPWA, setIsPWA] = useState(false);
+
+  useEffect(() => {
+    // Detect if running as installed PWA
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                         window.matchMedia('(display-mode: fullscreen)').matches ||
+                         (window.navigator as any).standalone === true;
+    setIsPWA(isStandalone);
+    
+    // If PWA, hide header initially after a short delay
+    if (isStandalone) {
+      const timer = setTimeout(() => setIsVisible(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   const handleMainPortal = () => {
     navigate("/admin/portal");
   };
 
+  const handleMouseEnter = () => {
+    if (isPWA) setIsVisible(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (isPWA) setIsVisible(false);
+  };
+
   return (
     <>
-      <header className="bg-black text-white py-4 border-b-4 border-red-600 sticky top-0 z-50">
+      {/* Hover trigger zone - always visible at top */}
+      {isPWA && (
+        <div 
+          className="fixed top-0 left-0 right-0 h-4 z-[60]"
+          onMouseEnter={handleMouseEnter}
+        />
+      )}
+      
+      <header 
+        className={`bg-black text-white py-4 border-b-4 border-red-600 sticky top-0 z-50 transition-all duration-300 ease-in-out ${
+          isPWA ? (isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0') : ''
+        }`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         <div className="container mx-auto px-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 group cursor-pointer transition-all duration-300 hover:animate-[pulse-glow_2s_ease-in-out_infinite]">
