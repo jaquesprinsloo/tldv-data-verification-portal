@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { FileText, Users, ClipboardCheck, Mail, Lock } from "lucide-react";
+import { FileText, Users, ClipboardCheck, Mail, Lock, FileCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NotificationsDialog } from "@/components/admin/NotificationsDialog";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
@@ -33,6 +33,18 @@ const AdminPortalDashboard = () => {
     queryFn: async () => {
       const { count } = await supabase
         .from('profile_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      return count || 0;
+    },
+    enabled: isMasterAdmin
+  });
+
+  const { data: pendingPolygraphCount } = useQuery({
+    queryKey: ['pending-polygraph-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('pending_polygraph_uploads')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending');
       return count || 0;
@@ -155,6 +167,15 @@ const AdminPortalDashboard = () => {
       path: "/admin/request-inbox",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
       badge: pendingRequests,
+      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
+      requiresMasterAdmin: true
+    }, {
+      title: "Pending Polygraph Review",
+      description: "Review and approve polygraph report uploads",
+      icon: FileCheck,
+      path: "/admin/pending-polygraph-review",
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: pendingPolygraphCount,
       permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
       requiresMasterAdmin: true
     }] : [])
