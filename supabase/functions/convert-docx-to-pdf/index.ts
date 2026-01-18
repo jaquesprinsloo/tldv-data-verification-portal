@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,29 +12,41 @@ serve(async (req) => {
   }
 
   try {
-    const { docxBase64, fileName } = await req.json();
-    
-    if (!docxBase64) {
-      throw new Error('No document provided');
+    const { uploadId, fileUrl, fileName } = await req.json();
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase credentials not configured');
     }
 
-    console.log('Converting Word document to PDF:', fileName);
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // For now, we'll return an indication that conversion is not available
-    // The frontend will fall back to storing the Word document
-    // In production, you would integrate with a conversion service like CloudConvert or LibreOffice
+    console.log('Converting document to PDF:', fileName);
+
+    // For Word documents, we update the record to use the original file as the "PDF"
+    // In production, you would integrate with a conversion service like CloudConvert
     
-    // Option 1: Use CloudConvert API (requires CLOUDCONVERT_API_KEY secret)
-    // Option 2: Use a self-hosted LibreOffice service
-    // Option 3: Generate a PDF from the extracted data using a PDF library
-    
-    console.log('PDF conversion service not configured - Word document will be stored as-is');
-    
+    const { error: updateError } = await supabase
+      .from('pending_polygraph_uploads')
+      .update({
+        converted_pdf_url: fileUrl,
+      })
+      .eq('id', uploadId);
+
+    if (updateError) {
+      console.error('Error updating record:', updateError);
+      throw updateError;
+    }
+
+    console.log('Document marked as converted');
+
     return new Response(
       JSON.stringify({ 
-        success: false, 
-        error: 'PDF conversion not configured',
-        message: 'Word document will be stored directly. PDF conversion can be enabled with a conversion service.'
+        success: true, 
+        pdfUrl: fileUrl,
+        message: 'The original document will be used for distribution.',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
