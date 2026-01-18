@@ -221,7 +221,7 @@ const AdminPortalDashboard = () => {
 
         {/* Full Logo fades in (2s - 4s), holds (4s - 5.5s), fades out (5.5s - 6.5s) */}
         <div 
-          className="absolute inset-0 flex flex-col items-center justify-center"
+          className="absolute inset-0 flex flex-col items-center justify-center px-4"
           style={{
             animation: isAnimating ? 'logoSequence 4.5s ease-in-out 2s both' : 'none',
           }}
@@ -229,17 +229,17 @@ const AdminPortalDashboard = () => {
           <img 
             src={tldvLogo} 
             alt="TLDV Logo" 
-            className="w-1/2 max-w-2xl object-contain"
+            className="w-3/4 sm:w-1/2 max-w-2xl object-contain"
           />
           {userName && (
-            <h2 className="text-3xl font-semibold text-red-500 mt-8 tracking-wide">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold text-red-500 mt-4 sm:mt-8 tracking-wide text-center">
               Welcome, {userName}
             </h2>
           )}
-          <h1 className="text-4xl font-bold text-white mt-4 tracking-wider">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mt-2 sm:mt-4 tracking-wider text-center">
             Management Portal
           </h1>
-          <p className="text-xl text-gray-400 mt-6 italic">
+          <p className="text-base sm:text-lg md:text-xl text-gray-400 mt-3 sm:mt-6 italic text-center">
             "Excellence in every detail"
           </p>
         </div>
@@ -254,20 +254,20 @@ const AdminPortalDashboard = () => {
         }`}
       >
         <div 
-          className="absolute inset-0 flex items-center justify-center"
+          className="absolute inset-0 flex items-center justify-center px-4"
           style={{ 
             animation: isExiting ? 'portalExit 2s ease-in-out forwards' : 'none',
           }}
         >
           <div className="relative">
             <div 
-              className="w-96 h-96 rounded-full border-4 border-red-600"
+              className="w-48 h-48 sm:w-72 sm:h-72 md:w-96 md:h-96 rounded-full border-4 border-red-600"
               style={{
                 boxShadow: '0 0 60px rgba(239,68,68,0.8), inset 0 0 60px rgba(239,68,68,0.5)',
                 animation: isExiting ? 'portalShrink 2s ease-in-out forwards' : 'none',
               }}
             />
-            <p className="absolute inset-0 flex items-center justify-center text-white text-2xl font-bold">
+            <p className="absolute inset-0 flex items-center justify-center text-white text-lg sm:text-xl md:text-2xl font-bold">
               Exiting Portal...
             </p>
           </div>
@@ -275,24 +275,24 @@ const AdminPortalDashboard = () => {
       </div>
 
       {/* Main Content - Portals */}
-      <div className={`min-h-screen flex items-center justify-center ${
+      <div className={`min-h-screen flex items-center justify-center py-16 sm:py-8 ${
         !hasSeenAnimation ? "transition-all duration-1000" : ""
       } ${isAnimating ? "opacity-0" : "opacity-100"}`}>
-        <div className="container mx-auto px-4 max-w-6xl relative">
-          <div className="absolute top-0 right-4 flex gap-3">
+        <div className="container mx-auto px-3 sm:px-4 max-w-6xl relative">
+          <div className="absolute top-2 sm:top-0 right-2 sm:right-4 flex gap-2 sm:gap-3">
             {!isMasterAdmin && <NotificationsDialog />}
             <button
               onClick={handleSignOut}
-              className="px-6 py-3 bg-red-600/20 border-2 border-red-600 text-white rounded-lg hover:bg-red-600/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] transition-all duration-300"
+              className="px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-red-600/20 border-2 border-red-600 text-white rounded-lg hover:bg-red-600/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] transition-all duration-300"
             >
               Sign Out
             </button>
           </div>
           
-          <h1 className="text-4xl font-bold text-white text-center mb-12">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white text-center mb-6 sm:mb-8 md:mb-12 mt-12 sm:mt-8">
             {isMasterAdmin ? "Master Profile - Portal Selection" : "Portal Selection"}
           </h1>
-          <div className={`grid grid-cols-1 ${isMasterAdmin ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'} gap-6`}>
+          <div className={`grid grid-cols-2 ${isMasterAdmin ? 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'sm:grid-cols-3'} gap-3 sm:gap-4 md:gap-6`}>
             {portals.map((portal) => {
               const hasAccess = isMasterAdmin || hasPermission(portal.permissionKey);
               
@@ -300,38 +300,38 @@ const AdminPortalDashboard = () => {
                 <Card
                   key={portal.path}
                   onClick={() => handlePortalClick(portal)}
-                  className={`p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-[3px] ${
+                  className={`p-3 sm:p-5 md:p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-2 sm:border-[3px] ${
                     hasAccess 
                       ? 'border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)]' 
                       : 'border-gray-600 hover:border-gray-500'
                   } relative`}
                 >
                   {portal.badge !== null && portal.badge !== undefined && portal.badge > 0 && (
-                    <Badge className="absolute top-4 right-4 bg-red-600 text-white">
+                    <Badge className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-red-600 text-white text-xs">
                       {portal.badge}
                     </Badge>
                   )}
                   {!hasAccess && (
-                    <div className="absolute top-4 left-4">
-                      <Lock className="w-5 h-5 text-gray-500" />
+                    <div className="absolute top-2 left-2 sm:top-4 sm:left-4">
+                      <Lock className="w-3 h-3 sm:w-5 sm:h-5 text-gray-500" />
                     </div>
                   )}
-                  <div className="flex flex-col items-center text-center space-y-4">
-                    <div className={`p-6 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
+                  <div className="flex flex-col items-center text-center space-y-2 sm:space-y-3 md:space-y-4">
+                    <div className={`p-3 sm:p-4 md:p-6 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
                       hasAccess 
                         ? 'bg-red-600/30 border-red-600' 
                         : 'bg-gray-600/30 border-gray-600'
                     }`}>
-                      <portal.icon className={`w-16 h-16 ${hasAccess ? 'text-red-500' : 'text-gray-500'}`} strokeWidth={2.5} />
+                      <portal.icon className={`w-8 h-8 sm:w-10 sm:h-10 md:w-16 md:h-16 ${hasAccess ? 'text-red-500' : 'text-gray-500'}`} strokeWidth={2.5} />
                     </div>
-                    <h2 className={`text-2xl font-bold ${hasAccess ? 'text-white' : 'text-gray-500'}`}>
+                    <h2 className={`text-sm sm:text-lg md:text-2xl font-bold leading-tight ${hasAccess ? 'text-white' : 'text-gray-500'}`}>
                       {portal.title}
                     </h2>
-                    <p className={hasAccess ? 'text-gray-300' : 'text-gray-600'}>
+                    <p className={`text-xs sm:text-sm hidden sm:block ${hasAccess ? 'text-gray-300' : 'text-gray-600'}`}>
                       {portal.description}
                     </p>
                     {!hasAccess && (
-                      <p className="text-xs text-yellow-500/80 italic">
+                      <p className="text-[10px] sm:text-xs text-yellow-500/80 italic hidden sm:block">
                         Contact Master Admin for access
                       </p>
                     )}
