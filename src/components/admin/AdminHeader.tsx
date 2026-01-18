@@ -18,9 +18,24 @@ const AdminHeader = ({ user, showUserDetails = true, showMainPortalButton = true
 
   useEffect(() => {
     // Detect if running as installed PWA
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-                         window.matchMedia('(display-mode: fullscreen)').matches ||
-                         (window.navigator as any).standalone === true;
+    const checkPWA = () => {
+      const standaloneMedia = window.matchMedia('(display-mode: standalone)');
+      const fullscreenMedia = window.matchMedia('(display-mode: fullscreen)');
+      const isStandalone = standaloneMedia.matches ||
+                           fullscreenMedia.matches ||
+                           (window.navigator as any).standalone === true;
+      
+      console.log('PWA Detection:', { 
+        standalone: standaloneMedia.matches, 
+        fullscreen: fullscreenMedia.matches,
+        navigatorStandalone: (window.navigator as any).standalone,
+        isStandalone 
+      });
+      
+      return isStandalone;
+    };
+
+    const isStandalone = checkPWA();
     setIsPWA(isStandalone);
     
     // If PWA, hide header initially after a short delay
@@ -28,6 +43,26 @@ const AdminHeader = ({ user, showUserDetails = true, showMainPortalButton = true
       const timer = setTimeout(() => setIsVisible(false), 2000);
       return () => clearTimeout(timer);
     }
+
+    // Also listen for display mode changes
+    const standaloneQuery = window.matchMedia('(display-mode: standalone)');
+    const fullscreenQuery = window.matchMedia('(display-mode: fullscreen)');
+    
+    const handleChange = () => {
+      const isPWANow = checkPWA();
+      setIsPWA(isPWANow);
+      if (isPWANow) {
+        setTimeout(() => setIsVisible(false), 2000);
+      }
+    };
+
+    standaloneQuery.addEventListener('change', handleChange);
+    fullscreenQuery.addEventListener('change', handleChange);
+
+    return () => {
+      standaloneQuery.removeEventListener('change', handleChange);
+      fullscreenQuery.removeEventListener('change', handleChange);
+    };
   }, []);
 
   const handleMainPortal = () => {
