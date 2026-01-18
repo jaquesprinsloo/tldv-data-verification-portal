@@ -244,24 +244,24 @@ export const RiskProfileDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-5xl max-h-[90vh] overflow-y-auto p-3 md:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            Risk Profile - {displayName}
+          <DialogTitle className="flex items-center gap-2 text-sm md:text-base">
+            <Shield className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+            <span className="truncate">Risk Profile - {displayName}</span>
           </DialogTitle>
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <div className="flex items-center justify-center py-8 md:py-12">
+            <div className="animate-spin rounded-full h-6 w-6 md:h-8 md:w-8 border-b-2 border-primary" />
           </div>
         ) : (
           <Tabs defaultValue="personal" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="personal">Personal Info</TabsTrigger>
-              <TabsTrigger value="report">Full Report Summary</TabsTrigger>
-              <TabsTrigger value="risk">Risk Profile</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3 h-auto">
+              <TabsTrigger value="personal" className="text-xs md:text-sm py-2 px-1 md:px-3">Personal Info</TabsTrigger>
+              <TabsTrigger value="report" className="text-xs md:text-sm py-2 px-1 md:px-3">Full Report</TabsTrigger>
+              <TabsTrigger value="risk" className="text-xs md:text-sm py-2 px-1 md:px-3">Risk Profile</TabsTrigger>
             </TabsList>
 
             {/* Risk Analysis Tab */}
@@ -279,87 +279,87 @@ export const RiskProfileDialog = ({
             </TabsContent>
 
             {/* Personal Info Tab */}
-            <TabsContent value="personal" className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <TabsContent value="personal" className="space-y-3 md:space-y-4 mt-3 md:mt-4">
+              <div className="grid grid-cols-1 gap-3 md:gap-4">
                 {/* Personal Information Card */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <User className="h-5 w-5" />
+                  <CardHeader className="pb-2 md:pb-4">
+                    <CardTitle className="flex items-center gap-2 text-sm md:text-base">
+                      <User className="h-4 w-4 md:h-5 md:w-5" />
                       Personal Information
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4">
+                  <CardContent className="pt-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                       <div>
-                        <p className="text-sm text-muted-foreground">Full Name</p>
-                        <p className="font-medium">{displayName}</p>
+                        <p className="text-xs md:text-sm text-muted-foreground">Full Name</p>
+                        <p className="font-medium text-sm md:text-base break-words">{displayName}</p>
                       </div>
                       {(data?.employee?.id_number || data?.polygraphReport?.id_number) && (
                         <div>
-                          <p className="text-sm text-muted-foreground">ID Number</p>
-                          <p className="font-medium">
+                          <p className="text-xs md:text-sm text-muted-foreground">ID Number</p>
+                          <p className="font-medium text-sm md:text-base break-all">
                             {data?.employee?.id_number || data?.polygraphReport?.id_number}
                           </p>
                         </div>
                       )}
                       {data?.employee?.employee_number && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Employee Number</p>
-                          <p className="font-medium">{data.employee.employee_number}</p>
+                          <p className="text-xs md:text-sm text-muted-foreground">Employee Number</p>
+                          <p className="font-medium text-sm md:text-base">{data.employee.employee_number}</p>
                         </div>
                       )}
                       {(data?.submission?.contact_number || data?.polygraphReport?.contact_number) && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Contact Number</p>
-                          <p className="font-medium">
+                          <p className="text-xs md:text-sm text-muted-foreground">Contact Number</p>
+                          <p className="font-medium text-sm md:text-base">
                             {data?.submission?.contact_number || data?.polygraphReport?.contact_number}
                           </p>
                         </div>
                       )}
                       {(data?.submission?.email || data?.polygraphReport?.email) && (
-                        <div>
-                          <p className="text-sm text-muted-foreground">Email</p>
-                          <p className="font-medium">
+                        <div className="col-span-1 sm:col-span-2">
+                          <p className="text-xs md:text-sm text-muted-foreground">Email</p>
+                          <p className="font-medium text-sm md:text-base break-all">
                             {data?.submission?.email || data?.polygraphReport?.email}
                           </p>
                         </div>
                       )}
                       {data?.polygraphReport?.position_applying_for && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Position</p>
-                          <p className="font-medium">{data.polygraphReport.position_applying_for}</p>
+                          <p className="text-xs md:text-sm text-muted-foreground">Position</p>
+                          <p className="font-medium text-sm md:text-base">{data.polygraphReport.position_applying_for}</p>
                         </div>
                       )}
                       {cleanedPersonalAddress && (
-                        <div className="col-span-2">
-                          <p className="text-sm text-muted-foreground">Physical Address</p>
-                          <p className="font-medium">{cleanedPersonalAddress}</p>
+                        <div className="col-span-1 sm:col-span-2">
+                          <p className="text-xs md:text-sm text-muted-foreground">Physical Address</p>
+                          <p className="font-medium text-sm md:text-base break-words">{cleanedPersonalAddress}</p>
                         </div>
                       )}
                       {data?.polygraphReport?.stores?.store_name && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Store</p>
-                          <p className="font-medium">{data.polygraphReport.stores.store_name}</p>
+                          <p className="text-xs md:text-sm text-muted-foreground">Store</p>
+                          <p className="font-medium text-sm md:text-base">{data.polygraphReport.stores.store_name}</p>
                         </div>
                       )}
                       {data?.polygraphReport?.examination_date && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Examination Date</p>
-                          <p className="font-medium">
+                          <p className="text-xs md:text-sm text-muted-foreground">Examination Date</p>
+                          <p className="font-medium text-sm md:text-base">
                             {format(new Date(data.polygraphReport.examination_date), "PP")}
                           </p>
                         </div>
                       )}
                       {data?.polygraphReport?.examiners?.name && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Examiner</p>
-                          <p className="font-medium">{data.polygraphReport.examiners.name}</p>
+                          <p className="text-xs md:text-sm text-muted-foreground">Examiner</p>
+                          <p className="font-medium text-sm md:text-base">{data.polygraphReport.examiners.name}</p>
                         </div>
                       )}
                       {data?.polygraphReport?.overall_result && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Overall Result</p>
+                          <p className="text-xs md:text-sm text-muted-foreground">Overall Result</p>
                           {getResultBadge(data.polygraphReport.overall_result)}
                         </div>
                       )}

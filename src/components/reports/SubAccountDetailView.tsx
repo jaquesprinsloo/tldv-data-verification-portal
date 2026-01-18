@@ -149,51 +149,51 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit,
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
+          <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0">
+            <ArrowLeft className="h-4 w-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Back</span>
           </Button>
-          <div>
-            <h2 className="text-2xl font-bold flex items-center gap-2">
-              <Building className="h-6 w-6 text-primary" />
-              {formData.store_name}
+          <div className="min-w-0">
+            <h2 className="text-lg md:text-2xl font-bold flex items-center gap-2 truncate">
+              <Building className="h-5 w-5 md:h-6 md:w-6 text-primary shrink-0" />
+              <span className="truncate">{formData.store_name}</span>
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground truncate">
               {accountName} • Code: {subAccount.store_code}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto sm:ml-0">
           {restrictedMode && (
-            <Badge variant="secondary" className="gap-1">
+            <Badge variant="secondary" className="gap-1 text-xs">
               <Lock className="h-3 w-3" />
-              View Restricted
+              <span className="hidden sm:inline">View </span>Restricted
             </Badge>
           )}
           {!canEdit && (
-            <Badge variant="secondary">View Only</Badge>
+            <Badge variant="secondary" className="text-xs">View Only</Badge>
           )}
         </div>
       </div>
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
         <Card 
           className="cursor-pointer hover:border-primary transition-colors"
           onClick={() => setActiveTab("employees")}
         >
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Users className="h-4 w-4 text-blue-500" />
-              Employees
+          <CardHeader className="pb-1 md:pb-2 p-2 md:p-4">
+            <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
+              <Users className="h-3 w-3 md:h-4 md:w-4 text-blue-500" />
+              <span className="truncate">Employees</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{stats.employeesCount}</p>
-            <p className="text-xs text-muted-foreground">Assigned to this store</p>
+          <CardContent className="p-2 md:p-4 pt-0">
+            <p className="text-lg md:text-2xl font-bold">{stats.employeesCount}</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Assigned to this store</p>
           </CardContent>
         </Card>
 
@@ -201,15 +201,15 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit,
           className="cursor-pointer hover:border-primary transition-colors"
           onClick={() => setActiveTab("statistics")}
         >
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <ClipboardCheck className="h-4 w-4 text-green-500" />
-              Polygraph Exams
+          <CardHeader className="pb-1 md:pb-2 p-2 md:p-4">
+            <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
+              <ClipboardCheck className="h-3 w-3 md:h-4 md:w-4 text-green-500" />
+              <span className="truncate">Polygraph</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{stats.polygraphCount}</p>
-            <p className="text-xs text-muted-foreground">Examinations conducted</p>
+          <CardContent className="p-2 md:p-4 pt-0">
+            <p className="text-lg md:text-2xl font-bold">{stats.polygraphCount}</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Examinations conducted</p>
           </CardContent>
         </Card>
 
@@ -217,15 +217,15 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit,
           className="cursor-pointer hover:border-primary transition-colors"
           onClick={() => setActiveTab("statistics")}
         >
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-purple-500" />
-              Risk Assessments
+          <CardHeader className="pb-1 md:pb-2 p-2 md:p-4">
+            <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
+              <ShieldCheck className="h-3 w-3 md:h-4 md:w-4 text-purple-500" />
+              <span className="truncate">Risk</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{stats.riskAssessmentCount}</p>
-            <p className="text-xs text-muted-foreground">Background checks completed</p>
+          <CardContent className="p-2 md:p-4 pt-0">
+            <p className="text-lg md:text-2xl font-bold">{stats.riskAssessmentCount}</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Background checks</p>
           </CardContent>
         </Card>
 
@@ -233,18 +233,18 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit,
           className="cursor-pointer hover:border-primary transition-colors"
           onClick={() => !restrictedMode ? setActiveTab("invoices") : handleRestrictedTabClick("Invoices")}
         >
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-yellow-500" />
-              Total Spend
+          <CardHeader className="pb-1 md:pb-2 p-2 md:p-4">
+            <CardTitle className="text-xs md:text-sm font-medium flex items-center gap-1 md:gap-2">
+              <DollarSign className="h-3 w-3 md:h-4 md:w-4 text-yellow-500" />
+              <span className="truncate">Spend</span>
               {restrictedMode && <Lock className="h-3 w-3 ml-auto" />}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className={`text-2xl font-bold ${restrictedMode ? 'blur-sm select-none' : ''}`}>
+          <CardContent className="p-2 md:p-4 pt-0">
+            <p className={`text-lg md:text-2xl font-bold ${restrictedMode ? 'blur-sm select-none' : ''}`}>
               R {stats.totalSpend.toLocaleString()}
             </p>
-            <p className="text-xs text-muted-foreground">On examinations & assessments</p>
+            <p className="text-[10px] md:text-xs text-muted-foreground hidden sm:block">Total expenses</p>
           </CardContent>
         </Card>
       </div>
@@ -257,21 +257,21 @@ export const SubAccountDetailView = ({ subAccount, accountName, onBack, canEdit,
         }
         setActiveTab(val);
       }} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Store Details</TabsTrigger>
-          <TabsTrigger value="employees" className="gap-1" disabled={restrictedMode}>
+        <TabsList className="w-full overflow-x-auto flex md:grid md:grid-cols-5 h-auto">
+          <TabsTrigger value="overview" className="text-xs md:text-sm py-2 px-2 md:px-4 whitespace-nowrap">Details</TabsTrigger>
+          <TabsTrigger value="employees" className="gap-1 text-xs md:text-sm py-2 px-2 md:px-4 whitespace-nowrap" disabled={restrictedMode}>
             Employees
             {restrictedMode && <Lock className="h-3 w-3" />}
           </TabsTrigger>
-          <TabsTrigger value="statistics" className="gap-1" disabled={restrictedMode}>
-            Statistics
+          <TabsTrigger value="statistics" className="gap-1 text-xs md:text-sm py-2 px-2 md:px-4 whitespace-nowrap" disabled={restrictedMode}>
+            Stats
             {restrictedMode && <Lock className="h-3 w-3" />}
           </TabsTrigger>
-          <TabsTrigger value="reports" className="gap-1" disabled={restrictedMode}>
+          <TabsTrigger value="reports" className="gap-1 text-xs md:text-sm py-2 px-2 md:px-4 whitespace-nowrap" disabled={restrictedMode}>
             Reports
             {restrictedMode && <Lock className="h-3 w-3" />}
           </TabsTrigger>
-          <TabsTrigger value="invoices" className="gap-1" disabled={restrictedMode}>
+          <TabsTrigger value="invoices" className="gap-1 text-xs md:text-sm py-2 px-2 md:px-4 whitespace-nowrap" disabled={restrictedMode}>
             Invoices
             {restrictedMode && <Lock className="h-3 w-3" />}
           </TabsTrigger>
