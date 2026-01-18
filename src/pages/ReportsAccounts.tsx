@@ -124,25 +124,27 @@ const ReportsAccounts = () => {
   return (
     <div className="min-h-screen bg-background">
       <AdminHeader user={user} title="Reports & Accounts Portal" />
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="accounts" className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Accounts
-            </TabsTrigger>
-            <TabsTrigger value="polygraph" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Polygraph Reports
-            </TabsTrigger>
-          </TabsList>
+      {/* Desktop-like layout wrapper - scales down on mobile for full view */}
+      <div className="md:block">
+        <main className="container mx-auto px-2 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-4 md:py-6">
+          <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-4 md:space-y-6">
+            <TabsList className="grid w-full max-w-md grid-cols-2 h-auto">
+              <TabsTrigger value="accounts" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm py-2">
+                <Building2 className="h-3 w-3 md:h-4 md:w-4" />
+                Accounts
+              </TabsTrigger>
+              <TabsTrigger value="polygraph" className="flex items-center gap-1 md:gap-2 text-xs md:text-sm py-2">
+                <FileText className="h-3 w-3 md:h-4 md:w-4" />
+                Polygraph Reports
+              </TabsTrigger>
+            </TabsList>
 
           <TabsContent value="accounts">
             {view === "accounts" && (
               <>
-                <div className="mb-8">
-                  <h2 className="text-2xl font-bold">Select Account</h2>
-                  <p className="text-muted-foreground mt-2">
+                <div className="mb-4 md:mb-8">
+                  <h2 className="text-lg md:text-2xl font-bold">Select Account</h2>
+                  <p className="text-muted-foreground mt-1 md:mt-2 text-xs md:text-base">
                     {canViewSubAccountDetails
                       ? "Select an account to view sub accounts and examination statistics"
                       : "View your assigned accounts for report selection"
@@ -212,7 +214,8 @@ const ReportsAccounts = () => {
             <PolygraphReportsSection canEdit={isMasterAdmin} />
           </TabsContent>
         </Tabs>
-      </main>
+        </main>
+      </div>
     </div>
   );
 };
