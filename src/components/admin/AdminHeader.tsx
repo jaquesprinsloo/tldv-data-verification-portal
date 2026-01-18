@@ -13,7 +13,9 @@ interface AdminHeaderProps {
 
 const AdminHeader = ({ user, showUserDetails = true, showMainPortalButton = true, title = "Data & Employee Management Portal" }: AdminHeaderProps) => {
   const navigate = useNavigate();
-  const [isVisible, setIsVisible] = useState(true);
+  // Default to hidden until we know whether we're in a regular browser window.
+  // This prevents the "PWA header doesn't auto-hide" issue when detection is delayed.
+  const [isVisible, setIsVisible] = useState(false);
   const [isPWA, setIsPWA] = useState(false);
 
   useEffect(() => {
@@ -21,47 +23,57 @@ const AdminHeader = ({ user, showUserDetails = true, showMainPortalButton = true
     const checkPWA = () => {
       const standaloneMedia = window.matchMedia('(display-mode: standalone)');
       const fullscreenMedia = window.matchMedia('(display-mode: fullscreen)');
-      const isStandalone = standaloneMedia.matches ||
-                           fullscreenMedia.matches ||
-                           (window.navigator as any).standalone === true;
-      
-      console.log('PWA Detection:', { 
-        standalone: standaloneMedia.matches, 
+      const isStandalone =
+        standaloneMedia.matches ||
+        fullscreenMedia.matches ||
+        (window.navigator as any).standalone === true;
+
+      console.log('PWA Detection:', {
+        standalone: standaloneMedia.matches,
         fullscreen: fullscreenMedia.matches,
         navigatorStandalone: (window.navigator as any).standalone,
-        isStandalone 
+        isStandalone,
       });
-      
+
       return isStandalone;
     };
 
     const isStandalone = checkPWA();
     setIsPWA(isStandalone);
-    
-    // If PWA, hide header initially after a short delay
-    if (isStandalone) {
-      const timer = setTimeout(() => setIsVisible(false), 2000);
-      return () => clearTimeout(timer);
-    }
+
+    // In PWA mode we want it hidden by default; in browser mode show it.
+    setIsVisible(!isStandalone);
 
     // Also listen for display mode changes
     const standaloneQuery = window.matchMedia('(display-mode: standalone)');
     const fullscreenQuery = window.matchMedia('(display-mode: fullscreen)');
-    
+
     const handleChange = () => {
       const isPWANow = checkPWA();
       setIsPWA(isPWANow);
-      if (isPWANow) {
-        setTimeout(() => setIsVisible(false), 2000);
-      }
+      setIsVisible(!isPWANow);
     };
 
-    standaloneQuery.addEventListener('change', handleChange);
-    fullscreenQuery.addEventListener('change', handleChange);
+    // Older Safari/Chromium variants can lack addEventListener on MediaQueryList
+    if (standaloneQuery.addEventListener) {
+      standaloneQuery.addEventListener('change', handleChange);
+      fullscreenQuery.addEventListener('change', handleChange);
+      return () => {
+        standaloneQuery.removeEventListener('change', handleChange);
+        fullscreenQuery.removeEventListener('change', handleChange);
+      };
+    }
 
+    // Fallback
+    // eslint-disable-next-line deprecation/deprecation
+    standaloneQuery.addListener(handleChange);
+    // eslint-disable-next-line deprecation/deprecation
+    fullscreenQuery.addListener(handleChange);
     return () => {
-      standaloneQuery.removeEventListener('change', handleChange);
-      fullscreenQuery.removeEventListener('change', handleChange);
+      // eslint-disable-next-line deprecation/deprecation
+      standaloneQuery.removeListener(handleChange);
+      // eslint-disable-next-line deprecation/deprecation
+      fullscreenQuery.removeListener(handleChange);
     };
   }, []);
 
