@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { InstallAppButton } from "@/components/shared/InstallAppButton";
 import Home from "./pages/Home";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import EmployeeAuth from "./pages/EmployeeAuth";
@@ -27,6 +28,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <InstallAppButton />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
