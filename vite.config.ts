@@ -19,8 +19,8 @@ export default defineConfig(({ mode }) => ({
         "favicon.ico",
         "tldv-logo.png",
         "og-image.png",
-        "tldv-icon-192-v2.jpg",
-        "tldv-icon-512-v2.jpg",
+        "tldv-icon-192.png",
+        "tldv-icon-512.png",
       ],
       manifest: {
         name: "TLDV - Employee Data Verification Portal",
@@ -35,15 +35,15 @@ export default defineConfig(({ mode }) => ({
         scope: "/",
         icons: [
           {
-            src: "/tldv-icon-192-v2.jpg",
+            src: "/tldv-icon-192.png",
             sizes: "192x192",
-            type: "image/jpeg",
+            type: "image/png",
             purpose: "any maskable",
           },
           {
-            src: "/tldv-icon-512-v2.jpg",
+            src: "/tldv-icon-512.png",
             sizes: "512x512",
-            type: "image/jpeg",
+            type: "image/png",
             purpose: "any maskable",
           },
         ],
