@@ -1371,6 +1371,38 @@ export type Database = {
           },
         ]
       }
+      report_access_log: {
+        Row: {
+          access_type: string
+          created_at: string
+          id: string
+          report_id: string
+          user_id: string
+        }
+        Insert: {
+          access_type: string
+          created_at?: string
+          id?: string
+          report_id: string
+          user_id: string
+        }
+        Update: {
+          access_type?: string
+          created_at?: string
+          id?: string
+          report_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_access_log_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "polygraph_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       request_replies: {
         Row: {
           created_at: string
