@@ -2,14 +2,29 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, User, Heart, AlertTriangle, CheckCircle, HelpCircle, Maximize2, Minimize2 } from "lucide-react";
+import { Users, User, Heart, AlertTriangle, CheckCircle, HelpCircle, Maximize2, Minimize2, MapPin, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface FamilyMember {
   Name?: string;
+  name?: string;
   Relationship?: string;
+  relationship?: string;
   CriminalHistory?: string;
+  criminalHistory?: string;
+  PhysicalAddress?: string;
+  physicalAddress?: string;
+  Employer?: string;
+  employer?: string;
+  Position?: string;
+  position?: string;
+  EmploymentStatus?: string;
+  employmentStatus?: string;
+  ArrestDisclosed?: string;
+  arrestDisclosed?: string;
+  ContactNumber?: string;
+  contactNumber?: string;
 }
 
 interface FamilyTreeDisplayProps {
@@ -28,7 +43,31 @@ const getRelationshipIcon = (relationship: string | undefined | null, size: stri
   return <User className={size} />;
 };
 
-const getCriminalStatusInfo = (history: string | undefined | null) => {
+const getMemberName = (m: FamilyMember) => m.Name || m.name || 'Unknown';
+const getMemberRelationship = (m: FamilyMember) => m.Relationship || m.relationship || 'Unknown';
+const getMemberCriminalHistory = (m: FamilyMember) => m.CriminalHistory || m.criminalHistory || '';
+const getMemberAddress = (m: FamilyMember) => m.PhysicalAddress || m.physicalAddress || '';
+const getMemberContact = (m: FamilyMember) => m.ContactNumber || m.contactNumber || '';
+
+const getMemberEmployment = (m: FamilyMember) => {
+  const status = (m.EmploymentStatus || m.employmentStatus || '').toLowerCase();
+  if (status.includes('unemploy')) return 'Unemployed';
+  const employer = m.Employer || m.employer || '';
+  const position = m.Position || m.position || '';
+  const parts = [employer, position].filter(Boolean);
+  return parts.length > 0 ? parts.join(' — ') : (status || '');
+};
+
+const getMemberArrest = (m: FamilyMember) => {
+  const arrest = (m.ArrestDisclosed || m.arrestDisclosed || '').toLowerCase();
+  const criminal = getMemberCriminalHistory(m).toLowerCase();
+  if (arrest === 'yes' || criminal.includes('arrest') || criminal.includes('convict')) return 'Yes';
+  if (arrest === 'no' || criminal.includes('not aware') || criminal.includes('none') || criminal.includes('no criminal')) return 'No';
+  return '';
+};
+
+const getCriminalStatusInfo = (member: FamilyMember) => {
+  const history = getMemberCriminalHistory(member);
   if (!history) {
     return { status: "unknown", icon: HelpCircle, color: "text-muted-foreground", bgColor: "bg-muted/50 border-muted" };
   }
@@ -42,21 +81,28 @@ const getCriminalStatusInfo = (history: string | undefined | null) => {
   return { status: "unknown", icon: HelpCircle, color: "text-muted-foreground", bgColor: "bg-muted/50 border-muted" };
 };
 
-const getRelationshipLevel = (relationship: string | undefined | null): number => {
-  const rel = (relationship || '').toLowerCase();
+const getRelationshipLevel = (member: FamilyMember): number => {
+  const rel = getMemberRelationship(member).toLowerCase();
   if (rel.includes("father") || rel.includes("mother")) return 1;
   if (rel.includes("stepfather") || rel.includes("stepmother")) return 1;
   if (rel.includes("brother") || rel.includes("sister")) return 2;
   if (rel.includes("stepbrother") || rel.includes("stepsister")) return 2;
-  if (rel.includes("spouse") || rel.includes("wife") || rel.includes("husband")) return 2;
+  if (rel.includes("spouse") || rel.includes("wife") || rel.includes("husband") || rel.includes("partner")) return 2;
   if (rel.includes("child") || rel.includes("son") || rel.includes("daughter")) return 3;
   return 2;
 };
 
+
 // Detailed view node
 const FamilyMemberNode = ({ member }: { member: FamilyMember }) => {
-  const statusInfo = getCriminalStatusInfo(member.CriminalHistory);
+  const statusInfo = getCriminalStatusInfo(member);
   const StatusIcon = statusInfo.icon;
+  const name = getMemberName(member);
+  const relationship = getMemberRelationship(member);
+  const address = getMemberAddress(member);
+  const employment = getMemberEmployment(member);
+  const arrest = getMemberArrest(member);
+  const criminal = getMemberCriminalHistory(member);
 
   return (
     <div className={cn(
@@ -65,23 +111,40 @@ const FamilyMemberNode = ({ member }: { member: FamilyMember }) => {
     )}>
       <div className="flex items-start gap-2">
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-xs break-words">{member.Name || 'Unknown'}</p>
+          <p className="font-semibold text-xs break-words">{name}</p>
           <Badge variant="outline" className="text-[10px] mt-1">
-            {member.Relationship || 'Unknown'}
+            {relationship}
           </Badge>
         </div>
         <StatusIcon className={cn("h-4 w-4 flex-shrink-0", statusInfo.color)} />
       </div>
-      <p className="mt-2 text-[11px] text-muted-foreground line-clamp-3">
-        {member.CriminalHistory || 'No information available'}
-      </p>
+      <div className="mt-2 space-y-0.5 text-[11px] text-muted-foreground">
+        {address && (
+          <div className="flex items-start gap-1">
+            <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
+            <span>{address}</span>
+          </div>
+        )}
+        {employment && (
+          <div className="flex items-start gap-1">
+            <Briefcase className="h-3 w-3 mt-0.5 flex-shrink-0" />
+            <span>{employment}</span>
+          </div>
+        )}
+        {arrest && (
+          <p>Arrest Disclosed: <span className={arrest === 'Yes' ? 'text-orange-500 font-medium' : ''}>{arrest}</span></p>
+        )}
+        {criminal && !arrest && (
+          <p className="line-clamp-2">{criminal}</p>
+        )}
+      </div>
     </div>
   );
 };
 
 // Compact view node
 const CompactMemberNode = ({ member }: { member: FamilyMember }) => {
-  const statusInfo = getCriminalStatusInfo(member.CriminalHistory);
+  const statusInfo = getCriminalStatusInfo(member);
   const StatusIcon = statusInfo.icon;
 
   return (
@@ -93,15 +156,17 @@ const CompactMemberNode = ({ member }: { member: FamilyMember }) => {
             statusInfo.bgColor
           )}>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-[11px] truncate">{member.Name || 'Unknown'}</p>
-              <p className="text-[10px] text-muted-foreground">{member.Relationship || 'Unknown'}</p>
+              <p className="font-medium text-[11px] truncate">{getMemberName(member)}</p>
+              <p className="text-[10px] text-muted-foreground">{getMemberRelationship(member)}</p>
             </div>
             <StatusIcon className={cn("h-3.5 w-3.5 flex-shrink-0", statusInfo.color)} />
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs">
-          <p className="font-semibold text-sm">{member.Name || 'Unknown'}</p>
-          <p className="text-xs text-muted-foreground mt-1">{member.CriminalHistory || 'No information available'}</p>
+          <p className="font-semibold text-sm">{getMemberName(member)}</p>
+          {getMemberAddress(member) && <p className="text-xs text-muted-foreground">{getMemberAddress(member)}</p>}
+          {getMemberEmployment(member) && <p className="text-xs text-muted-foreground">{getMemberEmployment(member)}</p>}
+          <p className="text-xs text-muted-foreground mt-1">{getMemberCriminalHistory(member) || 'No information available'}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -123,9 +188,9 @@ export const FamilyTreeDisplay = ({ familyMembers, candidateName }: FamilyTreeDi
   }
 
   // Group family members by relationship level
-  const parents = familyMembers.filter(m => getRelationshipLevel(m.Relationship) === 1);
-  const siblings = familyMembers.filter(m => getRelationshipLevel(m.Relationship) === 2);
-  const children = familyMembers.filter(m => getRelationshipLevel(m.Relationship) === 3);
+  const parents = familyMembers.filter(m => getRelationshipLevel(m) === 1);
+  const siblings = familyMembers.filter(m => getRelationshipLevel(m) === 2);
+  const children = familyMembers.filter(m => getRelationshipLevel(m) === 3);
 
   const MemberNode = isCompact ? CompactMemberNode : FamilyMemberNode;
 
