@@ -5,7 +5,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Shield, FileText, User, AlertTriangle, ExternalLink, Download, X, GraduationCap, HeartPulse, Users, UserCheck, ChevronDown } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle as AlertTitle,
+} from "@/components/ui/alert-dialog";
+import { Shield, FileText, User, AlertTriangle, Download, X, GraduationCap, HeartPulse, Users, UserCheck, ChevronDown, Lock } from "lucide-react";
 import RiskAnalysisDisplay from "@/components/reports/RiskAnalysisDisplay";
 import { FamilyTreeDisplay, FamilyMemberNode } from "@/components/shared/FamilyTreeDisplay";
 import type { FamilyMember } from "@/components/shared/FamilyTreeDisplay";
@@ -30,44 +41,88 @@ interface ProfileData {
   pdfUrl: string | null;
 }
 
-// PDF Preview Modal
+// PDF Preview Modal - with anti-screenshot protections
 const PdfPreviewModal = ({ 
   open, 
   onClose, 
-  pdfUrl 
+  pdfUrl,
+  reportId 
 }: { 
   open: boolean; 
   onClose: () => void; 
-  pdfUrl: string; 
+  pdfUrl: string;
+  reportId?: string;
 }) => {
+  useEffect(() => {
+    if (open && reportId) {
+      // Log view access
+      supabase.auth.getUser().then(({ data }) => {
+        if (data.user) {
+          supabase.from('report_access_log').insert({
+            report_id: reportId,
+            user_id: data.user.id,
+            access_type: 'view',
+          });
+        }
+      });
+    }
+  }, [open, reportId]);
+
+  useEffect(() => {
+    if (!open) return;
+    // Disable keyboard shortcuts for print/save
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 's' || e.key === 'P' || e.key === 'S')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      // Disable PrintScreen
+      if (e.key === 'PrintScreen') {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [open]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
-      <div className="relative w-full max-w-5xl h-[90vh] bg-background rounded-lg overflow-hidden flex flex-col">
+    <div 
+      className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <style>{`
+        @media print {
+          .pdf-preview-protected, .pdf-preview-protected * { 
+            display: none !important; 
+            visibility: hidden !important; 
+          }
+          body::after {
+            content: "Printing is disabled for this document.";
+            display: block;
+            font-size: 24px;
+            text-align: center;
+            padding: 50px;
+          }
+        }
+      `}</style>
+      <div 
+        className="pdf-preview-protected relative w-full max-w-5xl h-[90vh] bg-background rounded-lg overflow-hidden flex flex-col"
+        style={{ userSelect: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties}
+      >
         <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="font-semibold">PDF Report Preview</h3>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
-                <ExternalLink className="h-4 w-4" />
-                Open in New Tab
-              </a>
-            </Button>
-            <Button variant="outline" size="sm" asChild>
-              <a href={pdfUrl} download className="flex items-center gap-2">
-                <Download className="h-4 w-4" />
-                Download
-              </a>
-            </Button>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <h3 className="font-semibold flex items-center gap-2">
+            <Lock className="h-4 w-4 text-muted-foreground" />
+            Protected Document Preview
+          </h3>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
         </div>
         <div className="flex-1 w-full">
           <iframe
-            src={pdfUrl}
+            src={`${pdfUrl}#toolbar=0&navpanes=0`}
             className="w-full h-full border-0"
             title="PDF Preview"
           />
@@ -77,9 +132,13 @@ const PdfPreviewModal = ({
   );
 };
 
-// Component to view the original PDF
-const ViewOriginalPdfButton = ({ pdfUrl }: { pdfUrl: string | null }) => {
+// Secure PDF button with download tracking and password gate
+const ViewOriginalPdfButton = ({ pdfUrl, reportId }: { pdfUrl: string | null; reportId?: string }) => {
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
 
   if (!pdfUrl) {
     return (
@@ -89,6 +148,72 @@ const ViewOriginalPdfButton = ({ pdfUrl }: { pdfUrl: string | null }) => {
     );
   }
 
+  const executeDownload = async () => {
+    setDownloading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user && reportId) {
+        await supabase.from('report_access_log').insert({
+          report_id: reportId,
+          user_id: userData.user.id,
+          access_type: 'download',
+        });
+      }
+      
+      const response = await fetch(pdfUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'polygraph-report.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Report downloaded successfully");
+    } catch (error) {
+      console.error("Download failed:", error);
+      toast.error("Failed to download report");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!reportId) {
+      await executeDownload();
+      return;
+    }
+    
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return;
+    
+    const { count } = await supabase
+      .from('report_access_log')
+      .select('*', { count: 'exact', head: true })
+      .eq('report_id', reportId)
+      .eq('user_id', userData.user.id)
+      .eq('access_type', 'download');
+    
+    if (count && count > 0) {
+      setPasswordDialogOpen(true);
+      return;
+    }
+    
+    await executeDownload();
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (password === 'TLDV0011') {
+      setPasswordDialogOpen(false);
+      setPassword("");
+      setPasswordError(false);
+      await executeDownload();
+    } else {
+      setPasswordError(true);
+    }
+  };
+
   return (
     <>
       <div className="flex items-center gap-4">
@@ -96,29 +221,60 @@ const ViewOriginalPdfButton = ({ pdfUrl }: { pdfUrl: string | null }) => {
           <FileText className="h-4 w-4" />
           Preview PDF Report
         </Button>
-        <Button variant="ghost" size="sm" asChild>
-          <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
-            <ExternalLink className="h-4 w-4" />
-            Open in New Tab
-          </a>
-        </Button>
-        <Button variant="ghost" size="sm" asChild>
-          <a href={pdfUrl} download className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Download
-          </a>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={handleDownload}
+          disabled={downloading}
+          className="flex items-center gap-2"
+        >
+          <Download className="h-4 w-4" />
+          {downloading ? "Downloading..." : "Download"}
         </Button>
       </div>
       <PdfPreviewModal 
         open={previewOpen} 
         onClose={() => setPreviewOpen(false)} 
-        pdfUrl={pdfUrl} 
+        pdfUrl={pdfUrl}
+        reportId={reportId}
       />
+
+      {/* Password Dialog for re-downloads */}
+      <AlertDialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Master Password Required
+            </AlertTitle>
+            <AlertDialogDescription>
+              You have already downloaded this report. Enter the master password to download again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Input
+              type="password"
+              placeholder="Enter master password"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setPasswordError(false); }}
+              onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+              className={passwordError ? 'border-destructive' : ''}
+            />
+            {passwordError && (
+              <p className="text-destructive text-sm mt-2">Incorrect password. Please try again.</p>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setPassword(""); setPasswordError(false); }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePasswordSubmit}>
+              Verify & Download
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
-
-// Format a date string safely without timezone shift
 const formatDateSafe = (dateStr: string | null | undefined): string => {
   if (!dateStr) return '—';
   // If YYYY-MM-DD, parse components directly to avoid UTC shift
@@ -633,7 +789,7 @@ export const RiskProfileDialog = ({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ViewOriginalPdfButton pdfUrl={data.pdfUrl} />
+                    <ViewOriginalPdfButton pdfUrl={data.pdfUrl} reportId={data.polygraphReport?.id} />
                   </CardContent>
                 </Card>
               )}
