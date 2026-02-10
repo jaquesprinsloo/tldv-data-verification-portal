@@ -903,11 +903,10 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                                         {(() => {
                                           const status = (member.EmploymentStatus || member.employmentStatus || '').toLowerCase();
                                           if (status.includes('unemploy')) return 'Unemployed';
-                                          const employer = member.Employer || member.employer || '';
-                                          const position = member.Position || member.position || '';
-                                          const duration = member.Duration || member.duration || '';
-                                          const parts = [employer, position, duration].filter(Boolean);
-                                          return parts.length > 0 ? parts.join(' — ') : (status || '—');
+                                           const employer = member.Employer || member.employer || '';
+                                           const position = member.Position || member.position || '';
+                                           const parts = [employer, position].filter(Boolean);
+                                           return parts.length > 0 ? parts.join(' — ') : (status || '—');
                                         })()}
                                       </span>
                                     </div>
