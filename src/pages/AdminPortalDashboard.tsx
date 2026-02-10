@@ -52,6 +52,32 @@ const AdminPortalDashboard = () => {
     enabled: isMasterAdmin
   });
 
+  // Count approved polygraph candidates awaiting acceptance/rejection in Data & Employee Management
+  const { data: approvedCandidatesCount } = useQuery({
+    queryKey: ['approved-candidates-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('polygraph_candidates')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'approved');
+      return count || 0;
+    },
+  });
+
+  // Count pending employee submissions awaiting review
+  const { data: pendingSubmissionsCount } = useQuery({
+    queryKey: ['pending-submissions-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('submissions')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      return count || 0;
+    },
+  });
+
+  const dataManagementBadge = (approvedCandidatesCount || 0) + (pendingSubmissionsCount || 0);
+
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -127,7 +153,7 @@ const AdminPortalDashboard = () => {
       icon: Users,
       path: "/admin/data-employee-management",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: null,
+      badge: dataManagementBadge > 0 ? dataManagementBadge : null,
       permissionKey: PERMISSION_KEYS.PORTAL_DATA_MANAGEMENT,
       requiresMasterAdmin: false
     },
