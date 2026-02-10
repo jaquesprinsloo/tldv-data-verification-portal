@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Shield, FileText, User, AlertTriangle, ExternalLink, Download, X, GraduationCap, HeartPulse, Users, UserCheck } from "lucide-react";
+import { Shield, FileText, User, AlertTriangle, ExternalLink, Download, X, GraduationCap, HeartPulse, Users, UserCheck, ChevronDown } from "lucide-react";
 import RiskAnalysisDisplay from "@/components/reports/RiskAnalysisDisplay";
 import { FamilyTreeDisplay, FamilyMemberNode } from "@/components/shared/FamilyTreeDisplay";
 import type { FamilyMember } from "@/components/shared/FamilyTreeDisplay";
@@ -132,14 +132,14 @@ const formatDateSafe = (dateStr: string | null | undefined): string => {
   return dateStr;
 };
 
-// Info row helper
-const InfoRow = ({ label, value, fullWidth }: { label: string; value: string | null | undefined; fullWidth?: boolean }) => {
+// Info row helper - inline label: value
+const InfoRow = ({ label, value }: { label: string; value: string | null | undefined; fullWidth?: boolean }) => {
   if (!value || value === '—') return null;
   return (
-     <div className={`flex justify-between py-1 ${fullWidth ? 'col-span-1 sm:col-span-2' : ''}`}>
-       <span className="text-muted-foreground text-sm whitespace-nowrap mr-3">{label}</span>
-       <span className="font-medium text-sm text-right">{value}</span>
-     </div>
+    <div className="flex items-baseline py-1.5 border-b border-border/20">
+      <span className="text-muted-foreground text-sm w-40 flex-shrink-0">{label}:</span>
+      <span className="font-medium text-sm">{value}</span>
+    </div>
   );
 };
 
@@ -212,6 +212,7 @@ export const RiskProfileDialog = ({
 }: RiskProfileDialogProps) => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<ProfileData | null>(null);
+  const [openSection, setOpenSection] = useState<string | null>("personal");
 
   useEffect(() => {
     if (open && (employeeId || reportId)) {
@@ -399,114 +400,110 @@ export const RiskProfileDialog = ({
             {/* Personal Info Tab */}
              <TabsContent value="personal" className="space-y-4 mt-4">
                <Card className="bg-card">
-                 <CardContent className="pt-6 space-y-5">
-                   {/* Personal Information */}
-                   <div>
-                     <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-2 border-b pb-1.5 flex items-center gap-2">
-                       <User className="h-4 w-4" />
-                       Personal Information
-                     </h4>
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-0.5 text-sm">
-                       <InfoRow label="Full Name" value={displayName} />
-                       <InfoRow label="ID Number" value={data?.employee?.id_number || data?.polygraphReport?.id_number} />
-                       <InfoRow label="Contact Number" value={data?.submission?.contact_number || data?.polygraphReport?.contact_number} />
-                       <InfoRow label="Email Address" value={data?.submission?.email || data?.polygraphReport?.email} />
-                       {cleanedPersonalAddress && (
-                         <InfoRow label="Physical Address" value={cleanedPersonalAddress} fullWidth />
-                       )}
+                 <CardContent className="pt-4 space-y-0">
+                   {/* Personal Information Accordion */}
+                   <div className="border-b border-border/30">
+                     <button
+                       onClick={() => setOpenSection(openSection === 'personal' ? null : 'personal')}
+                       className="w-full flex items-center justify-between py-3 cursor-pointer hover:bg-muted/30 rounded-md px-2 transition-colors"
+                     >
+                       <div className="flex items-center gap-2">
+                         <User className="h-4 w-4 text-primary" />
+                         <span className="font-semibold text-sm uppercase tracking-wider text-primary">Personal Information</span>
+                       </div>
+                       <ChevronDown className={`h-4 w-4 text-primary transition-transform duration-300 ${openSection === 'personal' ? 'rotate-180' : ''}`} />
+                     </button>
+                     <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openSection === 'personal' ? 'max-h-[500px] opacity-100 pb-4' : 'max-h-0 opacity-0'}`}>
+                       <div className="px-2 space-y-0">
+                         <InfoRow label="Full Name" value={displayName} />
+                         <InfoRow label="ID Number" value={data?.employee?.id_number || data?.polygraphReport?.id_number} />
+                         <InfoRow label="Contact Number" value={data?.submission?.contact_number || data?.polygraphReport?.contact_number} />
+                         <InfoRow label="Email Address" value={data?.submission?.email || data?.polygraphReport?.email} />
+                         {cleanedPersonalAddress && (
+                           <InfoRow label="Physical Address" value={cleanedPersonalAddress} />
+                         )}
+                       </div>
                      </div>
                    </div>
 
-                   {/* Education */}
+                   {/* Education Accordion */}
                    {hasEducation && (
-                     <div>
-                       <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-2 border-b pb-1.5 flex items-center gap-2">
-                         <GraduationCap className="h-4 w-4" />
-                         Education
-                       </h4>
-                      <div className="space-y-4">
-                        {finalSchool.length > 0 && (
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase mb-2">School</p>
-                            {finalSchool.map((edu: any, idx: number) => (
-                              <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-1 text-sm mb-2">
-                                <div className="flex justify-between py-1 border-b border-border/30">
-                                  <span className="text-muted-foreground">School Name</span>
-                                  <span className="font-medium">{edu.Institution || edu.institution || edu.School || edu.school || '—'}</span>
-                                </div>
-                                <div className="flex justify-between py-1 border-b border-border/30">
-                                  <span className="text-muted-foreground">Last Grade</span>
-                                  <span className="font-medium">{edu.Qualification || edu.qualification || edu.Degree || edu.degree || edu.LastGrade || edu.lastGrade || '—'}</span>
-                                </div>
-                                <div className="flex justify-between py-1 border-b border-border/30">
-                                  <span className="text-muted-foreground">Year Completed</span>
-                                  <span className="font-medium">{edu.Year || edu.year || edu.YearOfCompletion || edu.yearOfCompletion || edu.YearCompleted || edu.yearCompleted || edu.Period || edu.period || '—'}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {finalTertiary.length > 0 && (
-                          <div>
-                            <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Tertiary Education</p>
-                            {finalTertiary.map((edu: any, idx: number) => (
-                              <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-1 text-sm mb-2">
-                                <div className="flex justify-between py-1 border-b border-border/30">
-                                  <span className="text-muted-foreground">Institution</span>
-                                  <span className="font-medium">{edu.Institution || edu.institution || edu.School || edu.school || '—'}</span>
-                                </div>
-                                <div className="flex justify-between py-1 border-b border-border/30">
-                                  <span className="text-muted-foreground">Qualification</span>
-                                  <span className="font-medium">{edu.Qualification || edu.qualification || edu.Degree || edu.degree || '—'}</span>
-                                </div>
-                                <div className="flex justify-between py-1 border-b border-border/30">
-                                  <span className="text-muted-foreground">Year Completed</span>
-                                  <span className="font-medium">{edu.Year || edu.year || edu.YearOfCompletion || edu.yearOfCompletion || edu.YearCompleted || edu.yearCompleted || edu.Period || edu.period || '—'}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                     <div className="border-b border-border/30">
+                       <button
+                         onClick={() => setOpenSection(openSection === 'education' ? null : 'education')}
+                         className="w-full flex items-center justify-between py-3 cursor-pointer hover:bg-muted/30 rounded-md px-2 transition-colors"
+                       >
+                         <div className="flex items-center gap-2">
+                           <GraduationCap className="h-4 w-4 text-primary" />
+                           <span className="font-semibold text-sm uppercase tracking-wider text-primary">Education</span>
+                         </div>
+                         <ChevronDown className={`h-4 w-4 text-primary transition-transform duration-300 ${openSection === 'education' ? 'rotate-180' : ''}`} />
+                       </button>
+                       <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openSection === 'education' ? 'max-h-[600px] opacity-100 pb-4' : 'max-h-0 opacity-0'}`}>
+                         <div className="px-2 space-y-4">
+                           {finalSchool.length > 0 && (
+                             <div>
+                               <p className="text-xs font-medium text-muted-foreground uppercase mb-1">School</p>
+                               {finalSchool.map((edu: any, idx: number) => (
+                                 <div key={idx} className="space-y-0 mb-3">
+                                   <InfoRow label="School Name" value={edu.Institution || edu.institution || edu.School || edu.school} />
+                                   <InfoRow label="Last Grade" value={edu.Qualification || edu.qualification || edu.Degree || edu.degree || edu.LastGrade || edu.lastGrade} />
+                                   <InfoRow label="Year Completed" value={edu.Year || edu.year || edu.YearOfCompletion || edu.yearOfCompletion || edu.YearCompleted || edu.yearCompleted || edu.Period || edu.period} />
+                                 </div>
+                               ))}
+                             </div>
+                           )}
+                           {finalTertiary.length > 0 && (
+                             <div>
+                               <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Tertiary Education</p>
+                               {finalTertiary.map((edu: any, idx: number) => (
+                                 <div key={idx} className="space-y-0 mb-3">
+                                   <InfoRow label="Institution" value={edu.Institution || edu.institution || edu.School || edu.school} />
+                                   <InfoRow label="Qualification" value={edu.Qualification || edu.qualification || edu.Degree || edu.degree} />
+                                   <InfoRow label="Year Completed" value={edu.Year || edu.year || edu.YearOfCompletion || edu.yearOfCompletion || edu.YearCompleted || edu.yearCompleted || edu.Period || edu.period} />
+                                 </div>
+                               ))}
+                             </div>
+                           )}
+                         </div>
+                       </div>
+                     </div>
+                   )}
 
-                   {/* Medical Suitability */}
+                   {/* Medical Suitability Accordion */}
                    {(suitInfo || data?.polygraphReport) && (
-                     <div>
-                       <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-2 border-b pb-1.5 flex items-center gap-2">
-                         <HeartPulse className="h-4 w-4" />
-                         Medical Suitability
-                       </h4>
-                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-0.5 text-sm">
-                        <div className="flex justify-between py-1 border-b border-border/30">
-                          <span className="text-muted-foreground">Current Health Status</span>
-                          <span className="font-medium">{suitInfo?.health_status || '—'}</span>
-                        </div>
-                        <div className="flex justify-between py-1 border-b border-border/30">
-                          <span className="text-muted-foreground">Medication (past 24hrs)</span>
-                          <span className="font-medium">
-                            {suitInfo?.medication_taken === true 
-                              ? `Yes${suitInfo?.medication_details ? ` — ${suitInfo.medication_details}` : ''}` 
-                              : suitInfo?.medication_taken === false ? 'No' : '—'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between py-1 border-b border-border/30">
-                          <span className="text-muted-foreground">Psychological Diagnosis</span>
-                          <span className="font-medium">
-                            {suitInfo?.psychological_disorders === true ? 'Yes' 
-                              : suitInfo?.psychological_disorders === false ? 'No' : '—'}
-                          </span>
-                        </div>
-                        {suitInfo?.pregnant === true && (
-                          <div className="flex justify-between py-1 border-b border-border/30">
-                            <span className="text-muted-foreground">Pregnant</span>
-                            <span className="font-medium text-orange-600">Yes</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                     <div className="border-b border-border/30">
+                       <button
+                         onClick={() => setOpenSection(openSection === 'medical' ? null : 'medical')}
+                         className="w-full flex items-center justify-between py-3 cursor-pointer hover:bg-muted/30 rounded-md px-2 transition-colors"
+                       >
+                         <div className="flex items-center gap-2">
+                           <HeartPulse className="h-4 w-4 text-primary" />
+                           <span className="font-semibold text-sm uppercase tracking-wider text-primary">Medical Suitability</span>
+                         </div>
+                         <ChevronDown className={`h-4 w-4 text-primary transition-transform duration-300 ${openSection === 'medical' ? 'rotate-180' : ''}`} />
+                       </button>
+                       <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openSection === 'medical' ? 'max-h-[400px] opacity-100 pb-4' : 'max-h-0 opacity-0'}`}>
+                         <div className="px-2 space-y-0">
+                           <InfoRow label="Health Status" value={suitInfo?.health_status} />
+                           <InfoRow 
+                             label="Medication (24hrs)" 
+                             value={suitInfo?.medication_taken === true 
+                               ? `Yes${suitInfo?.medication_details ? ` — ${suitInfo.medication_details}` : ''}` 
+                               : suitInfo?.medication_taken === false ? 'No' : undefined} 
+                           />
+                           <InfoRow 
+                             label="Psychological Diagnosis" 
+                             value={suitInfo?.psychological_disorders === true ? 'Yes' 
+                               : suitInfo?.psychological_disorders === false ? 'No' : undefined} 
+                           />
+                           {suitInfo?.pregnant === true && (
+                             <InfoRow label="Pregnant" value="Yes" />
+                           )}
+                         </div>
+                       </div>
+                     </div>
+                   )}
 
                    {/* Family Background - Tree Display */}
                    {filteredFamily.length > 0 && (
