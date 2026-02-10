@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Shield, FileText, User, AlertTriangle, ExternalLink, Download, X, GraduationCap, HeartPulse, Users, UserCheck } from "lucide-react";
 import RiskAnalysisDisplay from "@/components/reports/RiskAnalysisDisplay";
+import { FamilyTreeDisplay } from "@/components/shared/FamilyTreeDisplay";
 import { toast } from "sonner";
 
 interface RiskProfileDialogProps {
@@ -134,10 +135,10 @@ const formatDateSafe = (dateStr: string | null | undefined): string => {
 const InfoRow = ({ label, value, fullWidth }: { label: string; value: string | null | undefined; fullWidth?: boolean }) => {
   if (!value || value === '—') return null;
   return (
-    <div className={`flex justify-between py-1.5 border-b border-border/30 ${fullWidth ? 'col-span-1 sm:col-span-2' : ''}`}>
-      <span className="text-muted-foreground text-sm">{label}</span>
-      <span className="font-medium text-sm text-right max-w-[60%]">{value}</span>
-    </div>
+     <div className={`flex justify-between py-1 ${fullWidth ? 'col-span-1 sm:col-span-2' : ''}`}>
+       <span className="text-muted-foreground text-sm whitespace-nowrap mr-3">{label}</span>
+       <span className="font-medium text-sm text-right">{value}</span>
+     </div>
   );
 };
 
@@ -395,30 +396,33 @@ export const RiskProfileDialog = ({
             </TabsContent>
 
             {/* Personal Info Tab */}
-            <TabsContent value="personal" className="space-y-4 mt-4">
-              <Card className="bg-muted/50">
-                <CardContent className="pt-6 space-y-6">
-                  {/* Personal Information */}
-                  <div>
-                    <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-3 border-b pb-2 flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Personal Information
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                      <InfoRow label="Full Name" value={displayName} />
-                      <InfoRow label="ID Number" value={data?.employee?.id_number || data?.polygraphReport?.id_number} />
-                      <InfoRow label="Contact Number" value={data?.submission?.contact_number || data?.polygraphReport?.contact_number} />
-                      <InfoRow label="Email Address" value={data?.submission?.email || data?.polygraphReport?.email} />
-                    </div>
-                  </div>
+             <TabsContent value="personal" className="space-y-4 mt-4">
+               <Card className="bg-card">
+                 <CardContent className="pt-6 space-y-5">
+                   {/* Personal Information */}
+                   <div>
+                     <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-2 border-b pb-1.5 flex items-center gap-2">
+                       <User className="h-4 w-4" />
+                       Personal Information
+                     </h4>
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-0.5 text-sm">
+                       <InfoRow label="Full Name" value={displayName} />
+                       <InfoRow label="ID Number" value={data?.employee?.id_number || data?.polygraphReport?.id_number} />
+                       <InfoRow label="Contact Number" value={data?.submission?.contact_number || data?.polygraphReport?.contact_number} />
+                       <InfoRow label="Email Address" value={data?.submission?.email || data?.polygraphReport?.email} />
+                       {cleanedPersonalAddress && (
+                         <InfoRow label="Physical Address" value={cleanedPersonalAddress} fullWidth />
+                       )}
+                     </div>
+                   </div>
 
-                  {/* Education */}
-                  {hasEducation && (
-                    <div>
-                      <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-3 border-b pb-2 flex items-center gap-2">
-                        <GraduationCap className="h-4 w-4" />
-                        Education
-                      </h4>
+                   {/* Education */}
+                   {hasEducation && (
+                     <div>
+                       <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-2 border-b pb-1.5 flex items-center gap-2">
+                         <GraduationCap className="h-4 w-4" />
+                         Education
+                       </h4>
                       <div className="space-y-4">
                         {finalSchool.length > 0 && (
                           <div>
@@ -466,14 +470,14 @@ export const RiskProfileDialog = ({
                     </div>
                   )}
 
-                  {/* Medical Suitability */}
-                  {(suitInfo || data?.polygraphReport) && (
-                    <div>
-                      <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-3 border-b pb-2 flex items-center gap-2">
-                        <HeartPulse className="h-4 w-4" />
-                        Medical Suitability
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                   {/* Medical Suitability */}
+                   {(suitInfo || data?.polygraphReport) && (
+                     <div>
+                       <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-2 border-b pb-1.5 flex items-center gap-2">
+                         <HeartPulse className="h-4 w-4" />
+                         Medical Suitability
+                       </h4>
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-0.5 text-sm">
                         <div className="flex justify-between py-1 border-b border-border/30">
                           <span className="text-muted-foreground">Current Health Status</span>
                           <span className="font-medium">{suitInfo?.health_status || '—'}</span>
@@ -503,28 +507,21 @@ export const RiskProfileDialog = ({
                     </div>
                   )}
 
-                  {/* Family Background */}
-                  {filteredFamily.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-3 border-b pb-2 flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        Family Background
-                      </h4>
-                      <div className="space-y-4">
-                        {filteredFamily.map((member: any, idx: number) => (
-                          <PersonCard key={idx} person={member} label="Family" />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                   {/* Family Background - Tree Display */}
+                   {filteredFamily.length > 0 && (
+                     <FamilyTreeDisplay 
+                       familyMembers={filteredFamily} 
+                       candidateName={displayName} 
+                     />
+                   )}
 
-                  {/* Close Friends */}
-                  {friendMembers.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-3 border-b pb-2 flex items-center gap-2">
-                        <UserCheck className="h-4 w-4" />
-                        Close Friends
-                      </h4>
+                   {/* Close Friends */}
+                   {friendMembers.length > 0 && (
+                     <div>
+                       <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-2 border-b pb-1.5 flex items-center gap-2">
+                         <UserCheck className="h-4 w-4" />
+                         Close Friends
+                       </h4>
                       <div className="space-y-4">
                         {friendMembers.map((friend: any, idx: number) => (
                           <PersonCard key={idx} person={friend} label="Close Friend" />
@@ -546,10 +543,10 @@ export const RiskProfileDialog = ({
                     
                     return (
                       <div>
-                        <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-3 border-b pb-2 flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          Next of Kin
-                        </h4>
+                         <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-2 border-b pb-1.5 flex items-center gap-2">
+                           <User className="h-4 w-4" />
+                           Next of Kin
+                         </h4>
                         <div className="space-y-4">
                           {nokFromFamily.map((kin: any, idx: number) => (
                             <PersonCard key={idx} person={kin} label="Next of Kin" showContact />
@@ -600,12 +597,6 @@ export const RiskProfileDialog = ({
                         <div>
                           <p className="text-muted-foreground">Overall Result</p>
                           {getResultBadge(data.polygraphReport.overall_result)}
-                        </div>
-                      )}
-                      {cleanedPersonalAddress && (
-                        <div className="col-span-1 sm:col-span-2">
-                          <p className="text-muted-foreground">Physical Address</p>
-                          <p className="font-medium">{cleanedPersonalAddress}</p>
                         </div>
                       )}
                     </div>
