@@ -377,6 +377,9 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
   const parseExaminationDate = (dateStr: string | null | undefined): string => {
     if (!dateStr) return new Date().toISOString().split("T")[0];
     
+    // Strip leading day-of-week prefix (e.g., "Monday, 13 January 2025" → "13 January 2025")
+    let cleaned = dateStr.replace(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s*/i, '');
+    
     // Try parsing "26 November 2024" or "November 26, 2024" formats first
     const months: Record<string, number> = {
       'january': 0, 'jan': 0, 'february': 1, 'feb': 1, 'march': 2, 'mar': 2,
@@ -386,7 +389,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     };
     
     // "Jan 13, 2025" or "January 13, 2025"
-    const monthFirst = dateStr.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/i);
+    const monthFirst = cleaned.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/i);
     if (monthFirst) {
       const month = months[monthFirst[1].toLowerCase()];
       if (month !== undefined) {
@@ -397,7 +400,7 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     }
     
     // "13 January 2025"
-    const dayFirst = dateStr.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+    const dayFirst = cleaned.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
     if (dayFirst) {
       const month = months[dayFirst[2].toLowerCase()];
       if (month !== undefined) {
@@ -408,12 +411,12 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     }
     
     // Already in YYYY-MM-DD format
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return dateStr;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+      return cleaned;
     }
     
     // Fallback: parse with Date but use LOCAL date parts to avoid timezone shift
-    const parsed = new Date(dateStr);
+    const parsed = new Date(cleaned);
     if (!isNaN(parsed.getTime())) {
       const y = parsed.getFullYear();
       const m = String(parsed.getMonth() + 1).padStart(2, '0');
