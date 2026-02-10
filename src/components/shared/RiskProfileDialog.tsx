@@ -555,7 +555,7 @@ export const RiskProfileDialog = ({
                          <CardContent className="p-6">
                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                              {nokFromFamily.map((kin: any, idx: number) => (
-                               <FamilyMemberNode key={idx} member={kin} />
+                               <FamilyMemberNode key={idx} member={kin} hideArrest />
                              ))}
                            </div>
                          </CardContent>

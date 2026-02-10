@@ -94,7 +94,7 @@ const getRelationshipLevel = (member: FamilyMember): number => {
 
 
 // Detailed view node
-const FamilyMemberNode = ({ member }: { member: FamilyMember }) => {
+const FamilyMemberNode = ({ member, hideArrest }: { member: FamilyMember; hideArrest?: boolean }) => {
   const statusInfo = getCriminalStatusInfo(member);
   const StatusIcon = statusInfo.icon;
   const name = getMemberName(member);
@@ -138,10 +138,10 @@ const FamilyMemberNode = ({ member }: { member: FamilyMember }) => {
             <span>{employment}</span>
           </div>
         )}
-        {arrest && (
+        {!hideArrest && arrest && (
           <p>Arrest Disclosed: <span className={arrest === 'Yes' ? 'text-orange-500 font-medium' : ''}>{arrest}</span></p>
         )}
-        {criminal && !arrest && (
+        {!hideArrest && criminal && !arrest && (
           <p className="line-clamp-2">{criminal}</p>
         )}
       </div>
