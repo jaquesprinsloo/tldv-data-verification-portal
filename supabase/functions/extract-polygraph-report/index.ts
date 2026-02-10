@@ -214,14 +214,37 @@ STEP 2 — STRUCTURE THE DATA EXACTLY LIKE THIS:
     {
       "Name": "Full name of family member",
       "Relationship": "e.g. Father, Mother, Brother, Sister, Stepfather, Stepmother, Stepbrother, Stepsister, Spouse, Wife, Husband, Son, Daughter, Uncle, Aunt, Cousin",
-      "CriminalHistory": "Description of any criminal history, arrests, convictions, or 'Not aware of any criminal history'"
+      "PhysicalAddress": "Residential address of the family member",
+      "EmploymentStatus": "Employed or Unemployed",
+      "Employer": "Name of employer if employed",
+      "Position": "Job title/position if employed",
+      "Duration": "How long employed if applicable",
+      "CriminalHistory": "Description of any criminal history, arrests, convictions, or 'Not aware of any criminal history'",
+      "ArrestDisclosed": "Yes or No - whether any arrest was disclosed"
     }
   ],
   "FriendCriminalHistory": [
     {
       "Name": "Full name of friend",
-      "Relationship": "Friend",
-      "CriminalHistory": "Description of any criminal history, arrests, convictions, or 'Not aware of any criminal history'"
+      "Relationship": "Close Friend",
+      "PhysicalAddress": "Residential address of the friend",
+      "EmploymentStatus": "Employed or Unemployed",
+      "Employer": "Name of employer if employed",
+      "Position": "Job title/position if employed",
+      "Duration": "How long employed if applicable",
+      "CriminalHistory": "Description of any criminal history, arrests, convictions, or 'Not aware of any criminal history'",
+      "ArrestDisclosed": "Yes or No - whether any arrest was disclosed"
+    }
+  ],
+  "NextOfKin": [
+    {
+      "Name": "Full name of next of kin",
+      "Relationship": "Relationship to candidate",
+      "ContactNumber": "Phone number of next of kin",
+      "PhysicalAddress": "Residential address of next of kin",
+      "EmploymentStatus": "Employed or Unemployed",
+      "Employer": "Name of employer if employed",
+      "Position": "Job title/position if employed"
     }
   ],
   "FinancialCircumstances": {
@@ -652,6 +675,7 @@ Return ONLY the JSON object, no additional text.`;
       employmentHistory: extractedData.EmploymentHistory || [],
       familyCriminalHistory: extractedData.FamilyCriminalHistory || [],
       friendCriminalHistory: extractedData.FriendCriminalHistory || [],
+      nextOfKin: extractedData.NextOfKin || [],
       financialCircumstances: extractedData.FinancialCircumstances || {},
       permitsLicensing: extractedData.PermitsLicensing || {},
       personalLawEncounters: extractedData.PersonalLawEncounters || {},

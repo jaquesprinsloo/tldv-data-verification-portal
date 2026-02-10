@@ -373,29 +373,52 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
     return 'inconclusive'; // Default to inconclusive if unclear
   };
 
-  // Parse date string to valid date format
+  // Parse date string to valid date format — avoid timezone shift by using local date parts
   const parseExaminationDate = (dateStr: string | null | undefined): string => {
     if (!dateStr) return new Date().toISOString().split("T")[0];
     
-    // Try to parse various date formats
-    const parsed = new Date(dateStr);
-    if (!isNaN(parsed.getTime())) {
-      return parsed.toISOString().split("T")[0];
+    // Try parsing "26 November 2024" or "November 26, 2024" formats first
+    const months: Record<string, number> = {
+      'january': 0, 'jan': 0, 'february': 1, 'feb': 1, 'march': 2, 'mar': 2,
+      'april': 3, 'apr': 3, 'may': 4, 'june': 5, 'jun': 5, 'july': 6, 'jul': 6,
+      'august': 7, 'aug': 7, 'september': 8, 'sep': 8, 'october': 9, 'oct': 9,
+      'november': 10, 'nov': 10, 'december': 11, 'dec': 11
+    };
+    
+    // "Jan 13, 2025" or "January 13, 2025"
+    const monthFirst = dateStr.match(/(\w+)\s+(\d{1,2}),?\s+(\d{4})/i);
+    if (monthFirst) {
+      const month = months[monthFirst[1].toLowerCase()];
+      if (month !== undefined) {
+        const day = parseInt(monthFirst[2]);
+        const year = parseInt(monthFirst[3]);
+        return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
     }
     
-    // Try parsing "26 November 2024" format
-    const months: Record<string, number> = {
-      'january': 0, 'february': 1, 'march': 2, 'april': 3, 'may': 4, 'june': 5,
-      'july': 6, 'august': 7, 'september': 8, 'october': 9, 'november': 10, 'december': 11
-    };
-    const parts = dateStr.toLowerCase().match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
-    if (parts) {
-      const day = parseInt(parts[1]);
-      const month = months[parts[2]];
-      const year = parseInt(parts[3]);
+    // "13 January 2025"
+    const dayFirst = dateStr.match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
+    if (dayFirst) {
+      const month = months[dayFirst[2].toLowerCase()];
       if (month !== undefined) {
-        return new Date(year, month, day).toISOString().split("T")[0];
+        const day = parseInt(dayFirst[1]);
+        const year = parseInt(dayFirst[3]);
+        return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       }
+    }
+    
+    // Already in YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return dateStr;
+    }
+    
+    // Fallback: parse with Date but use LOCAL date parts to avoid timezone shift
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+      const y = parsed.getFullYear();
+      const m = String(parsed.getMonth() + 1).padStart(2, '0');
+      const d = String(parsed.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
     }
     
     return new Date().toISOString().split("T")[0];
@@ -723,50 +746,280 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                       <CardHeader>
                         <CardTitle className="text-lg">Extracted Candidate Data</CardTitle>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="space-y-6">
+                        {/* Personal Information */}
                         {extractedData.candidate && (
                           <div>
-                            <h4 className="font-medium mb-2">Candidate Information</h4>
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                              <p><span className="text-muted-foreground">Name:</span> {extractedData.candidate.firstName} {extractedData.candidate.lastName}</p>
-                              <p><span className="text-muted-foreground">ID Number:</span> {extractedData.candidate.idNumber || 'N/A'}</p>
-                              <p><span className="text-muted-foreground">Contact:</span> {extractedData.candidate.contactNumber || 'N/A'}</p>
-                              <p><span className="text-muted-foreground">Email:</span> {extractedData.candidate.email || 'N/A'}</p>
-                              <p><span className="text-muted-foreground">Position:</span> {extractedData.candidate.positionApplyingFor || 'N/A'}</p>
-                              <p><span className="text-muted-foreground">Address:</span> {extractedData.candidate.physicalAddress || 'N/A'}</p>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {extractedData.examination && (
-                          <div>
-                            <h4 className="font-medium mb-2">Examination Details</h4>
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                              <p><span className="text-muted-foreground">Date:</span> {extractedData.examination.date || 'N/A'}</p>
-                              <p><span className="text-muted-foreground">Examiner:</span> {extractedData.examination.examinerName || 'N/A'}</p>
+                            <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-3 border-b pb-2">Personal Information</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                              <div className="flex justify-between py-1 border-b border-border/30">
+                                <span className="text-muted-foreground">Full Name</span>
+                                <span className="font-medium">{extractedData.candidate.firstName} {extractedData.candidate.lastName}</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-border/30">
+                                <span className="text-muted-foreground">ID Number</span>
+                                <span className="font-medium">{extractedData.candidate.idNumber || '—'}</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-border/30">
+                                <span className="text-muted-foreground">Contact Number</span>
+                                <span className="font-medium">{extractedData.candidate.contactNumber || '—'}</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-border/30">
+                                <span className="text-muted-foreground">Email Address</span>
+                                <span className="font-medium">{extractedData.candidate.email || '—'}</span>
+                              </div>
                             </div>
                           </div>
                         )}
 
-                        {extractedData.result && (
+                        {/* Education */}
+                        {extractedData.educationHistory && (
                           <div>
-                            <h4 className="font-medium mb-2">Result</h4>
-                            <p className="text-sm">
-                              <span className="text-muted-foreground">Overall Result:</span>{" "}
-                              <Badge className={
-                                extractedData.result.overallResult?.toLowerCase().includes('no significant') || 
-                                extractedData.result.overallResult?.toLowerCase() === 'passed' ||
-                                extractedData.result.overallResult?.toLowerCase().includes('nsr')
-                                  ? 'bg-green-500 text-white hover:bg-green-600' :
-                                extractedData.result.overallResult?.toLowerCase().includes('significant reaction') || 
-                                extractedData.result.overallResult?.toLowerCase() === 'failed' ||
-                                extractedData.result.overallResult?.toLowerCase().includes('deception indicated')
-                                  ? 'bg-red-500 text-white hover:bg-red-600' 
-                                  : 'bg-yellow-500 text-white hover:bg-yellow-600'
-                              }>
-                                {extractedData.result.overallResult || 'N/A'}
-                              </Badge>
-                            </p>
+                            <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-3 border-b pb-2">Education</h4>
+                            {(() => {
+                              const eduArr = Array.isArray(extractedData.educationHistory) ? extractedData.educationHistory : [extractedData.educationHistory];
+                              const schoolEntries = eduArr.filter((e: any) => {
+                                const inst = (e.Institution || e.institution || e.School || e.school || '').toLowerCase();
+                                const qual = (e.Qualification || e.qualification || e.Degree || e.degree || '').toLowerCase();
+                                return inst.includes('school') || inst.includes('high') || inst.includes('primary') || qual.includes('grade') || qual.includes('matric');
+                              });
+                              const tertiaryEntries = eduArr.filter((e: any) => {
+                                const inst = (e.Institution || e.institution || e.School || e.school || '').toLowerCase();
+                                const qual = (e.Qualification || e.qualification || e.Degree || e.degree || '').toLowerCase();
+                                return !inst.includes('school') && !inst.includes('high') && !inst.includes('primary') && !qual.includes('grade') && !qual.includes('matric');
+                              });
+                              // If no distinction, treat all as school if only one or try best effort
+                              const finalSchool = schoolEntries.length > 0 ? schoolEntries : (tertiaryEntries.length === 0 ? eduArr : []);
+                              const finalTertiary = tertiaryEntries.length > 0 ? tertiaryEntries : [];
+                              return (
+                                <div className="space-y-4">
+                                  {finalSchool.length > 0 && (
+                                    <div>
+                                      <p className="text-xs font-medium text-muted-foreground uppercase mb-2">School</p>
+                                      {finalSchool.map((edu: any, idx: number) => (
+                                        <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-1 text-sm mb-2">
+                                          <div className="flex justify-between py-1 border-b border-border/30">
+                                            <span className="text-muted-foreground">School Name</span>
+                                            <span className="font-medium">{edu.Institution || edu.institution || edu.School || edu.school || '—'}</span>
+                                          </div>
+                                          <div className="flex justify-between py-1 border-b border-border/30">
+                                            <span className="text-muted-foreground">Last Grade</span>
+                                            <span className="font-medium">{edu.Qualification || edu.qualification || edu.Degree || edu.degree || edu.LastGrade || edu.lastGrade || '—'}</span>
+                                          </div>
+                                          <div className="flex justify-between py-1 border-b border-border/30">
+                                            <span className="text-muted-foreground">Year Completed</span>
+                                            <span className="font-medium">{edu.Year || edu.year || edu.YearCompleted || edu.yearCompleted || edu.Period || edu.period || '—'}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {finalTertiary.length > 0 && (
+                                    <div>
+                                      <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Tertiary Education</p>
+                                      {finalTertiary.map((edu: any, idx: number) => (
+                                        <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-1 text-sm mb-2">
+                                          <div className="flex justify-between py-1 border-b border-border/30">
+                                            <span className="text-muted-foreground">Institution</span>
+                                            <span className="font-medium">{edu.Institution || edu.institution || edu.School || edu.school || '—'}</span>
+                                          </div>
+                                          <div className="flex justify-between py-1 border-b border-border/30">
+                                            <span className="text-muted-foreground">Qualification</span>
+                                            <span className="font-medium">{edu.Qualification || edu.qualification || edu.Degree || edu.degree || '—'}</span>
+                                          </div>
+                                          <div className="flex justify-between py-1 border-b border-border/30">
+                                            <span className="text-muted-foreground">Year Completed</span>
+                                            <span className="font-medium">{edu.Year || edu.year || edu.YearCompleted || edu.yearCompleted || edu.Period || edu.period || '—'}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+
+                        {/* Medical Suitability */}
+                        {extractedData.suitability && (
+                          <div>
+                            <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-3 border-b pb-2">Medical Suitability</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                              <div className="flex justify-between py-1 border-b border-border/30">
+                                <span className="text-muted-foreground">Current Health Status</span>
+                                <span className="font-medium">{extractedData.suitability.healthStatus || '—'}</span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-border/30">
+                                <span className="text-muted-foreground">Medication (past 24hrs)</span>
+                                <span className="font-medium">
+                                  {extractedData.suitability.medicationTaken === true ? `Yes${extractedData.suitability.medicationDetails ? ` — ${extractedData.suitability.medicationDetails}` : ''}` :
+                                   extractedData.suitability.medicationTaken === false ? 'No' : '—'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between py-1 border-b border-border/30">
+                                <span className="text-muted-foreground">Psychological Diagnosis</span>
+                                <span className="font-medium">
+                                  {extractedData.suitability.psychologicalDisorders === true ? 'Yes' :
+                                   extractedData.suitability.psychologicalDisorders === false ? 'No' : '—'}
+                                </span>
+                              </div>
+                              {extractedData.suitability.pregnant === true && (
+                                <div className="flex justify-between py-1 border-b border-border/30">
+                                  <span className="text-muted-foreground">Pregnant</span>
+                                  <span className="font-medium text-orange-600">Yes</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Family Background */}
+                        {extractedData.familyCriminalHistory && Array.isArray(extractedData.familyCriminalHistory) && extractedData.familyCriminalHistory.length > 0 && (
+                          <div>
+                            <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-3 border-b pb-2">Family Background</h4>
+                            <div className="space-y-4">
+                              {extractedData.familyCriminalHistory
+                                .filter((m: any) => {
+                                  const rel = (m.Relationship || m.relationship || '').toLowerCase();
+                                  return rel.includes('father') || rel.includes('mother') || rel.includes('brother') || rel.includes('sister');
+                                })
+                                .map((member: any, idx: number) => (
+                                <div key={idx} className="p-4 rounded-lg border bg-background">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Badge variant="outline" className="text-xs">{member.Relationship || member.relationship || 'Family'}</Badge>
+                                    <span className="font-semibold text-sm">{member.Name || member.name || 'Unknown'}</span>
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm">
+                                    {(member.PhysicalAddress || member.physicalAddress) && (
+                                      <div className="flex justify-between py-1 border-b border-border/30">
+                                        <span className="text-muted-foreground">Address</span>
+                                        <span className="font-medium text-right max-w-[60%]">{member.PhysicalAddress || member.physicalAddress}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between py-1 border-b border-border/30">
+                                      <span className="text-muted-foreground">Employment</span>
+                                      <span className="font-medium">
+                                        {(() => {
+                                          const status = (member.EmploymentStatus || member.employmentStatus || '').toLowerCase();
+                                          if (status.includes('unemploy')) return 'Unemployed';
+                                          const employer = member.Employer || member.employer || '';
+                                          const position = member.Position || member.position || '';
+                                          const duration = member.Duration || member.duration || '';
+                                          const parts = [employer, position, duration].filter(Boolean);
+                                          return parts.length > 0 ? parts.join(' — ') : (status || '—');
+                                        })()}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between py-1 border-b border-border/30">
+                                      <span className="text-muted-foreground">Arrest Disclosed</span>
+                                      <span className="font-medium">
+                                        {(() => {
+                                          const arrest = (member.ArrestDisclosed || member.arrestDisclosed || '').toLowerCase();
+                                          const criminal = (member.CriminalHistory || member.criminalHistory || '').toLowerCase();
+                                          if (arrest === 'yes' || criminal.includes('arrest') || criminal.includes('convict')) return 'Yes';
+                                          if (arrest === 'no' || criminal.includes('not aware') || criminal.includes('none') || criminal.includes('no criminal')) return 'No';
+                                          return '—';
+                                        })()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Close Friends */}
+                        {extractedData.friendCriminalHistory && Array.isArray(extractedData.friendCriminalHistory) && extractedData.friendCriminalHistory.length > 0 && (
+                          <div>
+                            <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-3 border-b pb-2">Close Friends</h4>
+                            <div className="space-y-4">
+                              {extractedData.friendCriminalHistory.map((friend: any, idx: number) => (
+                                <div key={idx} className="p-4 rounded-lg border bg-background">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Badge variant="outline" className="text-xs">Close Friend</Badge>
+                                    <span className="font-semibold text-sm">{friend.Name || friend.name || 'Unknown'}</span>
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm">
+                                    {(friend.PhysicalAddress || friend.physicalAddress) && (
+                                      <div className="flex justify-between py-1 border-b border-border/30">
+                                        <span className="text-muted-foreground">Address</span>
+                                        <span className="font-medium text-right max-w-[60%]">{friend.PhysicalAddress || friend.physicalAddress}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between py-1 border-b border-border/30">
+                                      <span className="text-muted-foreground">Employment</span>
+                                      <span className="font-medium">
+                                        {(() => {
+                                          const status = (friend.EmploymentStatus || friend.employmentStatus || '').toLowerCase();
+                                          if (status.includes('unemploy')) return 'Unemployed';
+                                          const employer = friend.Employer || friend.employer || '';
+                                          const position = friend.Position || friend.position || '';
+                                          const duration = friend.Duration || friend.duration || '';
+                                          const parts = [employer, position, duration].filter(Boolean);
+                                          return parts.length > 0 ? parts.join(' — ') : (status || '—');
+                                        })()}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between py-1 border-b border-border/30">
+                                      <span className="text-muted-foreground">Arrest Disclosed</span>
+                                      <span className="font-medium">
+                                        {(() => {
+                                          const arrest = (friend.ArrestDisclosed || friend.arrestDisclosed || '').toLowerCase();
+                                          const criminal = (friend.CriminalHistory || friend.criminalHistory || '').toLowerCase();
+                                          if (arrest === 'yes' || criminal.includes('arrest') || criminal.includes('convict')) return 'Yes';
+                                          if (arrest === 'no' || criminal.includes('not aware') || criminal.includes('none') || criminal.includes('no criminal')) return 'No';
+                                          return '—';
+                                        })()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Next of Kin */}
+                        {extractedData.nextOfKin && Array.isArray(extractedData.nextOfKin) && extractedData.nextOfKin.length > 0 && (
+                          <div>
+                            <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-3 border-b pb-2">Next of Kin</h4>
+                            <div className="space-y-4">
+                              {extractedData.nextOfKin.map((kin: any, idx: number) => (
+                                <div key={idx} className="p-4 rounded-lg border bg-background">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Badge variant="outline" className="text-xs">{kin.Relationship || kin.relationship || 'Next of Kin'}</Badge>
+                                    <span className="font-semibold text-sm">{kin.Name || kin.name || 'Unknown'}</span>
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-sm">
+                                    <div className="flex justify-between py-1 border-b border-border/30">
+                                      <span className="text-muted-foreground">Contact Number</span>
+                                      <span className="font-medium">{kin.ContactNumber || kin.contactNumber || '—'}</span>
+                                    </div>
+                                    {(kin.PhysicalAddress || kin.physicalAddress) && (
+                                      <div className="flex justify-between py-1 border-b border-border/30">
+                                        <span className="text-muted-foreground">Address</span>
+                                        <span className="font-medium text-right max-w-[60%]">{kin.PhysicalAddress || kin.physicalAddress}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between py-1 border-b border-border/30">
+                                      <span className="text-muted-foreground">Employment</span>
+                                      <span className="font-medium">
+                                        {(() => {
+                                          const status = (kin.EmploymentStatus || kin.employmentStatus || '').toLowerCase();
+                                          if (status.includes('unemploy')) return 'Unemployed';
+                                          const employer = kin.Employer || kin.employer || '';
+                                          const position = kin.Position || kin.position || '';
+                                          const parts = [employer, position].filter(Boolean);
+                                          return parts.length > 0 ? parts.join(' — ') : (status || '—');
+                                        })()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
 
