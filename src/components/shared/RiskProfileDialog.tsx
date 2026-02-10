@@ -39,6 +39,7 @@ interface ProfileData {
   admissions: any[];
   suitability: any;
   pdfUrl: string | null;
+  pdfFileName: string | null;
 }
 
 // PDF Preview Modal - with anti-screenshot protections
@@ -46,12 +47,14 @@ const PdfPreviewModal = ({
   open, 
   onClose, 
   pdfUrl,
-  reportId 
+  reportId,
+  fileName 
 }: { 
   open: boolean; 
   onClose: () => void; 
   pdfUrl: string;
   reportId?: string;
+  fileName?: string;
 }) => {
   useEffect(() => {
     if (open && reportId) {
@@ -122,9 +125,12 @@ const PdfPreviewModal = ({
         </div>
         <div className="flex-1 w-full">
           <iframe
-            src={`${pdfUrl}#toolbar=0&navpanes=0`}
+            src={fileName?.toLowerCase().endsWith('.docx') || fileName?.toLowerCase().endsWith('.doc')
+              ? `https://docs.google.com/gview?url=${encodeURIComponent(pdfUrl)}&embedded=true`
+              : `${pdfUrl}#toolbar=0&navpanes=0`
+            }
             className="w-full h-full border-0"
-            title="PDF Preview"
+            title="Document Preview"
           />
         </div>
       </div>
@@ -133,7 +139,7 @@ const PdfPreviewModal = ({
 };
 
 // Secure PDF button with download tracking and password gate
-const ViewOriginalPdfButton = ({ pdfUrl, reportId }: { pdfUrl: string | null; reportId?: string }) => {
+const ViewOriginalPdfButton = ({ pdfUrl, reportId, fileName }: { pdfUrl: string | null; reportId?: string; fileName?: string }) => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -165,7 +171,7 @@ const ViewOriginalPdfButton = ({ pdfUrl, reportId }: { pdfUrl: string | null; re
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'polygraph-report.pdf';
+      a.download = fileName || 'polygraph-report.pdf';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -237,6 +243,7 @@ const ViewOriginalPdfButton = ({ pdfUrl, reportId }: { pdfUrl: string | null; re
         onClose={() => setPreviewOpen(false)} 
         pdfUrl={pdfUrl}
         reportId={reportId}
+        fileName={fileName}
       />
 
       {/* Password Dialog for re-downloads */}
@@ -437,10 +444,16 @@ export const RiskProfileDialog = ({
 
       // Generate signed URL for the PDF if available
       let pdfUrl: string | null = null;
+      let pdfFileName: string | null = null;
       if (polygraphReport?.report_pdf_url) {
-        const storagePath = polygraphReport.report_pdf_url.includes('/polygraph-reports/')
-          ? polygraphReport.report_pdf_url.split('/polygraph-reports/').pop()
-          : polygraphReport.report_pdf_url;
+        const rawUrl = polygraphReport.report_pdf_url;
+        // Extract original filename from the URL
+        const urlPath = rawUrl.split('?')[0]; // remove query params
+        pdfFileName = decodeURIComponent(urlPath.split('/').pop() || 'polygraph-report');
+
+        const storagePath = rawUrl.includes('/polygraph-reports/')
+          ? rawUrl.split('/polygraph-reports/').pop()
+          : rawUrl;
         
         if (storagePath) {
           const { data: signedData } = await supabase.storage
@@ -459,6 +472,7 @@ export const RiskProfileDialog = ({
         admissions,
         suitability,
         pdfUrl,
+        pdfFileName,
       });
     } catch (error) {
       console.error("Error fetching profile data:", error);
@@ -789,7 +803,7 @@ export const RiskProfileDialog = ({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ViewOriginalPdfButton pdfUrl={data.pdfUrl} reportId={data.polygraphReport?.id} />
+                    <ViewOriginalPdfButton pdfUrl={data.pdfUrl} reportId={data.polygraphReport?.id} fileName={data.pdfFileName || undefined} />
                   </CardContent>
                 </Card>
               )}
