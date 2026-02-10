@@ -637,91 +637,137 @@ const SubmissionDetailDialog = ({ submission, open, onOpenChange, onUpdate, read
               Location Verification
             </h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              {/* Submission Location (POPIA) */}
-              <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
-                <span className="text-muted-foreground font-medium">Submission Location</span>
-                <p className="text-xs text-muted-foreground">Where the employee was when completing their submission</p>
-                {popiaCoords ? (
-                  <>
-                    <p className="font-medium">
-                      {popiaCoords.lat.toFixed(6)}, {popiaCoords.lng.toFixed(6)}
-                    </p>
-                    <button 
-                      onClick={() => window.open(`https://www.google.com/maps?q=${popiaCoords.lat},${popiaCoords.lng}`, '_blank', 'noopener,noreferrer')}
-                      className="text-primary text-xs underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
-                    >
-                      View on Google Maps
-                    </button>
-                  </>
-                ) : submission.geolocation_lat && submission.geolocation_lng ? (
-                  <>
-                    <p className="font-medium">
-                      {submission.geolocation_lat}, {submission.geolocation_lng}
-                    </p>
-                    <button 
-                      onClick={() => window.open(`https://www.google.com/maps?q=${submission.geolocation_lat},${submission.geolocation_lng}`, '_blank', 'noopener,noreferrer')}
-                      className="text-primary text-xs underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
-                    >
-                      View on Google Maps
-                    </button>
-                  </>
-                ) : (
-                  <p className="text-muted-foreground italic">Location not captured</p>
-                )}
-              </div>
-
-              {/* Address Coordinates */}
-              <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
-                <span className="text-muted-foreground font-medium">Provided Address Location</span>
-                <p className="text-xs text-muted-foreground">Geocoded coordinates of the supplied address</p>
-                {geocodingAddress ? (
-                  <p className="text-muted-foreground italic">Geocoding address...</p>
-                ) : addressCoords ? (
-                  <>
-                    <p className="font-medium">
-                      {addressCoords.lat.toFixed(6)}, {addressCoords.lng.toFixed(6)}
-                    </p>
-                    <button 
-                      onClick={() => window.open(`https://www.google.com/maps?q=${addressCoords.lat},${addressCoords.lng}`, '_blank', 'noopener,noreferrer')}
-                      className="text-primary text-xs underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
-                    >
-                      View on Google Maps
-                    </button>
-                  </>
-                ) : (
-                  <p className="text-muted-foreground italic">Could not geocode address</p>
-                )}
-              </div>
-            </div>
-
-            {/* Distance Calculation */}
-            {calculatedDistance !== null && popiaCoords && addressCoords && (
-              <div className="p-3 border rounded-lg bg-background">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-muted-foreground font-medium">Distance Between Locations</span>
-                    <p className="text-xs text-muted-foreground">Straight-line distance from submission location to provided address</p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-lg font-bold ${calculatedDistance > 500 ? 'text-destructive' : calculatedDistance > 200 ? 'text-orange-500' : 'text-green-600'}`}>
-                      {calculatedDistance >= 1000 
-                        ? `${(calculatedDistance / 1000).toFixed(2)} km`
-                        : `${Math.round(calculatedDistance)} m`}
-                    </p>
-                    {calculatedDistance > 500 && (
-                      <p className="text-xs text-destructive">Significant distance detected</p>
-                    )}
-                  </div>
+            <div className="relative text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-0 items-stretch">
+                {/* Submission Location (POPIA) */}
+                <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground font-medium">Submission Location</span>
+                  <p className="text-xs text-muted-foreground">Where the employee was when completing their submission</p>
+                  {popiaCoords ? (
+                    <>
+                      <p className="font-medium">
+                        {popiaCoords.lat.toFixed(6)}, {popiaCoords.lng.toFixed(6)}
+                      </p>
+                      <button 
+                        onClick={() => window.open(`https://www.google.com/maps?q=${popiaCoords.lat},${popiaCoords.lng}`, '_blank', 'noopener,noreferrer')}
+                        className="text-primary text-xs underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+                      >
+                        View on Google Maps
+                      </button>
+                    </>
+                  ) : submission.geolocation_lat && submission.geolocation_lng ? (
+                    <>
+                      <p className="font-medium">
+                        {submission.geolocation_lat}, {submission.geolocation_lng}
+                      </p>
+                      <button 
+                        onClick={() => window.open(`https://www.google.com/maps?q=${submission.geolocation_lat},${submission.geolocation_lng}`, '_blank', 'noopener,noreferrer')}
+                        className="text-primary text-xs underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+                      >
+                        View on Google Maps
+                      </button>
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground italic">Location not captured</p>
+                  )}
                 </div>
-                <button 
-                  onClick={() => window.open(`https://www.google.com/maps/dir/${popiaCoords.lat},${popiaCoords.lng}/${addressCoords.lat},${addressCoords.lng}`, '_blank', 'noopener,noreferrer')}
-                  className="text-primary text-xs underline inline-flex items-center gap-1 mt-2 cursor-pointer bg-transparent border-none p-0"
-                >
-                  View route on Google Maps
-                </button>
+
+                {/* Distance Connector */}
+                <div className="hidden md:flex flex-col items-center justify-center px-3 min-w-[100px]">
+                  <div className="w-px h-4 bg-border" />
+                  <div className="flex items-center gap-1">
+                    <div className="w-8 h-px bg-border" />
+                    {calculatedDistance !== null ? (
+                      <div 
+                        className={`px-2 py-1 rounded-full text-xs font-bold whitespace-nowrap border ${
+                          calculatedDistance > 500 
+                            ? 'bg-destructive/10 text-destructive border-destructive/30' 
+                            : calculatedDistance > 200 
+                              ? 'bg-orange-50 text-orange-600 border-orange-200' 
+                              : 'bg-green-50 text-green-700 border-green-200'
+                        }`}
+                      >
+                        {calculatedDistance >= 1000 
+                          ? `${(calculatedDistance / 1000).toFixed(1)} km`
+                          : `${Math.round(calculatedDistance)} m`}
+                      </div>
+                    ) : geocodingAddress ? (
+                      <div className="px-2 py-1 rounded-full text-xs text-muted-foreground border bg-muted/50 whitespace-nowrap">
+                        ...
+                      </div>
+                    ) : (
+                      <div className="px-2 py-1 rounded-full text-xs text-muted-foreground border bg-muted/50 whitespace-nowrap">
+                        N/A
+                      </div>
+                    )}
+                    <div className="w-8 h-px bg-border" />
+                  </div>
+                  <div className="w-px h-4 bg-border" />
+                  {calculatedDistance !== null && popiaCoords && addressCoords && (
+                    <button 
+                      onClick={() => window.open(`https://www.google.com/maps/dir/${popiaCoords.lat},${popiaCoords.lng}/${addressCoords.lat},${addressCoords.lng}`, '_blank', 'noopener,noreferrer')}
+                      className="text-primary text-[10px] underline mt-1 cursor-pointer bg-transparent border-none p-0 whitespace-nowrap"
+                    >
+                      View route
+                    </button>
+                  )}
+                </div>
+
+                {/* Mobile distance indicator */}
+                {calculatedDistance !== null && (
+                  <div className="flex md:hidden items-center justify-center py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-12 h-px bg-border" />
+                      <div 
+                        className={`px-2 py-1 rounded-full text-xs font-bold border ${
+                          calculatedDistance > 500 
+                            ? 'bg-destructive/10 text-destructive border-destructive/30' 
+                            : calculatedDistance > 200 
+                              ? 'bg-orange-50 text-orange-600 border-orange-200' 
+                              : 'bg-green-50 text-green-700 border-green-200'
+                        }`}
+                      >
+                        {calculatedDistance >= 1000 
+                          ? `${(calculatedDistance / 1000).toFixed(1)} km apart`
+                          : `${Math.round(calculatedDistance)} m apart`}
+                      </div>
+                      <div className="w-12 h-px bg-border" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Address Coordinates */}
+                <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                  <span className="text-muted-foreground font-medium">Provided Address Location</span>
+                  <p className="text-xs text-muted-foreground">Geocoded coordinates of the supplied address</p>
+                  {geocodingAddress ? (
+                    <p className="text-muted-foreground italic">Geocoding address...</p>
+                  ) : addressCoords ? (
+                    <>
+                      <p className="font-medium">
+                        {addressCoords.lat.toFixed(6)}, {addressCoords.lng.toFixed(6)}
+                      </p>
+                      <button 
+                        onClick={() => window.open(`https://www.google.com/maps?q=${addressCoords.lat},${addressCoords.lng}`, '_blank', 'noopener,noreferrer')}
+                        className="text-primary text-xs underline inline-flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+                      >
+                        View on Google Maps
+                      </button>
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground italic">Could not geocode address</p>
+                  )}
+                </div>
               </div>
-            )}
+
+              {/* Significant distance warning */}
+              {calculatedDistance !== null && calculatedDistance > 500 && (
+                <div className="flex items-center gap-2 mt-3 p-2 bg-destructive/10 rounded text-xs text-destructive">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                  <span>Significant distance detected between submission location and provided address</span>
+                </div>
+              )}
+            </div>
 
             {submission.flag_reason && (
               <div className="bg-destructive/10 p-3 rounded">

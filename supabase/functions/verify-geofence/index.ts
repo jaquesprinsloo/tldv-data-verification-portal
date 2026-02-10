@@ -7,8 +7,8 @@ const corsHeaders = {
 
 interface GeofenceRequest {
   address: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 // Haversine formula to calculate distance between two coordinates
@@ -71,6 +71,25 @@ const handler = async (req: Request): Promise<Response> => {
     const addressLng = addressLocation.lng;
 
     console.log("Address coordinates:", addressLat, addressLng);
+
+    // If no user coordinates provided, return geocode-only result
+    if (latitude === undefined || latitude === null || longitude === undefined || longitude === null) {
+      return new Response(
+        JSON.stringify({
+          verified: null,
+          flagged: null,
+          distance: null,
+          addressCoordinates: {
+            lat: addressLat,
+            lng: addressLng,
+          },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
 
     // Calculate distance between user location and address
     const distance = calculateDistance(latitude, longitude, addressLat, addressLng);
