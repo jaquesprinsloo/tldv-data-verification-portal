@@ -13,6 +13,8 @@ import PolygraphCandidates from "@/components/admin/polygraph/PolygraphCandidate
 import { User } from "@supabase/supabase-js";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { FileCheck, UserCheck, X } from "lucide-react";
 
 type EmployeeFilterType = "all" | "verified" | "flagged" | "pending";
 
@@ -25,6 +27,10 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("employees");
   const [employeeFilter, setEmployeeFilter] = useState<EmployeeFilterType>("all");
   const [pendingCandidatesCount, setPendingCandidatesCount] = useState(0);
+  const [approvedCandidates, setApprovedCandidates] = useState<any[]>([]);
+  const [pendingSubmissions, setPendingSubmissions] = useState<any[]>([]);
+  const [showApprovedAlert, setShowApprovedAlert] = useState(false);
+  const [showSubmissionsAlert, setShowSubmissionsAlert] = useState(false);
   const employeeTabRef = useRef<HTMLDivElement>(null);
 
   // Fetch pending candidates count
@@ -38,6 +44,36 @@ const AdminDashboard = () => {
     };
     fetchPendingCount();
   }, [activeTab]);
+
+  // Fetch approved polygraph candidates and pending submissions for notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      // Approved polygraph candidates awaiting acceptance/rejection
+      const { data: candidates } = await supabase
+        .from("polygraph_candidates")
+        .select("first_name, last_name, approved_at")
+        .eq("status", "approved")
+        .order("approved_at", { ascending: false });
+
+      if (candidates && candidates.length > 0) {
+        setApprovedCandidates(candidates);
+        setShowApprovedAlert(true);
+      }
+
+      // Pending employee submissions for review
+      const { data: submissions } = await supabase
+        .from("submissions")
+        .select("first_name, last_name, submission_timestamp")
+        .eq("status", "pending")
+        .order("submission_timestamp", { ascending: false });
+
+      if (submissions && submissions.length > 0) {
+        setPendingSubmissions(submissions);
+        setShowSubmissionsAlert(true);
+      }
+    };
+    fetchNotifications();
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -115,6 +151,59 @@ const AdminDashboard = () => {
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
         <StatsOverview onSelectFilter={handleStatClick} activeFilter={employeeFilter} />
         
+        {/* Notification Alerts */}
+        {showApprovedAlert && approvedCandidates.length > 0 && (
+          <Alert className="border-green-600 bg-green-600/10 relative">
+            <FileCheck className="h-4 w-4 text-green-600" />
+            <button
+              onClick={() => setShowApprovedAlert(false)}
+              className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <AlertTitle className="text-green-600 font-semibold">
+              {approvedCandidates.length} Reviewed Polygraph Report{approvedCandidates.length > 1 ? 's' : ''} Uploaded
+            </AlertTitle>
+            <AlertDescription className="mt-1 text-sm">
+              The following reviewed reports have been uploaded and are awaiting your acceptance or rejection:
+              <ul className="list-disc list-inside mt-1 space-y-0.5">
+                {approvedCandidates.slice(0, 5).map((c, i) => (
+                  <li key={i} className="text-foreground">{c.first_name} {c.last_name}</li>
+                ))}
+                {approvedCandidates.length > 5 && (
+                  <li className="text-muted-foreground">...and {approvedCandidates.length - 5} more</li>
+                )}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {showSubmissionsAlert && pendingSubmissions.length > 0 && (
+          <Alert className="border-yellow-600 bg-yellow-600/10 relative">
+            <UserCheck className="h-4 w-4 text-yellow-600" />
+            <button
+              onClick={() => setShowSubmissionsAlert(false)}
+              className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <AlertTitle className="text-yellow-600 font-semibold">
+              {pendingSubmissions.length} Employee{pendingSubmissions.length > 1 ? 's' : ''} Submitted Profile{pendingSubmissions.length > 1 ? 's' : ''} for Review
+            </AlertTitle>
+            <AlertDescription className="mt-1 text-sm">
+              The following employees have submitted their profile details and are awaiting review:
+              <ul className="list-disc list-inside mt-1 space-y-0.5">
+                {pendingSubmissions.slice(0, 5).map((s, i) => (
+                  <li key={i} className="text-foreground">{s.first_name} {s.last_name}</li>
+                ))}
+                {pendingSubmissions.length > 5 && (
+                  <li className="text-muted-foreground">...and {pendingSubmissions.length - 5} more</li>
+                )}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full max-w-5xl grid-cols-6">
             <TabsTrigger value="employees">Employees</TabsTrigger>
