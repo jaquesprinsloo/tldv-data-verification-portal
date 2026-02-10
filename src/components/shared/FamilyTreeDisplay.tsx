@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, User, Heart, AlertTriangle, CheckCircle, HelpCircle, Maximize2, Minimize2, MapPin, Briefcase } from "lucide-react";
+import { Users, User, Heart, AlertTriangle, CheckCircle, HelpCircle, Maximize2, Minimize2, MapPin, Briefcase, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -72,7 +72,7 @@ const getCriminalStatusInfo = (member: FamilyMember) => {
     return { status: "unknown", icon: HelpCircle, color: "text-muted-foreground", bgColor: "bg-muted/50 border-muted" };
   }
   const lower = history.toLowerCase();
-  if (lower.includes("not aware") || lower.includes("no criminal") || lower.includes("never") || lower.includes("none")) {
+  if (lower.includes("not aware") || lower.includes("no criminal") || lower.includes("never") || lower.includes("none") || lower.includes("not disclosed")) {
     return { status: "clear", icon: CheckCircle, color: "text-green-500", bgColor: "bg-green-500/10 border-green-500/30" };
   }
   if (lower.includes("arrested") || lower.includes("convicted") || lower.includes("criminal")) {
@@ -100,6 +100,7 @@ const FamilyMemberNode = ({ member }: { member: FamilyMember }) => {
   const name = getMemberName(member);
   const relationship = getMemberRelationship(member);
   const address = getMemberAddress(member);
+  const contact = getMemberContact(member);
   const employment = getMemberEmployment(member);
   const arrest = getMemberArrest(member);
   const criminal = getMemberCriminalHistory(member);
@@ -123,6 +124,12 @@ const FamilyMemberNode = ({ member }: { member: FamilyMember }) => {
           <div className="flex items-start gap-1">
             <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
             <span>{address}</span>
+          </div>
+        )}
+        {contact && (
+          <div className="flex items-start gap-1">
+            <Phone className="h-3 w-3 mt-0.5 flex-shrink-0" />
+            <span>{contact}</span>
           </div>
         )}
         {employment && (
