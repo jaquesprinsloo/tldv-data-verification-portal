@@ -279,6 +279,21 @@ export const RiskProfileDialog = ({
         suitability = suitabilityResult.data;
       }
 
+      // Generate signed URL for the PDF if available
+      let pdfUrl: string | null = null;
+      if (polygraphReport?.report_pdf_url) {
+        const storagePath = polygraphReport.report_pdf_url.includes('/polygraph-reports/')
+          ? polygraphReport.report_pdf_url.split('/polygraph-reports/').pop()
+          : polygraphReport.report_pdf_url;
+        
+        if (storagePath) {
+          const { data: signedData } = await supabase.storage
+            .from("polygraph-reports")
+            .createSignedUrl(decodeURIComponent(storagePath), 3600);
+          pdfUrl = signedData?.signedUrl || null;
+        }
+      }
+
       setData({
         employee,
         submission,
@@ -287,7 +302,7 @@ export const RiskProfileDialog = ({
         examQuestions,
         admissions,
         suitability,
-        pdfUrl: null,
+        pdfUrl,
       });
     } catch (error) {
       console.error("Error fetching profile data:", error);
@@ -618,7 +633,7 @@ export const RiskProfileDialog = ({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ViewOriginalPdfButton pdfUrl={data.polygraphReport.report_pdf_url} />
+                    <ViewOriginalPdfButton pdfUrl={data.pdfUrl} />
                   </CardContent>
                 </Card>
               )}

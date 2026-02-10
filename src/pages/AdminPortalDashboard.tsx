@@ -301,7 +301,7 @@ const AdminPortalDashboard = () => {
       </div>
 
       {/* Main Content - Portals */}
-      <div className={`h-screen flex items-center justify-center py-4 sm:py-6 ${
+      <div className={`min-h-screen flex items-center justify-center py-6 sm:py-8 pb-12 ${
         !hasSeenAnimation ? "transition-all duration-1000" : ""
       } ${isAnimating ? "opacity-0" : "opacity-100"}`}>
         <div className="container mx-auto px-3 sm:px-4 max-w-6xl relative">
