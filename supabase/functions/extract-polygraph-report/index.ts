@@ -131,8 +131,8 @@ REQUIRED SECTIONS TO EXTRACT:
 - Suitability Questionnaire responses (health, sleep, medication, conditions)
 - Educational History
 - Employment History (all employers, job titles, duties, reasons for leaving)
-- Family Information & Criminal History
-- Friend Information & Criminal History
+- Family Information & Criminal History — IMPORTANT: Extract EVERY family member listed in the document (father, mother, siblings, spouse, stepparents, children, etc.). Each member must be a separate entry with Name, Relationship, and CriminalHistory. Do NOT skip any family members.
+- Friend Information & Criminal History — Extract EVERY friend listed. Each friend must be a separate entry.
 - Financial Circumstances (bank, debts, arrears, blacklisting)
 - Permits & Licensing (passport, driver's license, bribes paid to obtain license)
 - Personal Encounters with the Law (arrests, fines, convictions, court appearances)
@@ -210,8 +210,20 @@ STEP 2 — STRUCTURE THE DATA EXACTLY LIKE THIS:
   },
   "EducationHistory": [],
   "EmploymentHistory": [],
-  "FamilyCriminalHistory": [],
-  "FriendCriminalHistory": [],
+  "FamilyCriminalHistory": [
+    {
+      "Name": "Full name of family member",
+      "Relationship": "e.g. Father, Mother, Brother, Sister, Stepfather, Stepmother, Stepbrother, Stepsister, Spouse, Wife, Husband, Son, Daughter, Uncle, Aunt, Cousin",
+      "CriminalHistory": "Description of any criminal history, arrests, convictions, or 'Not aware of any criminal history'"
+    }
+  ],
+  "FriendCriminalHistory": [
+    {
+      "Name": "Full name of friend",
+      "Relationship": "Friend",
+      "CriminalHistory": "Description of any criminal history, arrests, convictions, or 'Not aware of any criminal history'"
+    }
+  ],
   "FinancialCircumstances": {
     "BankDetails": "",
     "Debts": [],
