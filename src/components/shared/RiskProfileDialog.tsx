@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Shield, FileText, User, AlertTriangle, ExternalLink, Download, X, GraduationCap, HeartPulse, Users, UserCheck } from "lucide-react";
 import RiskAnalysisDisplay from "@/components/reports/RiskAnalysisDisplay";
-import { FamilyTreeDisplay } from "@/components/shared/FamilyTreeDisplay";
+import { FamilyTreeDisplay, FamilyMemberNode } from "@/components/shared/FamilyTreeDisplay";
+import type { FamilyMember } from "@/components/shared/FamilyTreeDisplay";
 import { toast } from "sonner";
 
 interface RiskProfileDialogProps {
@@ -517,44 +518,50 @@ export const RiskProfileDialog = ({
 
                    {/* Close Friends */}
                    {friendMembers.length > 0 && (
-                     <div>
-                       <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-2 border-b pb-1.5 flex items-center gap-2">
-                         <UserCheck className="h-4 w-4" />
-                         Close Friends
-                       </h4>
-                      <div className="space-y-4">
-                        {friendMembers.map((friend: any, idx: number) => (
-                          <PersonCard key={idx} person={friend} label="Close Friend" />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                     <Card className="overflow-hidden">
+                       <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 border-b py-3">
+                         <CardTitle className="flex items-center gap-2 text-lg">
+                           <UserCheck className="h-5 w-5 text-primary" />
+                           Close Friends
+                         </CardTitle>
+                       </CardHeader>
+                       <CardContent className="p-6">
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                           {friendMembers.map((friend: any, idx: number) => (
+                             <FamilyMemberNode key={idx} member={friend} />
+                           ))}
+                         </div>
+                       </CardContent>
+                     </Card>
+                   )}
 
-                  {/* Next of Kin - from family data that includes spouse/partner or dedicated next of kin */}
-                  {(() => {
-                    // Check for next of kin in family members (spouse/partner entries) 
-                    // that aren't in the filtered family list
-                    const nokFromFamily = familyMembers.filter((m: any) => {
-                      const rel = (m.Relationship || m.relationship || '').toLowerCase();
-                      return rel.includes('spouse') || rel.includes('partner') || rel.includes('next of kin') || rel.includes('kin');
-                    });
-                    
-                    if (nokFromFamily.length === 0) return null;
-                    
-                    return (
-                      <div>
-                         <h4 className="font-semibold text-sm uppercase tracking-wider text-primary mb-2 border-b pb-1.5 flex items-center gap-2">
-                           <User className="h-4 w-4" />
-                           Next of Kin
-                         </h4>
-                        <div className="space-y-4">
-                          {nokFromFamily.map((kin: any, idx: number) => (
-                            <PersonCard key={idx} person={kin} label="Next of Kin" showContact />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                   {/* Next of Kin */}
+                   {(() => {
+                     const nokFromFamily = familyMembers.filter((m: any) => {
+                       const rel = (m.Relationship || m.relationship || '').toLowerCase();
+                       return rel.includes('spouse') || rel.includes('partner') || rel.includes('next of kin') || rel.includes('kin');
+                     });
+                     
+                     if (nokFromFamily.length === 0) return null;
+                     
+                     return (
+                       <Card className="overflow-hidden">
+                         <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 border-b py-3">
+                           <CardTitle className="flex items-center gap-2 text-lg">
+                             <User className="h-5 w-5 text-primary" />
+                             Next of Kin
+                           </CardTitle>
+                         </CardHeader>
+                         <CardContent className="p-6">
+                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                             {nokFromFamily.map((kin: any, idx: number) => (
+                               <FamilyMemberNode key={idx} member={kin} />
+                             ))}
+                           </div>
+                         </CardContent>
+                       </Card>
+                     );
+                   })()}
                 </CardContent>
               </Card>
             </TabsContent>

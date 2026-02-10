@@ -353,4 +353,6 @@ export const FamilyTreeDisplay = ({ familyMembers, candidateName }: FamilyTreeDi
   );
 };
 
+export { FamilyMemberNode, getCriminalStatusInfo };
+export type { FamilyMember };
 export default FamilyTreeDisplay;
