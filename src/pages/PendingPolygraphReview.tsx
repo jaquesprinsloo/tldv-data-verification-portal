@@ -346,7 +346,10 @@ const PendingPolygraphReview = () => {
         extracted_disclosure: editedData.extracted_data?.disclosure,
         education_history: editedData.extracted_data?.educationHistory,
         employment_history: editedData.extracted_data?.employmentHistory,
-        family_criminal_history: editedData.extracted_data?.familyCriminalHistory,
+        family_criminal_history: [
+          ...(editedData.extracted_data?.familyCriminalHistory || []),
+          ...(editedData.extracted_data?.nextOfKin || []),
+        ],
         friend_criminal_history: editedData.extracted_data?.friendCriminalHistory,
         financial_circumstances: editedData.extracted_data?.financialCircumstances,
         permits_licensing: editedData.extracted_data?.permitsLicensing,
