@@ -59,7 +59,8 @@ const AdminPortalDashboard = () => {
       const { count } = await supabase
         .from('polygraph_candidates')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'approved');
+        .eq('status', 'approved')
+        .or('invitation_sent.is.null,invitation_sent.eq.false');
       return count || 0;
     },
   });

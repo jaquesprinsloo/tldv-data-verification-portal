@@ -53,6 +53,7 @@ const AdminDashboard = () => {
         .from("polygraph_candidates")
         .select("first_name, last_name, approved_at")
         .eq("status", "approved")
+        .or('invitation_sent.is.null,invitation_sent.eq.false')
         .order("approved_at", { ascending: false });
 
       if (candidates && candidates.length > 0) {
