@@ -932,68 +932,46 @@ const EmployeeManagement = ({ filterType = "all" }: EmployeeManagementProps) => 
                           <div className="flex flex-col gap-2">
                             <Badge variant={variant}>{label}</Badge>
                             {activeFilter === "approved" && variant === "success" && (
-                              <div className="flex flex-wrap gap-1">
-                                <Button
-                                  size="sm"
-                                  variant={employee.employment_status === 'employed' ? "default" : "outline"}
-                                  className={
-                                    employee.employment_status === 'employed'
-                                      ? 'bg-green-600 hover:bg-green-700 text-white h-6 text-xs'
-                                      : 'border-green-600 text-green-600 hover:bg-green-600 hover:text-white h-6 text-xs'
-                                  }
-                                  onClick={() => handleStatusUpdate(employee.id, 'employed')}
-                                >
-                                  Employed
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={employee.employment_status === 'dismissed' ? "default" : "outline"}
-                                  className={
-                                    employee.employment_status === 'dismissed'
-                                      ? 'bg-red-600 hover:bg-red-700 text-white h-6 text-xs'
-                                      : 'border-destructive text-destructive hover:bg-destructive hover:text-white h-6 text-xs'
-                                  }
-                                  onClick={() => handleStatusUpdate(employee.id, 'dismissed')}
-                                >
-                                  Dismissed
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={employee.employment_status === 'retrenched' ? "default" : "outline"}
-                                  className={
-                                    employee.employment_status === 'retrenched'
-                                      ? 'bg-yellow-600 hover:bg-yellow-700 text-white h-6 text-xs'
-                                      : 'border-yellow-600 text-yellow-600 hover:bg-yellow-600 hover:text-white h-6 text-xs'
-                                  }
-                                  onClick={() => handleStatusUpdate(employee.id, 'retrenched')}
-                                >
-                                  Retrenched
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={employee.employment_status === 'resigned' ? "default" : "outline"}
-                                  className={
-                                    employee.employment_status === 'resigned'
-                                      ? 'bg-gray-600 hover:bg-gray-700 text-white h-6 text-xs'
-                                      : 'border-gray-600 text-gray-600 hover:bg-gray-600 hover:text-white h-6 text-xs'
-                                  }
-                                  onClick={() => handleStatusUpdate(employee.id, 'resigned')}
-                                >
-                                  Resigned
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant={employee.employment_status === 'suspended' ? "default" : "outline"}
-                                  className={
-                                    employee.employment_status === 'suspended'
-                                      ? 'bg-orange-600 hover:bg-orange-700 text-white h-6 text-xs'
-                                      : 'border-orange-600 text-orange-600 hover:bg-orange-600 hover:text-white h-6 text-xs'
-                                  }
-                                  onClick={() => handleStatusUpdate(employee.id, 'suspended')}
-                                >
-                                  Suspended
-                                </Button>
-                              </div>
+                              <Select
+                                value={employee.employment_status || "employed"}
+                                onValueChange={(value) => handleStatusUpdate(employee.id, value as "employed" | "dismissed" | "retrenched" | "resigned" | "suspended")}
+                              >
+                                <SelectTrigger className="w-[150px] h-7 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="employed">
+                                    <span className="flex items-center gap-2">
+                                      <span className="h-2 w-2 rounded-full bg-green-600" />
+                                      Employed
+                                    </span>
+                                  </SelectItem>
+                                  <SelectItem value="dismissed">
+                                    <span className="flex items-center gap-2">
+                                      <span className="h-2 w-2 rounded-full bg-red-600" />
+                                      Dismissed
+                                    </span>
+                                  </SelectItem>
+                                  <SelectItem value="retrenched">
+                                    <span className="flex items-center gap-2">
+                                      <span className="h-2 w-2 rounded-full bg-yellow-600" />
+                                      Retrenched
+                                    </span>
+                                  </SelectItem>
+                                  <SelectItem value="resigned">
+                                    <span className="flex items-center gap-2">
+                                      <span className="h-2 w-2 rounded-full bg-gray-600" />
+                                      Resigned
+                                    </span>
+                                  </SelectItem>
+                                  <SelectItem value="suspended">
+                                    <span className="flex items-center gap-2">
+                                      <span className="h-2 w-2 rounded-full bg-orange-600" />
+                                      Suspended
+                                    </span>
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
                             )}
                           </div>
                          </TableCell>
