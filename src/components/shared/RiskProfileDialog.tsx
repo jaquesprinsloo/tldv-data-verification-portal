@@ -440,6 +440,46 @@ export const RiskProfileDialog = ({
         examQuestions = questionsResult.data || [];
         admissions = admissionsResult.data || [];
         suitability = suitabilityResult.data;
+
+        // Fallback: if no suitability record exists, try to pull from pending_polygraph_uploads extracted_data
+        if (!suitability && polygraphReport) {
+          const { data: pendingUpload } = await supabase
+            .from("pending_polygraph_uploads")
+            .select("extracted_data")
+            .eq("id_number", polygraphReport.id_number)
+            .eq("status", "approved")
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (pendingUpload?.extracted_data) {
+            const ext = pendingUpload.extracted_data as any;
+            const s = ext?.suitability;
+            if (s) {
+              suitability = {
+                health_status: s.healthStatus || null,
+                enough_sleep: s.enoughSleep ?? null,
+                hospitalized_recently: s.hospitalizedRecently ?? null,
+                hospitalized_details: s.hospitalizedDetails || null,
+                medication_taken: s.medicationTaken ?? null,
+                medication_details: s.medicationDetails || null,
+                heart_conditions: s.heartConditions ?? null,
+                breathing_trouble: s.breathingTrouble ?? null,
+                psychological_disorders: s.psychologicalDisorders ?? null,
+                diabetic: s.diabetic ?? null,
+                recent_drug_use: s.recentDrugUse ?? null,
+                drug_use_details: s.drugUseDetails || null,
+                recent_alcohol_use: s.recentAlcoholUse ?? null,
+                alcohol_details: s.alcoholDetails || null,
+                smoker: s.smoker ?? null,
+                smoking_details: s.smokingDetails || null,
+                pregnant: s.pregnant ?? null,
+                suitable_for_exam: s.suitableForExam ?? null,
+                suitability_comment: s.suitabilityComment || null,
+              };
+            }
+          }
+        }
       }
 
       // Generate signed URL for the PDF if available
