@@ -441,9 +441,13 @@ const calculateCriminalActivityScore = (report: any): CriminalResult => {
   if (theftItems.length === 0) {
     const theft = disclosure.WorkplaceTheft || disclosure.workplaceTheft || "";
     if (isMeaningful(theft)) {
-      // Split by sentence to count individual confirmations
-      const parts = theft.split(/\.\s*/).filter((p: string) => p.trim().length > 0);
-      parts.forEach((p: string) => theftItems.push({ question: p.trim(), confirmed: true }));
+      // Split by sentence boundaries (period followed by space and uppercase letter) to avoid splitting decimals like "R 100.00"
+      const parts = theft.split(/\.(?=\s+[A-Z])/).map((p: string) => p.trim().replace(/\.$/, '').trim()).filter((p: string) => p.length > 3);
+      if (parts.length > 0) {
+        parts.forEach((p: string) => theftItems.push({ question: p, confirmed: true }));
+      } else {
+        theftItems.push({ question: theft, confirmed: true });
+      }
     }
     if (theftItems.length === 0) theftItems.push({ question: "No workplace theft disclosed", confirmed: false });
   }
