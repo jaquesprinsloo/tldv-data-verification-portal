@@ -570,18 +570,17 @@ const BranchDropdown = ({ branch }: { branch: CriminalBranch }) => {
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-1">
         <div className="border rounded-lg divide-y">
-          {branch.items.map((item, idx) => (
+          {branch.items.filter(item => item.confirmed).map((item, idx) => (
             <div key={idx} className="flex items-start gap-2 p-2.5 text-sm">
-              {item.confirmed ? (
-                <Check className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-              ) : (
-                <X className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-              )}
-              <span className={item.confirmed ? "text-foreground" : "text-muted-foreground"}>
+              <Check className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+              <span className="text-foreground">
                 {item.question}
               </span>
             </div>
           ))}
+          {branch.items.filter(item => item.confirmed).length === 0 && (
+            <div className="p-2.5 text-sm text-muted-foreground">No confirmed items</div>
+          )}
         </div>
       </CollapsibleContent>
     </Collapsible>
