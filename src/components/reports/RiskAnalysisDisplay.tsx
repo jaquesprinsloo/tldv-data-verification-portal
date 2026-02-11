@@ -408,68 +408,96 @@ const calculateCriminalActivityScore = (report: any): CriminalResult => {
     return { branches, grandTotal, maxGrandTotal };
   }
 
-  // Fallback: derive from old disclosure/admission data
+  // Fallback: derive from admissions array + disclosure data
   const branches: CriminalBranch[] = [];
+  const admissions: any[] = report?.extracted_disclosure?.admissions 
+    || report?.extracted_data?.admissions || [];
+
+  // Helper: get admission items for a category, counting each detail key as a separate confirmation
+  const getAdmissionItems = (categoryMatch: string): { question: string; confirmed: boolean }[] => {
+    const items: { question: string; confirmed: boolean }[] = [];
+    admissions.forEach((adm: any) => {
+      const cat = (adm.category || "").toLowerCase();
+      if (!cat.includes(categoryMatch.toLowerCase())) return;
+      const isConfirmed = adm.confirmed === true;
+      const details = adm.details || {};
+      const detailKeys = Object.keys(details);
+      if (detailKeys.length > 0) {
+        detailKeys.forEach(key => {
+          const val = details[key];
+          if (isMeaningful(String(val || ""))) {
+            items.push({ question: `${key}: ${val}`, confirmed: isConfirmed });
+          }
+        });
+      } else if (isConfirmed) {
+        items.push({ question: `${adm.category} confirmed`, confirmed: true });
+      }
+    });
+    return items;
+  };
 
   // Theft at Work
-  const theft = disclosure.WorkplaceTheft || disclosure.workplaceTheft || "";
-  const theftConfirmed = isMeaningful(theft);
-  branches.push({
-    name: "Theft at Work", maxScore: 5,
-    items: theftConfirmed ? [{ question: `Workplace theft disclosed: ${theft}`, confirmed: true }] : [{ question: "No workplace theft disclosed", confirmed: false }],
-    score: theftConfirmed ? 1 : 0,
-  });
+  const theftItems = getAdmissionItems("theft");
+  if (theftItems.length === 0) {
+    const theft = disclosure.WorkplaceTheft || disclosure.workplaceTheft || "";
+    if (isMeaningful(theft)) {
+      // Split by sentence to count individual confirmations
+      const parts = theft.split(/\.\s*/).filter((p: string) => p.trim().length > 0);
+      parts.forEach((p: string) => theftItems.push({ question: p.trim(), confirmed: true }));
+    }
+    if (theftItems.length === 0) theftItems.push({ question: "No workplace theft disclosed", confirmed: false });
+  }
+  branches.push({ name: "Theft at Work", maxScore: 5, items: theftItems, score: theftItems.filter(i => i.confirmed).length });
 
   // Fraud
-  const fraudItems: { question: string; confirmed: boolean }[] = [];
-  // Derive from various disclosure fields
-  const otherAdmissions = disclosure.OtherNotableAdmissions || disclosure.otherNotableAdmissions || "";
-  if (isMeaningful(otherAdmissions) && otherAdmissions.toLowerCase().includes("fraud")) {
-    fraudItems.push({ question: `Fraud disclosed: ${otherAdmissions}`, confirmed: true });
+  const fraudItems = getAdmissionItems("fraud");
+  if (fraudItems.length === 0) {
+    const otherAdmissions = disclosure.OtherNotableAdmissions || disclosure.otherNotableAdmissions || "";
+    if (isMeaningful(otherAdmissions) && otherAdmissions.toLowerCase().includes("fraud")) {
+      fraudItems.push({ question: `Fraud disclosed: ${otherAdmissions}`, confirmed: true });
+    }
+    if (fraudItems.length === 0) fraudItems.push({ question: "No fraud disclosed", confirmed: false });
   }
-  if (fraudItems.length === 0) fraudItems.push({ question: "No fraud disclosed", confirmed: false });
   branches.push({ name: "Fraud", maxScore: 17, items: fraudItems, score: fraudItems.filter(i => i.confirmed).length });
 
   // Bribery
-  const briberyPaid = disclosure.BriberyPaid || disclosure.briberyPaid || "";
-  const briberyAccepted = disclosure.BriberyAccepted || disclosure.briberyAccepted || "";
-  const briberyItems: { question: string; confirmed: boolean }[] = [];
-  if (isMeaningful(briberyPaid)) briberyItems.push({ question: `Bribery paid: ${briberyPaid}`, confirmed: true });
-  if (isMeaningful(briberyAccepted)) briberyItems.push({ question: `Bribery accepted: ${briberyAccepted}`, confirmed: true });
-  if (briberyItems.length === 0) briberyItems.push({ question: "No bribery disclosed", confirmed: false });
+  const briberyItems = getAdmissionItems("bribery");
+  if (briberyItems.length === 0) {
+    const briberyPaid = disclosure.BriberyPaid || disclosure.briberyPaid || "";
+    const briberyAccepted = disclosure.BriberyAccepted || disclosure.briberyAccepted || "";
+    if (isMeaningful(briberyPaid)) briberyItems.push({ question: `Bribery paid: ${briberyPaid}`, confirmed: true });
+    if (isMeaningful(briberyAccepted)) briberyItems.push({ question: `Bribery accepted: ${briberyAccepted}`, confirmed: true });
+    if (briberyItems.length === 0) briberyItems.push({ question: "No bribery disclosed", confirmed: false });
+  }
   branches.push({ name: "Bribery", maxScore: 8, items: briberyItems, score: briberyItems.filter(i => i.confirmed).length });
 
   // Organized Crime
-  const orgCrime = disclosure.OrganisedCrimeLinks || disclosure.organisedCrimeLinks || "";
-  const orgConfirmed = isMeaningful(orgCrime);
-  branches.push({
-    name: "Organized Crime", maxScore: 13,
-    items: orgConfirmed ? [{ question: `Organized crime links: ${orgCrime}`, confirmed: true }] : [{ question: "No organized crime links disclosed", confirmed: false }],
-    score: orgConfirmed ? 1 : 0,
-  });
+  const orgItems = getAdmissionItems("organized").concat(getAdmissionItems("organised"));
+  if (orgItems.length === 0) {
+    const orgCrime = disclosure.OrganisedCrimeLinks || disclosure.organisedCrimeLinks || "";
+    if (isMeaningful(orgCrime)) orgItems.push({ question: `Organized crime links: ${orgCrime}`, confirmed: true });
+    if (orgItems.length === 0) orgItems.push({ question: "No organized crime links disclosed", confirmed: false });
+  }
+  branches.push({ name: "Organized Crime", maxScore: 13, items: orgItems, score: orgItems.filter(i => i.confirmed).length });
 
   // Undetected Crimes
-  branches.push({
-    name: "Undetected Crimes", maxScore: 16,
-    items: [{ question: "Data not available in legacy format", confirmed: false }],
-    score: 0,
-  });
+  const undetectedItems = getAdmissionItems("undetected");
+  if (undetectedItems.length === 0) undetectedItems.push({ question: "No undetected crimes disclosed", confirmed: false });
+  branches.push({ name: "Undetected Crimes", maxScore: 16, items: undetectedItems, score: undetectedItems.filter(i => i.confirmed).length });
 
   // Illegal Drug Involvement
-  const drugUse = disclosure.DrugUseHistory || disclosure.drugUseHistory || "";
-  const drugConfirmed = isMeaningful(drugUse);
-  branches.push({
-    name: "Illegal Drug Involvement", maxScore: 25,
-    items: drugConfirmed ? [{ question: `Drug use disclosed: ${drugUse}`, confirmed: true }] : [{ question: "No drug involvement disclosed", confirmed: false }],
-    score: drugConfirmed ? 1 : 0,
-  });
+  const drugItems = getAdmissionItems("drug");
+  if (drugItems.length === 0) {
+    const drugUse = disclosure.DrugUseHistory || disclosure.drugUseHistory || "";
+    if (isMeaningful(drugUse)) drugItems.push({ question: `Drug use disclosed: ${drugUse}`, confirmed: true });
+    if (drugItems.length === 0) drugItems.push({ question: "No drug involvement disclosed", confirmed: false });
+  }
+  branches.push({ name: "Illegal Drug Involvement", maxScore: 25, items: drugItems, score: drugItems.filter(i => i.confirmed).length });
 
   // General Overview
-  branches.push({
-    name: "General Overview", maxScore: 4,
-    items: [{ question: "Data not available in legacy format", confirmed: false }],
-    score: 0,
-  });
+  const generalItems = getAdmissionItems("general");
+  if (generalItems.length === 0) generalItems.push({ question: "No general items disclosed", confirmed: false });
+  branches.push({ name: "General Overview", maxScore: 4, items: generalItems, score: generalItems.filter(i => i.confirmed).length });
 
   const grandTotal = branches.reduce((s, b) => s + b.score, 0);
   const maxGrandTotal = branches.reduce((s, b) => s + b.maxScore, 0);
