@@ -230,15 +230,16 @@ const calculateFinancialScore = (report: any): FinancialResult => {
     });
   };
 
+  // Use financial_circumstances as primary source; only fall back to disclosure if empty
   const rawDebts = Array.isArray(financial.Debts || financial.debts) ? (financial.Debts || financial.debts) : [];
-  const activeDebt = Array.isArray(discFinancial.ActiveDebt || discFinancial.activeDebt)
+  const fallbackDebts = rawDebts.length === 0 && Array.isArray(discFinancial.ActiveDebt || discFinancial.activeDebt)
     ? (discFinancial.ActiveDebt || discFinancial.activeDebt) : [];
-  const allDebts = normalizeEntries([...rawDebts, ...activeDebt]);
+  const allDebts = normalizeEntries(rawDebts.length > 0 ? rawDebts : fallbackDebts);
 
   const rawArrears = Array.isArray(financial.Arrears || financial.arrears) ? (financial.Arrears || financial.arrears) : [];
-  const discArrears = Array.isArray(discFinancial.Arrears || discFinancial.arrears)
+  const fallbackArrears = rawArrears.length === 0 && Array.isArray(discFinancial.Arrears || discFinancial.arrears)
     ? (discFinancial.Arrears || discFinancial.arrears) : [];
-  const allArrears = normalizeEntries([...rawArrears, ...discArrears]);
+  const allArrears = normalizeEntries(rawArrears.length > 0 ? rawArrears : fallbackArrears);
 
   const blacklistedStr = (financial.Blacklisted || financial.blacklisted || discFinancial.Blacklisted || discFinancial.blacklisted || "").toString().toLowerCase();
   const blacklisted = blacklistedStr.includes("yes") || blacklistedStr.includes("true") || blacklistedStr.includes("blacklisted");
