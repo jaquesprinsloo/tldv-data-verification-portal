@@ -56,6 +56,15 @@ const DISCLOSURE_CATEGORIES = [
   { key: "FriendCriminalHistory", label: "Friend Criminal History" },
 ];
 
+// Shared meaningful-check logic (same as RiskAnalysisDisplay)
+const NO_INDICATORS = ["none", "no", "not disclosed", "n/a", "nil", "no convictions", "no arrests", "not convicted", "not arrested", "no pending", "no bribe", "no cases", "never"];
+const isDisclosureMeaningful = (val: any): boolean => {
+  if (!val) return false;
+  const str = String(val).trim().toLowerCase();
+  if (!str || str === "not disclosed" || str === "n/a" || str === "none" || str === "nil") return false;
+  return !NO_INDICATORS.some(indicator => str === indicator || str.startsWith("no ") || str.startsWith("not ") || str.startsWith("never "));
+};
+
 const COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6", "#8b5cf6", "#ec4899", "#06b6d4"];
 
 const PolygraphStatistics = () => {
@@ -140,18 +149,8 @@ const PolygraphStatistics = () => {
         let count = 0;
         reports?.forEach((r) => {
           const disclosure = r.extracted_disclosure as Record<string, any> | null;
-          if (disclosure && disclosure[key]) {
-            const value = disclosure[key];
-            // Check if it's not empty/null/never
-            if (value && 
-                value !== "Not Disclosed" && 
-                value !== "Never" &&
-                value !== "None" &&
-                !value.toLowerCase?.().includes("never") &&
-                !value.toLowerCase?.().includes("not aware") &&
-                !value.toLowerCase?.().includes("no ")) {
-              count++;
-            }
+          if (disclosure && isDisclosureMeaningful(disclosure[key])) {
+            count++;
           }
         });
         const percentage = totalReports > 0 ? (count / totalReports) * 100 : 0;
@@ -165,12 +164,12 @@ const PolygraphStatistics = () => {
       const drugMap = new Map<string, number>();
       reports?.forEach((r) => {
         const disclosure = r.extracted_disclosure as Record<string, any> | null;
-        if (disclosure?.DrugUseHistory) {
-          const drugHistory = disclosure.DrugUseHistory;
+        if (disclosure?.DrugUseHistory && isDisclosureMeaningful(disclosure.DrugUseHistory)) {
+          const drugHistory = String(disclosure.DrugUseHistory);
           // Common drug mentions
           const drugs = ["marijuana", "cannabis", "cocaine", "heroin", "methamphetamine", "meth", "khat", "dagga"];
           drugs.forEach(drug => {
-            if (drugHistory.toLowerCase?.().includes(drug)) {
+            if (drugHistory.toLowerCase().includes(drug)) {
               const current = drugMap.get(drug) || 0;
               drugMap.set(drug, current + 1);
             }
