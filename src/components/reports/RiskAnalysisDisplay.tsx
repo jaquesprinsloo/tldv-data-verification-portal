@@ -792,14 +792,10 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
                 <TrendingDown className="h-4 w-4 text-orange-600" />
                 Historical Unpaid Debt
               </p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="text-sm">
                 <div>
                   <span className="text-muted-foreground">Total: </span>
                   <span className="font-medium">R{financial.totalHistoricalDebt.toLocaleString()}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Average: </span>
-                  <span className="font-medium">R{Math.round(financial.avgHistoricalDebt).toLocaleString()}</span>
                 </div>
               </div>
               <div className="mt-2 space-y-1">
