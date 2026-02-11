@@ -641,8 +641,12 @@ export const RiskProfileDialog = ({
 
             {/* Risk Analysis Tab */}
             <TabsContent value="risk" className="space-y-4 mt-4">
-              {data?.polygraphReport?.risk_analysis ? (
-                <RiskAnalysisDisplay riskAnalysis={data.polygraphReport.risk_analysis} />
+              {data?.polygraphReport ? (
+                <RiskAnalysisDisplay 
+                  polygraphReport={data.polygraphReport}
+                  examQuestions={data.examQuestions || []}
+                  riskAnalysis={data.polygraphReport.risk_analysis}
+                />
               ) : (
                 <Card>
                   <CardContent className="py-8 text-center text-muted-foreground">
