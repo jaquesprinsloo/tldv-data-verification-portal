@@ -215,15 +215,30 @@ const calculateFinancialScore = (report: any): FinancialResult => {
   const disclosure = report?.extracted_disclosure || {};
   const discFinancial = disclosure?.FinancialStatus || disclosure?.financialStatus || {};
 
-  const debts = Array.isArray(financial.Debts || financial.debts) ? (financial.Debts || financial.debts) : [];
+  // Helper to normalize debt/arrears entries that may be strings like "Truworths R 800.00"
+  const normalizeEntries = (arr: any[]): any[] => {
+    return arr.map((item: any) => {
+      if (typeof item === "string") {
+        // Parse strings like "Truworths R 800.00" or "Vehicle Finance R 5 600.00 (January 2023)"
+        const match = item.match(/^(.+?)\s+R\s*([\d\s,.]+)/i);
+        if (match) {
+          return { Name: match[1].trim(), Amount: parseAmount(match[2].replace(/\s/g, "")) };
+        }
+        return { Name: item, Amount: 0 };
+      }
+      return item;
+    });
+  };
+
+  const rawDebts = Array.isArray(financial.Debts || financial.debts) ? (financial.Debts || financial.debts) : [];
   const activeDebt = Array.isArray(discFinancial.ActiveDebt || discFinancial.activeDebt)
     ? (discFinancial.ActiveDebt || discFinancial.activeDebt) : [];
-  const allDebts = [...debts, ...activeDebt];
+  const allDebts = normalizeEntries([...rawDebts, ...activeDebt]);
 
-  const arrears = Array.isArray(financial.Arrears || financial.arrears) ? (financial.Arrears || financial.arrears) : [];
+  const rawArrears = Array.isArray(financial.Arrears || financial.arrears) ? (financial.Arrears || financial.arrears) : [];
   const discArrears = Array.isArray(discFinancial.Arrears || discFinancial.arrears)
     ? (discFinancial.Arrears || discFinancial.arrears) : [];
-  const allArrears = [...arrears, ...discArrears];
+  const allArrears = normalizeEntries([...rawArrears, ...discArrears]);
 
   const blacklistedStr = (financial.Blacklisted || financial.blacklisted || discFinancial.Blacklisted || discFinancial.blacklisted || "").toString().toLowerCase();
   const blacklisted = blacklistedStr.includes("yes") || blacklistedStr.includes("true") || blacklistedStr.includes("blacklisted");
