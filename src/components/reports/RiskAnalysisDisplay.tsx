@@ -29,12 +29,39 @@ const parseDurationToMonths = (duration: string | undefined | null): number => {
   if (!duration || typeof duration !== "string") return 0;
   const d = duration.toLowerCase().trim();
 
-  // "X years Y months"
+  // Handle word numbers with parenthetical digits: "Two (2) years", "eight (8) years"
+  // Also handles plain: "2 years 6 months", "1 year"
+  // Extract all number occurrences (digit or parenthetical)
+  let months = 0;
+
+  // Look for parenthetical numbers first: "(2) years", "(8) months"
+  const parenYears = d.match(/\((\d+)\)\s*year/);
+  const parenMonths = d.match(/\((\d+)\)\s*month/);
+  if (parenYears) months += parseInt(parenYears[1]) * 12;
+  if (parenMonths) months += parseInt(parenMonths[1]);
+  if (months > 0) return months;
+
+  // Standard: "2 years", "6 months"
   const yearsMatch = d.match(/(\d+)\s*year/);
   const monthsMatch = d.match(/(\d+)\s*month/);
-  let months = 0;
   if (yearsMatch) months += parseInt(yearsMatch[1]) * 12;
   if (monthsMatch) months += parseInt(monthsMatch[1]);
+  if (months > 0) return months;
+
+  // Word-based numbers without parenthetical: "two years", "eight years"
+  const wordToNum: Record<string, number> = {
+    one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
+    seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+    thirteen: 13, fourteen: 14, fifteen: 15, twenty: 20, thirty: 30,
+  };
+  for (const [word, num] of Object.entries(wordToNum)) {
+    const wordYearMatch = d.match(new RegExp(`${word}\\s*\\(?\\d*\\)?\\s*year`));
+    if (wordYearMatch) { months += num * 12; break; }
+  }
+  for (const [word, num] of Object.entries(wordToNum)) {
+    const wordMonthMatch = d.match(new RegExp(`${word}\\s*\\(?\\d*\\)?\\s*month`));
+    if (wordMonthMatch) { months += num; break; }
+  }
   if (months > 0) return months;
 
   // Date range "2020 - 2022" or "Jan 2020 - Mar 2022"
@@ -44,7 +71,7 @@ const parseDurationToMonths = (duration: string | undefined | null): number => {
     return diff > 0 ? diff : 12;
   }
 
-  // Just a number
+  // Just a number (assume months)
   const justNumber = d.match(/^(\d+)$/);
   if (justNumber) return parseInt(justNumber[1]);
 
