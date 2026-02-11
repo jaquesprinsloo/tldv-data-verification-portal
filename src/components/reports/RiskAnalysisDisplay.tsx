@@ -302,11 +302,17 @@ const calculateLawScore = (report: any): LawResult => {
   const bribe = (law.Bribe || law.bribe || disclosure.BribeForArrest || disclosure.bribeForArrest || "").toString().toLowerCase();
   const pendingCases = (law.PendingCases || law.pendingCases || disclosure.PendingCases || disclosure.pendingCases || "").toString().toLowerCase();
 
-  const personalArrested = isMeaningful(arrests) && !arrests.includes("none") && arrests !== "no";
-  const personalConvicted = isMeaningful(convictions) && !convictions.includes("none") && convictions !== "no";
-  const personalExpungement = isMeaningful(expungement) && !expungement.includes("none") && expungement !== "no";
-  const paidBribe = isMeaningful(bribe) && !bribe.includes("none") && bribe !== "no";
-  const hasPendingCases = isMeaningful(pendingCases) && !pendingCases.includes("none") && pendingCases !== "no";
+  const noIndicators = ["none", "no", "not disclosed", "n/a", "nil", "no convictions", "no arrests", "not convicted", "not arrested", "no pending", "no bribe", "no cases"];
+  const isLawMeaningful = (val: string) => {
+    if (!isMeaningful(val)) return false;
+    return !noIndicators.some(indicator => val === indicator || val.startsWith("no ") || val.startsWith("not "));
+  };
+
+  const personalArrested = isLawMeaningful(arrests);
+  const personalConvicted = isLawMeaningful(convictions);
+  const personalExpungement = isLawMeaningful(expungement);
+  const paidBribe = isLawMeaningful(bribe);
+  const hasPendingCases = isLawMeaningful(pendingCases);
 
   const personalDetails = [
     personalArrested ? `Arrests: ${law.Arrests || law.arrests || disclosure.Arrests || disclosure.arrests}` : null,
