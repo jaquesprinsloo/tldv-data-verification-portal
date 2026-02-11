@@ -119,6 +119,16 @@ serve(async (req) => {
 
     const systemPrompt = `You are an automated risk-analysis system used for pre-employment vetting in South Africa.
 
+CRITICAL: You MUST produce IDENTICAL output every time for the same document. Follow these deterministic rules:
+- Extract text EXACTLY as written in the document — do not rephrase, summarize, or paraphrase
+- For boolean fields: use true/false only (never "Yes"/"No" strings)
+- For missing data: always use "Not Disclosed" (exact string)
+- For empty arrays: use [] (never null)
+- For monetary amounts: extract as numbers only (e.g., 800 not "R800" or "R 800.00")
+- For dates: use YYYY-MM-DD format
+- For names: preserve exact spelling and capitalization from the document
+- For duration: use format "X years Y months" (e.g., "2 years 6 months", "1 year", "8 months")
+
 You MUST:
 1. Read the uploaded document containing a polygraph/vetting report.
 2. Recognize and extract all sections, even if formatting varies.
@@ -147,7 +157,17 @@ The document typically contains a section listing criminal activity questions gr
 You MUST extract EVERY SINGLE question/item listed under each category. Each question must be a separate entry with the exact question text and whether the candidate answered YES (true) or NO (false).
 Do NOT summarize or skip questions. Extract ALL of them verbatim from the document.
 If a category has 5 questions, you must return 5 items. If it has 25 questions, return all 25.
-The "Answer" field must be true if the candidate confirmed/admitted to the item, and false if they denied it.
+The "Answer" field MUST be:
+- true ONLY if the candidate explicitly confirmed/admitted to the item (answered YES or confirmed involvement)
+- false if the candidate denied it, answered NO, or if no answer is recorded
+Do NOT infer or guess — only mark true when the document explicitly states the candidate confirmed.
+
+CRITICAL INSTRUCTION FOR Personal Law Encounters:
+- For Arrests: if the document says "never been arrested", "no arrests", or similar negation, set to "Not Disclosed"
+- For Convictions: if the document says "never been convicted", "no convictions", or similar negation, set to "Not Disclosed"
+- For Bribe: if no bribe was paid, set to "Not Disclosed"
+- For PendingCases: if no pending cases, set to "Not Disclosed"
+- ONLY populate these fields with actual details if the candidate disclosed specific incidents
 
 If a section is blank in the document, mark it as "Not disclosed".
 
@@ -444,7 +464,7 @@ Use thresholds:
 - 0–7 = LOW RISK
 - 8–17 = MEDIUM RISK
 - 18–30 = HIGH RISK
-- 31+ = UNACCEPTABLE RISK
+- 31+ = VERY HIGH RISK
 
 STEP 5 — GENERATE FINAL REPORT (HUMAN-READABLE)
 
@@ -459,9 +479,9 @@ In NarrativeReport field, write a detailed narrative with these EXACT section he
 3. "RISK SCORE BREAKDOWN:" - List each category with its score (e.g., "Criminal/Dishonesty: 0/12")
 4. "FINAL RISK RATING:" - State total score and risk level
 5. "KEY CONCERNS:" - List specific risk concerns based on findings
-6. "RECOMMENDATIONS:" - List mitigation recommendations
+6. "RECOMMENDATIONS:" - List additional vetting recommendations only (not rehabilitation)
 
-For KeyRiskConcerns array, use standardized phrases such as:
+For KeyRiskConcerns array, use ONLY these standardized phrases:
 - "No significant risk concerns identified"
 - "Theft admission disclosed"
 - "Prior dismissal for dishonesty"
@@ -469,19 +489,22 @@ For KeyRiskConcerns array, use standardized phrases such as:
 - "Substance use history"
 - "SR on polygraph question regarding [topic]"
 - "INC on polygraph question regarding [topic]"
+- "Criminal record disclosed"
+- "Organized crime links disclosed"
 
-For RecommendedMitigations array, use standardized phrases such as:
-- "No additional mitigations required"
-- "Enhanced supervision recommended"
-- "Financial wellness program recommended"
-- "Reference check with previous employer"
-- "Periodic re-screening recommended"
-- "Drug/alcohol testing program recommended"
+For RecommendedMitigations array, use ONLY these standardized phrases (vetting only, no rehabilitation):
+- "No additional vetting required"
+- "Employment verification and reference checks recommended"
+- "Credit and financial background check recommended"
+- "Criminal record verification recommended"
+- "Periodic polygraph re-screening recommended"
+- "Follow-up polygraph examination recommended"
+- "In-depth credit bureau verification recommended"
 
 STEP 6 – NO HALLUCINATIONS
 
 If the document does not include information, say "Not Disclosed."
-Never invent data.
+Never invent data. Never infer data that is not explicitly stated.
 
 Return ONLY the JSON object, no additional text.`;
 
@@ -527,7 +550,7 @@ Return ONLY the JSON object, no additional text.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-pro',
         messages: [
           { role: 'system', content: systemPrompt },
           { 
@@ -537,6 +560,7 @@ Return ONLY the JSON object, no additional text.`;
         ],
         response_format: { type: 'json_object' },
         temperature: 0,  // Deterministic output for consistent results
+        seed: 42,  // Fixed seed for reproducibility
       }),
     });
 
