@@ -663,12 +663,13 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
       amount: a.amount,
     }));
 
-  // Radar chart data for criminal activity
+  // Radar chart data for criminal activity (normalized to percentage for consistent axes)
   const criminalRadarData = criminal.branches.map(b => ({
     branch: b.name.replace("Illegal Drug Involvement", "Drug Involvement").replace("General Overview", "General"),
+    pct: b.maxScore > 0 ? Math.round((b.score / b.maxScore) * 100) : 0,
     score: b.score,
     max: b.maxScore,
-    fullMark: b.maxScore,
+    fullMark: 100,
   }));
 
   // Category summary for law encounters chart
@@ -960,15 +961,24 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Radar chart */}
-          <div className="h-64">
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={criminalRadarData} cx="50%" cy="50%" outerRadius="75%">
+              <RadarChart data={criminalRadarData} cx="50%" cy="50%" outerRadius="70%">
                 <PolarGrid strokeDasharray="3 3" />
                 <PolarAngleAxis dataKey="branch" tick={{ fontSize: 10 }} />
-                <PolarRadiusAxis tick={false} axisLine={false} />
-                <Radar name="Maximum" dataKey="max" stroke="#d1d5db" fill="#e5e7eb" fillOpacity={0.3} />
-                <Radar name="Confirmed" dataKey="score" stroke="#ef4444" fill="#ef4444" fillOpacity={0.4} />
-                <Tooltip />
+                <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                <Radar name="Confirmed %" dataKey="pct" stroke="#ef4444" fill="#ef4444" fillOpacity={0.35} dot={{ r: 3, fill: "#ef4444" }} />
+                <Tooltip content={({ payload, label }) => {
+                  if (!payload || payload.length === 0) return null;
+                  const d = payload[0]?.payload;
+                  return (
+                    <div className="bg-background border rounded-lg shadow-lg p-2.5 text-sm">
+                      <p className="font-medium mb-1">{d?.branch}</p>
+                      <p className="text-red-600">Confirmed: {d?.score} / {d?.max}</p>
+                      <p className="text-muted-foreground">{d?.pct}% flagged</p>
+                    </div>
+                  );
+                }} />
               </RadarChart>
             </ResponsiveContainer>
           </div>
