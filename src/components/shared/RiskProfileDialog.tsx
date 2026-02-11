@@ -668,24 +668,74 @@ export const RiskProfileDialog = ({
                          </div>
                          <ChevronDown className={`h-4 w-4 text-primary transition-transform duration-300 ${openSection === 'medical' ? 'rotate-180' : ''}`} />
                        </button>
-                       <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openSection === 'medical' ? 'max-h-[400px] opacity-100 pb-4' : 'max-h-0 opacity-0'}`}>
-                         <div className="px-2 space-y-0">
-                           <InfoRow label="Health Status" value={suitInfo?.health_status} />
-                           <InfoRow 
-                             label="Medication (24hrs)" 
-                             value={suitInfo?.medication_taken === true 
-                               ? `Yes${suitInfo?.medication_details ? ` — ${suitInfo.medication_details}` : ''}` 
-                               : suitInfo?.medication_taken === false ? 'No' : undefined} 
-                           />
-                           <InfoRow 
-                             label="Psychological Diagnosis" 
-                             value={suitInfo?.psychological_disorders === true ? 'Yes' 
-                               : suitInfo?.psychological_disorders === false ? 'No' : undefined} 
-                           />
-                           {suitInfo?.pregnant === true && (
-                             <InfoRow label="Pregnant" value="Yes" />
-                           )}
-                         </div>
+                       <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openSection === 'medical' ? 'max-h-[800px] opacity-100 pb-4' : 'max-h-0 opacity-0'}`}>
+                        <div className="px-2 space-y-0">
+                            <InfoRow label="Health Status" value={suitInfo?.health_status} />
+                            <InfoRow 
+                              label="Enough Sleep (6hrs+)" 
+                              value={suitInfo?.enough_sleep === true ? 'Yes' 
+                                : suitInfo?.enough_sleep === false ? 'No' : undefined} 
+                            />
+                            <InfoRow 
+                              label="Hospitalized (6 months)" 
+                              value={suitInfo?.hospitalized_recently === true 
+                                ? `Yes${suitInfo?.hospitalized_details ? ` — ${suitInfo.hospitalized_details}` : ''}` 
+                                : suitInfo?.hospitalized_recently === false ? 'No' : undefined} 
+                            />
+                            <InfoRow 
+                              label="Medication" 
+                              value={suitInfo?.medication_taken === true 
+                                ? `Yes${suitInfo?.medication_details ? ` — ${suitInfo.medication_details}` : ''}` 
+                                : suitInfo?.medication_taken === false ? 'No' : undefined} 
+                            />
+                            <InfoRow 
+                              label="Heart Conditions" 
+                              value={suitInfo?.heart_conditions === true ? 'Yes' 
+                                : suitInfo?.heart_conditions === false ? 'No' : undefined} 
+                            />
+                            <InfoRow 
+                              label="Breathing Trouble" 
+                              value={suitInfo?.breathing_trouble === true ? 'Yes' 
+                                : suitInfo?.breathing_trouble === false ? 'No' : undefined} 
+                            />
+                            <InfoRow 
+                              label="Psychological Diagnosis" 
+                              value={suitInfo?.psychological_disorders === true 
+                                ? `Yes${suitInfo?.suitability_comment ? ` — ${suitInfo.suitability_comment}` : ''}` 
+                                : suitInfo?.psychological_disorders === false ? 'No' : undefined} 
+                            />
+                            <InfoRow 
+                              label="Diabetic" 
+                              value={suitInfo?.diabetic === true ? 'Yes' 
+                                : suitInfo?.diabetic === false ? 'No' : undefined} 
+                            />
+                            <InfoRow 
+                              label="Recent Drug Use (72hrs)" 
+                              value={suitInfo?.recent_drug_use === true 
+                                ? `Yes${suitInfo?.drug_use_details ? ` — ${suitInfo.drug_use_details}` : ''}` 
+                                : suitInfo?.recent_drug_use === false ? 'No' : undefined} 
+                            />
+                            <InfoRow 
+                              label="Alcohol Use (24hrs)" 
+                              value={suitInfo?.recent_alcohol_use === true 
+                                ? `Yes${suitInfo?.alcohol_details ? ` — ${suitInfo.alcohol_details}` : ''}` 
+                                : suitInfo?.recent_alcohol_use === false ? 'No' : undefined} 
+                            />
+                            <InfoRow 
+                              label="Smoker" 
+                              value={suitInfo?.smoker === true 
+                                ? `Yes${suitInfo?.smoking_details ? ` — ${suitInfo.smoking_details}` : ''}` 
+                                : suitInfo?.smoker === false ? 'No' : undefined} 
+                            />
+                            {suitInfo?.pregnant === true && (
+                              <InfoRow label="Pregnant" value="Yes" />
+                            )}
+                            <InfoRow 
+                              label="Suitable for Exam" 
+                              value={suitInfo?.suitable_for_exam === true ? 'Yes' 
+                                : suitInfo?.suitable_for_exam === false ? 'No' : undefined} 
+                            />
+                          </div>
                        </div>
                      </div>
                    )}
