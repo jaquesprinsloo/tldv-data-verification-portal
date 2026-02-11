@@ -482,13 +482,36 @@ export const RiskProfileDialog = ({
         }
       }
 
+      // Fetch Next of Kin fallback from pending_polygraph_uploads
+      let nextOfKinFallback: any[] = [];
+      if (polygraphReport) {
+        const familyData = (polygraphReport.family_criminal_history || []) as any[];
+        const hasNokInFamily = familyData.some((m: any) => {
+          const rel = (m.Relationship || m.relationship || '').toLowerCase();
+          return rel.includes('spouse') || rel.includes('partner') || rel.includes('next of kin') || rel.includes('kin');
+        });
+        if (!hasNokInFamily) {
+          const { data: pendingNok } = await supabase
+            .from("pending_polygraph_uploads")
+            .select("extracted_data")
+            .eq("id_number", polygraphReport.id_number)
+            .eq("status", "approved")
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (pendingNok?.extracted_data) {
+            const ext = pendingNok.extracted_data as any;
+            nextOfKinFallback = Array.isArray(ext?.nextOfKin) ? ext.nextOfKin : [];
+          }
+        }
+      }
+
       // Generate signed URL for the PDF if available
       let pdfUrl: string | null = null;
       let pdfFileName: string | null = null;
       if (polygraphReport?.report_pdf_url) {
         const rawUrl = polygraphReport.report_pdf_url;
-        // Extract original filename from the URL
-        const urlPath = rawUrl.split('?')[0]; // remove query params
+        const urlPath = rawUrl.split('?')[0];
         pdfFileName = decodeURIComponent(urlPath.split('/').pop() || 'polygraph-report');
 
         const storagePath = rawUrl.includes('/polygraph-reports/')
@@ -513,7 +536,8 @@ export const RiskProfileDialog = ({
         suitability,
         pdfUrl,
         pdfFileName,
-      });
+        _nextOfKin: nextOfKinFallback,
+      } as any);
     } catch (error) {
       console.error("Error fetching profile data:", error);
     } finally {
@@ -575,9 +599,6 @@ export const RiskProfileDialog = ({
   const familyMembers = (data?.polygraphReport?.family_criminal_history || []) as any[];
   const friendMembers = (data?.polygraphReport?.friend_criminal_history || []) as any[];
   
-  // Next of kin - check extracted_data stored in the report or from family data
-  // The nextOfKin data is stored in extracted_data column of pending_polygraph_uploads
-  // but not carried to polygraph_reports as a separate column. Let's check extracted_disclosure for it.
   const extractedData = data?.polygraphReport?.extracted_disclosure || {};
   
   // Filter family to father/mother/brother/sister only
@@ -585,6 +606,16 @@ export const RiskProfileDialog = ({
     const rel = (m.Relationship || m.relationship || '').toLowerCase();
     return rel.includes('father') || rel.includes('mother') || rel.includes('brother') || rel.includes('sister');
   });
+
+  // Next of Kin: first check family_criminal_history for spouse/partner/kin entries
+  const nokFromFamilyData = familyMembers.filter((m: any) => {
+    const rel = (m.Relationship || m.relationship || '').toLowerCase();
+    return rel.includes('spouse') || rel.includes('partner') || rel.includes('next of kin') || rel.includes('kin');
+  });
+
+  // Fallback: pull from pending_polygraph_uploads extracted_data.nextOfKin (stored during fetch)
+  const nokFallback = (data as any)?._nextOfKin || [];
+  const nextOfKinMembers = nokFromFamilyData.length > 0 ? nokFromFamilyData : nokFallback;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -808,32 +839,23 @@ export const RiskProfileDialog = ({
                    )}
 
                    {/* Next of Kin */}
-                   {(() => {
-                     const nokFromFamily = familyMembers.filter((m: any) => {
-                       const rel = (m.Relationship || m.relationship || '').toLowerCase();
-                       return rel.includes('spouse') || rel.includes('partner') || rel.includes('next of kin') || rel.includes('kin');
-                     });
-                     
-                     if (nokFromFamily.length === 0) return null;
-                     
-                     return (
-                       <Card className="overflow-hidden">
-                         <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 border-b py-3">
-                           <CardTitle className="flex items-center gap-2 text-lg">
-                             <User className="h-5 w-5 text-primary" />
-                             Next of Kin
-                           </CardTitle>
-                         </CardHeader>
-                         <CardContent className="p-6">
-                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                             {nokFromFamily.map((kin: any, idx: number) => (
-                               <FamilyMemberNode key={idx} member={kin} hideArrest />
-                             ))}
-                           </div>
-                         </CardContent>
-                       </Card>
-                     );
-                   })()}
+                   {nextOfKinMembers.length > 0 && (
+                     <Card className="overflow-hidden">
+                       <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 border-b py-3">
+                         <CardTitle className="flex items-center gap-2 text-lg">
+                           <User className="h-5 w-5 text-primary" />
+                           Next of Kin
+                         </CardTitle>
+                       </CardHeader>
+                       <CardContent className="p-6">
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                           {nextOfKinMembers.map((kin: any, idx: number) => (
+                             <FamilyMemberNode key={idx} member={kin} hideArrest />
+                           ))}
+                         </div>
+                       </CardContent>
+                     </Card>
+                   )}
                 </CardContent>
               </Card>
             </TabsContent>
