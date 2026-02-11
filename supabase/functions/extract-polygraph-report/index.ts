@@ -256,11 +256,23 @@ STEP 2 — STRUCTURE THE DATA EXACTLY LIKE THIS:
     }
   ],
   "FinancialCircumstances": {
-    "BankDetails": "",
-    "Debts": [],
-    "Arrears": [],
-    "Blacklisted": "",
-    "GamblingIssues": ""
+    "BankDetails": "List of banks and account types e.g. 'ABSA Bank – Cheque Account, Capitec – Savings'",
+    "Debts": [
+      {
+        "Name": "Name of creditor or account e.g. 'Truworths' or 'Vehicle Finance'",
+        "Amount": "Monthly payment amount as a number e.g. 800 or 5600",
+        "Status": "current or arrears"
+      }
+    ],
+    "Arrears": [
+      {
+        "Name": "Name of creditor in arrears e.g. 'Rage' or 'Cell C'",
+        "Amount": "Amount in arrears as a number e.g. 500 or 5600",
+        "Date": "When arrears started e.g. 'January 2023'"
+      }
+    ],
+    "Blacklisted": "Yes or No - whether the candidate is blacklisted",
+    "GamblingIssues": "Details of any gambling issues disclosed, or 'None'"
   },
   "PermitsLicensing": {
     "Passport": "",
