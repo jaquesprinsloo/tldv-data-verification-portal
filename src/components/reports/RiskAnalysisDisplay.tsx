@@ -10,6 +10,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, RadialBarChart, RadialBar, Legend,
+  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
 } from "recharts";
 import {
   ChevronDown, Shield, AlertTriangle, CheckCircle2, XCircle,
@@ -662,12 +663,12 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
       amount: a.amount,
     }));
 
-  // Chart data for criminal activity overview
-  const criminalOverviewData = criminal.branches.map(b => ({
-    name: b.name.length > 10 ? b.name.substring(0, 10) + "…" : b.name,
+  // Radar chart data for criminal activity
+  const criminalRadarData = criminal.branches.map(b => ({
+    branch: b.name.replace("Illegal Drug Involvement", "Drug Involvement").replace("General Overview", "General"),
     score: b.score,
     max: b.maxScore,
-    fill: b.score > 0 ? "#ef4444" : "#22c55e",
+    fullMark: b.maxScore,
   }));
 
   // Category summary for law encounters chart
@@ -958,21 +959,17 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Overview chart */}
-          <div className="h-44">
+          {/* Radar chart */}
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={criminalOverviewData} margin={{ left: 0, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 9 }} interval={0} angle={-20} textAnchor="end" height={50} />
-                <YAxis />
-                <Tooltip formatter={(value: number, name: string) => [value, name === "score" ? "Confirmed" : "Maximum"]} />
-                <Bar dataKey="max" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="score" radius={[4, 4, 0, 0]}>
-                  {criminalOverviewData.map((entry, index) => (
-                    <Cell key={index} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
+              <RadarChart data={criminalRadarData} cx="50%" cy="50%" outerRadius="75%">
+                <PolarGrid strokeDasharray="3 3" />
+                <PolarAngleAxis dataKey="branch" tick={{ fontSize: 10 }} />
+                <PolarRadiusAxis tick={false} axisLine={false} />
+                <Radar name="Maximum" dataKey="max" stroke="#d1d5db" fill="#e5e7eb" fillOpacity={0.3} />
+                <Radar name="Confirmed" dataKey="score" stroke="#ef4444" fill="#ef4444" fillOpacity={0.4} />
+                <Tooltip />
+              </RadarChart>
             </ResponsiveContainer>
           </div>
 
