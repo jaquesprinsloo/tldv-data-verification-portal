@@ -142,6 +142,13 @@ REQUIRED SECTIONS TO EXTRACT:
 - Polygraph Relevant Questions, Responses, and Findings (SR, INC, NSR)
 - Post-Examination Admissions
 
+CRITICAL INSTRUCTION FOR DetailedCriminalActivity:
+The document typically contains a section listing criminal activity questions grouped by category (Theft at Work, Fraud, Bribery, Organized Crime, Undetected Crimes, Illegal Drug Involvement, General Overview). 
+You MUST extract EVERY SINGLE question/item listed under each category. Each question must be a separate entry with the exact question text and whether the candidate answered YES (true) or NO (false).
+Do NOT summarize or skip questions. Extract ALL of them verbatim from the document.
+If a category has 5 questions, you must return 5 items. If it has 25 questions, return all 25.
+The "Answer" field must be true if the candidate confirmed/admitted to the item, and false if they denied it.
+
 If a section is blank in the document, mark it as "Not disclosed".
 
 STEP 2 — STRUCTURE THE DATA EXACTLY LIKE THIS:
@@ -281,8 +288,10 @@ STEP 2 — STRUCTURE THE DATA EXACTLY LIKE THIS:
   },
   "PersonalLawEncounters": {
     "Arrests": "",
+    "Bribe": "Whether the candidate paid a bribe related to an arrest or legal matter, or 'No'",
     "Fines": "",
     "Convictions": "",
+    "PendingCases": "Any pending court cases or legal matters, or 'No'",
     "CourtAppearances": ""
   },
   "Admissions": [
@@ -296,25 +305,26 @@ STEP 2 — STRUCTURE THE DATA EXACTLY LIKE THIS:
   ],
   "DetailedCriminalActivity": {
     "TheftAtWork": [
-      { "Question": "Description of the specific theft-related question or item from the document", "Answer": false }
+      { "Question": "Extract the exact question text from the document", "Answer": false },
+      { "Question": "Extract ALL questions in this category - do not skip any", "Answer": false }
     ],
     "Fraud": [
-      { "Question": "Description of the specific fraud-related question or item", "Answer": false }
+      { "Question": "Extract every fraud-related question verbatim", "Answer": false }
     ],
     "Bribery": [
-      { "Question": "Description of the specific bribery-related question or item", "Answer": false }
+      { "Question": "Extract every bribery-related question verbatim", "Answer": false }
     ],
     "OrganizedCrime": [
-      { "Question": "Description of the specific organized crime question or item", "Answer": false }
+      { "Question": "Extract every organized crime question verbatim", "Answer": false }
     ],
     "UndetectedCrimes": [
-      { "Question": "Description of the specific undetected crime question or item", "Answer": false }
+      { "Question": "Extract every undetected crime question verbatim", "Answer": false }
     ],
     "IllegalDrugInvolvement": [
-      { "Question": "Description of the specific drug involvement question or item", "Answer": false }
+      { "Question": "Extract every drug involvement question verbatim", "Answer": false }
     ],
     "GeneralOverview": [
-      { "Question": "Description of the specific general overview question or item", "Answer": false }
+      { "Question": "Extract every general overview question verbatim", "Answer": false }
     ]
   },
   "ExamQuestions": [
