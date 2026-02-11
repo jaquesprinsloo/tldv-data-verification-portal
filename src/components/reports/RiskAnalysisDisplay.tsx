@@ -151,6 +151,7 @@ const calculateEmploymentScore = (report: any): EmploymentResult => {
     position: j.Position || j.position || j.Role || j.role || j.Title || j.title || "",
     durationMonths: parseDurationToMonths(j.Duration || j.duration || j.Dates || j.dates || j.Period || j.period),
     reason: j.ReasonForLeaving || j.reasonForLeaving || j.Reason || j.reason || "Not stated",
+    disciplinary: j.DisciplinaryConduct || j.disciplinaryConduct || j.Disciplinary || j.disciplinary || "",
   }));
 
   const totalMonths = jobs.reduce((sum: number, j: any) => sum + j.durationMonths, 0);
@@ -165,15 +166,22 @@ const calculateEmploymentScore = (report: any): EmploymentResult => {
   const sortedReasons = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1]);
   const mostCommonReason = sortedReasons.length > 0 ? sortedReasons[0][0] : "Not available";
 
-  // Check disciplinary conduct from disclosure
-  const disclosure = report?.extracted_disclosure || {};
-  const dismissals = jobs.filter((j: any) => {
+  // Check disciplinary conduct from both the DisciplinaryConduct field and reason keywords
+  const disciplinaryJobs = jobs.filter((j: any) => {
     const r = j.reason.toLowerCase();
-    return r.includes("dismiss") || r.includes("fired") || r.includes("hearing") || r.includes("disciplin") || r.includes("warning");
+    const d = (j.disciplinary || "").toLowerCase();
+    const hasReasonFlag = r.includes("dismiss") || r.includes("fired") || r.includes("hearing") || r.includes("disciplin") || r.includes("warning");
+    const hasDisciplinaryField = d && d !== "none" && d !== "not disclosed" && d !== "n/a" && d !== "no" && d.length > 2;
+    return hasReasonFlag || hasDisciplinaryField;
   });
-  const hasDisciplinary = dismissals.length > 0;
+  const hasDisciplinary = disciplinaryJobs.length > 0;
   const disciplinaryDetails = hasDisciplinary
-    ? dismissals.map((d: any) => `${d.company}: ${d.reason}`).join("; ")
+    ? disciplinaryJobs.map((d: any) => {
+        const parts = [d.company];
+        if (d.disciplinary && d.disciplinary.toLowerCase() !== "none") parts.push(d.disciplinary);
+        else parts.push(d.reason);
+        return parts.join(": ");
+      }).join("; ")
     : "None disclosed";
 
   let score = 0;
