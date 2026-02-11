@@ -261,11 +261,15 @@ const calculateFinancialScore = (report: any): FinancialResult => {
   const avgHistoricalDebt = historicalDebt.length > 0 ? totalHistoricalDebt / historicalDebt.length : 0;
 
   let score = 0;
-  if (blacklisted) score = 3;
-  else if (allArrears.length > 2 || totalHistoricalDebt > 10000) score = 2;
-  else if (allDebts.length > 0 || allArrears.length > 0) score = 1;
+  const hasActiveAccounts = allDebts.length > 0;
+  const hasHistoricalDebt = allArrears.length > 0;
 
-  const labels = ["No Financial Pressure", "Some Financial Pressure", "Moderate Financial Pressure", "High Financial Pressure"];
+  if (hasActiveAccounts && hasHistoricalDebt && blacklisted) score = 3;
+  else if (hasActiveAccounts && hasHistoricalDebt) score = 2;
+  else if (hasActiveAccounts) score = 1;
+  // score stays 0 if no monthly accounts
+
+  const labels = ["No Monthly Accounts", "Accounts Paid Up To Date", "Active Accounts & Historical Debt", "Active Accounts, Historical Debt & Blacklisted"];
 
   let creditRating = "Good";
   if (blacklisted) creditRating = "Very Poor";
