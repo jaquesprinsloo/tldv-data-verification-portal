@@ -735,6 +735,7 @@ Return ONLY the JSON object, no additional text.`;
       polygraphResults: extractedData.PolygraphResults || {},
       postExamAdmissions: extractedData.PostExamAdmissions || '',
       riskAnalysis: extractedData.RiskAnalysis || {},
+      detailedCriminalActivity: extractedData.DetailedCriminalActivity || null,
       // Add extracted photo URL
       candidatePhotoUrl: candidatePhotoUrl,
     };
