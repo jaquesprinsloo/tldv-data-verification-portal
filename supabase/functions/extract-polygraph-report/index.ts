@@ -209,7 +209,15 @@ STEP 2 — STRUCTURE THE DATA EXACTLY LIKE THIS:
     "OtherNotableAdmissions": ""
   },
   "EducationHistory": [],
-  "EmploymentHistory": [],
+  "EmploymentHistory": [
+    {
+      "Company": "Name of employer",
+      "Position": "Job title or role",
+      "Duration": "How long employed e.g. '2 years 6 months' or '1 year'",
+      "ReasonForLeaving": "Why the candidate left this job",
+      "DisciplinaryConduct": "Any warnings, hearings, dismissals, or disciplinary actions noted. Use 'None' if no disciplinary issues."
+    }
+  ],
   "FamilyCriminalHistory": [
     {
       "Name": "Full name of family member",
