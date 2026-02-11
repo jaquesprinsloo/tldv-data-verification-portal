@@ -706,7 +706,7 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
               <p className="text-[10px] text-muted-foreground uppercase">Financial</p>
             </div>
             <div className="text-center p-2 rounded-lg bg-background/80 border">
-              <p className="text-lg font-bold">{law.score}/3</p>
+              <p className="text-lg font-bold">{law.score}/5</p>
               <p className="text-[10px] text-muted-foreground uppercase">Law</p>
             </div>
             <div className="text-center p-2 rounded-lg bg-background/80 border">
