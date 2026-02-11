@@ -299,14 +299,20 @@ const calculateLawScore = (report: any): LawResult => {
   const arrests = (law.Arrests || law.arrests || disclosure.Arrests || disclosure.arrests || "").toString().toLowerCase();
   const convictions = (law.Convictions || law.convictions || disclosure.Convictions || disclosure.convictions || "").toString().toLowerCase();
   const expungement = (law.Expungement || law.expungement || "").toString().toLowerCase();
+  const bribe = (law.Bribe || law.bribe || disclosure.BribeForArrest || disclosure.bribeForArrest || "").toString().toLowerCase();
+  const pendingCases = (law.PendingCases || law.pendingCases || disclosure.PendingCases || disclosure.pendingCases || "").toString().toLowerCase();
 
   const personalArrested = isMeaningful(arrests) && !arrests.includes("none") && arrests !== "no";
   const personalConvicted = isMeaningful(convictions) && !convictions.includes("none") && convictions !== "no";
   const personalExpungement = isMeaningful(expungement) && !expungement.includes("none") && expungement !== "no";
+  const paidBribe = isMeaningful(bribe) && !bribe.includes("none") && bribe !== "no";
+  const hasPendingCases = isMeaningful(pendingCases) && !pendingCases.includes("none") && pendingCases !== "no";
 
   const personalDetails = [
     personalArrested ? `Arrests: ${law.Arrests || law.arrests || disclosure.Arrests || disclosure.arrests}` : null,
+    paidBribe ? `Bribe: ${law.Bribe || law.bribe || disclosure.BribeForArrest || disclosure.bribeForArrest}` : null,
     personalConvicted ? `Convictions: ${law.Convictions || law.convictions || disclosure.Convictions || disclosure.convictions}` : null,
+    hasPendingCases ? `Pending Cases: ${law.PendingCases || law.pendingCases || disclosure.PendingCases || disclosure.pendingCases}` : null,
     personalExpungement ? `Expungement: ${law.Expungement || law.expungement}` : null,
   ].filter(Boolean).join("; ") || "None disclosed";
 
@@ -337,14 +343,17 @@ const calculateLawScore = (report: any): LawResult => {
 
   const hasFamilyFriendIssues = familyIssues.length > 0 || friendIssues.length > 0;
 
+  // New scoring: 1 point each for personal arrest, bribe, convicted, pending cases, family/friend issues (max 5)
   let score = 0;
-  if (personalArrested && hasFamilyFriendIssues) score = 3;
-  else if (personalArrested || personalConvicted || personalExpungement) score = 2;
-  else if (hasFamilyFriendIssues) score = 1;
+  if (personalArrested) score += 1;
+  if (paidBribe) score += 1;
+  if (personalConvicted) score += 1;
+  if (hasPendingCases) score += 1;
+  if (hasFamilyFriendIssues) score += 1;
 
-  const labels = ["No Encounters", "Some Encounters", "Personal Encounters Noted", "Personal & Family/Friend Encounters"];
+  const label = score === 0 ? "No Encounters" : `${score}/5 Factors Present`;
 
-  return { score, label: labels[score], personalArrested, personalConvicted, personalExpungement, personalDetails, familyIssues, friendIssues };
+  return { score, label, personalArrested, personalConvicted, personalExpungement, personalDetails, familyIssues, friendIssues };
 };
 
 interface CriminalBranch {
@@ -552,7 +561,7 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
 
   // Grand total
   const categoryTotal = employment.score + financial.score + law.score + integrity.score;
-  const categoryMax = 3 + 3 + 3 + 1;
+  const categoryMax = 3 + 3 + 5 + 1;
   const grandTotal = categoryTotal + criminal.grandTotal;
   const grandMax = categoryMax + criminal.maxGrandTotal;
 
@@ -831,7 +840,7 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
               <Scale className="h-5 w-5 text-primary" />
               Encounters with the Law
             </div>
-            <ScoreBadge score={law.score} max={3} label={law.label} />
+            <ScoreBadge score={law.score} max={5} label={law.label} />
           </CardTitle>
           <CardDescription>Personal, family, and friend encounters</CardDescription>
         </CardHeader>
