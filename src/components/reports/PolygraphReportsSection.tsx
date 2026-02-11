@@ -728,20 +728,21 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                 {extractedData && (
                   <div className="space-y-6">
                     {/* Risk Analysis Display with extracted data for background summary */}
-                    {extractedData.riskAnalysis && (
+                    {extractedData && (
                       <RiskAnalysisDisplay 
-                        riskAnalysis={extractedData.riskAnalysis} 
-                        extractedData={{
-                          educationHistory: extractedData.educationHistory,
-                          employmentHistory: extractedData.employmentHistory,
-                          familyCriminalHistory: extractedData.familyCriminalHistory,
-                          friendCriminalHistory: extractedData.friendCriminalHistory,
-                          financialCircumstances: extractedData.financialCircumstances,
-                          permitsLicensing: extractedData.permitsLicensing,
-                          personalLawEncounters: extractedData.personalLawEncounters,
-                          disclosure: extractedData.disclosure,
-                          examQuestions: extractedData.examQuestions,
+                        polygraphReport={{
+                          employment_history: extractedData.employmentHistory,
+                          financial_circumstances: extractedData.financialCircumstances,
+                          family_criminal_history: extractedData.familyCriminalHistory,
+                          friend_criminal_history: extractedData.friendCriminalHistory,
+                          personal_law_encounters: extractedData.personalLawEncounters,
+                          extracted_disclosure: extractedData.disclosure,
+                          risk_analysis: extractedData.riskAnalysis,
                         }}
+                        examQuestions={(extractedData.examQuestions || []).map((q: any) => ({
+                          finding: q.finding || q.Finding || '',
+                        }))}
+                        riskAnalysis={extractedData.riskAnalysis}
                       />
                     )}
 

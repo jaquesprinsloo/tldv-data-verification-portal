@@ -274,6 +274,29 @@ STEP 2 — STRUCTURE THE DATA EXACTLY LIKE THIS:
       "Notes": ""
     }
   ],
+  "DetailedCriminalActivity": {
+    "TheftAtWork": [
+      { "Question": "Description of the specific theft-related question or item from the document", "Answer": false }
+    ],
+    "Fraud": [
+      { "Question": "Description of the specific fraud-related question or item", "Answer": false }
+    ],
+    "Bribery": [
+      { "Question": "Description of the specific bribery-related question or item", "Answer": false }
+    ],
+    "OrganizedCrime": [
+      { "Question": "Description of the specific organized crime question or item", "Answer": false }
+    ],
+    "UndetectedCrimes": [
+      { "Question": "Description of the specific undetected crime question or item", "Answer": false }
+    ],
+    "IllegalDrugInvolvement": [
+      { "Question": "Description of the specific drug involvement question or item", "Answer": false }
+    ],
+    "GeneralOverview": [
+      { "Question": "Description of the specific general overview question or item", "Answer": false }
+    ]
+  },
   "ExamQuestions": [
     {
       "QuestionNumber": 0,

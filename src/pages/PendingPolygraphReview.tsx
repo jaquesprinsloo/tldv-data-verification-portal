@@ -765,8 +765,20 @@ const PendingPolygraphReview = () => {
                     </Select>
                   </div>
                 </div>
-                {editedData.risk_analysis && (
-                  <RiskAnalysisDisplay riskAnalysis={editedData.risk_analysis} />
+                {editedData && (
+                  <RiskAnalysisDisplay 
+                    polygraphReport={{
+                      employment_history: editedData.employment_history || [],
+                      financial_circumstances: editedData.financial_circumstances || {},
+                      family_criminal_history: editedData.family_criminal_history || [],
+                      friend_criminal_history: editedData.friend_criminal_history || [],
+                      personal_law_encounters: editedData.personal_law_encounters || {},
+                      extracted_disclosure: editedData.extracted_disclosure || {},
+                      risk_analysis: editedData.risk_analysis,
+                    }}
+                    examQuestions={[]}
+                    riskAnalysis={editedData.risk_analysis}
+                  />
                 )}
               </TabsContent>
 
