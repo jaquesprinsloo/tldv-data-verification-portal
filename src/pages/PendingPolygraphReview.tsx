@@ -381,6 +381,34 @@ const PendingPolygraphReview = () => {
 
       await supabase.from("polygraph_candidates").insert([candidatePayload]);
 
+      // Save suitability data if available from extraction
+      const suitabilityExtracted = editedData.extracted_data?.suitability;
+      if (suitabilityExtracted) {
+        const suitabilityPayload = {
+          report_id: reportData.id,
+          health_status: suitabilityExtracted.healthStatus || null,
+          enough_sleep: suitabilityExtracted.enoughSleep ?? null,
+          hospitalized_recently: suitabilityExtracted.hospitalizedRecently ?? null,
+          hospitalized_details: suitabilityExtracted.hospitalizedDetails || null,
+          medication_taken: suitabilityExtracted.medicationTaken ?? null,
+          medication_details: suitabilityExtracted.medicationDetails || null,
+          heart_conditions: suitabilityExtracted.heartConditions ?? null,
+          breathing_trouble: suitabilityExtracted.breathingTrouble ?? null,
+          psychological_disorders: suitabilityExtracted.psychologicalDisorders ?? null,
+          diabetic: suitabilityExtracted.diabetic ?? null,
+          recent_drug_use: suitabilityExtracted.recentDrugUse ?? null,
+          drug_use_details: suitabilityExtracted.drugUseDetails || null,
+          recent_alcohol_use: suitabilityExtracted.recentAlcoholUse ?? null,
+          alcohol_details: suitabilityExtracted.alcoholDetails || null,
+          smoker: suitabilityExtracted.smoker ?? null,
+          smoking_details: suitabilityExtracted.smokingDetails || null,
+          pregnant: suitabilityExtracted.pregnant ?? null,
+          suitable_for_exam: suitabilityExtracted.suitableForExam ?? null,
+          suitability_comment: suitabilityExtracted.suitabilityComment || null,
+        };
+        await supabase.from("polygraph_suitability").insert([suitabilityPayload]);
+      }
+
       // Update pending upload status
       await supabase
         .from("pending_polygraph_uploads")
