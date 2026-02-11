@@ -553,36 +553,40 @@ const ScoreBadge = ({ score, max, label }: { score: number; max: number; label: 
 const BranchDropdown = ({ branch }: { branch: CriminalBranch }) => {
   const [isOpen, setIsOpen] = useState(false);
   const hasConfirmed = branch.score > 0;
+  const confirmedItems = branch.items.filter(item => item.confirmed);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg border bg-background hover:bg-muted/50 transition-colors">
+      <CollapsibleTrigger className={`flex items-center justify-between w-full p-3 rounded-lg border transition-colors ${hasConfirmed ? "bg-red-50/50 border-red-200 hover:bg-red-50" : "bg-muted/30 border-border hover:bg-muted/50"}`}>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-medium">{branch.name}</span>
-          {hasConfirmed && (
-            <Badge variant="destructive" className="text-xs">{branch.score} confirmed</Badge>
+          {hasConfirmed ? (
+            <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+          ) : (
+            <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
           )}
+          <span className="text-sm font-medium">{branch.name}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{branch.score}/{branch.maxScore}</span>
-          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
-        </div>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="mt-1">
-        <div className="border rounded-lg divide-y">
-          {branch.items.filter(item => item.confirmed).map((item, idx) => (
-            <div key={idx} className="flex items-start gap-2 p-2.5 text-sm">
-              <Check className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-              <span className="text-foreground">
-                {item.question}
-              </span>
-            </div>
-          ))}
-          {branch.items.filter(item => item.confirmed).length === 0 && (
-            <div className="p-2.5 text-sm text-muted-foreground">No confirmed items</div>
+          <Badge variant={hasConfirmed ? "destructive" : "secondary"} className="text-xs px-2 py-0.5">
+            {branch.score}/{branch.maxScore}
+          </Badge>
+          {hasConfirmed && (
+            <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
           )}
         </div>
-      </CollapsibleContent>
+      </CollapsibleTrigger>
+      {hasConfirmed && (
+        <CollapsibleContent className="mt-1">
+          <div className="ml-7 border-l-2 border-red-200 pl-3 space-y-1 py-1">
+            {confirmedItems.map((item, idx) => (
+              <div key={idx} className="flex items-start gap-2 py-1.5 text-sm">
+                <span className="text-red-500 font-medium text-xs mt-0.5">YES</span>
+                <span className="text-foreground">{item.question}</span>
+              </div>
+            ))}
+          </div>
+        </CollapsibleContent>
+      )}
     </Collapsible>
   );
 };
@@ -949,7 +953,9 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
               <span className="text-sm text-muted-foreground">Grand Total</span>
             </div>
           </CardTitle>
-          <CardDescription>7 branches assessed with individual confirmations</CardDescription>
+          <CardDescription>
+            {criminal.branches.filter(b => b.score > 0).length} of 7 branches flagged
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Overview chart */}
@@ -970,10 +976,13 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             </ResponsiveContainer>
           </div>
 
-          {/* Branch dropdowns */}
+          {/* Flagged branches first, then clean ones */}
           <div className="space-y-2">
-            {criminal.branches.map((branch, idx) => (
-              <BranchDropdown key={idx} branch={branch} />
+            {criminal.branches.filter(b => b.score > 0).map((branch, idx) => (
+              <BranchDropdown key={`flagged-${idx}`} branch={branch} />
+            ))}
+            {criminal.branches.filter(b => b.score === 0).map((branch, idx) => (
+              <BranchDropdown key={`clean-${idx}`} branch={branch} />
             ))}
           </div>
         </CardContent>
