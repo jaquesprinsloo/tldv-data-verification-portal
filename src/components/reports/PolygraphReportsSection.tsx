@@ -736,7 +736,8 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                           family_criminal_history: extractedData.familyCriminalHistory,
                           friend_criminal_history: extractedData.friendCriminalHistory,
                           personal_law_encounters: extractedData.personalLawEncounters,
-                          extracted_disclosure: extractedData.disclosure,
+                          extracted_disclosure: { ...extractedData.disclosure, admissions: extractedData.admissions },
+                          extracted_data: { admissions: extractedData.admissions },
                           risk_analysis: extractedData.riskAnalysis,
                         }}
                         examQuestions={(extractedData.examQuestions || []).map((q: any) => ({

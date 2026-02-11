@@ -773,7 +773,8 @@ const PendingPolygraphReview = () => {
                       family_criminal_history: editedData.family_criminal_history || [],
                       friend_criminal_history: editedData.friend_criminal_history || [],
                       personal_law_encounters: editedData.personal_law_encounters || {},
-                      extracted_disclosure: editedData.extracted_disclosure || {},
+                      extracted_disclosure: { ...(editedData.extracted_disclosure || {}), admissions: editedData.admissions },
+                      extracted_data: { admissions: editedData.admissions },
                       risk_analysis: editedData.risk_analysis,
                     }}
                     examQuestions={[]}
