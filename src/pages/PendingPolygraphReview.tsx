@@ -198,6 +198,7 @@ const PendingPolygraphReview = () => {
 
   const openReviewDialog = (upload: PendingUpload) => {
     setSelectedUpload(upload);
+    const ext = upload.extracted_data || {};
     setEditedData({
       first_name: upload.first_name || "",
       last_name: upload.last_name || "",
@@ -211,7 +212,17 @@ const PendingPolygraphReview = () => {
       risk_score: upload.risk_score,
       risk_level: upload.risk_level || "",
       risk_analysis: upload.risk_analysis || {},
-      extracted_data: upload.extracted_data || {},
+      extracted_data: ext,
+      // Populate breakdown fields from extracted_data for RiskAnalysisDisplay
+      employment_history: ext.employmentHistory || [],
+      financial_circumstances: ext.financialCircumstances || {},
+      family_criminal_history: [
+        ...(ext.familyCriminalHistory || []),
+        ...(ext.nextOfKin || []),
+      ],
+      friend_criminal_history: ext.friendCriminalHistory || [],
+      personal_law_encounters: ext.personalLawEncounters || {},
+      extracted_disclosure: ext.disclosure || {},
     });
     setSelectedAccountId(upload.account_id || "");
     setSelectedStoreId(upload.store_id || "");
@@ -324,7 +335,16 @@ const PendingPolygraphReview = () => {
 
     setProcessing(true);
     try {
-      // Create the polygraph report
+      const ext = editedData.extracted_data || {};
+
+      // Determine vetting types from extraction
+      const vettingTypes: string[] = [];
+      const vt = ext.examination?.vettingTypes || {};
+      if (vt.PreEmployment) vettingTypes.push("polygraph_pre_employment");
+      if (vt.PeriodicScreening) vettingTypes.push("polygraph_periodic");
+      if (vt.Specific) vettingTypes.push("polygraph_specific");
+
+      // Create the polygraph report with ALL extracted data
       const reportPayload = {
         store_id: selectedStoreId,
         examiner_id: selectedExaminerId || null,
@@ -343,18 +363,24 @@ const PendingPolygraphReview = () => {
         risk_score: editedData.risk_score,
         risk_level: editedData.risk_level,
         risk_analysis: editedData.risk_analysis,
-        extracted_disclosure: editedData.extracted_data?.disclosure,
-        education_history: editedData.extracted_data?.educationHistory,
-        employment_history: editedData.extracted_data?.employmentHistory,
+        vetting_types: vettingTypes.length > 0 ? vettingTypes : null,
+        examiner_notes: ext.result?.examinerNotes || null,
+        candidate_photo_url: ext.candidatePhotoUrl || null,
+        extracted_disclosure: {
+          ...(ext.disclosure || {}),
+          DetailedCriminalActivity: ext.detailedCriminalActivity || null,
+        },
+        education_history: ext.educationHistory || [],
+        employment_history: ext.employmentHistory || [],
         family_criminal_history: [
-          ...(editedData.extracted_data?.familyCriminalHistory || []),
-          ...(editedData.extracted_data?.nextOfKin || []),
+          ...(ext.familyCriminalHistory || []),
+          ...(ext.nextOfKin || []),
         ],
-        friend_criminal_history: editedData.extracted_data?.friendCriminalHistory,
-        financial_circumstances: editedData.extracted_data?.financialCircumstances,
-        permits_licensing: editedData.extracted_data?.permitsLicensing,
-        personal_law_encounters: editedData.extracted_data?.personalLawEncounters,
-        post_exam_admissions: editedData.extracted_data?.postExamAdmissions || null,
+        friend_criminal_history: ext.friendCriminalHistory || [],
+        financial_circumstances: ext.financialCircumstances || {},
+        permits_licensing: ext.permitsLicensing || {},
+        personal_law_encounters: ext.personalLawEncounters || {},
+        post_exam_admissions: ext.postExamAdmissions || null,
       };
 
       const { data: reportData, error: reportError } = await supabase
@@ -365,9 +391,11 @@ const PendingPolygraphReview = () => {
 
       if (reportError) throw reportError;
 
+      const newReportId = reportData.id;
+
       // Create candidate profile
       const candidatePayload = {
-        report_id: reportData.id,
+        report_id: newReportId,
         first_name: editedData.first_name,
         last_name: editedData.last_name,
         id_number: editedData.id_number,
@@ -382,10 +410,10 @@ const PendingPolygraphReview = () => {
       await supabase.from("polygraph_candidates").insert([candidatePayload]);
 
       // Save suitability data if available from extraction
-      const suitabilityExtracted = editedData.extracted_data?.suitability;
+      const suitabilityExtracted = ext.suitability;
       if (suitabilityExtracted) {
         const suitabilityPayload = {
-          report_id: reportData.id,
+          report_id: newReportId,
           health_status: suitabilityExtracted.healthStatus || null,
           enough_sleep: suitabilityExtracted.enoughSleep ?? null,
           hospitalized_recently: suitabilityExtracted.hospitalizedRecently ?? null,
@@ -407,6 +435,51 @@ const PendingPolygraphReview = () => {
           suitability_comment: suitabilityExtracted.suitabilityComment || null,
         };
         await supabase.from("polygraph_suitability").insert([suitabilityPayload]);
+      }
+
+      // Save admissions data if available
+      const admissionsExtracted = ext.admissions;
+      if (admissionsExtracted && Array.isArray(admissionsExtracted) && admissionsExtracted.length > 0) {
+        const admissionsPayload = admissionsExtracted
+          .filter((a: any) => a.category)
+          .map((a: any) => ({
+            report_id: newReportId,
+            category: a.category,
+            confirmed: a.confirmed || false,
+            details: a.details || {},
+            time_window: ["within_2_years", "2_5_years", "5_plus_years", "never"].includes(a.timeWindow)
+              ? a.timeWindow
+              : null,
+            notes: a.notes || "",
+          }));
+        if (admissionsPayload.length > 0) {
+          const { error: admError } = await supabase
+            .from("polygraph_admissions")
+            .insert(admissionsPayload);
+          if (admError) console.error("Admissions save error:", admError);
+        }
+      }
+
+      // Save exam questions if available
+      const examQuestionsExtracted = ext.examQuestions;
+      if (examQuestionsExtracted && Array.isArray(examQuestionsExtracted) && examQuestionsExtracted.length > 0) {
+        const questionsPayload = examQuestionsExtracted
+          .filter((q: any) => q.questionText)
+          .map((q: any) => ({
+            report_id: newReportId,
+            question_number: q.questionNumber || 0,
+            question_text: q.questionText,
+            response: q.response ?? null,
+            finding: ["SR", "NSR", "INC", "PNC"].includes(q.finding?.toUpperCase())
+              ? q.finding.toUpperCase()
+              : null,
+          }));
+        if (questionsPayload.length > 0) {
+          const { error: qError } = await supabase
+            .from("polygraph_exam_questions")
+            .insert(questionsPayload);
+          if (qError) console.error("Exam questions save error:", qError);
+        }
       }
 
       // Update pending upload status
