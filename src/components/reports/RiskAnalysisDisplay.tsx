@@ -90,9 +90,9 @@ const formatMonths = (m: number): string => {
   if (m <= 0) return "N/A";
   const years = Math.floor(m / 12);
   const months = Math.round(m % 12);
-  if (years === 0) return `${months} mo`;
-  if (months === 0) return `${years} yr`;
-  return `${years} yr ${months} mo`;
+  if (years === 0) return `${months} month${months !== 1 ? "s" : ""}`;
+  if (months === 0) return `${years} year${years !== 1 ? "s" : ""}`;
+  return `${years} year${years !== 1 ? "s" : ""} ${months} month${months !== 1 ? "s" : ""}`;
 };
 
 const getScoreColor = (score: number, max: number): string => {
@@ -676,9 +676,9 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={employmentChartData} layout="vertical" margin={{ left: 0, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" tickFormatter={(v) => `${v} mo`} />
+                  <XAxis type="number" tickFormatter={(v) => formatMonths(v)} />
                   <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(value: number) => [`${value} months`, "Duration"]} />
+                  <Tooltip formatter={(value: number) => [formatMonths(value), "Duration"]} />
                   <Bar dataKey="duration" radius={[0, 4, 4, 0]}>
                     {employmentChartData.map((entry, index) => (
                       <Cell key={index} fill={entry.fill} />
