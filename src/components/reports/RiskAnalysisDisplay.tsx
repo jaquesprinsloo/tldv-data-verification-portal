@@ -638,15 +638,15 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
   }
   if (integrity.score > 0) concerns.push(`Polygraph result: ${integrity.result}`);
 
-  // Recommendations
+  // Recommendations (vetting options only, not rehabilitation)
   const recommendations: string[] = [];
-  if (employment.score >= 2) recommendations.push("Enhanced supervision recommended during probation period");
-  if (financial.score >= 2) recommendations.push("Financial wellness program recommended");
-  if (financial.blacklisted) recommendations.push("Credit check and financial background verification recommended");
+  if (employment.score >= 2) recommendations.push("Employment verification and reference checks recommended");
+  if (financial.score >= 2) recommendations.push("Credit and financial background check recommended");
+  if (financial.blacklisted) recommendations.push("In-depth credit bureau verification recommended");
   if (law.score >= 2) recommendations.push("Criminal record verification recommended");
-  if (criminal.grandTotal > 5) recommendations.push("Periodic re-screening recommended");
+  if (criminal.grandTotal > 5) recommendations.push("Periodic polygraph re-screening recommended");
   if (integrity.score > 0) recommendations.push("Follow-up polygraph examination recommended");
-  if (concerns.length === 0) recommendations.push("No additional mitigations required");
+  if (concerns.length === 0) recommendations.push("No additional vetting required");
 
   // Chart data for employment
   const employmentChartData = employment.jobs.map((j, i) => ({
