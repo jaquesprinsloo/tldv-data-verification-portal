@@ -302,10 +302,10 @@ const calculateLawScore = (report: any): LawResult => {
   const bribe = (law.Bribe || law.bribe || disclosure.BribeForArrest || disclosure.bribeForArrest || "").toString().toLowerCase();
   const pendingCases = (law.PendingCases || law.pendingCases || disclosure.PendingCases || disclosure.pendingCases || "").toString().toLowerCase();
 
-  const noIndicators = ["none", "no", "not disclosed", "n/a", "nil", "no convictions", "no arrests", "not convicted", "not arrested", "no pending", "no bribe", "no cases"];
+  const noIndicators = ["none", "no", "not disclosed", "n/a", "nil", "no convictions", "no arrests", "not convicted", "not arrested", "no pending", "no bribe", "no cases", "never"];
   const isLawMeaningful = (val: string) => {
     if (!isMeaningful(val)) return false;
-    return !noIndicators.some(indicator => val === indicator || val.startsWith("no ") || val.startsWith("not "));
+    return !noIndicators.some(indicator => val === indicator || val.startsWith("no ") || val.startsWith("not ") || val.startsWith("never "));
   };
 
   const personalArrested = isLawMeaningful(arrests);
