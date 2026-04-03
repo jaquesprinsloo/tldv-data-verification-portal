@@ -848,13 +848,15 @@ const CandexBuilder = () => {
                                   <TableCell key={ci}>
                                     {previewMode ? (
                                       rit.type === "yes_no" ? (
-                                        <div className="space-y-1.5">
+                                         <div className="space-y-1.5">
                                           <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
                                             <option>Select...</option>
                                             <option>Yes</option>
                                             <option>No</option>
                                           </select>
-                                          <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
+                                          {rit.require_explanation !== false && (
+                                            <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
+                                          )}
                                         </div>
                                       ) : rit.type === "select" ? (
                                         <div className="space-y-1.5">
