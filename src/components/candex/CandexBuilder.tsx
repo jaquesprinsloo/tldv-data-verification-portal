@@ -186,6 +186,8 @@ const INPUT_TYPE_LABELS: Record<string, string> = {
   select: "Single Select",
   multi_select: "Multi Select",
   dynamic_select: "Dynamic Select",
+  currency: "Currency (R)",
+  date_picker: "Date Picker",
 };
 
 // Helper to get or default a row input type
