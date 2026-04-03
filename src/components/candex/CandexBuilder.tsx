@@ -6,12 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, GripVertical, FileText, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Plus, Trash2, FileText, ChevronDown, ChevronRight, Copy, Table as TableIcon, Eye,
+} from "lucide-react";
+import {
+  Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
+} from "@/components/ui/table";
 
 interface Template {
   id: string;
@@ -28,13 +32,13 @@ interface Section {
   sort_order: number;
 }
 
-interface Question {
+interface SectionTable {
   id: string;
   section_id: string;
-  question_text: string;
-  question_type: string;
-  options: any;
-  is_required: boolean;
+  table_title: string;
+  column_headers: string[];
+  row_labels: string[];
+  is_repeatable: boolean;
   sort_order: number;
 }
 
@@ -47,8 +51,14 @@ const CandexBuilder = () => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showAddSection, setShowAddSection] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState("");
-  const [showAddQuestion, setShowAddQuestion] = useState<string | null>(null);
-  const [newQuestion, setNewQuestion] = useState({ text: "", type: "text", options: "" });
+  const [showAddTable, setShowAddTable] = useState<string | null>(null);
+  const [newTable, setNewTable] = useState({
+    title: "",
+    columns: "Field, Details",
+    rows: "",
+    is_repeatable: false,
+  });
+  const [previewMode, setPreviewMode] = useState(false);
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["candex-templates"],
@@ -76,21 +86,26 @@ const CandexBuilder = () => {
     },
   });
 
-  const { data: questions = [] } = useQuery({
-    queryKey: ["candex-questions", selectedTemplate?.id],
+  const { data: sectionTables = [] } = useQuery({
+    queryKey: ["candex-section-tables", selectedTemplate?.id],
     enabled: !!selectedTemplate && sections.length > 0,
     queryFn: async () => {
       const sectionIds = sections.map((s) => s.id);
       const { data, error } = await supabase
-        .from("candex_template_questions")
+        .from("candex_section_tables")
         .select("*")
         .in("section_id", sectionIds)
         .order("sort_order");
       if (error) throw error;
-      return data as Question[];
+      return (data || []).map((t: any) => ({
+        ...t,
+        column_headers: Array.isArray(t.column_headers) ? t.column_headers : JSON.parse(t.column_headers || "[]"),
+        row_labels: Array.isArray(t.row_labels) ? t.row_labels : JSON.parse(t.row_labels || "[]"),
+      })) as SectionTable[];
     },
   });
 
+  // --- Mutations ---
   const createTemplate = useMutation({
     mutationFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -160,42 +175,57 @@ const CandexBuilder = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["candex-sections", "candex-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-sections", "candex-section-tables"] });
       toast.success("Section deleted");
     },
   });
 
-  const addQuestionMutation = useMutation({
+  const addTableMutation = useMutation({
     mutationFn: async (sectionId: string) => {
-      const sectionQuestions = questions.filter((q) => q.section_id === sectionId);
-      const optionsArray = newQuestion.type === "select" || newQuestion.type === "multi_select"
-        ? newQuestion.options.split(",").map((o) => o.trim()).filter(Boolean)
-        : [];
-      const { error } = await supabase.from("candex_template_questions").insert({
+      const existing = sectionTables.filter((t) => t.section_id === sectionId);
+      const colHeaders = newTable.columns.split(",").map((c) => c.trim()).filter(Boolean);
+      const rowLabels = newTable.rows.split("\n").map((r) => r.trim()).filter(Boolean);
+      const { error } = await supabase.from("candex_section_tables").insert({
         section_id: sectionId,
-        question_text: newQuestion.text,
-        question_type: newQuestion.type,
-        options: optionsArray,
-        sort_order: sectionQuestions.length,
+        table_title: newTable.title,
+        column_headers: colHeaders,
+        row_labels: rowLabels,
+        is_repeatable: newTable.is_repeatable,
+        sort_order: existing.length,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["candex-questions"] });
-      setShowAddQuestion(null);
-      setNewQuestion({ text: "", type: "text", options: "" });
-      toast.success("Question added");
+      queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
+      setShowAddTable(null);
+      setNewTable({ title: "", columns: "Field, Details", rows: "", is_repeatable: false });
+      toast.success("Table added");
     },
+    onError: (e) => toast.error(e.message),
   });
 
-  const deleteQuestion = useMutation({
+  const deleteTableMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("candex_template_questions").delete().eq("id", id);
+      const { error } = await supabase.from("candex_section_tables").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["candex-questions"] });
-      toast.success("Question deleted");
+      queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
+      toast.success("Table removed");
+    },
+  });
+
+  const toggleRepeatable = useMutation({
+    mutationFn: async ({ id, is_repeatable }: { id: string; is_repeatable: boolean }) => {
+      const { error } = await supabase
+        .from("candex_section_tables")
+        .update({ is_repeatable })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
+      toast.success("Updated");
     },
   });
 
@@ -207,12 +237,13 @@ const CandexBuilder = () => {
     });
   };
 
+  // --- Template editor view ---
   if (selectedTemplate) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <Button variant="ghost" onClick={() => setSelectedTemplate(null)} className="mb-2">
+            <Button variant="ghost" onClick={() => { setSelectedTemplate(null); setPreviewMode(false); }} className="mb-2">
               ← Back to Templates
             </Button>
             <h2 className="text-xl font-bold">{selectedTemplate.name}</h2>
@@ -220,21 +251,26 @@ const CandexBuilder = () => {
               <p className="text-sm text-muted-foreground">{selectedTemplate.description}</p>
             )}
           </div>
-          <Button onClick={() => setShowAddSection(true)}>
-            <Plus className="h-4 w-4 mr-2" /> Add Section
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setPreviewMode(!previewMode)}>
+              <Eye className="h-4 w-4 mr-2" /> {previewMode ? "Edit Mode" : "Preview"}
+            </Button>
+            <Button onClick={() => setShowAddSection(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Add Section
+            </Button>
+          </div>
         </div>
 
         {sections.length === 0 && (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
-              No sections yet. Add a section to start building the questionnaire.
+              No sections yet. Add a section (topic heading) to start building the questionnaire.
             </CardContent>
           </Card>
         )}
 
         {sections.map((section) => {
-          const sectionQuestions = questions.filter((q) => q.section_id === section.id);
+          const tables = sectionTables.filter((t) => t.section_id === section.id);
           const isExpanded = expandedSections.has(section.id);
 
           return (
@@ -246,39 +282,94 @@ const CandexBuilder = () => {
                 <div className="flex items-center gap-2">
                   {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   <CardTitle className="text-base">{section.title}</CardTitle>
-                  <Badge variant="secondary">{sectionQuestions.length} questions</Badge>
+                  <Badge variant="secondary">{tables.length} table{tables.length !== 1 ? "s" : ""}</Badge>
                 </div>
-                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                  <Button size="sm" variant="outline" onClick={() => setShowAddQuestion(section.id)}>
-                    <Plus className="h-3 w-3 mr-1" /> Question
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => deleteSection.mutate(section.id)}>
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </Button>
-                </div>
+                {!previewMode && (
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    <Button size="sm" variant="outline" onClick={() => setShowAddTable(section.id)}>
+                      <Plus className="h-3 w-3 mr-1" /> <TableIcon className="h-3 w-3 mr-1" /> Table
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => deleteSection.mutate(section.id)}>
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                )}
               </CardHeader>
               {isExpanded && (
-                <CardContent className="space-y-2">
-                  {sectionQuestions.map((q, idx) => (
-                    <div key={q.id} className="flex items-center justify-between p-3 rounded-md border bg-muted/30">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground font-mono">{idx + 1}.</span>
-                        <div>
-                          <p className="text-sm">{q.question_text}</p>
-                          <div className="flex gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">{q.question_type}</Badge>
-                            {q.is_required && <Badge variant="outline" className="text-xs">Required</Badge>}
-                          </div>
+                <CardContent className="space-y-4">
+                  {tables.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No tables in this section yet. Add a table to define the data fields.
+                    </p>
+                  )}
+                  {tables.map((tbl) => (
+                    <div key={tbl.id} className="border rounded-lg overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2 bg-muted/40 border-b">
+                        <div className="flex items-center gap-2">
+                          <TableIcon className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium text-sm">{tbl.table_title}</span>
+                          {tbl.is_repeatable && (
+                            <Badge variant="outline" className="text-xs gap-1">
+                              <Copy className="h-3 w-3" /> Candidate can add more
+                            </Badge>
+                          )}
                         </div>
+                        {!previewMode && (
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1.5">
+                              <Label className="text-xs text-muted-foreground">Repeatable</Label>
+                              <Switch
+                                checked={tbl.is_repeatable}
+                                onCheckedChange={(v) => toggleRepeatable.mutate({ id: tbl.id, is_repeatable: v })}
+                              />
+                            </div>
+                            <Button size="sm" variant="ghost" onClick={() => deleteTableMutation.mutate(tbl.id)}>
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <Button size="sm" variant="ghost" onClick={() => deleteQuestion.mutate(q.id)}>
-                        <Trash2 className="h-3 w-3 text-destructive" />
-                      </Button>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            {tbl.column_headers.map((col, i) => (
+                              <TableHead key={i}>{col}</TableHead>
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {tbl.row_labels.map((row, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="font-medium text-sm">{row}</TableCell>
+                              {tbl.column_headers.slice(1).map((_, ci) => (
+                                <TableCell key={ci}>
+                                  {previewMode ? (
+                                    <Input placeholder={`Enter ${row.toLowerCase()}...`} disabled className="h-8 text-xs" />
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground italic">Candidate input</span>
+                                  )}
+                                </TableCell>
+                              ))}
+                            </TableRow>
+                          ))}
+                          {tbl.row_labels.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={tbl.column_headers.length} className="text-center text-sm text-muted-foreground py-4">
+                                No rows defined
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                      {previewMode && tbl.is_repeatable && (
+                        <div className="px-4 py-2 border-t bg-muted/20">
+                          <Button size="sm" variant="outline" disabled className="text-xs">
+                            <Plus className="h-3 w-3 mr-1" /> Add Another {tbl.table_title}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
-                  {sectionQuestions.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">No questions in this section.</p>
-                  )}
                 </CardContent>
               )}
             </Card>
@@ -288,11 +379,15 @@ const CandexBuilder = () => {
         {/* Add Section Dialog */}
         <Dialog open={showAddSection} onOpenChange={setShowAddSection}>
           <DialogContent>
-            <DialogHeader><DialogTitle>Add Section</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>Add Topic Section</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Section Title</Label>
-                <Input value={newSectionTitle} onChange={(e) => setNewSectionTitle(e.target.value)} placeholder="e.g. Personal Information" />
+                <Label>Topic / Heading</Label>
+                <Input
+                  value={newSectionTitle}
+                  onChange={(e) => setNewSectionTitle(e.target.value)}
+                  placeholder="e.g. Family & Friend Contact Trace"
+                />
               </div>
             </div>
             <DialogFooter>
@@ -302,37 +397,65 @@ const CandexBuilder = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Add Question Dialog */}
-        <Dialog open={!!showAddQuestion} onOpenChange={() => setShowAddQuestion(null)}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Add Question</DialogTitle></DialogHeader>
+        {/* Add Table Dialog */}
+        <Dialog open={!!showAddTable} onOpenChange={() => setShowAddTable(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Add Table</DialogTitle>
+            </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Question Text</Label>
-                <Textarea value={newQuestion.text} onChange={(e) => setNewQuestion((p) => ({ ...p, text: e.target.value }))} placeholder="Enter the question..." />
+                <Label>Table Title</Label>
+                <Input
+                  value={newTable.title}
+                  onChange={(e) => setNewTable((p) => ({ ...p, title: e.target.value }))}
+                  placeholder="e.g. Father's Details"
+                />
               </div>
               <div>
-                <Label>Question Type</Label>
-                <Select value={newQuestion.type} onValueChange={(v) => setNewQuestion((p) => ({ ...p, type: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="text">Text</SelectItem>
-                    <SelectItem value="boolean">Yes / No</SelectItem>
-                    <SelectItem value="select">Dropdown (Single)</SelectItem>
-                    <SelectItem value="multi_select">Multi Select</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Column Headers (comma separated)</Label>
+                <Input
+                  value={newTable.columns}
+                  onChange={(e) => setNewTable((p) => ({ ...p, columns: e.target.value }))}
+                  placeholder="Field, Details"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  First column is typically the field label, remaining columns are for candidate input.
+                </p>
               </div>
-              {(newQuestion.type === "select" || newQuestion.type === "multi_select") && (
+              <div>
+                <Label>Row Labels (one per line)</Label>
+                <Textarea
+                  value={newTable.rows}
+                  onChange={(e) => setNewTable((p) => ({ ...p, rows: e.target.value }))}
+                  placeholder={"Name & Surname\nID Number\nContact Number\nResidential Address\nOccupation"}
+                  rows={6}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Each line becomes a row. The label appears in the first column.
+                </p>
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+                <Switch
+                  checked={newTable.is_repeatable}
+                  onCheckedChange={(v) => setNewTable((p) => ({ ...p, is_repeatable: v }))}
+                />
                 <div>
-                  <Label>Options (comma separated)</Label>
-                  <Input value={newQuestion.options} onChange={(e) => setNewQuestion((p) => ({ ...p, options: e.target.value }))} placeholder="Option 1, Option 2, Option 3" />
+                  <Label className="text-sm font-medium">Allow candidate to add more</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Enable this if the candidate should be able to duplicate this table (e.g. add more brothers/sisters).
+                  </p>
                 </div>
-              )}
+              </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAddQuestion(null)}>Cancel</Button>
-              <Button onClick={() => addQuestionMutation.mutate(showAddQuestion!)} disabled={!newQuestion.text.trim()}>Add Question</Button>
+              <Button variant="outline" onClick={() => setShowAddTable(null)}>Cancel</Button>
+              <Button
+                onClick={() => addTableMutation.mutate(showAddTable!)}
+                disabled={!newTable.title.trim() || !newTable.rows.trim()}
+              >
+                Add Table
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -340,6 +463,7 @@ const CandexBuilder = () => {
     );
   }
 
+  // --- Template list view ---
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -355,7 +479,9 @@ const CandexBuilder = () => {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2].map((i) => (
-            <Card key={i} className="animate-pulse"><CardContent className="py-8"><div className="h-4 bg-muted rounded w-1/3" /></CardContent></Card>
+            <Card key={i} className="animate-pulse">
+              <CardContent className="py-8"><div className="h-4 bg-muted rounded w-1/3" /></CardContent>
+            </Card>
           ))}
         </div>
       ) : templates.length === 0 ? (
