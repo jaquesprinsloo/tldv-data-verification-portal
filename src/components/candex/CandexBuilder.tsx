@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  Plus, Trash2, FileText, ChevronDown, ChevronRight, Copy, Table as TableIcon, Eye, Video, PlayCircle, Upload, X, Info,
+  Plus, Trash2, FileText, ChevronDown, ChevronRight, Copy, Table as TableIcon, Eye, Video, PlayCircle, Upload, X, Info, Pencil,
 } from "lucide-react";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
