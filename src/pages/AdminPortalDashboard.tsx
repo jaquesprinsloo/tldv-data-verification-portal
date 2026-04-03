@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { FileText, Users, ClipboardCheck, Mail, Lock, FileCheck, GripVertical } from "lucide-react";
+import { FileText, Users, ClipboardCheck, Mail, Lock, FileCheck, GripVertical, ShieldCheck } from "lucide-react";
 import { PermissionKey } from "@/hooks/usePermissions";
 import { Badge } from "@/components/ui/badge";
 import { NotificationsDialog } from "@/components/admin/NotificationsDialog";
