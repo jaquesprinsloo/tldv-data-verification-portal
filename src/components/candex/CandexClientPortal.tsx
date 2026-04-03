@@ -510,7 +510,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                       <TableCell className="font-medium">{app.candidate_name}</TableCell>
                       <TableCell className="text-xs">{app.candidate_id_number || "—"}</TableCell>
                       <TableCell>
-                        <Badge className="bg-green-600 text-white text-xs">
+                        <Badge className="bg-primary text-primary-foreground text-xs">
                           <CheckCircle className="h-3 w-3 mr-1" /> Verified
                         </Badge>
                       </TableCell>
