@@ -701,20 +701,57 @@ const CandexBuilder = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {tbl.row_labels.map((row, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="font-medium text-sm">{row}</TableCell>
-                              {tbl.column_headers.slice(1).map((_, ci) => (
-                                <TableCell key={ci}>
-                                  {previewMode ? (
-                                    <Input placeholder={`Enter ${row.toLowerCase()}...`} disabled className="h-8 text-xs" />
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground italic">Candidate input</span>
-                                  )}
+                          {tbl.row_labels.map((row, i) => {
+                            const rit = getRowInputType(tbl.row_input_types, i);
+                            return (
+                              <TableRow key={i}>
+                                <TableCell className="font-medium text-sm">
+                                  <div className="flex items-center gap-2">
+                                    {row}
+                                    {!previewMode && rit.type !== "text" && (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                        {INPUT_TYPE_LABELS[rit.type]}
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </TableCell>
-                              ))}
-                            </TableRow>
-                          ))}
+                                {tbl.column_headers.slice(1).map((_, ci) => (
+                                  <TableCell key={ci}>
+                                    {previewMode ? (
+                                      rit.type === "yes_no" ? (
+                                        <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
+                                          <option>Select...</option>
+                                          <option>Yes</option>
+                                          <option>No</option>
+                                        </select>
+                                      ) : rit.type === "select" ? (
+                                        <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
+                                          <option>Select...</option>
+                                          {(rit.options || []).map((opt, oi) => (
+                                            <option key={oi}>{opt}</option>
+                                          ))}
+                                        </select>
+                                      ) : rit.type === "multi_select" ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {(rit.options || []).map((opt, oi) => (
+                                            <Badge key={oi} variant="outline" className="text-xs cursor-pointer hover:bg-primary/10">
+                                              {opt}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <Input placeholder={`Enter ${row.toLowerCase()}...`} disabled className="h-8 text-xs" />
+                                      )
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground italic">
+                                        {rit.type === "text" ? "Free text" : rit.type === "yes_no" ? "Yes/No" : rit.type === "select" ? `Select (${(rit.options || []).length} opts)` : `Multi (${(rit.options || []).length} opts)`}
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            );
+                          })}
                           {tbl.row_labels.length === 0 && (
                             <TableRow>
                               <TableCell colSpan={tbl.column_headers.length} className="text-center text-sm text-muted-foreground py-4">
