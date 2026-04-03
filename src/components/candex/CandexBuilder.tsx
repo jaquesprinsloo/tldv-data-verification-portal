@@ -699,6 +699,58 @@ const CandexBuilder = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Table Dialog */}
+        <Dialog open={!!editingTable} onOpenChange={(open) => { if (!open) setEditingTable(null); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Table</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Table Title</Label>
+                <Input
+                  value={editTable.title}
+                  onChange={(e) => setEditTable((p) => ({ ...p, title: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Column Headers (comma separated)</Label>
+                <Input
+                  value={editTable.columns}
+                  onChange={(e) => setEditTable((p) => ({ ...p, columns: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Row Labels (one per line)</Label>
+                <Textarea
+                  value={editTable.rows}
+                  onChange={(e) => setEditTable((p) => ({ ...p, rows: e.target.value }))}
+                  rows={6}
+                />
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+                <Switch
+                  checked={editTable.is_repeatable}
+                  onCheckedChange={(v) => setEditTable((p) => ({ ...p, is_repeatable: v }))}
+                />
+                <div>
+                  <Label className="text-sm font-medium">Allow candidate to add more</Label>
+                  <p className="text-xs text-muted-foreground">Enable if the candidate can duplicate this table.</p>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingTable(null)}>Cancel</Button>
+              <Button
+                onClick={() => updateTableMutation.mutate()}
+                disabled={!editTable.title.trim() || !editTable.rows.trim()}
+              >
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
