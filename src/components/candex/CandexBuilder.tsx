@@ -34,12 +34,18 @@ interface Section {
   video_url: string | null;
 }
 
+interface RowInputType {
+  type: "text" | "yes_no" | "select" | "multi_select";
+  options?: string[];
+}
+
 interface SectionTable {
   id: string;
   section_id: string;
   table_title: string;
   column_headers: string[];
   row_labels: string[];
+  row_input_types: RowInputType[];
   is_repeatable: boolean;
   sort_order: number;
   video_url: string | null;
