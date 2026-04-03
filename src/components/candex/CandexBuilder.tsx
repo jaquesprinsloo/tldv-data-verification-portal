@@ -719,32 +719,40 @@ const CandexBuilder = () => {
                                   <TableCell key={ci}>
                                     {previewMode ? (
                                       rit.type === "yes_no" ? (
-                                        <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
-                                          <option>Select...</option>
-                                          <option>Yes</option>
-                                          <option>No</option>
-                                        </select>
+                                        <div className="space-y-1.5">
+                                          <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
+                                            <option>Select...</option>
+                                            <option>Yes</option>
+                                            <option>No</option>
+                                          </select>
+                                          <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
+                                        </div>
                                       ) : rit.type === "select" ? (
-                                        <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
-                                          <option>Select...</option>
-                                          {(rit.options || []).map((opt, oi) => (
-                                            <option key={oi}>{opt}</option>
-                                          ))}
-                                        </select>
+                                        <div className="space-y-1.5">
+                                          <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
+                                            <option>Select...</option>
+                                            {(rit.options || []).map((opt, oi) => (
+                                              <option key={oi}>{opt}</option>
+                                            ))}
+                                          </select>
+                                          <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
+                                        </div>
                                       ) : rit.type === "multi_select" ? (
-                                        <div className="flex flex-wrap gap-1">
-                                          {(rit.options || []).map((opt, oi) => (
-                                            <Badge key={oi} variant="outline" className="text-xs cursor-pointer hover:bg-primary/10">
-                                              {opt}
-                                            </Badge>
-                                          ))}
+                                        <div className="space-y-1.5">
+                                          <div className="flex flex-wrap gap-1">
+                                            {(rit.options || []).map((opt, oi) => (
+                                              <Badge key={oi} variant="outline" className="text-xs cursor-pointer hover:bg-primary/10">
+                                                {opt}
+                                              </Badge>
+                                            ))}
+                                          </div>
                                         </div>
                                       ) : (
                                         <Input placeholder={`Enter ${row.toLowerCase()}...`} disabled className="h-8 text-xs" />
                                       )
                                     ) : (
                                       <span className="text-xs text-muted-foreground italic">
-                                        {rit.type === "text" ? "Free text" : rit.type === "yes_no" ? "Yes/No" : rit.type === "select" ? `Select (${(rit.options || []).length} opts)` : `Multi (${(rit.options || []).length} opts)`}
+                                        {rit.type === "text" ? "Free text" : rit.type === "yes_no" ? "Yes/No + details" : rit.type === "select" ? `Select + details (${(rit.options || []).length} opts)` : `Multi (${(rit.options || []).length} opts)`}
                                       </span>
                                     )}
                                   </TableCell>
