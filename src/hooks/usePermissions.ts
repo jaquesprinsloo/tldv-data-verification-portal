@@ -62,8 +62,12 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
     description: "Access to the Profile Management portal card (Master Admin only)",
     category: "Portal Access",
   },
+  [PERMISSION_KEYS.PORTAL_CANDEX_PRE_SCREENING]: {
+    label: "CanDex Pre Screening Portal",
+    description: "Access to the CanDex Pre Screening portal card",
+    category: "Portal Access",
+  },
   
-  // Reports & Accounts
   [PERMISSION_KEYS.ACCOUNTS_SELECT_ACCOUNTS]: {
     label: "Select Accounts for Reports",
     description: "Select main and sub-accounts when loading reports (no access to account details)",
