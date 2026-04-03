@@ -9,6 +9,7 @@ export const PERMISSION_KEYS = {
   PORTAL_POLYGRAPH_VETTING: "portal.polygraph_vetting",
   PORTAL_REPORTS_ACCOUNTS: "portal.reports_accounts",
   PORTAL_PROFILE_MANAGEMENT: "portal.profile_management",
+  PORTAL_CANDEX_PRE_SCREENING: "portal.candex_pre_screening",
   
   // Reports & Accounts permissions
   ACCOUNTS_SELECT_ACCOUNTS: "accounts.select_accounts",
@@ -61,8 +62,12 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
     description: "Access to the Profile Management portal card (Master Admin only)",
     category: "Portal Access",
   },
+  [PERMISSION_KEYS.PORTAL_CANDEX_PRE_SCREENING]: {
+    label: "CanDex Pre Screening Portal",
+    description: "Access to the CanDex Pre Screening portal card",
+    category: "Portal Access",
+  },
   
-  // Reports & Accounts
   [PERMISSION_KEYS.ACCOUNTS_SELECT_ACCOUNTS]: {
     label: "Select Accounts for Reports",
     description: "Select main and sub-accounts when loading reports (no access to account details)",

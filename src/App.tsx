@@ -18,6 +18,7 @@ import ReportsAccounts from "./pages/ReportsAccounts";
 import ProfileManagement from "./pages/ProfileManagement";
 import RequestInboxPage from "./pages/RequestInboxPage";
 import PendingPolygraphReview from "./pages/PendingPolygraphReview";
+import CanDexPreScreening from "./pages/CanDexPreScreening";
 import NotFound from "./pages/NotFound";
 import VerifyEmail from "./pages/VerifyEmail";
 import Install from "./pages/Install";
@@ -45,6 +46,7 @@ const App = () => (
           <Route path="/admin/profile-management" element={<ProfileManagement />} />
           <Route path="/admin/request-inbox" element={<RequestInboxPage />} />
           <Route path="/admin/pending-polygraph-review" element={<PendingPolygraphReview />} />
+          <Route path="/admin/candex-pre-screening" element={<CanDexPreScreening />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/install" element={<Install />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { FileText, Users, ClipboardCheck, Mail, Lock, FileCheck, GripVertical } from "lucide-react";
+import { FileText, Users, ClipboardCheck, Mail, Lock, FileCheck, GripVertical, ShieldCheck } from "lucide-react";
 import { PermissionKey } from "@/hooks/usePermissions";
 import { Badge } from "@/components/ui/badge";
 import { NotificationsDialog } from "@/components/admin/NotificationsDialog";
@@ -160,6 +160,17 @@ const AdminPortalDashboard = () => {
         badge: pendingRequests || null,
         permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
         requiresMasterAdmin: true
+      },
+      {
+        key: "candex-pre-screening",
+        title: "CanDex Pre Screening",
+        description: "Pre-employment screening and candidate indexing",
+        icon: ShieldCheck,
+        path: "/admin/candex-pre-screening",
+        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+        badge: null,
+        permissionKey: PERMISSION_KEYS.PORTAL_CANDEX_PRE_SCREENING,
+        requiresMasterAdmin: false
       },
       {
         key: "pending-polygraph-review",
