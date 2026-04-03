@@ -194,6 +194,7 @@ const CandexBuilder = () => {
     rows: "",
     is_repeatable: false,
   });
+  const [newTableInputTypes, setNewTableInputTypes] = useState<RowInputType[]>([]);
   const [previewMode, setPreviewMode] = useState(false);
   const [editingTable, setEditingTable] = useState<SectionTable | null>(null);
   const [editTable, setEditTable] = useState({
@@ -202,6 +203,7 @@ const CandexBuilder = () => {
     rows: "",
     is_repeatable: false,
   });
+  const [editTableInputTypes, setEditTableInputTypes] = useState<RowInputType[]>([]);
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["candex-templates"],
     queryFn: async () => {
