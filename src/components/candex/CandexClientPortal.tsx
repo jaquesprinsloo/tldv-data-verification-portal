@@ -181,6 +181,52 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // Delete invitation
+  const deleteInvite = useMutation({
+    mutationFn: async (invId: string) => {
+      const { error } = await supabase.from("candex_invitations").delete().eq("id", invId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Invitation deleted");
+      queryClient.invalidateQueries({ queryKey: ["candex-my-invitations"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Resend invitation
+  const resendInvite = useMutation({
+    mutationFn: async (inv: any) => {
+      if (inv.candidate_email) {
+        const portalUrl = `${window.location.origin}/candex-pre-screening?token=${inv.token}`;
+        const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
+          body: {
+            email: inv.candidate_email,
+            candidateName: inv.candidate_name,
+            invitationLink: portalUrl,
+          },
+        });
+        if (emailError) throw new Error("Failed to resend email");
+      } else if (inv.candidate_phone) {
+        const portalUrl = `${window.location.origin}/candex-pre-screening?token=${inv.token}`;
+        const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
+          body: {
+            phone: inv.candidate_phone,
+            message: `Reminder: You've been invited to complete a CanDex Pre-Screening. Please click here to begin: ${portalUrl}`,
+          },
+        });
+        if (waError) throw new Error("Failed to resend WhatsApp message");
+      }
+      // Update sent_at timestamp
+      await supabase.from("candex_invitations").update({ sent_at: new Date().toISOString(), status: "sent" }).eq("id", inv.id);
+    },
+    onSuccess: () => {
+      toast.success("Invitation resent");
+      queryClient.invalidateQueries({ queryKey: ["candex-my-invitations"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   // Approve / Reject application
   const updateAppStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
