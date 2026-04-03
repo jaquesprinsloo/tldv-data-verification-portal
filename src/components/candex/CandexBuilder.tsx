@@ -866,6 +866,16 @@ const CandexBuilder = () => {
                                           ))}
                                           <p className="text-[10px] text-muted-foreground">Each selection gets its own explanation field</p>
                                         </div>
+                                      ) : rit.type === "currency" ? (
+                                        <div className="relative">
+                                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">R</span>
+                                          <Input placeholder="0.00" disabled className="h-8 text-xs pl-7" type="text" />
+                                        </div>
+                                      ) : rit.type === "date_picker" ? (
+                                        <Button variant="outline" disabled className="h-8 text-xs w-full justify-start font-normal text-muted-foreground gap-2">
+                                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                                          Select date...
+                                        </Button>
                                       ) : (
                                         <Input placeholder={`Enter ${row.toLowerCase()}...`} disabled className="h-8 text-xs" />
                                       )
