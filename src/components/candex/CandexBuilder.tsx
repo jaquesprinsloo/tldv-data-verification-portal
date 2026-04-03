@@ -351,6 +351,30 @@ const CandexBuilder = () => {
     },
   });
 
+  const updateTableMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingTable) return;
+      const colHeaders = editTable.columns.split(",").map((c) => c.trim()).filter(Boolean);
+      const rowLabels = editTable.rows.split("\n").map((r) => r.trim()).filter(Boolean);
+      const { error } = await supabase
+        .from("candex_section_tables")
+        .update({
+          table_title: editTable.title,
+          column_headers: colHeaders,
+          row_labels: rowLabels,
+          is_repeatable: editTable.is_repeatable,
+        })
+        .eq("id", editingTable.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
+      setEditingTable(null);
+      toast.success("Table updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const toggleRepeatable = useMutation({
     mutationFn: async ({ id, is_repeatable }: { id: string; is_repeatable: boolean }) => {
       const { error } = await supabase
@@ -364,6 +388,16 @@ const CandexBuilder = () => {
       toast.success("Updated");
     },
   });
+
+  const openEditTable = (tbl: SectionTable) => {
+    setEditTable({
+      title: tbl.table_title,
+      columns: tbl.column_headers.join(", "),
+      rows: tbl.row_labels.join("\n"),
+      is_repeatable: tbl.is_repeatable,
+    });
+    setEditingTable(tbl);
+  };
 
   const updateSectionVideo = useMutation({
     mutationFn: async ({ id, video_url }: { id: string; video_url: string | null }) => {
