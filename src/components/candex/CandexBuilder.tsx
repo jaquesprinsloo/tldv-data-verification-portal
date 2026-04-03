@@ -39,6 +39,7 @@ interface RowInputType {
   options?: string[];
   source_table_id?: string;
   source_row_index?: number;
+  require_explanation?: boolean;
 }
 
 interface SectionTable {
@@ -221,6 +222,7 @@ const RowInputTypeConfigurator = ({
       options: (type === "select" || type === "multi_select") ? (updated[index]?.options || []) : undefined,
       source_table_id: type === "dynamic_select" ? (updated[index]?.source_table_id) : undefined,
       source_row_index: type === "dynamic_select" ? (updated[index]?.source_row_index ?? 0) : undefined,
+      require_explanation: (type === "select" || type === "yes_no") ? (updated[index]?.require_explanation ?? true) : undefined,
     };
     onChange(updated);
   };
@@ -288,6 +290,32 @@ const RowInputTypeConfigurator = ({
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => openOptionsEditor(i)}>
                   <List className="h-3 w-3" /> {(rit.options || []).length} opts
                 </Button>
+              )}
+              {(rit.type === "select" || rit.type === "yes_no") && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className={`h-7 px-2 text-[10px] rounded border transition-colors ${
+                          rit.require_explanation !== false
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-input bg-background text-muted-foreground"
+                        }`}
+                        onClick={() => {
+                          const updated = [...inputTypes];
+                          while (updated.length <= i) updated.push({ type: "text" });
+                          updated[i] = { ...updated[i], require_explanation: rit.require_explanation === false ? true : false };
+                          onChange(updated);
+                        }}
+                      >
+                        {rit.require_explanation !== false ? "Explain ✓" : "Explain ✗"}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[180px]">
+                      <p className="text-xs">Toggle whether the candidate must explain their selection</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
               {rit.type === "dynamic_select" && (
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1 max-w-[160px] truncate" onClick={() => setEditingSource(i)}>
@@ -820,13 +848,15 @@ const CandexBuilder = () => {
                                   <TableCell key={ci}>
                                     {previewMode ? (
                                       rit.type === "yes_no" ? (
-                                        <div className="space-y-1.5">
+                                         <div className="space-y-1.5">
                                           <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
                                             <option>Select...</option>
                                             <option>Yes</option>
                                             <option>No</option>
                                           </select>
-                                          <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
+                                          {rit.require_explanation !== false && (
+                                            <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
+                                          )}
                                         </div>
                                       ) : rit.type === "select" ? (
                                         <div className="space-y-1.5">
@@ -836,7 +866,9 @@ const CandexBuilder = () => {
                                               <option key={oi}>{opt}</option>
                                             ))}
                                           </select>
-                                          <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
+                                          {rit.require_explanation !== false && (
+                                            <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
+                                          )}
                                         </div>
                                       ) : rit.type === "multi_select" ? (
                                         <div className="space-y-1.5">
@@ -881,7 +913,7 @@ const CandexBuilder = () => {
                                       )
                                     ) : (
                                       <span className="text-xs text-muted-foreground italic">
-                                        {rit.type === "text" ? "Free text" : rit.type === "yes_no" ? "Yes/No + details" : rit.type === "select" ? `Select + details (${(rit.options || []).length} opts)` : rit.type === "dynamic_select" ? `Dynamic (${(() => {
+                                        {rit.type === "text" ? "Free text" : rit.type === "yes_no" ? `Yes/No${rit.require_explanation !== false ? " + details" : ""}` : rit.type === "select" ? `Select${rit.require_explanation !== false ? " + details" : ""} (${(rit.options || []).length} opts)` : rit.type === "dynamic_select" ? `Dynamic (${(() => {
                                           const srcTbl = sectionTables.find(t => t.id === rit.source_table_id);
                                           if (!srcTbl) return "not linked";
                                           return `${srcTbl.table_title} → ${srcTbl.row_labels[rit.source_row_index ?? 0] || "Row 1"}`;
