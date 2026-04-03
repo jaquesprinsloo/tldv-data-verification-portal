@@ -271,7 +271,7 @@ const RowInputTypeConfigurator = ({
         {rowLabels.map((label, i) => {
           const rit = getRowInputType(inputTypes, i);
           return (
-            <div key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
+            <div key={i} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
               <span className="flex-1 truncate font-medium text-xs">{label}</span>
               <select
                 className="h-7 text-xs rounded border border-input bg-background px-2"
