@@ -118,6 +118,281 @@ export type Database = {
         }
         Relationships: []
       }
+      candex_applications: {
+        Row: {
+          answers: Json | null
+          candidate_email: string | null
+          candidate_id_number: string | null
+          candidate_name: string
+          candidate_phone: string | null
+          client_id: string
+          created_at: string
+          id: string
+          invitation_id: string | null
+          risk_level: string | null
+          risk_score: number | null
+          status: string
+          submitted_at: string | null
+          template_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json | null
+          candidate_email?: string | null
+          candidate_id_number?: string | null
+          candidate_name: string
+          candidate_phone?: string | null
+          client_id: string
+          created_at?: string
+          id?: string
+          invitation_id?: string | null
+          risk_level?: string | null
+          risk_score?: number | null
+          status?: string
+          submitted_at?: string | null
+          template_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json | null
+          candidate_email?: string | null
+          candidate_id_number?: string | null
+          candidate_name?: string
+          candidate_phone?: string | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          invitation_id?: string | null
+          risk_level?: string | null
+          risk_score?: number | null
+          status?: string
+          submitted_at?: string | null
+          template_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candex_applications_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "candex_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candex_applications_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "candex_invitations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candex_applications_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "candex_questionnaire_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candex_clients: {
+        Row: {
+          company_name: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          company_name?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      candex_invitations: {
+        Row: {
+          candidate_email: string | null
+          candidate_id_number: string | null
+          candidate_name: string
+          candidate_phone: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          sent_at: string | null
+          status: string
+          template_id: string | null
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          candidate_email?: string | null
+          candidate_id_number?: string | null
+          candidate_name: string
+          candidate_phone?: string | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sent_at?: string | null
+          status?: string
+          template_id?: string | null
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          candidate_email?: string | null
+          candidate_id_number?: string | null
+          candidate_name?: string
+          candidate_phone?: string | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          sent_at?: string | null
+          status?: string
+          template_id?: string | null
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candex_invitations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "candex_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candex_invitations_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "candex_questionnaire_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candex_questionnaire_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      candex_template_questions: {
+        Row: {
+          created_at: string
+          id: string
+          is_required: boolean
+          options: Json | null
+          question_text: string
+          question_type: string
+          section_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_required?: boolean
+          options?: Json | null
+          question_text: string
+          question_type?: string
+          section_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_required?: boolean
+          options?: Json | null
+          question_text?: string
+          question_type?: string
+          section_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candex_template_questions_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "candex_template_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candex_template_sections: {
+        Row: {
+          created_at: string
+          id: string
+          sort_order: number
+          template_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          template_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          template_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candex_template_sections_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "candex_questionnaire_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_documents: {
         Row: {
           created_at: string
