@@ -291,6 +291,32 @@ const RowInputTypeConfigurator = ({
                   <List className="h-3 w-3" /> {(rit.options || []).length} opts
                 </Button>
               )}
+              {(rit.type === "select" || rit.type === "yes_no") && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className={`h-7 px-2 text-[10px] rounded border transition-colors ${
+                          rit.require_explanation !== false
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-input bg-background text-muted-foreground"
+                        }`}
+                        onClick={() => {
+                          const updated = [...inputTypes];
+                          while (updated.length <= i) updated.push({ type: "text" });
+                          updated[i] = { ...updated[i], require_explanation: rit.require_explanation === false ? true : false };
+                          onChange(updated);
+                        }}
+                      >
+                        {rit.require_explanation !== false ? "Explain ✓" : "Explain ✗"}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[180px]">
+                      <p className="text-xs">Toggle whether the candidate must explain their selection</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               {rit.type === "dynamic_select" && (
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1 max-w-[160px] truncate" onClick={() => setEditingSource(i)}>
                   <List className="h-3 w-3" /> {getSourceLabel(rit)}
