@@ -32,16 +32,40 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [requestAccountId, setRequestAccountId] = useState("");
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
 
-  // Get client for this user
+  // Get client for this user - auto-create if not found
   const { data: client } = useQuery({
     queryKey: ["candex-my-client", userId],
     queryFn: async () => {
-      const { data } = await supabase
+      // First try to find existing client
+      const { data: existing } = await supabase
         .from("candex_clients")
         .select("*")
         .eq("created_by", userId)
         .maybeSingle();
-      return data;
+      if (existing) return existing;
+
+      // Auto-create a client record for this admin
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", userId)
+        .maybeSingle();
+
+      const { data: created, error } = await supabase
+        .from("candex_clients")
+        .insert({
+          name: profile?.full_name || profile?.email || "Client",
+          contact_email: profile?.email || null,
+          created_by: userId,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Failed to auto-create client:", error);
+        return null;
+      }
+      return created;
     },
   });
 
