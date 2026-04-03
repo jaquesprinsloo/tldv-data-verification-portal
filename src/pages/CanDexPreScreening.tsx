@@ -4,6 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { User } from "@supabase/supabase-js";
 import { ShieldCheck } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CandexStatistics from "@/components/candex/CandexStatistics";
+import CandexBuilder from "@/components/candex/CandexBuilder";
+import CandexClients from "@/components/candex/CandexClients";
 
 const CanDexPreScreening = () => {
   const navigate = useNavigate();
@@ -68,9 +72,25 @@ const CanDexPreScreening = () => {
           </p>
         </div>
 
-        <div className="flex items-center justify-center min-h-[300px]">
-          <p className="text-muted-foreground text-lg">Coming soon — this section is under development.</p>
-        </div>
+        <Tabs defaultValue="statistics" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
+            <TabsTrigger value="statistics">Statistics</TabsTrigger>
+            <TabsTrigger value="builder">CanDex Builder</TabsTrigger>
+            <TabsTrigger value="clients">Clients</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="statistics">
+            <CandexStatistics />
+          </TabsContent>
+
+          <TabsContent value="builder">
+            <CandexBuilder />
+          </TabsContent>
+
+          <TabsContent value="clients">
+            <CandexClients />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
