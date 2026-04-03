@@ -335,6 +335,7 @@ const CandexBuilder = () => {
         table_title: newTable.title,
         column_headers: colHeaders,
         row_labels: rowLabels,
+        row_input_types: newTableInputTypes.slice(0, rowLabels.length),
         is_repeatable: newTable.is_repeatable,
         sort_order: existing.length,
       });
@@ -344,6 +345,7 @@ const CandexBuilder = () => {
       queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
       setShowAddTable(null);
       setNewTable({ title: "", columns: "Field, Details", rows: "", is_repeatable: false });
+      setNewTableInputTypes([]);
       toast.success("Table added");
     },
     onError: (e) => toast.error(e.message),
