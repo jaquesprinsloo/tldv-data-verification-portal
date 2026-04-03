@@ -835,6 +835,11 @@ const CandexBuilder = () => {
                   Each line becomes a row. The label appears in the first column.
                 </p>
               </div>
+              <RowInputTypeConfigurator
+                rowLabels={newTable.rows.split("\n").map(r => r.trim()).filter(Boolean)}
+                inputTypes={newTableInputTypes}
+                onChange={setNewTableInputTypes}
+              />
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
                   checked={newTable.is_repeatable}
