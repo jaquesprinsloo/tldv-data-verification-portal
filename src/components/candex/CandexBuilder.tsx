@@ -960,6 +960,8 @@ const CandexBuilder = () => {
                 rowLabels={newTable.rows.split("\n").map(r => r.trim()).filter(Boolean)}
                 inputTypes={newTableInputTypes}
                 onChange={setNewTableInputTypes}
+                allTables={sectionTables}
+                allSections={sections}
               />
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
