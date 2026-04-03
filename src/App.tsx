@@ -48,6 +48,7 @@ const App = () => (
           <Route path="/admin/request-inbox" element={<RequestInboxPage />} />
           <Route path="/admin/pending-polygraph-review" element={<PendingPolygraphReview />} />
           <Route path="/admin/candex-pre-screening" element={<CanDexPreScreening />} />
+          <Route path="/candex-apply" element={<CandexApplication />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/install" element={<Install />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
