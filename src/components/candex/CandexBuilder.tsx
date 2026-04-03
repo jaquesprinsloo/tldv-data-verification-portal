@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  Plus, Trash2, FileText, ChevronDown, ChevronRight, Copy, Table as TableIcon, Eye, Video, PlayCircle, Upload, X, Info,
+  Plus, Trash2, FileText, ChevronDown, ChevronRight, Copy, Table as TableIcon, Eye, Video, PlayCircle, Upload, X, Info, Pencil,
 } from "lucide-react";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -189,7 +189,13 @@ const CandexBuilder = () => {
     is_repeatable: false,
   });
   const [previewMode, setPreviewMode] = useState(false);
-
+  const [editingTable, setEditingTable] = useState<SectionTable | null>(null);
+  const [editTable, setEditTable] = useState({
+    title: "",
+    columns: "",
+    rows: "",
+    is_repeatable: false,
+  });
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["candex-templates"],
     queryFn: async () => {
@@ -345,6 +351,30 @@ const CandexBuilder = () => {
     },
   });
 
+  const updateTableMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingTable) return;
+      const colHeaders = editTable.columns.split(",").map((c) => c.trim()).filter(Boolean);
+      const rowLabels = editTable.rows.split("\n").map((r) => r.trim()).filter(Boolean);
+      const { error } = await supabase
+        .from("candex_section_tables")
+        .update({
+          table_title: editTable.title,
+          column_headers: colHeaders,
+          row_labels: rowLabels,
+          is_repeatable: editTable.is_repeatable,
+        })
+        .eq("id", editingTable.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
+      setEditingTable(null);
+      toast.success("Table updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const toggleRepeatable = useMutation({
     mutationFn: async ({ id, is_repeatable }: { id: string; is_repeatable: boolean }) => {
       const { error } = await supabase
@@ -358,6 +388,16 @@ const CandexBuilder = () => {
       toast.success("Updated");
     },
   });
+
+  const openEditTable = (tbl: SectionTable) => {
+    setEditTable({
+      title: tbl.table_title,
+      columns: tbl.column_headers.join(", "),
+      rows: tbl.row_labels.join("\n"),
+      is_repeatable: tbl.is_repeatable,
+    });
+    setEditingTable(tbl);
+  };
 
   const updateSectionVideo = useMutation({
     mutationFn: async ({ id, video_url }: { id: string; video_url: string | null }) => {
@@ -520,6 +560,9 @@ const CandexBuilder = () => {
                                 onCheckedChange={(v) => toggleRepeatable.mutate({ id: tbl.id, is_repeatable: v })}
                               />
                             </div>
+                            <Button size="sm" variant="ghost" onClick={() => openEditTable(tbl)}>
+                              <Pencil className="h-3 w-3 text-muted-foreground" />
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => deleteTableMutation.mutate(tbl.id)}>
                               <Trash2 className="h-3 w-3 text-destructive" />
                             </Button>
@@ -652,6 +695,58 @@ const CandexBuilder = () => {
                 disabled={!newTable.title.trim() || !newTable.rows.trim()}
               >
                 Add Table
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Table Dialog */}
+        <Dialog open={!!editingTable} onOpenChange={(open) => { if (!open) setEditingTable(null); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Table</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Table Title</Label>
+                <Input
+                  value={editTable.title}
+                  onChange={(e) => setEditTable((p) => ({ ...p, title: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Column Headers (comma separated)</Label>
+                <Input
+                  value={editTable.columns}
+                  onChange={(e) => setEditTable((p) => ({ ...p, columns: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label>Row Labels (one per line)</Label>
+                <Textarea
+                  value={editTable.rows}
+                  onChange={(e) => setEditTable((p) => ({ ...p, rows: e.target.value }))}
+                  rows={6}
+                />
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
+                <Switch
+                  checked={editTable.is_repeatable}
+                  onCheckedChange={(v) => setEditTable((p) => ({ ...p, is_repeatable: v }))}
+                />
+                <div>
+                  <Label className="text-sm font-medium">Allow candidate to add more</Label>
+                  <p className="text-xs text-muted-foreground">Enable if the candidate can duplicate this table.</p>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingTable(null)}>Cancel</Button>
+              <Button
+                onClick={() => updateTableMutation.mutate()}
+                disabled={!editTable.title.trim() || !editTable.rows.trim()}
+              >
+                Save Changes
               </Button>
             </DialogFooter>
           </DialogContent>
