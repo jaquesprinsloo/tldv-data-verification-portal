@@ -281,6 +281,8 @@ const RowInputTypeConfigurator = ({
                 <option value="select">Single Select</option>
                 <option value="multi_select">Multi Select</option>
                 <option value="dynamic_select">Dynamic Select</option>
+                <option value="currency">Currency (R)</option>
+                <option value="date_picker">Date Picker</option>
               </select>
               {(rit.type === "select" || rit.type === "multi_select") && (
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => openOptionsEditor(i)}>
