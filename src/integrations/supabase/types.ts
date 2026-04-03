@@ -2347,6 +2347,10 @@ export type Database = {
         Args: { _employee_id: string; _user_id: string }
         Returns: boolean
       }
+      mark_candex_invitation_opened: {
+        Args: { _token: string }
+        Returns: boolean
+      }
       remove_user_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

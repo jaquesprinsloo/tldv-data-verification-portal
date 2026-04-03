@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck } from "lucide-react";
+import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 
 interface CandexClientPortalProps {
@@ -146,7 +146,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       // Send the actual email/WhatsApp
       if (inviteMethod === "email" && inviteForm.email) {
         const candidateName = `${inviteForm.name} ${inviteForm.surname}`;
-        const portalUrl = `${window.location.origin}/candex-pre-screening?token=${invData.token}`;
+        const portalUrl = `${window.location.origin}/candex-apply?token=${invData.token}`;
         const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
           body: {
             email: inviteForm.email,
@@ -159,7 +159,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           throw new Error("Invitation saved but email failed to send");
         }
       } else if (inviteMethod === "whatsapp" && inviteForm.phone) {
-        const portalUrl = `${window.location.origin}/candex-pre-screening?token=${invData.token}`;
+        const portalUrl = `${window.location.origin}/candex-apply?token=${invData.token}`;
         const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
           body: {
             phone: inviteForm.phone,
@@ -176,6 +176,52 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       toast.success(`Invitation sent via ${inviteMethod === "email" ? "Email" : "WhatsApp"}`);
       setInviteOpen(false);
       setInviteForm({ name: "", surname: "", phone: "", email: "", id_number: "" });
+      queryClient.invalidateQueries({ queryKey: ["candex-my-invitations"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Delete invitation
+  const deleteInvite = useMutation({
+    mutationFn: async (invId: string) => {
+      const { error } = await supabase.from("candex_invitations").delete().eq("id", invId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Invitation deleted");
+      queryClient.invalidateQueries({ queryKey: ["candex-my-invitations"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Resend invitation
+  const resendInvite = useMutation({
+    mutationFn: async (inv: any) => {
+      if (inv.candidate_email) {
+        const portalUrl = `${window.location.origin}/candex-apply?token=${inv.token}`;
+        const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
+          body: {
+            email: inv.candidate_email,
+            candidateName: inv.candidate_name,
+            invitationLink: portalUrl,
+          },
+        });
+        if (emailError) throw new Error("Failed to resend email");
+      } else if (inv.candidate_phone) {
+        const portalUrl = `${window.location.origin}/candex-apply?token=${inv.token}`;
+        const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
+          body: {
+            phone: inv.candidate_phone,
+            message: `Reminder: You've been invited to complete a CanDex Pre-Screening. Please click here to begin: ${portalUrl}`,
+          },
+        });
+        if (waError) throw new Error("Failed to resend WhatsApp message");
+      }
+      // Update sent_at timestamp
+      await supabase.from("candex_invitations").update({ sent_at: new Date().toISOString(), status: "sent" }).eq("id", inv.id);
+    },
+    onSuccess: () => {
+      toast.success("Invitation resent");
       queryClient.invalidateQueries({ queryKey: ["candex-my-invitations"] });
     },
     onError: (e: any) => toast.error(e.message),
@@ -275,23 +321,61 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                     <TableHead>Contact</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Sent</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {invitations.map((inv) => (
-                    <TableRow key={inv.id}>
-                      <TableCell className="font-medium">{inv.candidate_name}</TableCell>
-                      <TableCell className="text-xs">{inv.candidate_email || inv.candidate_phone || "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant={inv.status === "completed" ? "default" : "secondary"} className="text-xs">
-                          {inv.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {inv.sent_at ? format(new Date(inv.sent_at), "dd MMM yyyy") : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {invitations.map((inv) => {
+                    const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; className: string }> = {
+                      sent: { variant: "secondary", className: "bg-blue-100 text-blue-700 border-blue-200" },
+                      opened: { variant: "outline", className: "bg-amber-100 text-amber-700 border-amber-200" },
+                      completed: { variant: "default", className: "bg-green-100 text-green-700 border-green-200" },
+                    };
+                    const sc = statusConfig[inv.status] || { variant: "secondary" as const, className: "" };
+                    return (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-medium">{inv.candidate_name}</TableCell>
+                        <TableCell className="text-xs">{inv.candidate_email || inv.candidate_phone || "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={sc.variant} className={`text-xs capitalize ${sc.className}`}>
+                            {inv.status === "sent" && <Send className="h-3 w-3 mr-1" />}
+                            {inv.status === "opened" && <Eye className="h-3 w-3 mr-1" />}
+                            {inv.status === "completed" && <CheckCircle className="h-3 w-3 mr-1" />}
+                            {inv.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {inv.sent_at ? format(new Date(inv.sent_at), "dd MMM yyyy") : "—"}
+                        </TableCell>
+                        <TableCell className="text-right space-x-1">
+                          {inv.status !== "completed" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Resend invitation"
+                              onClick={() => resendInvite.mutate(inv)}
+                              disabled={resendInvite.isPending}
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            title="Delete invitation"
+                            onClick={() => {
+                              if (confirm("Delete this invitation?")) deleteInvite.mutate(inv.id);
+                            }}
+                            disabled={deleteInvite.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
