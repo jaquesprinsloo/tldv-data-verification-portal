@@ -321,23 +321,61 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                     <TableHead>Contact</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Sent</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {invitations.map((inv) => (
-                    <TableRow key={inv.id}>
-                      <TableCell className="font-medium">{inv.candidate_name}</TableCell>
-                      <TableCell className="text-xs">{inv.candidate_email || inv.candidate_phone || "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant={inv.status === "completed" ? "default" : "secondary"} className="text-xs">
-                          {inv.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {inv.sent_at ? format(new Date(inv.sent_at), "dd MMM yyyy") : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {invitations.map((inv) => {
+                    const statusConfig: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; className: string }> = {
+                      sent: { variant: "secondary", className: "bg-blue-100 text-blue-700 border-blue-200" },
+                      opened: { variant: "outline", className: "bg-amber-100 text-amber-700 border-amber-200" },
+                      completed: { variant: "default", className: "bg-green-100 text-green-700 border-green-200" },
+                    };
+                    const sc = statusConfig[inv.status] || { variant: "secondary" as const, className: "" };
+                    return (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-medium">{inv.candidate_name}</TableCell>
+                        <TableCell className="text-xs">{inv.candidate_email || inv.candidate_phone || "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant={sc.variant} className={`text-xs capitalize ${sc.className}`}>
+                            {inv.status === "sent" && <Send className="h-3 w-3 mr-1" />}
+                            {inv.status === "opened" && <Eye className="h-3 w-3 mr-1" />}
+                            {inv.status === "completed" && <CheckCircle className="h-3 w-3 mr-1" />}
+                            {inv.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {inv.sent_at ? format(new Date(inv.sent_at), "dd MMM yyyy") : "—"}
+                        </TableCell>
+                        <TableCell className="text-right space-x-1">
+                          {inv.status !== "completed" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Resend invitation"
+                              onClick={() => resendInvite.mutate(inv)}
+                              disabled={resendInvite.isPending}
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            title="Delete invitation"
+                            onClick={() => {
+                              if (confirm("Delete this invitation?")) deleteInvite.mutate(inv.id);
+                            }}
+                            disabled={deleteInvite.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
