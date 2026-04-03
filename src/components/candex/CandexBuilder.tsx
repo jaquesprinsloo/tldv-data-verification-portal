@@ -189,7 +189,13 @@ const CandexBuilder = () => {
     is_repeatable: false,
   });
   const [previewMode, setPreviewMode] = useState(false);
-
+  const [editingTable, setEditingTable] = useState<SectionTable | null>(null);
+  const [editTable, setEditTable] = useState({
+    title: "",
+    columns: "",
+    rows: "",
+    is_repeatable: false,
+  });
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["candex-templates"],
     queryFn: async () => {
