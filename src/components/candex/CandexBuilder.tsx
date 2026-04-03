@@ -1042,7 +1042,7 @@ const CandexBuilder = () => {
 
         {/* Edit Table Dialog */}
         <Dialog open={!!editingTable} onOpenChange={(open) => { if (!open) setEditingTable(null); }}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Table</DialogTitle>
             </DialogHeader>
