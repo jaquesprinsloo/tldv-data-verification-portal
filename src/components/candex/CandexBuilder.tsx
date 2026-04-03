@@ -933,6 +933,38 @@ const CandexBuilder = () => {
                             </TableRow>
                           )}
                         </TableBody>
+                        {/* Auto total row for currency columns */}
+                        {(() => {
+                          const hasCurrency = tbl.row_input_types?.some(rit => rit?.type === "currency");
+                          if (!hasCurrency) return null;
+                          const currencyColIndices: number[] = [];
+                          tbl.row_input_types?.forEach((rit, idx) => {
+                            if (rit?.type === "currency") currencyColIndices.push(idx);
+                          });
+                          return (
+                            <TableFooter className="sticky bottom-0 bg-muted/80 backdrop-blur-sm border-t-2 border-primary/20">
+                              <TableRow>
+                                <TableCell className="font-bold text-xs py-2">Total</TableCell>
+                                {tbl.column_headers.slice(1).map((_, colIdx) => {
+                                  const rowIdx = colIdx; // maps to row_input_types index
+                                  const isCurrencyCol = currencyColIndices.includes(rowIdx);
+                                  return (
+                                    <TableCell key={colIdx} className="py-2">
+                                      {isCurrencyCol ? (
+                                        <div className="relative">
+                                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-primary">R</span>
+                                          <div className="h-8 flex items-center pl-7 text-xs font-bold text-primary">
+                                            {previewMode ? "0.00" : "Auto-sum"}
+                                          </div>
+                                        </div>
+                                      ) : null}
+                                    </TableCell>
+                                  );
+                                })}
+                              </TableRow>
+                            </TableFooter>
+                          );
+                        })()}
                       </Table>
                       {previewMode && tbl.is_repeatable && (
                         <div className="px-4 py-2 border-t bg-muted/20">
