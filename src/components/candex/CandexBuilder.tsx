@@ -35,7 +35,7 @@ interface Section {
 }
 
 interface RowInputType {
-  type: "text" | "yes_no" | "select" | "multi_select" | "dynamic_select";
+  type: "text" | "yes_no" | "select" | "multi_select" | "dynamic_select" | "currency" | "date_picker";
   options?: string[];
   source_table_id?: string;
   source_row_index?: number;
