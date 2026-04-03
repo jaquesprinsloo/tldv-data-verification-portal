@@ -39,6 +39,7 @@ interface RowInputType {
   options?: string[];
   source_table_id?: string;
   source_row_index?: number;
+  require_explanation?: boolean;
 }
 
 interface SectionTable {
