@@ -1,32 +1,45 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { FileText, Users, ClipboardCheck, Mail, Lock, FileCheck } from "lucide-react";
+import { FileText, Users, ClipboardCheck, Mail, Lock, FileCheck, GripVertical } from "lucide-react";
+import { PermissionKey } from "@/hooks/usePermissions";
 import { Badge } from "@/components/ui/badge";
 import { NotificationsDialog } from "@/components/admin/NotificationsDialog";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
 import { useQuery } from "@tanstack/react-query";
 import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
+import { toast } from "sonner";
+
+interface PortalCard {
+  key: string;
+  title: string;
+  description: string;
+  icon: any;
+  path: string;
+  color: string;
+  badge: number | null;
+  permissionKey: PermissionKey;
+  requiresMasterAdmin: boolean;
+}
 
 const AdminPortalDashboard = () => {
   const navigate = useNavigate();
   
-  // Check if animation has already played this session
   const hasSeenAnimation = sessionStorage.getItem('portal_animation_played') === 'true';
-  // Cache user role to prevent layout shift on return navigation
   const cachedIsMasterAdmin = sessionStorage.getItem('user_is_master_admin') === 'true';
   const cachedUserName = sessionStorage.getItem('user_display_name') || "";
   
   const [isAnimating, setIsAnimating] = useState(!hasSeenAnimation);
   const [isExiting, setIsExiting] = useState(false);
   const [userName, setUserName] = useState(cachedUserName);
-
   const [isMasterAdmin, setIsMasterAdmin] = useState(cachedIsMasterAdmin);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [orderedPortals, setOrderedPortals] = useState<PortalCard[]>([]);
 
-  // Permissions hook
-  const { hasPermission, checkAccessWithNotification, isMasterAdmin: isPermMasterAdmin } = usePermissions(currentUserId);
+  const { hasPermission, checkAccessWithNotification } = usePermissions(currentUserId);
 
   const { data: pendingRequests } = useQuery({
     queryKey: ['pending-requests-count'],
@@ -52,7 +65,6 @@ const AdminPortalDashboard = () => {
     enabled: isMasterAdmin
   });
 
-  // Count approved polygraph candidates awaiting acceptance/rejection in Data & Employee Management
   const { data: approvedCandidatesCount } = useQuery({
     queryKey: ['approved-candidates-count'],
     queryFn: async () => {
@@ -65,7 +77,6 @@ const AdminPortalDashboard = () => {
     },
   });
 
-  // Count pending employee submissions awaiting review
   const { data: pendingSubmissionsCount } = useQuery({
     queryKey: ['pending-submissions-count'],
     queryFn: async () => {
@@ -78,6 +89,110 @@ const AdminPortalDashboard = () => {
   });
 
   const dataManagementBadge = (approvedCandidatesCount || 0) + (pendingSubmissionsCount || 0);
+
+  // Fetch saved card order
+  const { data: savedOrder } = useQuery({
+    queryKey: ['portal-card-order'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('portal_card_order')
+        .select('card_key, sort_order')
+        .order('sort_order', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Build portals list
+  const buildPortals = useCallback((): PortalCard[] => {
+    const allPortals: PortalCard[] = [
+      {
+        key: "data-employee-management",
+        title: "Data & Employee Management",
+        description: "Manage employees, submissions, and invitations",
+        icon: Users,
+        path: "/admin/data-employee-management",
+        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+        badge: dataManagementBadge > 0 ? dataManagementBadge : null,
+        permissionKey: PERMISSION_KEYS.PORTAL_DATA_MANAGEMENT,
+        requiresMasterAdmin: false
+      },
+      {
+        key: "polygraph-vetting",
+        title: "Polygraph & Vetting",
+        description: "Book appointments and request vetting",
+        icon: ClipboardCheck,
+        path: "/admin/polygraph-vetting",
+        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+        badge: null,
+        permissionKey: PERMISSION_KEYS.PORTAL_POLYGRAPH_VETTING,
+        requiresMasterAdmin: false
+      },
+      {
+        key: "reports-accounts",
+        title: "Reports & Accounts",
+        description: "View reports and accounts",
+        icon: FileText,
+        path: "/admin/reports-accounts",
+        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+        badge: null,
+        permissionKey: PERMISSION_KEYS.PORTAL_REPORTS_ACCOUNTS,
+        requiresMasterAdmin: false
+      },
+      {
+        key: "profile-management",
+        title: "Profile Management",
+        description: "Create and manage admin profiles",
+        icon: Users,
+        path: "/admin/profile-management",
+        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+        badge: null,
+        permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
+        requiresMasterAdmin: true
+      },
+      {
+        key: "request-inbox",
+        title: "Request Inbox",
+        description: "View and respond to profile requests",
+        icon: Mail,
+        path: "/admin/request-inbox",
+        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+        badge: pendingRequests || null,
+        permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
+        requiresMasterAdmin: true
+      },
+      {
+        key: "pending-polygraph-review",
+        title: "Pending Polygraph Review",
+        description: "Review and approve polygraph report uploads",
+        icon: FileCheck,
+        path: "/admin/pending-polygraph-review",
+        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+        badge: pendingPolygraphCount || null,
+        permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
+        requiresMasterAdmin: true
+      }
+    ];
+
+    // Filter based on role
+    const visiblePortals = allPortals.filter(p => !p.requiresMasterAdmin || isMasterAdmin);
+
+    // Apply saved order
+    if (savedOrder && savedOrder.length > 0) {
+      const orderMap = new Map(savedOrder.map(o => [o.card_key, o.sort_order]));
+      visiblePortals.sort((a, b) => {
+        const orderA = orderMap.get(a.key) ?? 999;
+        const orderB = orderMap.get(b.key) ?? 999;
+        return orderA - orderB;
+      });
+    }
+
+    return visiblePortals;
+  }, [isMasterAdmin, dataManagementBadge, pendingRequests, pendingPolygraphCount, savedOrder]);
+
+  useEffect(() => {
+    setOrderedPortals(buildPortals());
+  }, [buildPortals]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -101,12 +216,10 @@ const AdminPortalDashboard = () => {
         return;
       }
 
-      // Check if user is master admin
       const isMaster = roleData.some(r => r.role === "master_admin");
       setIsMasterAdmin(isMaster);
       sessionStorage.setItem('user_is_master_admin', isMaster ? 'true' : 'false');
 
-      // Fetch user profile for name
       const { data: profileData } = await supabase
         .from("profiles")
         .select("full_name")
@@ -121,9 +234,7 @@ const AdminPortalDashboard = () => {
 
     checkAuth();
 
-    // Only run animation timer if animation hasn't been seen
     if (!hasSeenAnimation) {
-      // Animation timer - matches full animation sequence (2s scanline + 2s logo fade in + 1.5s hold + 1s fade out = 6.5s)
       const timer = setTimeout(() => {
         setIsAnimating(false);
         sessionStorage.setItem('portal_animation_played', 'true');
@@ -134,91 +245,90 @@ const AdminPortalDashboard = () => {
 
   const handleSignOut = async () => {
     setIsExiting(true);
-    
-    // Clear all session storage flags so they reset on next login
     sessionStorage.removeItem('portal_animation_played');
     sessionStorage.removeItem('user_is_master_admin');
     sessionStorage.removeItem('user_display_name');
     
-    // Wait for exit animation to complete
     setTimeout(async () => {
       await supabase.auth.signOut();
       navigate("/admin/login");
     }, 2000);
   };
 
-  const portals = [
-    {
-      title: "Data & Employee Management",
-      description: "Manage employees, submissions, and invitations",
-      icon: Users,
-      path: "/admin/data-employee-management",
-      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: dataManagementBadge > 0 ? dataManagementBadge : null,
-      permissionKey: PERMISSION_KEYS.PORTAL_DATA_MANAGEMENT,
-      requiresMasterAdmin: false
-    },
-    {
-      title: "Polygraph & Vetting",
-      description: "Book appointments and request vetting",
-      icon: ClipboardCheck,
-      path: "/admin/polygraph-vetting",
-      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: null,
-      permissionKey: PERMISSION_KEYS.PORTAL_POLYGRAPH_VETTING,
-      requiresMasterAdmin: false
-    },
-    {
-      title: "Reports & Accounts",
-      description: "View reports and accounts",
-      icon: FileText,
-      path: "/admin/reports-accounts",
-      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: null,
-      permissionKey: PERMISSION_KEYS.PORTAL_REPORTS_ACCOUNTS,
-      requiresMasterAdmin: false
-    },
-    ...(isMasterAdmin ? [{
-      title: "Profile Management",
-      description: "Create and manage admin profiles",
-      icon: Users,
-      path: "/admin/profile-management",
-      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: null,
-      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
-      requiresMasterAdmin: true
-    }, {
-      title: "Request Inbox",
-      description: "View and respond to profile requests",
-      icon: Mail,
-      path: "/admin/request-inbox",
-      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: pendingRequests,
-      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
-      requiresMasterAdmin: true
-    }, {
-      title: "Pending Polygraph Review",
-      description: "Review and approve polygraph report uploads",
-      icon: FileCheck,
-      path: "/admin/pending-polygraph-review",
-      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: pendingPolygraphCount,
-      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
-      requiresMasterAdmin: true
-    }] : [])
-  ];
-
-  const handlePortalClick = (portal: typeof portals[0]) => {
-    // Master admin always has access
+  const handlePortalClick = (portal: PortalCard) => {
     if (isMasterAdmin) {
       navigate(portal.path);
       return;
     }
-
-    // Check permission
     if (checkAccessWithNotification(portal.permissionKey, portal.title)) {
       navigate(portal.path);
     }
+  };
+
+  // Drag and drop handlers (master admin only)
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    if (!isMasterAdmin) return;
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    // Make the drag image semi-transparent
+    if (e.currentTarget instanceof HTMLElement) {
+      e.dataTransfer.setDragImage(e.currentTarget, e.currentTarget.offsetWidth / 2, e.currentTarget.offsetHeight / 2);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (!isMasterAdmin || draggedIndex === null) return;
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (!isMasterAdmin || draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newOrder = [...orderedPortals];
+    const [draggedItem] = newOrder.splice(draggedIndex, 1);
+    newOrder.splice(dropIndex, 0, draggedItem);
+    setOrderedPortals(newOrder);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+
+    // Persist the new order
+    try {
+      // Upsert all card orders
+      const upsertData = newOrder.map((portal, idx) => ({
+        card_key: portal.key,
+        sort_order: idx,
+        updated_at: new Date().toISOString(),
+        updated_by: currentUserId,
+      }));
+
+      for (const item of upsertData) {
+        const { error } = await supabase
+          .from('portal_card_order')
+          .upsert(item, { onConflict: 'card_key' });
+        if (error) throw error;
+      }
+
+      toast.success("Card order saved");
+    } catch (error) {
+      console.error("Failed to save card order:", error);
+      toast.error("Failed to save card order");
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
   };
 
   return (
@@ -231,7 +341,6 @@ const AdminPortalDashboard = () => {
             : "opacity-0 pointer-events-none"
         }`}
       >
-        {/* TV Scanline Effect (0s - 2s) */}
         <div 
           className="absolute inset-0 flex items-center justify-center"
           style={{ 
@@ -246,7 +355,6 @@ const AdminPortalDashboard = () => {
           />
         </div>
 
-        {/* Full Logo fades in (2s - 4s), holds (4s - 5.5s), fades out (5.5s - 6.5s) */}
         <div 
           className="absolute inset-0 flex flex-col items-center justify-center px-4"
           style={{
@@ -319,20 +427,42 @@ const AdminPortalDashboard = () => {
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white text-center mb-6 sm:mb-8 md:mb-12 mt-12 sm:mt-8">
             {isMasterAdmin ? "Master Profile - Portal Selection" : "Portal Selection"}
           </h1>
+
+          {isMasterAdmin && (
+            <p className="text-center text-xs text-gray-500 mb-3 -mt-4">
+              Drag cards to reorder — changes apply to all profiles
+            </p>
+          )}
+
           <div className={`grid grid-cols-2 ${isMasterAdmin ? 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'sm:grid-cols-3'} gap-3 sm:gap-4 md:gap-6`}>
-            {portals.map((portal) => {
+            {orderedPortals.map((portal, index) => {
               const hasAccess = isMasterAdmin || hasPermission(portal.permissionKey);
               
               return (
                 <Card
-                  key={portal.path}
+                  key={portal.key}
+                  draggable={isMasterAdmin}
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
                   onClick={() => handlePortalClick(portal)}
                   className={`p-3 sm:p-5 md:p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-2 sm:border-[3px] ${
                     hasAccess 
                       ? 'border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)]' 
                       : 'border-gray-600 hover:border-gray-500'
-                  } relative`}
+                  } relative ${
+                    draggedIndex === index ? 'opacity-40 scale-95' : ''
+                  } ${
+                    dragOverIndex === index && draggedIndex !== index ? 'ring-2 ring-red-400 ring-offset-2 ring-offset-black' : ''
+                  }`}
                 >
+                  {isMasterAdmin && (
+                    <div className="absolute top-1 left-1/2 -translate-x-1/2 cursor-grab active:cursor-grabbing">
+                      <GripVertical className="w-4 h-4 text-gray-600 hover:text-gray-400 transition-colors" />
+                    </div>
+                  )}
                   {portal.badge !== null && portal.badge !== undefined && portal.badge > 0 && (
                     <Badge className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-red-600 text-white text-xs">
                       {portal.badge}
@@ -372,66 +502,26 @@ const AdminPortalDashboard = () => {
 
       <style>{`
         @keyframes scanline {
-          0% {
-            transform: translateX(-100vw);
-            opacity: 0;
-          }
-          10% {
-            opacity: 1;
-          }
-          90% {
-            opacity: 1;
-          }
-          100% {
-            transform: translateX(100vw);
-            opacity: 0;
-          }
+          0% { transform: translateX(-100vw); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translateX(100vw); opacity: 0; }
         }
-
         @keyframes logoSequence {
-          0% {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          10% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          80% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          100% {
-            opacity: 0;
-            transform: scale(1.05);
-          }
+          0% { opacity: 0; transform: scale(0.95); }
+          10% { opacity: 1; transform: scale(1); }
+          80% { opacity: 1; transform: scale(1); }
+          100% { opacity: 0; transform: scale(1.05); }
         }
-
         @keyframes portalExit {
-          0% {
-            opacity: 0;
-          }
-          20% {
-            opacity: 1;
-          }
-          100% {
-            opacity: 1;
-          }
+          0% { opacity: 0; }
+          20% { opacity: 1; }
+          100% { opacity: 1; }
         }
-
         @keyframes portalShrink {
-          0% {
-            transform: scale(1);
-            opacity: 1;
-          }
-          50% {
-            transform: scale(1.2);
-            opacity: 1;
-          }
-          100% {
-            transform: scale(0);
-            opacity: 0;
-          }
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.2); opacity: 1; }
+          100% { transform: scale(0); opacity: 0; }
         }
       `}</style>
     </div>

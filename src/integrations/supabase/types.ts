@@ -1273,6 +1273,30 @@ export type Database = {
           },
         ]
       }
+      portal_card_order: {
+        Row: {
+          card_key: string
+          id: string
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          card_key: string
+          id?: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          card_key?: string
+          id?: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       profile_requests: {
         Row: {
           created_at: string
