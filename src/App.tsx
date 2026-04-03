@@ -18,6 +18,7 @@ import ReportsAccounts from "./pages/ReportsAccounts";
 import ProfileManagement from "./pages/ProfileManagement";
 import RequestInboxPage from "./pages/RequestInboxPage";
 import PendingPolygraphReview from "./pages/PendingPolygraphReview";
+import CanDexPreScreening from "./pages/CanDexPreScreening";
 import NotFound from "./pages/NotFound";
 import VerifyEmail from "./pages/VerifyEmail";
 import Install from "./pages/Install";
