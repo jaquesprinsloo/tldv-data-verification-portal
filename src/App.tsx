@@ -19,6 +19,7 @@ import ProfileManagement from "./pages/ProfileManagement";
 import RequestInboxPage from "./pages/RequestInboxPage";
 import PendingPolygraphReview from "./pages/PendingPolygraphReview";
 import CanDexPreScreening from "./pages/CanDexPreScreening";
+import CandexApplication from "./pages/CandexApplication";
 import NotFound from "./pages/NotFound";
 import VerifyEmail from "./pages/VerifyEmail";
 import Install from "./pages/Install";
