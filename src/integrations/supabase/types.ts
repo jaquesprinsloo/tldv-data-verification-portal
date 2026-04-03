@@ -320,6 +320,102 @@ export type Database = {
         }
         Relationships: []
       }
+      candex_risk_request_candidates: {
+        Row: {
+          application_id: string
+          created_at: string
+          id: string
+          id_verified: boolean | null
+          request_id: string
+          risk_assessment_result: string | null
+          risk_assessment_url: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          id?: string
+          id_verified?: boolean | null
+          request_id: string
+          risk_assessment_result?: string | null
+          risk_assessment_url?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          id?: string
+          id_verified?: boolean | null
+          request_id?: string
+          risk_assessment_result?: string | null
+          risk_assessment_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candex_risk_request_candidates_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "candex_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candex_risk_request_candidates_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "candex_risk_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candex_risk_requests: {
+        Row: {
+          account_id: string | null
+          client_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          requested_by: string
+          requested_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          client_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          requested_by: string
+          requested_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          requested_by?: string
+          requested_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candex_risk_requests_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "candex_risk_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "candex_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candex_section_tables: {
         Row: {
           column_headers: Json
