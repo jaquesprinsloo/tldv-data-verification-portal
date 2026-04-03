@@ -885,7 +885,7 @@ const CandexBuilder = () => {
                                           const srcTbl = sectionTables.find(t => t.id === rit.source_table_id);
                                           if (!srcTbl) return "not linked";
                                           return `${srcTbl.table_title} → ${srcTbl.row_labels[rit.source_row_index ?? 0] || "Row 1"}`;
-                                        })()})` : `Multi (${(rit.options || []).length} opts)`}
+                                        })()})` : rit.type === "currency" ? "Currency (R)" : rit.type === "date_picker" ? "Date picker" : `Multi (${(rit.options || []).length} opts)`}
                                       </span>
                                     )}
                                   </TableCell>
