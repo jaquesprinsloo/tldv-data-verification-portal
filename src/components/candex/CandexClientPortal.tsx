@@ -515,7 +515,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={`text-xs ${app.risk_level === "LOW" || !app.risk_level ? "bg-green-600 text-white" : "bg-destructive text-destructive-foreground"}`}>
+                        <Badge className={`text-xs ${app.risk_level === "LOW" || !app.risk_level ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"}`}>
                           {app.risk_level === "LOW" || !app.risk_level ? "Clear" : "Flagged"}
                         </Badge>
                       </TableCell>
