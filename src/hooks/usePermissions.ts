@@ -9,6 +9,7 @@ export const PERMISSION_KEYS = {
   PORTAL_POLYGRAPH_VETTING: "portal.polygraph_vetting",
   PORTAL_REPORTS_ACCOUNTS: "portal.reports_accounts",
   PORTAL_PROFILE_MANAGEMENT: "portal.profile_management",
+  PORTAL_CANDEX_PRE_SCREENING: "portal.candex_pre_screening",
   
   // Reports & Accounts permissions
   ACCOUNTS_SELECT_ACCOUNTS: "accounts.select_accounts",

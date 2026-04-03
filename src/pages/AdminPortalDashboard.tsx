@@ -162,6 +162,17 @@ const AdminPortalDashboard = () => {
         requiresMasterAdmin: true
       },
       {
+        key: "candex-pre-screening",
+        title: "CanDex Pre Screening",
+        description: "Pre-employment screening and candidate indexing",
+        icon: ShieldCheck,
+        path: "/admin/candex-pre-screening",
+        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+        badge: null,
+        permissionKey: PERMISSION_KEYS.PORTAL_CANDEX_PRE_SCREENING,
+        requiresMasterAdmin: false
+      },
+      {
         key: "pending-polygraph-review",
         title: "Pending Polygraph Review",
         description: "Review and approve polygraph report uploads",
