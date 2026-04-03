@@ -845,16 +845,22 @@ const CandexBuilder = () => {
                                           </div>
                                         </div>
                                       ) : rit.type === "dynamic_select" ? (
-                                        <div className="space-y-1.5">
-                                          <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
-                                            <option>Select... (auto-populated from {(() => {
+                                        <div className="space-y-2">
+                                          <p className="text-[10px] text-muted-foreground italic">
+                                            Options auto-populated from: {(() => {
                                               const srcTbl = sectionTables.find(t => t.id === rit.source_table_id);
                                               if (!srcTbl) return "linked table";
                                               const srcRow = srcTbl.row_labels[rit.source_row_index ?? 0] || "data";
                                               return `${srcTbl.table_title} → ${srcRow}`;
-                                            })()})</option>
-                                          </select>
-                                          <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
+                                            })()}
+                                          </p>
+                                          {["Company A", "Company B"].map((example, ei) => (
+                                            <div key={ei} className="flex items-start gap-2 p-2 rounded border border-dashed border-muted-foreground/30 bg-muted/20">
+                                              <Badge variant="secondary" className="text-xs shrink-0 mt-0.5">{example}</Badge>
+                                              <Input placeholder={`Explain for ${example}...`} disabled className="h-7 text-xs flex-1" />
+                                            </div>
+                                          ))}
+                                          <p className="text-[10px] text-muted-foreground">Each selection gets its own explanation field</p>
                                         </div>
                                       ) : (
                                         <Input placeholder={`Enter ${row.toLowerCase()}...`} disabled className="h-8 text-xs" />
