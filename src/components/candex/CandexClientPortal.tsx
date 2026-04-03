@@ -323,7 +323,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           <Button variant="ghost" size="sm" onClick={() => setReviewApp(app)}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-green-600" onClick={() => updateAppStatus.mutate({ id: app.id, status: "approved" })}>
+                          <Button variant="ghost" size="sm" className="text-primary" onClick={() => updateAppStatus.mutate({ id: app.id, status: "approved" })}>
                             <Check className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" className="text-destructive" onClick={() => updateAppStatus.mutate({ id: app.id, status: "rejected" })}>
