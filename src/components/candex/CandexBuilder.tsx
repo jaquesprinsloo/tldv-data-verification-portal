@@ -844,12 +844,28 @@ const CandexBuilder = () => {
                                             ))}
                                           </div>
                                         </div>
+                                      ) : rit.type === "dynamic_select" ? (
+                                        <div className="space-y-1.5">
+                                          <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
+                                            <option>Select... (auto-populated from {(() => {
+                                              const srcTbl = sectionTables.find(t => t.id === rit.source_table_id);
+                                              if (!srcTbl) return "linked table";
+                                              const srcRow = srcTbl.row_labels[rit.source_row_index ?? 0] || "data";
+                                              return `${srcTbl.table_title} → ${srcRow}`;
+                                            })()})</option>
+                                          </select>
+                                          <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
+                                        </div>
                                       ) : (
                                         <Input placeholder={`Enter ${row.toLowerCase()}...`} disabled className="h-8 text-xs" />
                                       )
                                     ) : (
                                       <span className="text-xs text-muted-foreground italic">
-                                        {rit.type === "text" ? "Free text" : rit.type === "yes_no" ? "Yes/No + details" : rit.type === "select" ? `Select + details (${(rit.options || []).length} opts)` : `Multi (${(rit.options || []).length} opts)`}
+                                        {rit.type === "text" ? "Free text" : rit.type === "yes_no" ? "Yes/No + details" : rit.type === "select" ? `Select + details (${(rit.options || []).length} opts)` : rit.type === "dynamic_select" ? `Dynamic (${(() => {
+                                          const srcTbl = sectionTables.find(t => t.id === rit.source_table_id);
+                                          if (!srcTbl) return "not linked";
+                                          return `${srcTbl.table_title} → ${srcTbl.row_labels[rit.source_row_index ?? 0] || "Row 1"}`;
+                                        })()})` : `Multi (${(rit.options || []).length} opts)`}
                                       </span>
                                     )}
                                   </TableCell>
