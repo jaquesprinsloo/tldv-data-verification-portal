@@ -177,8 +177,117 @@ const VideoUploadButton = ({
     </div>
   );
 };
+// Row input type labels
+const INPUT_TYPE_LABELS: Record<string, string> = {
+  text: "Free Text",
+  yes_no: "Yes / No",
+  select: "Single Select",
+  multi_select: "Multi Select",
+};
 
-const CandexBuilder = () => {
+// Helper to get or default a row input type
+const getRowInputType = (types: RowInputType[], index: number): RowInputType => {
+  return types[index] || { type: "text" };
+};
+
+// Row input type configurator for add/edit dialogs
+const RowInputTypeConfigurator = ({
+  rowLabels,
+  inputTypes,
+  onChange,
+}: {
+  rowLabels: string[];
+  inputTypes: RowInputType[];
+  onChange: (types: RowInputType[]) => void;
+}) => {
+  const [editingOptions, setEditingOptions] = useState<number | null>(null);
+  const [optionsText, setOptionsText] = useState("");
+
+  const updateType = (index: number, type: RowInputType["type"]) => {
+    const updated = [...inputTypes];
+    while (updated.length <= index) updated.push({ type: "text" });
+    updated[index] = { type, options: (type === "select" || type === "multi_select") ? (updated[index]?.options || []) : undefined };
+    onChange(updated);
+  };
+
+  const openOptionsEditor = (index: number) => {
+    const current = getRowInputType(inputTypes, index);
+    setOptionsText((current.options || []).join("\n"));
+    setEditingOptions(index);
+  };
+
+  const saveOptions = () => {
+    if (editingOptions === null) return;
+    const opts = optionsText.split("\n").map(o => o.trim()).filter(Boolean);
+    const updated = [...inputTypes];
+    while (updated.length <= editingOptions) updated.push({ type: "text" });
+    updated[editingOptions] = { ...updated[editingOptions], options: opts };
+    onChange(updated);
+    setEditingOptions(null);
+  };
+
+  if (rowLabels.length === 0) return null;
+
+  return (
+    <div>
+      <Label className="mb-2 block">Answer Types per Row</Label>
+      <div className="border rounded-md divide-y max-h-[200px] overflow-y-auto">
+        {rowLabels.map((label, i) => {
+          const rit = getRowInputType(inputTypes, i);
+          return (
+            <div key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
+              <span className="flex-1 truncate font-medium text-xs">{label}</span>
+              <select
+                className="h-7 text-xs rounded border border-input bg-background px-2"
+                value={rit.type}
+                onChange={(e) => updateType(i, e.target.value as RowInputType["type"])}
+              >
+                <option value="text">Free Text</option>
+                <option value="yes_no">Yes / No</option>
+                <option value="select">Single Select</option>
+                <option value="multi_select">Multi Select</option>
+              </select>
+              {(rit.type === "select" || rit.type === "multi_select") && (
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => openOptionsEditor(i)}>
+                  <List className="h-3 w-3" /> {(rit.options || []).length} opts
+                </Button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground mt-1">
+        Choose how candidates answer each row. Use "Select" for pre-populated dropdowns.
+      </p>
+
+      {/* Options editor mini-dialog */}
+      <Dialog open={editingOptions !== null} onOpenChange={(open) => { if (!open) setEditingOptions(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">
+              Edit Options: {editingOptions !== null ? rowLabels[editingOptions] : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div>
+            <Label className="text-xs">Options (one per line)</Label>
+            <Textarea
+              value={optionsText}
+              onChange={(e) => setOptionsText(e.target.value)}
+              rows={5}
+              placeholder={"Option A\nOption B\nOption C"}
+            />
+          </div>
+          <DialogFooter>
+            <Button size="sm" variant="outline" onClick={() => setEditingOptions(null)}>Cancel</Button>
+            <Button size="sm" onClick={saveOptions}>Save Options</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+
   const queryClient = useQueryClient();
   const [showNewTemplate, setShowNewTemplate] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
