@@ -894,6 +894,11 @@ const CandexBuilder = () => {
                   rows={6}
                 />
               </div>
+              <RowInputTypeConfigurator
+                rowLabels={editTable.rows.split("\n").map(r => r.trim()).filter(Boolean)}
+                inputTypes={editTableInputTypes}
+                onChange={setEditTableInputTypes}
+              />
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
                   checked={editTable.is_repeatable}
