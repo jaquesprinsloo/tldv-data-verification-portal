@@ -5,10 +5,13 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import { User } from "@supabase/supabase-js";
 import { ShieldCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
 import CandexStatistics from "@/components/candex/CandexStatistics";
 import CandexBuilder from "@/components/candex/CandexBuilder";
 import CandexClients from "@/components/candex/CandexClients";
 import CandexClientPortal from "@/components/candex/CandexClientPortal";
+import CandexRiskRequests from "@/components/candex/CandexRiskRequests";
 
 const CanDexPreScreening = () => {
   const navigate = useNavigate();
@@ -50,6 +53,19 @@ const CanDexPreScreening = () => {
     checkAuth();
   }, [navigate]);
 
+  // Pending risk requests count for badge
+  const { data: pendingRiskCount = 0 } = useQuery({
+    queryKey: ["candex-pending-risk-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("candex_risk_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending");
+      return count ?? 0;
+    },
+    enabled: isMasterAdmin,
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -80,14 +96,26 @@ const CanDexPreScreening = () => {
 
         {isMasterAdmin ? (
           <Tabs defaultValue="statistics" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
+            <TabsList className="grid w-full grid-cols-4 max-w-xl mx-auto">
               <TabsTrigger value="statistics">Statistics</TabsTrigger>
+              <TabsTrigger value="risk-requests" className="relative">
+                Risk Requests
+                {pendingRiskCount > 0 && (
+                  <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                    {pendingRiskCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="builder">CanDex Builder</TabsTrigger>
               <TabsTrigger value="clients">Clients</TabsTrigger>
             </TabsList>
 
             <TabsContent value="statistics">
               <CandexStatistics />
+            </TabsContent>
+
+            <TabsContent value="risk-requests">
+              <CandexRiskRequests />
             </TabsContent>
 
             <TabsContent value="builder">
