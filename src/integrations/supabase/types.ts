@@ -326,6 +326,7 @@ export type Database = {
           created_at: string
           id: string
           is_repeatable: boolean
+          row_input_types: Json | null
           row_labels: Json
           section_id: string
           sort_order: number
@@ -337,6 +338,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_repeatable?: boolean
+          row_input_types?: Json | null
           row_labels?: Json
           section_id: string
           sort_order?: number
@@ -348,6 +350,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_repeatable?: boolean
+          row_input_types?: Json | null
           row_labels?: Json
           section_id?: string
           sort_order?: number
