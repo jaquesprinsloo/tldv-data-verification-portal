@@ -130,7 +130,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     mutationFn: async () => {
       if (!client?.id) throw new Error("No client found");
       const templateId = templates?.[0]?.id || null;
-      const { error } = await supabase.from("candex_invitations").insert({
+      const { data: invData, error } = await supabase.from("candex_invitations").insert({
         client_id: client.id,
         candidate_name: `${inviteForm.name} ${inviteForm.surname}`,
         candidate_email: inviteForm.email || null,
@@ -140,8 +140,37 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         created_by: userId,
         status: "sent",
         sent_at: new Date().toISOString(),
-      });
+      }).select().single();
       if (error) throw error;
+
+      // Send the actual email/WhatsApp
+      if (inviteMethod === "email" && inviteForm.email) {
+        const candidateName = `${inviteForm.name} ${inviteForm.surname}`;
+        const portalUrl = `${window.location.origin}/candex-pre-screening?token=${invData.token}`;
+        const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
+          body: {
+            email: inviteForm.email,
+            candidateName,
+            invitationLink: portalUrl,
+          },
+        });
+        if (emailError) {
+          console.error("Email send error:", emailError);
+          throw new Error("Invitation saved but email failed to send");
+        }
+      } else if (inviteMethod === "whatsapp" && inviteForm.phone) {
+        const portalUrl = `${window.location.origin}/candex-pre-screening?token=${invData.token}`;
+        const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
+          body: {
+            phone: inviteForm.phone,
+            message: `Hi ${inviteForm.name}, you've been invited to complete a CanDex Pre-Screening. Please click here to begin: ${portalUrl}`,
+          },
+        });
+        if (waError) {
+          console.error("WhatsApp send error:", waError);
+          throw new Error("Invitation saved but WhatsApp message failed to send");
+        }
+      }
     },
     onSuccess: () => {
       toast.success(`Invitation sent via ${inviteMethod === "email" ? "Email" : "WhatsApp"}`);
