@@ -185,6 +185,7 @@ const INPUT_TYPE_LABELS: Record<string, string> = {
   yes_no: "Yes / No",
   select: "Single Select",
   multi_select: "Multi Select",
+  dynamic_select: "Dynamic Select",
 };
 
 // Helper to get or default a row input type
