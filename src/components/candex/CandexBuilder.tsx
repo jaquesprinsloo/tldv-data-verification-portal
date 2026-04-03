@@ -333,12 +333,12 @@ const CandexBuilder = () => {
       const { error } = await supabase.from("candex_section_tables").insert({
         section_id: sectionId,
         table_title: newTable.title,
-        column_headers: colHeaders,
-        row_labels: rowLabels,
-        row_input_types: newTableInputTypes.slice(0, rowLabels.length),
+        column_headers: colHeaders as any,
+        row_labels: rowLabels as any,
+        row_input_types: newTableInputTypes.slice(0, rowLabels.length) as any,
         is_repeatable: newTable.is_repeatable,
         sort_order: existing.length,
-      });
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
