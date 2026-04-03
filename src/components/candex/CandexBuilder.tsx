@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,11 +11,12 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  Plus, Trash2, FileText, ChevronDown, ChevronRight, Copy, Table as TableIcon, Eye,
+  Plus, Trash2, FileText, ChevronDown, ChevronRight, Copy, Table as TableIcon, Eye, Video, PlayCircle, Upload, X, Info,
 } from "lucide-react";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Template {
   id: string;
@@ -30,6 +31,7 @@ interface Section {
   template_id: string;
   title: string;
   sort_order: number;
+  video_url: string | null;
 }
 
 interface SectionTable {
@@ -40,7 +42,135 @@ interface SectionTable {
   row_labels: string[];
   is_repeatable: boolean;
   sort_order: number;
+  video_url: string | null;
 }
+
+// Notification bubble component for candidate preview
+const VideoHelpBubble = ({ videoUrl, label }: { videoUrl: string; label: string }) => {
+  const [showVideo, setShowVideo] = useState(false);
+  const [showPulse, setShowPulse] = useState(true);
+
+  return (
+    <>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => { setShowVideo(true); setShowPulse(false); }}
+              className="relative inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors"
+            >
+              <PlayCircle className="h-5 w-5" />
+              {showPulse && (
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive" />
+                </span>
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[200px]">
+            <p className="text-xs">Click to watch a short video explaining how to fill in this section</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <Dialog open={showVideo} onOpenChange={setShowVideo}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5 text-primary" /> {label}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="aspect-video bg-black rounded-lg overflow-hidden">
+            <video src={videoUrl} controls autoPlay className="w-full h-full" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
+
+// Upload video button component for admin
+const VideoUploadButton = ({
+  currentUrl,
+  onUploaded,
+  onRemoved,
+  label,
+}: {
+  currentUrl: string | null;
+  onUploaded: (url: string) => void;
+  onRemoved: () => void;
+  label: string;
+}) => {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (file: File) => {
+    if (!file.type.startsWith("video/")) {
+      toast.error("Please select a video file");
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("Video must be under 50MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "mp4";
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("candex-videos").upload(path, file);
+      if (error) throw error;
+
+      const { data: signedData } = await supabase.storage.from("candex-videos").createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signedData?.signedUrl) {
+        onUploaded(signedData.signedUrl);
+        toast.success("Video uploaded");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleUpload(f);
+          e.target.value = "";
+        }}
+      />
+      {currentUrl ? (
+        <div className="flex items-center gap-1.5">
+          <Badge variant="secondary" className="gap-1 text-xs">
+            <Video className="h-3 w-3" /> {label} video
+          </Badge>
+          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={onRemoved}>
+            <X className="h-3 w-3 text-destructive" />
+          </Button>
+        </div>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-xs h-7 gap-1"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+        >
+          <Upload className="h-3 w-3" />
+          {uploading ? "Uploading..." : `${label} Video`}
+        </Button>
+      )}
+    </div>
+  );
+};
 
 const CandexBuilder = () => {
   const queryClient = useQueryClient();
@@ -229,6 +359,32 @@ const CandexBuilder = () => {
     },
   });
 
+  const updateSectionVideo = useMutation({
+    mutationFn: async ({ id, video_url }: { id: string; video_url: string | null }) => {
+      const { error } = await supabase
+        .from("candex_template_sections")
+        .update({ video_url })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-sections"] });
+    },
+  });
+
+  const updateTableVideo = useMutation({
+    mutationFn: async ({ id, video_url }: { id: string; video_url: string | null }) => {
+      const { error } = await supabase
+        .from("candex_section_tables")
+        .update({ video_url })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
+    },
+  });
+
   const toggleSection = (id: string) => {
     setExpandedSections((prev) => {
       const next = new Set(prev);
@@ -261,6 +417,19 @@ const CandexBuilder = () => {
           </div>
         </div>
 
+        {previewMode && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="py-3 flex items-center gap-2 text-sm">
+              <Info className="h-4 w-4 text-primary shrink-0" />
+              <p className="text-muted-foreground">
+                <span className="font-medium text-foreground">Candidate View:</span> Items with a{" "}
+                <PlayCircle className="h-4 w-4 inline text-primary" /> icon have an explainer video.
+                A notification bubble will alert the candidate to watch it.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {sections.length === 0 && (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
@@ -283,9 +452,23 @@ const CandexBuilder = () => {
                   {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   <CardTitle className="text-base">{section.title}</CardTitle>
                   <Badge variant="secondary">{tables.length} table{tables.length !== 1 ? "s" : ""}</Badge>
+                  {section.video_url && (
+                    <Badge variant="outline" className="gap-1 text-xs">
+                      <Video className="h-3 w-3" /> Video
+                    </Badge>
+                  )}
+                  {previewMode && section.video_url && (
+                    <VideoHelpBubble videoUrl={section.video_url} label={`How to: ${section.title}`} />
+                  )}
                 </div>
                 {!previewMode && (
-                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
+                    <VideoUploadButton
+                      currentUrl={section.video_url}
+                      onUploaded={(url) => updateSectionVideo.mutate({ id: section.id, video_url: url })}
+                      onRemoved={() => updateSectionVideo.mutate({ id: section.id, video_url: null })}
+                      label="Section"
+                    />
                     <Button size="sm" variant="outline" onClick={() => setShowAddTable(section.id)}>
                       <Plus className="h-3 w-3 mr-1" /> <TableIcon className="h-3 w-3 mr-1" /> Table
                     </Button>
@@ -313,9 +496,23 @@ const CandexBuilder = () => {
                               <Copy className="h-3 w-3" /> Candidate can add more
                             </Badge>
                           )}
+                          {tbl.video_url && !previewMode && (
+                            <Badge variant="outline" className="gap-1 text-xs">
+                              <Video className="h-3 w-3" /> Video
+                            </Badge>
+                          )}
+                          {previewMode && tbl.video_url && (
+                            <VideoHelpBubble videoUrl={tbl.video_url} label={`How to: ${tbl.table_title}`} />
+                          )}
                         </div>
                         {!previewMode && (
                           <div className="flex items-center gap-3">
+                            <VideoUploadButton
+                              currentUrl={tbl.video_url}
+                              onUploaded={(url) => updateTableVideo.mutate({ id: tbl.id, video_url: url })}
+                              onRemoved={() => updateTableVideo.mutate({ id: tbl.id, video_url: null })}
+                              label="Table"
+                            />
                             <div className="flex items-center gap-1.5">
                               <Label className="text-xs text-muted-foreground">Repeatable</Label>
                               <Switch

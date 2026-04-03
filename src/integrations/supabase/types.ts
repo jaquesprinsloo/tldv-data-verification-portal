@@ -330,6 +330,7 @@ export type Database = {
           section_id: string
           sort_order: number
           table_title: string
+          video_url: string | null
         }
         Insert: {
           column_headers?: Json
@@ -340,6 +341,7 @@ export type Database = {
           section_id: string
           sort_order?: number
           table_title: string
+          video_url?: string | null
         }
         Update: {
           column_headers?: Json
@@ -350,6 +352,7 @@ export type Database = {
           section_id?: string
           sort_order?: number
           table_title?: string
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -409,6 +412,7 @@ export type Database = {
           sort_order: number
           template_id: string
           title: string
+          video_url: string | null
         }
         Insert: {
           created_at?: string
@@ -416,6 +420,7 @@ export type Database = {
           sort_order?: number
           template_id: string
           title: string
+          video_url?: string | null
         }
         Update: {
           created_at?: string
@@ -423,6 +428,7 @@ export type Database = {
           sort_order?: number
           template_id?: string
           title?: string
+          video_url?: string | null
         }
         Relationships: [
           {
