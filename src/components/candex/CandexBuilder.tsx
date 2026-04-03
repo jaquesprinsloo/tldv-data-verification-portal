@@ -560,6 +560,9 @@ const CandexBuilder = () => {
                                 onCheckedChange={(v) => toggleRepeatable.mutate({ id: tbl.id, is_repeatable: v })}
                               />
                             </div>
+                            <Button size="sm" variant="ghost" onClick={() => openEditTable(tbl)}>
+                              <Pencil className="h-3 w-3 text-muted-foreground" />
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => deleteTableMutation.mutate(tbl.id)}>
                               <Trash2 className="h-3 w-3 text-destructive" />
                             </Button>
