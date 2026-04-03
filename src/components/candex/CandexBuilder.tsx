@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  Plus, Trash2, FileText, ChevronDown, ChevronRight, Copy, Table as TableIcon, Eye, Video, PlayCircle, Upload, X, Info, Pencil,
+  Plus, Trash2, FileText, ChevronDown, ChevronRight, Copy, Table as TableIcon, Eye, Video, PlayCircle, Upload, X, Info, Pencil, List,
 } from "lucide-react";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
@@ -34,12 +34,18 @@ interface Section {
   video_url: string | null;
 }
 
+interface RowInputType {
+  type: "text" | "yes_no" | "select" | "multi_select";
+  options?: string[];
+}
+
 interface SectionTable {
   id: string;
   section_id: string;
   table_title: string;
   column_headers: string[];
   row_labels: string[];
+  row_input_types: RowInputType[];
   is_repeatable: boolean;
   sort_order: number;
   video_url: string | null;
@@ -171,6 +177,116 @@ const VideoUploadButton = ({
     </div>
   );
 };
+// Row input type labels
+const INPUT_TYPE_LABELS: Record<string, string> = {
+  text: "Free Text",
+  yes_no: "Yes / No",
+  select: "Single Select",
+  multi_select: "Multi Select",
+};
+
+// Helper to get or default a row input type
+const getRowInputType = (types: RowInputType[], index: number): RowInputType => {
+  return types[index] || { type: "text" };
+};
+
+// Row input type configurator for add/edit dialogs
+const RowInputTypeConfigurator = ({
+  rowLabels,
+  inputTypes,
+  onChange,
+}: {
+  rowLabels: string[];
+  inputTypes: RowInputType[];
+  onChange: (types: RowInputType[]) => void;
+}) => {
+  const [editingOptions, setEditingOptions] = useState<number | null>(null);
+  const [optionsText, setOptionsText] = useState("");
+
+  const updateType = (index: number, type: RowInputType["type"]) => {
+    const updated = [...inputTypes];
+    while (updated.length <= index) updated.push({ type: "text" });
+    updated[index] = { type, options: (type === "select" || type === "multi_select") ? (updated[index]?.options || []) : undefined };
+    onChange(updated);
+  };
+
+  const openOptionsEditor = (index: number) => {
+    const current = getRowInputType(inputTypes, index);
+    setOptionsText((current.options || []).join("\n"));
+    setEditingOptions(index);
+  };
+
+  const saveOptions = () => {
+    if (editingOptions === null) return;
+    const opts = optionsText.split("\n").map(o => o.trim()).filter(Boolean);
+    const updated = [...inputTypes];
+    while (updated.length <= editingOptions) updated.push({ type: "text" });
+    updated[editingOptions] = { ...updated[editingOptions], options: opts };
+    onChange(updated);
+    setEditingOptions(null);
+  };
+
+  if (rowLabels.length === 0) return null;
+
+  return (
+    <div>
+      <Label className="mb-2 block">Answer Types per Row</Label>
+      <div className="border rounded-md divide-y max-h-[200px] overflow-y-auto">
+        {rowLabels.map((label, i) => {
+          const rit = getRowInputType(inputTypes, i);
+          return (
+            <div key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
+              <span className="flex-1 truncate font-medium text-xs">{label}</span>
+              <select
+                className="h-7 text-xs rounded border border-input bg-background px-2"
+                value={rit.type}
+                onChange={(e) => updateType(i, e.target.value as RowInputType["type"])}
+              >
+                <option value="text">Free Text</option>
+                <option value="yes_no">Yes / No</option>
+                <option value="select">Single Select</option>
+                <option value="multi_select">Multi Select</option>
+              </select>
+              {(rit.type === "select" || rit.type === "multi_select") && (
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => openOptionsEditor(i)}>
+                  <List className="h-3 w-3" /> {(rit.options || []).length} opts
+                </Button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground mt-1">
+        Choose how candidates answer each row. Use "Select" for pre-populated dropdowns.
+      </p>
+
+      {/* Options editor mini-dialog */}
+      <Dialog open={editingOptions !== null} onOpenChange={(open) => { if (!open) setEditingOptions(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">
+              Edit Options: {editingOptions !== null ? rowLabels[editingOptions] : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div>
+            <Label className="text-xs">Options (one per line)</Label>
+            <Textarea
+              value={optionsText}
+              onChange={(e) => setOptionsText(e.target.value)}
+              rows={5}
+              placeholder={"Option A\nOption B\nOption C"}
+            />
+          </div>
+          <DialogFooter>
+            <Button size="sm" variant="outline" onClick={() => setEditingOptions(null)}>Cancel</Button>
+            <Button size="sm" onClick={saveOptions}>Save Options</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
 
 const CandexBuilder = () => {
   const queryClient = useQueryClient();
@@ -188,6 +304,7 @@ const CandexBuilder = () => {
     rows: "",
     is_repeatable: false,
   });
+  const [newTableInputTypes, setNewTableInputTypes] = useState<RowInputType[]>([]);
   const [previewMode, setPreviewMode] = useState(false);
   const [editingTable, setEditingTable] = useState<SectionTable | null>(null);
   const [editTable, setEditTable] = useState({
@@ -196,6 +313,7 @@ const CandexBuilder = () => {
     rows: "",
     is_repeatable: false,
   });
+  const [editTableInputTypes, setEditTableInputTypes] = useState<RowInputType[]>([]);
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["candex-templates"],
     queryFn: async () => {
@@ -237,6 +355,7 @@ const CandexBuilder = () => {
         ...t,
         column_headers: Array.isArray(t.column_headers) ? t.column_headers : JSON.parse(t.column_headers || "[]"),
         row_labels: Array.isArray(t.row_labels) ? t.row_labels : JSON.parse(t.row_labels || "[]"),
+        row_input_types: Array.isArray(t.row_input_types) ? t.row_input_types : JSON.parse(t.row_input_types || "[]"),
       })) as SectionTable[];
     },
   });
@@ -324,17 +443,19 @@ const CandexBuilder = () => {
       const { error } = await supabase.from("candex_section_tables").insert({
         section_id: sectionId,
         table_title: newTable.title,
-        column_headers: colHeaders,
-        row_labels: rowLabels,
+        column_headers: colHeaders as any,
+        row_labels: rowLabels as any,
+        row_input_types: newTableInputTypes.slice(0, rowLabels.length) as any,
         is_repeatable: newTable.is_repeatable,
         sort_order: existing.length,
-      });
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
       setShowAddTable(null);
       setNewTable({ title: "", columns: "Field, Details", rows: "", is_repeatable: false });
+      setNewTableInputTypes([]);
       toast.success("Table added");
     },
     onError: (e) => toast.error(e.message),
@@ -360,10 +481,11 @@ const CandexBuilder = () => {
         .from("candex_section_tables")
         .update({
           table_title: editTable.title,
-          column_headers: colHeaders,
-          row_labels: rowLabels,
+          column_headers: colHeaders as any,
+          row_labels: rowLabels as any,
+          row_input_types: editTableInputTypes.slice(0, rowLabels.length) as any,
           is_repeatable: editTable.is_repeatable,
-        })
+        } as any)
         .eq("id", editingTable.id);
       if (error) throw error;
     },
@@ -396,6 +518,7 @@ const CandexBuilder = () => {
       rows: tbl.row_labels.join("\n"),
       is_repeatable: tbl.is_repeatable,
     });
+    setEditTableInputTypes(tbl.row_input_types.length > 0 ? [...tbl.row_input_types] : tbl.row_labels.map(() => ({ type: "text" as const })));
     setEditingTable(tbl);
   };
 
@@ -578,20 +701,57 @@ const CandexBuilder = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {tbl.row_labels.map((row, i) => (
-                            <TableRow key={i}>
-                              <TableCell className="font-medium text-sm">{row}</TableCell>
-                              {tbl.column_headers.slice(1).map((_, ci) => (
-                                <TableCell key={ci}>
-                                  {previewMode ? (
-                                    <Input placeholder={`Enter ${row.toLowerCase()}...`} disabled className="h-8 text-xs" />
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground italic">Candidate input</span>
-                                  )}
+                          {tbl.row_labels.map((row, i) => {
+                            const rit = getRowInputType(tbl.row_input_types, i);
+                            return (
+                              <TableRow key={i}>
+                                <TableCell className="font-medium text-sm">
+                                  <div className="flex items-center gap-2">
+                                    {row}
+                                    {!previewMode && rit.type !== "text" && (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                        {INPUT_TYPE_LABELS[rit.type]}
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </TableCell>
-                              ))}
-                            </TableRow>
-                          ))}
+                                {tbl.column_headers.slice(1).map((_, ci) => (
+                                  <TableCell key={ci}>
+                                    {previewMode ? (
+                                      rit.type === "yes_no" ? (
+                                        <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
+                                          <option>Select...</option>
+                                          <option>Yes</option>
+                                          <option>No</option>
+                                        </select>
+                                      ) : rit.type === "select" ? (
+                                        <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
+                                          <option>Select...</option>
+                                          {(rit.options || []).map((opt, oi) => (
+                                            <option key={oi}>{opt}</option>
+                                          ))}
+                                        </select>
+                                      ) : rit.type === "multi_select" ? (
+                                        <div className="flex flex-wrap gap-1">
+                                          {(rit.options || []).map((opt, oi) => (
+                                            <Badge key={oi} variant="outline" className="text-xs cursor-pointer hover:bg-primary/10">
+                                              {opt}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <Input placeholder={`Enter ${row.toLowerCase()}...`} disabled className="h-8 text-xs" />
+                                      )
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground italic">
+                                        {rit.type === "text" ? "Free text" : rit.type === "yes_no" ? "Yes/No" : rit.type === "select" ? `Select (${(rit.options || []).length} opts)` : `Multi (${(rit.options || []).length} opts)`}
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            );
+                          })}
                           {tbl.row_labels.length === 0 && (
                             <TableRow>
                               <TableCell colSpan={tbl.column_headers.length} className="text-center text-sm text-muted-foreground py-4">
@@ -675,6 +835,11 @@ const CandexBuilder = () => {
                   Each line becomes a row. The label appears in the first column.
                 </p>
               </div>
+              <RowInputTypeConfigurator
+                rowLabels={newTable.rows.split("\n").map(r => r.trim()).filter(Boolean)}
+                inputTypes={newTableInputTypes}
+                onChange={setNewTableInputTypes}
+              />
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
                   checked={newTable.is_repeatable}
@@ -729,6 +894,11 @@ const CandexBuilder = () => {
                   rows={6}
                 />
               </div>
+              <RowInputTypeConfigurator
+                rowLabels={editTable.rows.split("\n").map(r => r.trim()).filter(Boolean)}
+                inputTypes={editTableInputTypes}
+                onChange={setEditTableInputTypes}
+              />
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
                   checked={editTable.is_repeatable}

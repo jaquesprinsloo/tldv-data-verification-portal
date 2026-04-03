@@ -1,0 +1,1 @@
+ALTER TABLE public.candex_section_tables ADD COLUMN row_input_types jsonb DEFAULT '[]'::jsonb;
