@@ -288,6 +288,7 @@ const RowInputTypeConfigurator = ({
 };
 
 
+const CandexBuilder = () => {
   const queryClient = useQueryClient();
   const [showNewTemplate, setShowNewTemplate] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
