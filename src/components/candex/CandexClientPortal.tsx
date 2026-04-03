@@ -323,7 +323,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           <Button variant="ghost" size="sm" onClick={() => setReviewApp(app)}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-green-600" onClick={() => updateAppStatus.mutate({ id: app.id, status: "approved" })}>
+                          <Button variant="ghost" size="sm" className="text-primary" onClick={() => updateAppStatus.mutate({ id: app.id, status: "approved" })}>
                             <Check className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" className="text-destructive" onClick={() => updateAppStatus.mutate({ id: app.id, status: "rejected" })}>
@@ -510,12 +510,12 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                       <TableCell className="font-medium">{app.candidate_name}</TableCell>
                       <TableCell className="text-xs">{app.candidate_id_number || "—"}</TableCell>
                       <TableCell>
-                        <Badge className="bg-green-600 text-white text-xs">
+                        <Badge className="bg-primary text-primary-foreground text-xs">
                           <CheckCircle className="h-3 w-3 mr-1" /> Verified
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge className={`text-xs ${app.risk_level === "LOW" || !app.risk_level ? "bg-green-600 text-white" : "bg-destructive text-destructive-foreground"}`}>
+                        <Badge className={`text-xs ${app.risk_level === "LOW" || !app.risk_level ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"}`}>
                           {app.risk_level === "LOW" || !app.risk_level ? "Clear" : "Flagged"}
                         </Badge>
                       </TableCell>
