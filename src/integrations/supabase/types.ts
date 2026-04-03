@@ -320,6 +320,47 @@ export type Database = {
         }
         Relationships: []
       }
+      candex_section_tables: {
+        Row: {
+          column_headers: Json
+          created_at: string
+          id: string
+          is_repeatable: boolean
+          row_labels: Json
+          section_id: string
+          sort_order: number
+          table_title: string
+        }
+        Insert: {
+          column_headers?: Json
+          created_at?: string
+          id?: string
+          is_repeatable?: boolean
+          row_labels?: Json
+          section_id: string
+          sort_order?: number
+          table_title: string
+        }
+        Update: {
+          column_headers?: Json
+          created_at?: string
+          id?: string
+          is_repeatable?: boolean
+          row_labels?: Json
+          section_id?: string
+          sort_order?: number
+          table_title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candex_section_tables_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "candex_template_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candex_template_questions: {
         Row: {
           created_at: string
