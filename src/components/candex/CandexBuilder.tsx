@@ -35,8 +35,10 @@ interface Section {
 }
 
 interface RowInputType {
-  type: "text" | "yes_no" | "select" | "multi_select";
+  type: "text" | "yes_no" | "select" | "multi_select" | "dynamic_select";
   options?: string[];
+  source_table_id?: string;
+  source_row_index?: number;
 }
 
 interface SectionTable {
@@ -183,6 +185,7 @@ const INPUT_TYPE_LABELS: Record<string, string> = {
   yes_no: "Yes / No",
   select: "Single Select",
   multi_select: "Multi Select",
+  dynamic_select: "Dynamic Select",
 };
 
 // Helper to get or default a row input type
@@ -195,18 +198,28 @@ const RowInputTypeConfigurator = ({
   rowLabels,
   inputTypes,
   onChange,
+  allTables,
+  allSections,
 }: {
   rowLabels: string[];
   inputTypes: RowInputType[];
   onChange: (types: RowInputType[]) => void;
+  allTables?: SectionTable[];
+  allSections?: Section[];
 }) => {
   const [editingOptions, setEditingOptions] = useState<number | null>(null);
   const [optionsText, setOptionsText] = useState("");
+  const [editingSource, setEditingSource] = useState<number | null>(null);
 
   const updateType = (index: number, type: RowInputType["type"]) => {
     const updated = [...inputTypes];
     while (updated.length <= index) updated.push({ type: "text" });
-    updated[index] = { type, options: (type === "select" || type === "multi_select") ? (updated[index]?.options || []) : undefined };
+    updated[index] = {
+      type,
+      options: (type === "select" || type === "multi_select") ? (updated[index]?.options || []) : undefined,
+      source_table_id: type === "dynamic_select" ? (updated[index]?.source_table_id) : undefined,
+      source_row_index: type === "dynamic_select" ? (updated[index]?.source_row_index ?? 0) : undefined,
+    };
     onChange(updated);
   };
 
@@ -226,7 +239,26 @@ const RowInputTypeConfigurator = ({
     setEditingOptions(null);
   };
 
+  const updateSource = (index: number, tableId: string, rowIdx: number) => {
+    const updated = [...inputTypes];
+    while (updated.length <= index) updated.push({ type: "text" });
+    updated[index] = { ...updated[index], source_table_id: tableId, source_row_index: rowIdx };
+    onChange(updated);
+  };
+
   if (rowLabels.length === 0) return null;
+
+  // Build a lookup for source table names
+  const tableMap = new Map((allTables || []).map(t => [t.id, t]));
+  const sectionMap = new Map((allSections || []).map(s => [s.id, s]));
+
+  const getSourceLabel = (rit: RowInputType) => {
+    if (!rit.source_table_id) return "Not linked";
+    const tbl = tableMap.get(rit.source_table_id);
+    if (!tbl) return "Not linked";
+    const rowLabel = tbl.row_labels[rit.source_row_index ?? 0] || "Row 1";
+    return `${tbl.table_title} → ${rowLabel}`;
+  };
 
   return (
     <div>
@@ -246,10 +278,16 @@ const RowInputTypeConfigurator = ({
                 <option value="yes_no">Yes / No</option>
                 <option value="select">Single Select</option>
                 <option value="multi_select">Multi Select</option>
+                <option value="dynamic_select">Dynamic Select</option>
               </select>
               {(rit.type === "select" || rit.type === "multi_select") && (
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => openOptionsEditor(i)}>
                   <List className="h-3 w-3" /> {(rit.options || []).length} opts
+                </Button>
+              )}
+              {rit.type === "dynamic_select" && (
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 max-w-[160px] truncate" onClick={() => setEditingSource(i)}>
+                  <List className="h-3 w-3" /> {getSourceLabel(rit)}
                 </Button>
               )}
             </div>
@@ -257,7 +295,7 @@ const RowInputTypeConfigurator = ({
         })}
       </div>
       <p className="text-xs text-muted-foreground mt-1">
-        Choose how candidates answer each row. Use "Select" for pre-populated dropdowns.
+        Choose how candidates answer each row. "Dynamic Select" auto-populates options from another table's data (e.g. company names from employment history).
       </p>
 
       {/* Options editor mini-dialog */}
@@ -283,10 +321,69 @@ const RowInputTypeConfigurator = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dynamic source picker dialog */}
+      <Dialog open={editingSource !== null} onOpenChange={(open) => { if (!open) setEditingSource(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">
+              Link to Source Data: {editingSource !== null ? rowLabels[editingSource] : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Select which table and row field should auto-populate the dropdown options. For example, link to the "Company Name" row from the Employment History table.
+            </p>
+            {(allTables || []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">No tables available to link to. Create other tables first.</p>
+            ) : (
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {(allSections || []).map(sec => {
+                  const secTables = (allTables || []).filter(t => t.section_id === sec.id);
+                  if (secTables.length === 0) return null;
+                  return (
+                    <div key={sec.id} className="space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{sec.title}</p>
+                      {secTables.map(tbl => (
+                        <div key={tbl.id} className="ml-2 space-y-0.5">
+                          <p className="text-xs font-medium">{tbl.table_title}</p>
+                          {tbl.row_labels.map((rl, ri) => {
+                            const currentRit = editingSource !== null ? getRowInputType(inputTypes, editingSource) : null;
+                            const isSelected = currentRit?.source_table_id === tbl.id && currentRit?.source_row_index === ri;
+                            return (
+                              <button
+                                key={ri}
+                                className={`ml-2 w-full text-left text-xs px-2 py-1.5 rounded border transition-colors ${
+                                  isSelected
+                                    ? "border-primary bg-primary/10 text-primary font-medium"
+                                    : "border-transparent hover:bg-muted"
+                                }`}
+                                onClick={() => {
+                                  if (editingSource !== null) {
+                                    updateSource(editingSource, tbl.id, ri);
+                                  }
+                                }}
+                              >
+                                → {rl}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button size="sm" onClick={() => setEditingSource(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
-
 
 const CandexBuilder = () => {
   const queryClient = useQueryClient();
@@ -747,12 +844,28 @@ const CandexBuilder = () => {
                                             ))}
                                           </div>
                                         </div>
+                                      ) : rit.type === "dynamic_select" ? (
+                                        <div className="space-y-1.5">
+                                          <select disabled className="h-8 text-xs rounded border border-input bg-background px-2 w-full">
+                                            <option>Select... (auto-populated from {(() => {
+                                              const srcTbl = sectionTables.find(t => t.id === rit.source_table_id);
+                                              if (!srcTbl) return "linked table";
+                                              const srcRow = srcTbl.row_labels[rit.source_row_index ?? 0] || "data";
+                                              return `${srcTbl.table_title} → ${srcRow}`;
+                                            })()})</option>
+                                          </select>
+                                          <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
+                                        </div>
                                       ) : (
                                         <Input placeholder={`Enter ${row.toLowerCase()}...`} disabled className="h-8 text-xs" />
                                       )
                                     ) : (
                                       <span className="text-xs text-muted-foreground italic">
-                                        {rit.type === "text" ? "Free text" : rit.type === "yes_no" ? "Yes/No + details" : rit.type === "select" ? `Select + details (${(rit.options || []).length} opts)` : `Multi (${(rit.options || []).length} opts)`}
+                                        {rit.type === "text" ? "Free text" : rit.type === "yes_no" ? "Yes/No + details" : rit.type === "select" ? `Select + details (${(rit.options || []).length} opts)` : rit.type === "dynamic_select" ? `Dynamic (${(() => {
+                                          const srcTbl = sectionTables.find(t => t.id === rit.source_table_id);
+                                          if (!srcTbl) return "not linked";
+                                          return `${srcTbl.table_title} → ${srcTbl.row_labels[rit.source_row_index ?? 0] || "Row 1"}`;
+                                        })()})` : `Multi (${(rit.options || []).length} opts)`}
                                       </span>
                                     )}
                                   </TableCell>
@@ -847,6 +960,8 @@ const CandexBuilder = () => {
                 rowLabels={newTable.rows.split("\n").map(r => r.trim()).filter(Boolean)}
                 inputTypes={newTableInputTypes}
                 onChange={setNewTableInputTypes}
+                allTables={sectionTables}
+                allSections={sections}
               />
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
@@ -906,6 +1021,8 @@ const CandexBuilder = () => {
                 rowLabels={editTable.rows.split("\n").map(r => r.trim()).filter(Boolean)}
                 inputTypes={editTableInputTypes}
                 onChange={setEditTableInputTypes}
+                allTables={sectionTables}
+                allSections={sections}
               />
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
