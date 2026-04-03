@@ -8,11 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CandexStatistics from "@/components/candex/CandexStatistics";
 import CandexBuilder from "@/components/candex/CandexBuilder";
 import CandexClients from "@/components/candex/CandexClients";
+import CandexClientPortal from "@/components/candex/CandexClientPortal";
 
 const CanDexPreScreening = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isMasterAdmin, setIsMasterAdmin] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -34,6 +36,8 @@ const CanDexPreScreening = () => {
           return;
         }
 
+        const isMaster = roleData.some(r => r.role === "master_admin");
+        setIsMasterAdmin(isMaster);
         setUser(session.user);
       } catch (error) {
         console.error("Auth error:", error);
@@ -68,29 +72,35 @@ const CanDexPreScreening = () => {
             <h1 className="text-2xl sm:text-3xl font-bold">CanDex Pre Screening</h1>
           </div>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Pre-employment screening and candidate indexing portal
+            {isMasterAdmin
+              ? "Pre-employment screening and candidate indexing portal"
+              : "Manage candidate invitations, reviews, and risk assessments"}
           </p>
         </div>
 
-        <Tabs defaultValue="statistics" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
-            <TabsTrigger value="statistics">Statistics</TabsTrigger>
-            <TabsTrigger value="builder">CanDex Builder</TabsTrigger>
-            <TabsTrigger value="clients">Clients</TabsTrigger>
-          </TabsList>
+        {isMasterAdmin ? (
+          <Tabs defaultValue="statistics" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto">
+              <TabsTrigger value="statistics">Statistics</TabsTrigger>
+              <TabsTrigger value="builder">CanDex Builder</TabsTrigger>
+              <TabsTrigger value="clients">Clients</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="statistics">
-            <CandexStatistics />
-          </TabsContent>
+            <TabsContent value="statistics">
+              <CandexStatistics />
+            </TabsContent>
 
-          <TabsContent value="builder">
-            <CandexBuilder />
-          </TabsContent>
+            <TabsContent value="builder">
+              <CandexBuilder />
+            </TabsContent>
 
-          <TabsContent value="clients">
-            <CandexClients />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="clients">
+              <CandexClients />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          <CandexClientPortal userId={user?.id || ""} />
+        )}
       </main>
     </div>
   );
