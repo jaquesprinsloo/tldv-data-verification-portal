@@ -19,7 +19,7 @@ interface PortalCard {
   path: string;
   color: string;
   badge: number | null;
-  permissionKey: string;
+  permissionKey: PermissionKey;
   requiresMasterAdmin: boolean;
 }
 
