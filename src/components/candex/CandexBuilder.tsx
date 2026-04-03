@@ -371,10 +371,11 @@ const CandexBuilder = () => {
         .from("candex_section_tables")
         .update({
           table_title: editTable.title,
-          column_headers: colHeaders,
-          row_labels: rowLabels,
+          column_headers: colHeaders as any,
+          row_labels: rowLabels as any,
+          row_input_types: editTableInputTypes.slice(0, rowLabels.length) as any,
           is_repeatable: editTable.is_repeatable,
-        })
+        } as any)
         .eq("id", editingTable.id);
       if (error) throw error;
     },
@@ -407,6 +408,7 @@ const CandexBuilder = () => {
       rows: tbl.row_labels.join("\n"),
       is_repeatable: tbl.is_repeatable,
     });
+    setEditTableInputTypes(tbl.row_input_types.length > 0 ? [...tbl.row_input_types] : tbl.row_labels.map(() => ({ type: "text" as const })));
     setEditingTable(tbl);
   };
 
