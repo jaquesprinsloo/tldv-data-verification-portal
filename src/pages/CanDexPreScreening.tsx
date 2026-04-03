@@ -57,11 +57,11 @@ const CanDexPreScreening = () => {
   const { data: pendingRiskCount = 0 } = useQuery({
     queryKey: ["candex-pending-risk-count"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { count } = await supabase
         .from("candex_risk_requests")
         .select("id", { count: "exact", head: true })
         .eq("status", "pending");
-      return data ?? 0;
+      return count ?? 0;
     },
     enabled: isMasterAdmin,
   });
