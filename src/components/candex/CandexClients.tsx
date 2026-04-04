@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Users, Send, CheckCircle, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Users, Send, CheckCircle, Search, FileText } from "lucide-react";
 
 interface Client {
   id: string;
@@ -17,6 +18,7 @@ interface Client {
   contact_email: string | null;
   contact_phone: string | null;
   company_name: string | null;
+  template_id: string | null;
   created_at: string;
 }
 
@@ -66,6 +68,34 @@ const CandexClients = () => {
       });
       return counts;
     },
+  });
+
+  // Get available templates
+  const { data: templates = [] } = useQuery({
+    queryKey: ["candex-templates-for-assignment"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("candex_questionnaire_templates")
+        .select("id, name, is_active")
+        .order("name");
+      return data || [];
+    },
+  });
+
+  // Assign template to client
+  const assignTemplate = useMutation({
+    mutationFn: async ({ clientId, templateId }: { clientId: string; templateId: string | null }) => {
+      const { error } = await supabase
+        .from("candex_clients")
+        .update({ template_id: templateId } as any)
+        .eq("id", clientId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-clients"] });
+      toast.success("Template assigned");
+    },
+    onError: (e) => toast.error(e.message),
   });
 
   const createClient = useMutation({
@@ -143,6 +173,7 @@ const CandexClients = () => {
                 <TableHead>Client Name</TableHead>
                 <TableHead>Company</TableHead>
                 <TableHead>Contact</TableHead>
+                <TableHead>Template</TableHead>
                 <TableHead className="text-center">Invitations</TableHead>
                 <TableHead className="text-center">Completed</TableHead>
               </TableRow>
@@ -162,6 +193,35 @@ const CandexClients = () => {
                         {client.contact_phone && <div className="text-muted-foreground">{client.contact_phone}</div>}
                         {!client.contact_email && !client.contact_phone && <span className="text-muted-foreground">—</span>}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={client.template_id || "none"}
+                        onValueChange={(val) =>
+                          assignTemplate.mutate({
+                            clientId: client.id,
+                            templateId: val === "none" ? null : val,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="w-[180px] h-8 text-xs">
+                          <SelectValue placeholder="No template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No template</SelectItem>
+                          {templates.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              <div className="flex items-center gap-1.5">
+                                <FileText className="h-3 w-3" />
+                                {t.name}
+                                {t.is_active && (
+                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-1">Active</Badge>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">

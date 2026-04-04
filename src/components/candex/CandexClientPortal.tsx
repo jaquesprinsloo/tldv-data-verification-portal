@@ -71,17 +71,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     },
   });
 
-  // Get templates
-  const { data: templates } = useQuery({
-    queryKey: ["candex-active-templates"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("candex_questionnaire_templates")
-        .select("id, name")
-        .eq("is_active", true);
-      return data || [];
-    },
-  });
+  // Template is assigned by master admin via client record
+  const clientTemplateId = (client as any)?.template_id || null;
 
   // Get invitations
   const { data: invitations } = useQuery({
@@ -131,7 +122,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const sendInvite = useMutation({
     mutationFn: async () => {
       if (!client?.id) throw new Error("No client found");
-      const templateId = templates?.[0]?.id || null;
+      const templateId = clientTemplateId;
       const candidateName = `${inviteForm.name} ${inviteForm.surname}`.trim();
       const candidateEmail = inviteForm.email.trim().toLowerCase() || null;
       const candidatePhone = inviteForm.phone.trim() || null;
