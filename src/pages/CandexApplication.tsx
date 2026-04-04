@@ -1,157 +1,211 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { ShieldCheck, CheckCircle, AlertTriangle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { CheckCircle, AlertTriangle } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import SplashScreen from "@/components/candex-application/SplashScreen";
+import IntroVideoScreen from "@/components/candex-application/IntroVideoScreen";
+import POPIAIndemnityScreen, { type DeviceData } from "@/components/candex-application/POPIAIndemnityScreen";
+import PersonalDetailsScreen, { type PersonalDetails } from "@/components/candex-application/PersonalDetailsScreen";
+import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
+
+type Step = "loading" | "invalid" | "completed" | "splash" | "intro_video" | "popia" | "personal_details" | "questionnaire_intro" | "questionnaire";
 
 const CandexApplication = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
-  const [status, setStatus] = useState<"loading" | "ready" | "completed" | "invalid">("loading");
+  const [step, setStep] = useState<Step>("loading");
   const [invitation, setInvitation] = useState<any>(null);
+  const [deviceData, setDeviceData] = useState<DeviceData | null>(null);
+  const [personalDetails, setPersonalDetails] = useState<PersonalDetails | null>(null);
 
   useEffect(() => {
     const loadInvitation = async () => {
-      if (!token) {
-        setStatus("invalid");
-        return;
-      }
+      if (!token) { setStep("invalid"); return; }
 
-      // Look up the invitation by token
       const { data, error } = await supabase
         .from("candex_invitations")
         .select("*")
         .eq("token", token)
         .maybeSingle();
 
-      if (error || !data) {
-        setStatus("invalid");
-        return;
-      }
+      if (error || !data) { setStep("invalid"); return; }
 
       if (data.status === "completed") {
-        setStatus("completed");
         setInvitation(data);
+        setStep("completed");
         return;
       }
 
       setInvitation(data);
 
-      // Mark as opened if currently sent
       if (data.status === "sent") {
         await supabase.rpc("mark_candex_invitation_opened", { _token: token });
       }
 
-      setStatus("ready");
+      setStep("splash");
     };
 
     loadInvitation();
   }, [token]);
 
-  if (status === "loading") {
+  const handleSplashComplete = useCallback(() => setStep("intro_video"), []);
+  const handleIntroComplete = useCallback(() => setStep("popia"), []);
+
+  const handlePOPIAComplete = useCallback((data: DeviceData) => {
+    setDeviceData(data);
+    setStep("personal_details");
+  }, []);
+
+  const handlePersonalComplete = useCallback((details: PersonalDetails) => {
+    setPersonalDetails(details);
+    setStep("questionnaire_intro");
+  }, []);
+
+  const handleQuestionnaireIntroComplete = useCallback(() => setStep("questionnaire"), []);
+
+  const handleQuestionnaireComplete = useCallback(async (answers: Record<string, any>) => {
+    try {
+      // Update invitation to completed
+      await supabase
+        .from("candex_invitations")
+        .update({ status: "completed" })
+        .eq("token", token!);
+
+      // Create application record
+      const candidateName = personalDetails
+        ? `${personalDetails.firstName} ${personalDetails.secondName ? personalDetails.secondName + " " : ""}${personalDetails.surname}`.trim()
+        : invitation.candidate_name;
+
+      await supabase.from("candex_applications").insert([{
+        invitation_id: invitation.id,
+        client_id: invitation.client_id,
+        candidate_name: candidateName,
+        candidate_email: personalDetails?.email || invitation.candidate_email,
+        candidate_phone: personalDetails?.cellphone || invitation.candidate_phone,
+        candidate_id_number: personalDetails?.idNumber || invitation.candidate_id_number,
+        template_id: invitation.template_id,
+        status: "completed",
+        submitted_at: new Date().toISOString(),
+        answers: {
+          questionnaire: answers,
+          personalDetails,
+          deviceData,
+          popiaAccepted: true,
+          indemnityAccepted: true,
+        } as any,
+      }]);
+
+      setStep("completed");
+      toast.success("CanDex Pre-Screening completed successfully!");
+    } catch (err) {
+      console.error("Submission error:", err);
+      toast.error("Failed to submit. Please try again.");
+    }
+  }, [token, invitation, personalDetails, deviceData]);
+
+  if (step === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
       </div>
     );
   }
 
-  if (status === "invalid") {
+  if (step === "invalid") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="max-w-md w-full text-center">
+      <div className="min-h-screen flex items-center justify-center bg-black p-4">
+        <Card className="max-w-md w-full text-center bg-zinc-950 border-zinc-800">
           <CardContent className="pt-8 pb-8">
-            <AlertTriangle className="h-16 w-16 text-destructive mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">Invalid or Expired Link</h2>
-            <p className="text-muted-foreground">This invitation link is no longer valid. Please contact the person who invited you for a new link.</p>
+            <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold mb-2 text-white">Invalid or Expired Link</h2>
+            <p className="text-zinc-400">This invitation link is no longer valid. Please contact the person who invited you for a new link.</p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  if (status === "completed") {
+  if (step === "completed") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="max-w-md w-full text-center">
+      <div className="min-h-screen flex items-center justify-center bg-black p-4">
+        <Card className="max-w-md w-full text-center bg-zinc-950 border-zinc-800">
           <CardContent className="pt-8 pb-8">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">Application Already Completed</h2>
-            <p className="text-muted-foreground">You have already completed this pre-screening application. Thank you!</p>
+            <h2 className="text-xl font-bold mb-2 text-white">CanDex Pre-Screening Complete</h2>
+            <p className="text-zinc-400">Your application has been submitted successfully. Thank you for completing the CanDex Pre-Screening process. You may now close this page.</p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="bg-primary/5 border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-3">
-          <div className="bg-primary rounded-lg p-2">
-            <ShieldCheck className="h-6 w-6 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold">CanDex Pre-Screening</h1>
-            <p className="text-xs text-muted-foreground">Welcome, {invitation?.candidate_name}</p>
-          </div>
+  if (step === "splash") {
+    return <SplashScreen onComplete={handleSplashComplete} />;
+  }
+
+  if (step === "intro_video") {
+    return (
+      <IntroVideoScreen
+        onComplete={handleIntroComplete}
+        title="Introduction to CanDex Pre-Screening"
+        description="This video explains the CanDex Pre-Screening process. Once the video ends, you will proceed to accept the terms and conditions."
+      />
+    );
+  }
+
+  if (step === "popia") {
+    return <POPIAIndemnityScreen onComplete={handlePOPIAComplete} />;
+  }
+
+  if (step === "personal_details") {
+    return (
+      <PersonalDetailsScreen
+        prefilled={{
+          candidateName: invitation?.candidate_name,
+          candidateEmail: invitation?.candidate_email,
+          candidatePhone: invitation?.candidate_phone,
+          candidateIdNumber: invitation?.candidate_id_number,
+        }}
+        onComplete={handlePersonalComplete}
+      />
+    );
+  }
+
+  if (step === "questionnaire_intro") {
+    return (
+      <IntroVideoScreen
+        onComplete={handleQuestionnaireIntroComplete}
+        title="CanDex Pre-Screening Instructions"
+        description="Please watch this instructional video before starting the pre-screening questionnaire."
+      />
+    );
+  }
+
+  if (step === "questionnaire") {
+    if (!invitation?.template_id) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-black p-4">
+          <Card className="max-w-md w-full text-center bg-zinc-950 border-zinc-800">
+            <CardContent className="pt-8 pb-8">
+              <AlertTriangle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold mb-2 text-white">No Template Assigned</h2>
+              <p className="text-zinc-400">A questionnaire template has not been assigned to your invitation. Please contact the administrator.</p>
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      );
+    }
+    return (
+      <QuestionnaireScreen
+        templateId={invitation.template_id}
+        onComplete={handleQuestionnaireComplete}
+      />
+    );
+  }
 
-      <main className="container mx-auto px-4 py-8 max-w-2xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Pre-Screening Questionnaire</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-6">
-              Please complete the following questionnaire. Your responses will be reviewed by the requesting company.
-            </p>
-            {/* TODO: Render the actual CanDex template questionnaire here */}
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Questionnaire content will be rendered here based on the assigned template.
-            </p>
-            <div className="flex justify-end">
-              <Button
-                onClick={async () => {
-                  // Mark invitation as completed
-                  const { error } = await supabase
-                    .from("candex_invitations")
-                    .update({ status: "completed" })
-                    .eq("token", token!);
-                  
-                  if (error) {
-                    toast.error("Failed to submit application");
-                    return;
-                  }
-
-                  // Create the application record
-                  await supabase.from("candex_applications").insert({
-                    invitation_id: invitation.id,
-                    client_id: invitation.client_id,
-                    candidate_name: invitation.candidate_name,
-                    candidate_email: invitation.candidate_email,
-                    candidate_phone: invitation.candidate_phone,
-                    candidate_id_number: invitation.candidate_id_number,
-                    template_id: invitation.template_id,
-                    status: "completed",
-                    submitted_at: new Date().toISOString(),
-                  });
-
-                  setStatus("completed");
-                  toast.success("Application submitted successfully!");
-                }}
-              >
-                <CheckCircle className="h-4 w-4 mr-1" /> Submit Application
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </main>
-    </div>
-  );
+  return null;
 };
 
 export default CandexApplication;
