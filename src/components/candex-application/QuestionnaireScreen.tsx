@@ -144,11 +144,17 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     });
   };
 
-  const getInputType = (table: SectionTable, rowIdx: number): string => {
+  const getRowInputConfig = (table: SectionTable, rowIdx: number): RowInputType => {
     if (table.row_input_types && table.row_input_types[rowIdx]) {
-      return table.row_input_types[rowIdx]!;
+      const rit = table.row_input_types[rowIdx]!;
+      if (typeof rit === 'string') return { type: rit };
+      return rit;
     }
-    return "text";
+    return { type: "text" };
+  };
+
+  const getInputType = (table: SectionTable, rowIdx: number): string => {
+    return getRowInputConfig(table, rowIdx).type;
   };
 
   const renderCellInput = (
