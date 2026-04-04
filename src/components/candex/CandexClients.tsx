@@ -173,6 +173,7 @@ const CandexClients = () => {
                 <TableHead>Client Name</TableHead>
                 <TableHead>Company</TableHead>
                 <TableHead>Contact</TableHead>
+                <TableHead>Template</TableHead>
                 <TableHead className="text-center">Invitations</TableHead>
                 <TableHead className="text-center">Completed</TableHead>
               </TableRow>
