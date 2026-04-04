@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import {
   Plus, Trash2, FileText, ChevronDown, ChevronRight, Copy, Table as TableIcon, Eye, Video, PlayCircle, Upload, X, Info, Pencil, List,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
@@ -222,7 +223,7 @@ const RowInputTypeConfigurator = ({
       options: (type === "select" || type === "multi_select") ? (updated[index]?.options || []) : undefined,
       source_table_id: type === "dynamic_select" ? (updated[index]?.source_table_id) : undefined,
       source_row_index: type === "dynamic_select" ? (updated[index]?.source_row_index ?? 0) : undefined,
-      require_explanation: (type === "select" || type === "yes_no") ? (updated[index]?.require_explanation ?? true) : undefined,
+      require_explanation: updated[index]?.require_explanation ?? false,
     };
     onChange(updated);
   };
@@ -291,32 +292,21 @@ const RowInputTypeConfigurator = ({
                   <List className="h-3 w-3" /> {(rit.options || []).length} opts
                 </Button>
               )}
-              {(rit.type === "select" || rit.type === "yes_no") && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        className={`h-7 px-2 text-[10px] rounded border transition-colors ${
-                          rit.require_explanation !== false
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-input bg-background text-muted-foreground"
-                        }`}
-                        onClick={() => {
-                          const updated = [...inputTypes];
-                          while (updated.length <= i) updated.push({ type: "text" });
-                          updated[i] = { ...updated[i], require_explanation: rit.require_explanation === false ? true : false };
-                          onChange(updated);
-                        }}
-                      >
-                        {rit.require_explanation !== false ? "Explain ✓" : "Explain ✗"}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[180px]">
-                      <p className="text-xs">Toggle whether the candidate must explain their selection</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
+              <div className="flex items-center gap-1.5">
+                <Checkbox
+                  id={`details-${i}`}
+                  checked={rit.require_explanation === true}
+                  onCheckedChange={(checked) => {
+                    const updated = [...inputTypes];
+                    while (updated.length <= i) updated.push({ type: "text" });
+                    updated[i] = { ...updated[i], require_explanation: !!checked };
+                    onChange(updated);
+                  }}
+                />
+                <label htmlFor={`details-${i}`} className="text-[10px] text-muted-foreground cursor-pointer select-none">
+                  Details
+                </label>
+              </div>
               {rit.type === "dynamic_select" && (
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1 max-w-[160px] truncate" onClick={() => setEditingSource(i)}>
                   <List className="h-3 w-3" /> {getSourceLabel(rit)}
