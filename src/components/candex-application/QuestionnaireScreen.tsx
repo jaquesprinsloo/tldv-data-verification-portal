@@ -239,6 +239,22 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       return t?.type === "currency";
     });
 
+    // Check if any row has require_explanation enabled
+    const anyRowNeedsDetails = table.row_labels.some((_, rowIdx) => {
+      const config = getRowInputConfig(table, rowIdx);
+      return config.require_explanation === true;
+    });
+
+    // Filter out "Details" column if no rows need explanation
+    const visibleColIndices: number[] = [];
+    const visibleColHeaders: string[] = [];
+    table.column_headers.forEach((h, i) => {
+      const headerStr = String(h).toLowerCase().trim();
+      if (headerStr === "details" && !anyRowNeedsDetails) return;
+      visibleColIndices.push(i);
+      visibleColHeaders.push(String(h));
+    });
+
     return (
       <div key={table.id} className="space-y-3">
         <div className="flex items-center gap-2">
@@ -270,9 +286,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <thead>
                   <tr className="bg-zinc-900">
                     <th className="text-left p-2 text-xs text-zinc-500 font-medium border-b border-zinc-800 min-w-[120px]" />
-                    {table.column_headers.map((h, i) => (
+                    {visibleColHeaders.map((h, i) => (
                       <th key={i} className="text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 min-w-[150px]">
-                        {h as string}
+                        {h}
                       </th>
                     ))}
                   </tr>
@@ -285,11 +301,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     return (
                       <tr key={rowIdx} className="border-b border-zinc-800/50">
                         <td className="p-2 text-xs text-zinc-400 font-medium">{label as string}</td>
-                        {table.column_headers.map((_, colIdx) => (
-                          <td key={colIdx} className="p-2">
+                        {visibleColIndices.map((colIdx, vi) => (
+                          <td key={vi} className="p-2">
                             <div className="space-y-1">
                               {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
-                              {needsDetails && colIdx === 0 && (
+                              {needsDetails && vi === 0 && (
                                 <Input
                                   value={answers[detailKey] || ""}
                                   onChange={(e) => setAnswer(detailKey, e.target.value)}
@@ -307,7 +323,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   {isCurrency && (
                     <tr className="bg-zinc-900/80 sticky bottom-0">
                       <td className="p-2 text-xs font-bold text-red-400">Total</td>
-                      {table.column_headers.map((_, colIdx) => {
+                      {visibleColIndices.map((colIdx, vi) => {
                         const total = entry.reduce((sum, row, rIdx) => {
                           if (getInputType(table, rIdx) === "currency") {
                             return sum + (parseFloat(row[colIdx]) || 0);
@@ -315,7 +331,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           return sum;
                         }, 0);
                         return (
-                          <td key={colIdx} className="p-2 text-xs font-bold text-red-400">
+                          <td key={vi} className="p-2 text-xs font-bold text-red-400">
                             R {total.toFixed(2)}
                           </td>
                         );
