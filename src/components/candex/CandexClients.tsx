@@ -310,6 +310,34 @@ const CandexClients = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!editingClient} onOpenChange={(open) => !open && setEditingClient(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Client</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Client Name *</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} placeholder="Full name" />
+            </div>
+            <div>
+              <Label>Company Name</Label>
+              <Input value={editForm.company} onChange={(e) => setEditForm((p) => ({ ...p, company: e.target.value }))} placeholder="Company name" />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input type="email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} placeholder="email@example.com" />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} placeholder="+27..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingClient(null)}>Cancel</Button>
+            <Button onClick={() => updateClient.mutate()} disabled={!editForm.name.trim()}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
