@@ -323,7 +323,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   {isCurrency && (
                     <tr className="bg-zinc-900/80 sticky bottom-0">
                       <td className="p-2 text-xs font-bold text-red-400">Total</td>
-                      {table.column_headers.map((_, colIdx) => {
+                      {visibleColIndices.map((colIdx, vi) => {
                         const total = entry.reduce((sum, row, rIdx) => {
                           if (getInputType(table, rIdx) === "currency") {
                             return sum + (parseFloat(row[colIdx]) || 0);
@@ -331,7 +331,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           return sum;
                         }, 0);
                         return (
-                          <td key={colIdx} className="p-2 text-xs font-bold text-red-400">
+                          <td key={vi} className="p-2 text-xs font-bold text-red-400">
                             R {total.toFixed(2)}
                           </td>
                         );
