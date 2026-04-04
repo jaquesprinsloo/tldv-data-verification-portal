@@ -1,4 +1,6 @@
 import { useState } from "react";
+
+const PUBLISHED_URL = "https://tldv-data-verification-portal.lovable.app";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -146,7 +148,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       // Send the actual email/WhatsApp
       if (inviteMethod === "email" && inviteForm.email) {
         const candidateName = `${inviteForm.name} ${inviteForm.surname}`;
-        const portalUrl = `${window.location.origin}/candex-apply?token=${invData.token}`;
+        const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
         const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
           body: {
             email: inviteForm.email,
@@ -159,7 +161,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           throw new Error("Invitation saved but email failed to send");
         }
       } else if (inviteMethod === "whatsapp" && inviteForm.phone) {
-        const portalUrl = `${window.location.origin}/candex-apply?token=${invData.token}`;
+        const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
         const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
           body: {
             phone: inviteForm.phone,
@@ -198,7 +200,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const resendInvite = useMutation({
     mutationFn: async (inv: any) => {
       if (inv.candidate_email) {
-        const portalUrl = `${window.location.origin}/candex-apply?token=${inv.token}`;
+        const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${inv.token}`;
         const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
           body: {
             email: inv.candidate_email,
@@ -208,7 +210,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         });
         if (emailError) throw new Error("Failed to resend email");
       } else if (inv.candidate_phone) {
-        const portalUrl = `${window.location.origin}/candex-apply?token=${inv.token}`;
+        const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${inv.token}`;
         const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
           body: {
             phone: inv.candidate_phone,
