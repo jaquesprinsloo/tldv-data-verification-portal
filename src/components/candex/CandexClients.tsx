@@ -194,6 +194,35 @@ const CandexClients = () => {
                         {!client.contact_email && !client.contact_phone && <span className="text-muted-foreground">—</span>}
                       </div>
                     </TableCell>
+                    <TableCell>
+                      <Select
+                        value={client.template_id || "none"}
+                        onValueChange={(val) =>
+                          assignTemplate.mutate({
+                            clientId: client.id,
+                            templateId: val === "none" ? null : val,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="w-[180px] h-8 text-xs">
+                          <SelectValue placeholder="No template" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No template</SelectItem>
+                          {templates.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              <div className="flex items-center gap-1.5">
+                                <FileText className="h-3 w-3" />
+                                {t.name}
+                                {t.is_active && (
+                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-1">Active</Badge>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
                         <Send className="h-3 w-3 text-muted-foreground" />
