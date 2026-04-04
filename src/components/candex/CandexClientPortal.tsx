@@ -209,7 +209,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         });
         if (emailError) throw new Error("Failed to resend email");
       } else if (inv.candidate_phone) {
-        const portalUrl = `${window.location.origin}/candex-apply?token=${inv.token}`;
+        const portalUrl = `${import.meta.env.VITE_SITE_URL || window.location.origin}/candex-apply?token=${inv.token}`;
         const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
           body: {
             phone: inv.candidate_phone,
