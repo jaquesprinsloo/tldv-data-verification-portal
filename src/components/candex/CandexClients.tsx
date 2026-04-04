@@ -270,6 +270,11 @@ const CandexClients = () => {
                         <span>{app.completed}/{app.total}</span>
                       </div>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog(client)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               })}
