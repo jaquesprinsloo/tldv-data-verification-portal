@@ -28,6 +28,14 @@ interface Section {
   video_url: string | null;
 }
 
+interface RowInputType {
+  type: string;
+  require_explanation?: boolean;
+  options?: string[];
+  source_table_id?: string;
+  source_row_index?: number;
+}
+
 interface SectionTable {
   id: string;
   section_id: string;
@@ -35,7 +43,7 @@ interface SectionTable {
   sort_order: number;
   column_headers: string[];
   row_labels: string[];
-  row_input_types: (string | null)[] | null;
+  row_input_types: (RowInputType | null)[] | null;
   is_repeatable: boolean;
   video_url: string | null;
 }
