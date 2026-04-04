@@ -211,6 +211,7 @@ const CandexClients = () => {
                 <TableHead className="text-center">Invitations</TableHead>
                 <TableHead className="text-center">Completed</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((client) => {
