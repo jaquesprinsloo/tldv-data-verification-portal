@@ -71,17 +71,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     },
   });
 
-  // Get templates
-  const { data: templates } = useQuery({
-    queryKey: ["candex-active-templates"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("candex_questionnaire_templates")
-        .select("id, name")
-        .eq("is_active", true);
-      return data || [];
-    },
-  });
+  // Template is assigned by master admin via client record
+  const clientTemplateId = (client as any)?.template_id || null;
 
   // Get invitations
   const { data: invitations } = useQuery({
