@@ -286,9 +286,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <thead>
                   <tr className="bg-zinc-900">
                     <th className="text-left p-2 text-xs text-zinc-500 font-medium border-b border-zinc-800 min-w-[120px]" />
-                    {table.column_headers.map((h, i) => (
+                    {visibleColHeaders.map((h, i) => (
                       <th key={i} className="text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 min-w-[150px]">
-                        {h as string}
+                        {h}
                       </th>
                     ))}
                   </tr>
@@ -301,11 +301,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     return (
                       <tr key={rowIdx} className="border-b border-zinc-800/50">
                         <td className="p-2 text-xs text-zinc-400 font-medium">{label as string}</td>
-                        {table.column_headers.map((_, colIdx) => (
-                          <td key={colIdx} className="p-2">
+                        {visibleColIndices.map((colIdx, vi) => (
+                          <td key={vi} className="p-2">
                             <div className="space-y-1">
                               {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
-                              {needsDetails && colIdx === 0 && (
+                              {needsDetails && vi === 0 && (
                                 <Input
                                   value={answers[detailKey] || ""}
                                   onChange={(e) => setAnswer(detailKey, e.target.value)}
