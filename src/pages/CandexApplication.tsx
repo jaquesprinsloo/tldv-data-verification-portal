@@ -74,12 +74,14 @@ const CandexApplication = () => {
         .eq("token", token!);
 
       // Create application record
-      await supabase.from("candex_applications").insert({
+      const candidateName = personalDetails
+        ? `${personalDetails.firstName} ${personalDetails.secondName ? personalDetails.secondName + " " : ""}${personalDetails.surname}`.trim()
+        : invitation.candidate_name;
+
+      await supabase.from("candex_applications").insert([{
         invitation_id: invitation.id,
         client_id: invitation.client_id,
-        candidate_name: personalDetails
-          ? `${personalDetails.firstName} ${personalDetails.secondName ? personalDetails.secondName + " " : ""}${personalDetails.surname}`.trim()
-          : invitation.candidate_name,
+        candidate_name: candidateName,
         candidate_email: personalDetails?.email || invitation.candidate_email,
         candidate_phone: personalDetails?.cellphone || invitation.candidate_phone,
         candidate_id_number: personalDetails?.idNumber || invitation.candidate_id_number,
@@ -92,8 +94,8 @@ const CandexApplication = () => {
           deviceData,
           popiaAccepted: true,
           indemnityAccepted: true,
-        },
-      });
+        } as any,
+      }]);
 
       setStep("completed");
       toast.success("CanDex Pre-Screening completed successfully!");
