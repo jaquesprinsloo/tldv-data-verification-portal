@@ -100,6 +100,28 @@ const CandexClients = () => {
     onError: (e) => toast.error(e.message),
   });
 
+  const updateClient = useMutation({
+    mutationFn: async () => {
+      if (!editingClient) return;
+      const { error } = await supabase
+        .from("candex_clients")
+        .update({
+          name: editForm.name,
+          contact_email: editForm.email || null,
+          contact_phone: editForm.phone || null,
+          company_name: editForm.company || null,
+        })
+        .eq("id", editingClient.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-clients"] });
+      setEditingClient(null);
+      toast.success("Client updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const createClient = useMutation({
     mutationFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -120,6 +142,16 @@ const CandexClients = () => {
     },
     onError: (e) => toast.error(e.message),
   });
+
+  const openEditDialog = (client: Client) => {
+    setEditForm({
+      name: client.name,
+      email: client.contact_email || "",
+      phone: client.contact_phone || "",
+      company: client.company_name || "",
+    });
+    setEditingClient(client);
+  };
 
   const filtered = clients.filter(
     (c) =>
