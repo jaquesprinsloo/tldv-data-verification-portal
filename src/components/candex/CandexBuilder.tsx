@@ -844,7 +844,7 @@ const CandexBuilder = () => {
                                             <option>Yes</option>
                                             <option>No</option>
                                           </select>
-                                          {rit.require_explanation !== false && (
+                                          {rit.require_explanation === true && (
                                             <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
                                           )}
                                         </div>
