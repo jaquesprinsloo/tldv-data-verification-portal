@@ -278,16 +278,31 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   </tr>
                 </thead>
                 <tbody>
-                  {table.row_labels.map((label, rowIdx) => (
-                    <tr key={rowIdx} className="border-b border-zinc-800/50">
-                      <td className="p-2 text-xs text-zinc-400 font-medium">{label as string}</td>
-                      {table.column_headers.map((_, colIdx) => (
-                        <td key={colIdx} className="p-2">
-                          {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+                  {table.row_labels.map((label, rowIdx) => {
+                    const rowConfig = getRowInputConfig(table, rowIdx);
+                    const needsDetails = rowConfig.require_explanation === true;
+                    const detailKey = `detail_${table.id}_${entryIdx}_${rowIdx}`;
+                    return (
+                      <tr key={rowIdx} className="border-b border-zinc-800/50">
+                        <td className="p-2 text-xs text-zinc-400 font-medium">{label as string}</td>
+                        {table.column_headers.map((_, colIdx) => (
+                          <td key={colIdx} className="p-2">
+                            <div className="space-y-1">
+                              {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
+                              {needsDetails && colIdx === 0 && (
+                                <Input
+                                  value={answers[detailKey] || ""}
+                                  onChange={(e) => setAnswer(detailKey, e.target.value)}
+                                  className="bg-zinc-900 border-zinc-700 text-white text-xs h-7"
+                                  placeholder="Please provide details..."
+                                />
+                              )}
+                            </div>
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
                   {/* Currency total row */}
                   {isCurrency && (
                     <tr className="bg-zinc-900/80 sticky bottom-0">
