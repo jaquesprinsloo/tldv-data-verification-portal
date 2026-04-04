@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { InstallAppButton } from "@/components/shared/InstallAppButton";
 import Home from "./pages/Home";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
@@ -26,13 +26,23 @@ import Install from "./pages/Install";
 
 const queryClient = new QueryClient();
 
+const RouteAwareInstallButton = () => {
+  const location = useLocation();
+
+  if (location.pathname === "/candex-apply") {
+    return null;
+  }
+
+  return <InstallAppButton />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <InstallAppButton />
       <BrowserRouter>
+        <RouteAwareInstallButton />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/employee/login" element={<EmployeeLogin />} />
@@ -51,7 +61,6 @@ const App = () => (
           <Route path="/candex-apply" element={<CandexApplication />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/install" element={<Install />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

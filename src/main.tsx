@@ -3,9 +3,28 @@ import { registerSW } from "virtual:pwa-register";
 import App from "./App.tsx";
 import "./index.css";
 
-// Ensure the service worker is registered so the browser can show the install prompt
-registerSW({
-  immediate: true,
-});
+const isInIframe = (() => {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+})();
+
+const isPreviewHost =
+  window.location.hostname.includes("id-preview--") ||
+  window.location.hostname.includes("lovableproject.com");
+
+const isCandidateRoute = window.location.pathname === "/candex-apply";
+
+if (isPreviewHost || isInIframe || isCandidateRoute) {
+  navigator.serviceWorker?.getRegistrations().then((registrations) => {
+    registrations.forEach((registration) => registration.unregister());
+  });
+} else {
+  registerSW({
+    immediate: true,
+  });
+}
 
 createRoot(document.getElementById("root")!).render(<App />);
