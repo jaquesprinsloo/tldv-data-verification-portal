@@ -191,12 +191,18 @@ const AdminPortalDashboard = () => {
     // Apply saved order if available
     if (savedOrder && savedOrder.length > 0) {
       const orderMap = new Map(savedOrder.map(o => [o.card_key, o.sort_order]));
-      // Ensure all visible portals are included even if not in saved order
+      // Assign stable fallback orders for cards not in saved order
       const maxSavedOrder = Math.max(...savedOrder.map(o => o.sort_order), -1);
-      let nextOrder = maxSavedOrder + 1;
+      let nextFallback = maxSavedOrder + 1;
+      const fallbackMap = new Map<string, number>();
+      visiblePortals.forEach(p => {
+        if (!orderMap.has(p.key)) {
+          fallbackMap.set(p.key, nextFallback++);
+        }
+      });
       visiblePortals.sort((a, b) => {
-        const orderA = orderMap.has(a.key) ? orderMap.get(a.key)! : nextOrder++;
-        const orderB = orderMap.has(b.key) ? orderMap.get(b.key)! : nextOrder++;
+        const orderA = orderMap.get(a.key) ?? fallbackMap.get(a.key) ?? 999;
+        const orderB = orderMap.get(b.key) ?? fallbackMap.get(b.key) ?? 999;
         return orderA - orderB;
       });
     }
