@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Users, Send, CheckCircle, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Users, Send, CheckCircle, Search, FileText } from "lucide-react";
 
 interface Client {
   id: string;
@@ -17,6 +18,7 @@ interface Client {
   contact_email: string | null;
   contact_phone: string | null;
   company_name: string | null;
+  template_id: string | null;
   created_at: string;
 }
 
