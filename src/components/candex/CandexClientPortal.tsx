@@ -122,7 +122,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const sendInvite = useMutation({
     mutationFn: async () => {
       if (!client?.id) throw new Error("No client found");
-      const templateId = templates?.[0]?.id || null;
+      const templateId = clientTemplateId;
       const candidateName = `${inviteForm.name} ${inviteForm.surname}`.trim();
       const candidateEmail = inviteForm.email.trim().toLowerCase() || null;
       const candidatePhone = inviteForm.phone.trim() || null;
