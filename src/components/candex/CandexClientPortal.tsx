@@ -148,8 +148,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       // Send the actual email/WhatsApp
       if (inviteMethod === "email" && inviteForm.email) {
         const candidateName = `${inviteForm.name} ${inviteForm.surname}`;
-        const siteOrigin = import.meta.env.VITE_SITE_URL || window.location.origin;
-        const portalUrl = `${siteOrigin}/candex-apply?token=${invData.token}`;
+        const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
         const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
           body: {
             email: inviteForm.email,
