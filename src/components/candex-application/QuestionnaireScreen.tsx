@@ -239,6 +239,22 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       return t?.type === "currency";
     });
 
+    // Check if any row has require_explanation enabled
+    const anyRowNeedsDetails = table.row_labels.some((_, rowIdx) => {
+      const config = getRowInputConfig(table, rowIdx);
+      return config.require_explanation === true;
+    });
+
+    // Filter out "Details" column if no rows need explanation
+    const visibleColIndices: number[] = [];
+    const visibleColHeaders: string[] = [];
+    table.column_headers.forEach((h, i) => {
+      const headerStr = String(h).toLowerCase().trim();
+      if (headerStr === "details" && !anyRowNeedsDetails) return;
+      visibleColIndices.push(i);
+      visibleColHeaders.push(String(h));
+    });
+
     return (
       <div key={table.id} className="space-y-3">
         <div className="flex items-center gap-2">
