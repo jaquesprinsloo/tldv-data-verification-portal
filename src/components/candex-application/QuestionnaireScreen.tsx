@@ -234,7 +234,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
   const renderTable = (table: SectionTable) => {
     const entries = tableData[table.id] || [];
-    const isCurrency = table.row_input_types?.some((t) => t === "currency");
+    const isCurrency = table.row_input_types?.some((t) => {
+      if (typeof t === 'string') return t === "currency";
+      return t?.type === "currency";
+    });
 
     return (
       <div key={table.id} className="space-y-3">
