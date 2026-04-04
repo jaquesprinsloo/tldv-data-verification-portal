@@ -200,7 +200,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const resendInvite = useMutation({
     mutationFn: async (inv: any) => {
       if (inv.candidate_email) {
-        const portalUrl = `${import.meta.env.VITE_SITE_URL || window.location.origin}/candex-apply?token=${inv.token}`;
+        const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${inv.token}`;
         const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
           body: {
             email: inv.candidate_email,
