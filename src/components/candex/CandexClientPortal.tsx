@@ -132,26 +132,68 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     mutationFn: async () => {
       if (!client?.id) throw new Error("No client found");
       const templateId = templates?.[0]?.id || null;
-      const { data: invData, error } = await supabase.from("candex_invitations").insert({
+      const candidateName = `${inviteForm.name} ${inviteForm.surname}`.trim();
+      const candidateEmail = inviteForm.email.trim().toLowerCase() || null;
+      const candidatePhone = inviteForm.phone.trim() || null;
+      const candidateIdNumber = inviteForm.id_number.trim() || null;
+      const sentAt = new Date().toISOString();
+
+      let existingInviteQuery = supabase
+        .from("candex_invitations")
+        .select("id, token, status")
+        .eq("client_id", client.id)
+        .neq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (candidateEmail) {
+        existingInviteQuery = existingInviteQuery.eq("candidate_email", candidateEmail);
+      } else if (candidatePhone) {
+        existingInviteQuery = existingInviteQuery.eq("candidate_phone", candidatePhone);
+      } else if (candidateIdNumber) {
+        existingInviteQuery = existingInviteQuery.eq("candidate_id_number", candidateIdNumber);
+      }
+
+      const { data: existingInvite, error: existingInviteError } = await existingInviteQuery.maybeSingle();
+      if (existingInviteError) throw existingInviteError;
+
+      const invitationPayload = {
         client_id: client.id,
-        candidate_name: `${inviteForm.name} ${inviteForm.surname}`,
-        candidate_email: inviteForm.email || null,
-        candidate_phone: inviteForm.phone || null,
-        candidate_id_number: inviteForm.id_number || null,
+        candidate_name: candidateName,
+        candidate_email: candidateEmail,
+        candidate_phone: candidatePhone,
+        candidate_id_number: candidateIdNumber,
         template_id: templateId,
         created_by: userId,
-        status: "sent",
-        sent_at: new Date().toISOString(),
-      }).select().single();
+        sent_at: sentAt,
+      };
+
+      const { data: invData, error } = existingInvite
+        ? await supabase
+            .from("candex_invitations")
+            .update({
+              ...invitationPayload,
+              status: existingInvite.status === "opened" ? "opened" : "sent",
+            })
+            .eq("id", existingInvite.id)
+            .select()
+            .single()
+        : await supabase
+            .from("candex_invitations")
+            .insert({
+              ...invitationPayload,
+              status: "sent",
+            })
+            .select()
+            .single();
       if (error) throw error;
 
       // Send the actual email/WhatsApp
-      if (inviteMethod === "email" && inviteForm.email) {
-        const candidateName = `${inviteForm.name} ${inviteForm.surname}`;
+      if (inviteMethod === "email" && candidateEmail) {
         const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
         const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
           body: {
-            email: inviteForm.email,
+            email: candidateEmail,
             candidateName,
             invitationLink: portalUrl,
           },
@@ -160,11 +202,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           console.error("Email send error:", emailError);
           throw new Error("Invitation saved but email failed to send");
         }
-      } else if (inviteMethod === "whatsapp" && inviteForm.phone) {
+      } else if (inviteMethod === "whatsapp" && candidatePhone) {
         const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
         const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
           body: {
-            phone: inviteForm.phone,
+            phone: candidatePhone,
             message: `Hi ${inviteForm.name}, you've been invited to complete a CanDex Pre-Screening. Please click here to begin: ${portalUrl}`,
           },
         });
@@ -220,7 +262,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         if (waError) throw new Error("Failed to resend WhatsApp message");
       }
       // Update sent_at timestamp
-      await supabase.from("candex_invitations").update({ sent_at: new Date().toISOString(), status: "sent" }).eq("id", inv.id);
+      const nextStatus = inv.status === "opened" ? "opened" : "sent";
+      await supabase
+        .from("candex_invitations")
+        .update({ sent_at: new Date().toISOString(), status: nextStatus })
+        .eq("id", inv.id);
     },
     onSuccess: () => {
       toast.success("Invitation resent");
