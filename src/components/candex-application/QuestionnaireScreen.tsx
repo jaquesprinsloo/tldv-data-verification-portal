@@ -28,6 +28,14 @@ interface Section {
   video_url: string | null;
 }
 
+interface RowInputType {
+  type: string;
+  require_explanation?: boolean;
+  options?: string[];
+  source_table_id?: string;
+  source_row_index?: number;
+}
+
 interface SectionTable {
   id: string;
   section_id: string;
@@ -35,7 +43,7 @@ interface SectionTable {
   sort_order: number;
   column_headers: string[];
   row_labels: string[];
-  row_input_types: (string | null)[] | null;
+  row_input_types: (RowInputType | null)[] | null;
   is_repeatable: boolean;
   video_url: string | null;
 }
@@ -136,11 +144,17 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     });
   };
 
-  const getInputType = (table: SectionTable, rowIdx: number): string => {
+  const getRowInputConfig = (table: SectionTable, rowIdx: number): RowInputType => {
     if (table.row_input_types && table.row_input_types[rowIdx]) {
-      return table.row_input_types[rowIdx]!;
+      const rit = table.row_input_types[rowIdx]!;
+      if (typeof rit === 'string') return { type: rit };
+      return rit;
     }
-    return "text";
+    return { type: "text" };
+  };
+
+  const getInputType = (table: SectionTable, rowIdx: number): string => {
+    return getRowInputConfig(table, rowIdx).type;
   };
 
   const renderCellInput = (
@@ -220,7 +234,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
   const renderTable = (table: SectionTable) => {
     const entries = tableData[table.id] || [];
-    const isCurrency = table.row_input_types?.some((t) => t === "currency");
+    const isCurrency = table.row_input_types?.some((t) => {
+      if (typeof t === 'string') return t === "currency";
+      return t?.type === "currency";
+    });
 
     return (
       <div key={table.id} className="space-y-3">
@@ -261,16 +278,31 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   </tr>
                 </thead>
                 <tbody>
-                  {table.row_labels.map((label, rowIdx) => (
-                    <tr key={rowIdx} className="border-b border-zinc-800/50">
-                      <td className="p-2 text-xs text-zinc-400 font-medium">{label as string}</td>
-                      {table.column_headers.map((_, colIdx) => (
-                        <td key={colIdx} className="p-2">
-                          {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+                  {table.row_labels.map((label, rowIdx) => {
+                    const rowConfig = getRowInputConfig(table, rowIdx);
+                    const needsDetails = rowConfig.require_explanation === true;
+                    const detailKey = `detail_${table.id}_${entryIdx}_${rowIdx}`;
+                    return (
+                      <tr key={rowIdx} className="border-b border-zinc-800/50">
+                        <td className="p-2 text-xs text-zinc-400 font-medium">{label as string}</td>
+                        {table.column_headers.map((_, colIdx) => (
+                          <td key={colIdx} className="p-2">
+                            <div className="space-y-1">
+                              {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
+                              {needsDetails && colIdx === 0 && (
+                                <Input
+                                  value={answers[detailKey] || ""}
+                                  onChange={(e) => setAnswer(detailKey, e.target.value)}
+                                  className="bg-zinc-900 border-zinc-700 text-white text-xs h-7"
+                                  placeholder="Please provide details..."
+                                />
+                              )}
+                            </div>
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
                   {/* Currency total row */}
                   {isCurrency && (
                     <tr className="bg-zinc-900/80 sticky bottom-0">

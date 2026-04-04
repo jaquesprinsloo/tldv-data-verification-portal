@@ -844,7 +844,7 @@ const CandexBuilder = () => {
                                             <option>Yes</option>
                                             <option>No</option>
                                           </select>
-                                          {rit.require_explanation !== false && (
+                                          {rit.require_explanation === true && (
                                             <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
                                           )}
                                         </div>
@@ -856,7 +856,7 @@ const CandexBuilder = () => {
                                               <option key={oi}>{opt}</option>
                                             ))}
                                           </select>
-                                          {rit.require_explanation !== false && (
+                                          {rit.require_explanation === true && (
                                             <Input placeholder="Explain your answer..." disabled className="h-7 text-xs" />
                                           )}
                                         </div>
@@ -903,7 +903,7 @@ const CandexBuilder = () => {
                                       )
                                     ) : (
                                       <span className="text-xs text-muted-foreground italic">
-                                        {rit.type === "text" ? "Free text" : rit.type === "yes_no" ? `Yes/No${rit.require_explanation !== false ? " + details" : ""}` : rit.type === "select" ? `Select${rit.require_explanation !== false ? " + details" : ""} (${(rit.options || []).length} opts)` : rit.type === "dynamic_select" ? `Dynamic (${(() => {
+                                        {rit.type === "text" ? "Free text" : rit.type === "yes_no" ? `Yes/No${rit.require_explanation === true ? " + details" : ""}` : rit.type === "select" ? `Select${rit.require_explanation === true ? " + details" : ""} (${(rit.options || []).length} opts)` : rit.type === "dynamic_select" ? `Dynamic (${(() => {
                                           const srcTbl = sectionTables.find(t => t.id === rit.source_table_id);
                                           if (!srcTbl) return "not linked";
                                           return `${srcTbl.table_title} → ${srcTbl.row_labels[rit.source_row_index ?? 0] || "Row 1"}`;
