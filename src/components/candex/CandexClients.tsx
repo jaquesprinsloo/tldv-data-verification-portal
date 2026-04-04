@@ -27,6 +27,8 @@ const CandexClients = () => {
   const [showNewClient, setShowNewClient] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", company: "" });
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", company: "" });
 
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["candex-clients"],
