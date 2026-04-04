@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Users, Send, CheckCircle, Search, FileText } from "lucide-react";
+import { Plus, Users, Send, CheckCircle, Search, FileText, Pencil } from "lucide-react";
 
 interface Client {
   id: string;
@@ -27,6 +27,8 @@ const CandexClients = () => {
   const [showNewClient, setShowNewClient] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", company: "" });
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", company: "" });
 
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["candex-clients"],
@@ -98,6 +100,28 @@ const CandexClients = () => {
     onError: (e) => toast.error(e.message),
   });
 
+  const updateClient = useMutation({
+    mutationFn: async () => {
+      if (!editingClient) return;
+      const { error } = await supabase
+        .from("candex_clients")
+        .update({
+          name: editForm.name,
+          contact_email: editForm.email || null,
+          contact_phone: editForm.phone || null,
+          company_name: editForm.company || null,
+        })
+        .eq("id", editingClient.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-clients"] });
+      setEditingClient(null);
+      toast.success("Client updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const createClient = useMutation({
     mutationFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -118,6 +142,16 @@ const CandexClients = () => {
     },
     onError: (e) => toast.error(e.message),
   });
+
+  const openEditDialog = (client: Client) => {
+    setEditForm({
+      name: client.name,
+      email: client.contact_email || "",
+      phone: client.contact_phone || "",
+      company: client.company_name || "",
+    });
+    setEditingClient(client);
+  };
 
   const filtered = clients.filter(
     (c) =>
@@ -176,6 +210,7 @@ const CandexClients = () => {
                 <TableHead>Template</TableHead>
                 <TableHead className="text-center">Invitations</TableHead>
                 <TableHead className="text-center">Completed</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -235,6 +270,11 @@ const CandexClients = () => {
                         <span>{app.completed}/{app.total}</span>
                       </div>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => openEditDialog(client)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -267,6 +307,34 @@ const CandexClients = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNewClient(false)}>Cancel</Button>
             <Button onClick={() => createClient.mutate()} disabled={!newClient.name.trim()}>Add Client</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingClient} onOpenChange={(open) => !open && setEditingClient(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Client</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Client Name *</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} placeholder="Full name" />
+            </div>
+            <div>
+              <Label>Company Name</Label>
+              <Input value={editForm.company} onChange={(e) => setEditForm((p) => ({ ...p, company: e.target.value }))} placeholder="Company name" />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input type="email" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} placeholder="email@example.com" />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} placeholder="+27..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingClient(null)}>Cancel</Button>
+            <Button onClick={() => updateClient.mutate()} disabled={!editForm.name.trim()}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
