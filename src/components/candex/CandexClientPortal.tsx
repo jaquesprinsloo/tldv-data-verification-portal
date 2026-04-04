@@ -160,7 +160,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           throw new Error("Invitation saved but email failed to send");
         }
       } else if (inviteMethod === "whatsapp" && inviteForm.phone) {
-        const portalUrl = `${window.location.origin}/candex-apply?token=${invData.token}`;
+        const portalUrl = `${import.meta.env.VITE_SITE_URL || window.location.origin}/candex-apply?token=${invData.token}`;
         const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
           body: {
             phone: inviteForm.phone,
