@@ -1,4 +1,6 @@
 import { useState } from "react";
+
+const PUBLISHED_URL = "https://tldv-data-verification-portal.lovable.app";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
