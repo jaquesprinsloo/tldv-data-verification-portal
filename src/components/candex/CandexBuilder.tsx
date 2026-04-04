@@ -223,7 +223,7 @@ const RowInputTypeConfigurator = ({
       options: (type === "select" || type === "multi_select") ? (updated[index]?.options || []) : undefined,
       source_table_id: type === "dynamic_select" ? (updated[index]?.source_table_id) : undefined,
       source_row_index: type === "dynamic_select" ? (updated[index]?.source_row_index ?? 0) : undefined,
-      require_explanation: (type === "select" || type === "yes_no") ? (updated[index]?.require_explanation ?? true) : undefined,
+      require_explanation: updated[index]?.require_explanation ?? false,
     };
     onChange(updated);
   };
