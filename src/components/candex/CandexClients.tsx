@@ -70,6 +70,34 @@ const CandexClients = () => {
     },
   });
 
+  // Get available templates
+  const { data: templates = [] } = useQuery({
+    queryKey: ["candex-templates-for-assignment"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("candex_questionnaire_templates")
+        .select("id, name, is_active")
+        .order("name");
+      return data || [];
+    },
+  });
+
+  // Assign template to client
+  const assignTemplate = useMutation({
+    mutationFn: async ({ clientId, templateId }: { clientId: string; templateId: string | null }) => {
+      const { error } = await supabase
+        .from("candex_clients")
+        .update({ template_id: templateId } as any)
+        .eq("id", clientId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-clients"] });
+      toast.success("Template assigned");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const createClient = useMutation({
     mutationFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
