@@ -203,6 +203,7 @@ export type Database = {
           created_by: string | null
           id: string
           name: string
+          template_id: string | null
           updated_at: string
         }
         Insert: {
@@ -213,6 +214,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           name: string
+          template_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -223,9 +225,18 @@ export type Database = {
           created_by?: string | null
           id?: string
           name?: string
+          template_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "candex_clients_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "candex_questionnaire_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       candex_invitations: {
         Row: {
