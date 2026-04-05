@@ -93,44 +93,22 @@ const CanDexPreScreening = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* PreAppliCheck branded header */}
-      <header className="bg-white text-foreground py-4 border-b-4 border-red-600 sticky top-0 z-50">
-        <div className="container mx-auto px-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <img src={preapplicheckShield} alt="PreAppliCheck" className="h-10" />
-              <div>
-                <h1 className="text-2xl font-bold font-poppins">PreAppliCheck Portal</h1>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden md:block">
-                <p className="text-sm font-medium">{user?.email}</p>
-                <p className="text-xs text-white/70">Administrator</p>
-              </div>
-              <button
-                onClick={() => navigate("/admin/portal")}
-                className="bg-white border-[3px] border-red-600 text-foreground px-6 py-2 rounded-lg hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] transition-all duration-500 flex items-center gap-2 font-medium"
-              >
-                <Home className="h-4 w-4" />
-                Main Portal
-              </button>
-            </div>
-          </div>
+      <div className="container mx-auto px-4 sm:px-6 pt-4">
+        <div className="flex items-start justify-between mb-4">
+          <button
+            onClick={() => navigate("/admin/portal")}
+            className="bg-white border-[3px] border-red-600 text-foreground px-6 py-2 rounded-lg hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] transition-all duration-500 flex items-center gap-2 font-medium"
+          >
+            <Home className="h-4 w-4" />
+            Main Portal
+          </button>
         </div>
-      </header>
+        <div className="flex items-center justify-center mb-6">
+          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-[28rem]" />
+        </div>
+      </div>
 
-      <main className="container mx-auto px-4 sm:px-6 py-8">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-6">
-            <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-80" />
-          </div>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            {isMasterAdmin
-              ? "Pre-employment screening and candidate indexing portal"
-              : "Manage candidate invitations, reviews, and risk assessments"}
-          </p>
-        </div>
+      <main className="container mx-auto px-4 sm:px-6 pb-8">
 
         {isMasterAdmin ? (
           <Tabs defaultValue="statistics" className="space-y-6">
