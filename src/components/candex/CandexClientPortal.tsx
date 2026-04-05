@@ -525,42 +525,13 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         </Card>
 
         {/* Review Detail Dialog */}
-        <Dialog open={!!reviewApp} onOpenChange={() => setReviewApp(null)}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Review: {reviewApp?.candidate_name}</DialogTitle>
-              <DialogDescription>Review the candidate's pre-screening submission and risk assessment.</DialogDescription>
-            </DialogHeader>
-            {reviewApp && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><span className="text-muted-foreground">ID Number:</span> <span className="font-medium">{reviewApp.candidate_id_number || "—"}</span></div>
-                  <div><span className="text-muted-foreground">Email:</span> <span className="font-medium">{reviewApp.candidate_email || "—"}</span></div>
-                  <div><span className="text-muted-foreground">Phone:</span> <span className="font-medium">{reviewApp.candidate_phone || "—"}</span></div>
-                  <div><span className="text-muted-foreground">Risk Score:</span> <span className="font-medium">{reviewApp.risk_score ?? "—"}</span></div>
-                </div>
-                {reviewApp.risk_level && (
-                  <Card className="border-l-4 border-l-primary">
-                    <CardContent className="p-4">
-                      <h4 className="font-semibold text-sm flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4" /> Pre Risk Alert
-                      </h4>
-                      <p className="text-sm mt-1">Risk Level: <Badge variant={reviewApp.risk_level === "LOW" ? "default" : "destructive"}>{reviewApp.risk_level}</Badge></p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            )}
-            <DialogFooter>
-              <Button variant="destructive" onClick={() => { updateAppStatus.mutate({ id: reviewApp.id, status: "rejected" }); }}>
-                <X className="h-4 w-4 mr-1" /> Reject
-              </Button>
-              <Button onClick={() => { updateAppStatus.mutate({ id: reviewApp.id, status: "approved" }); }}>
-                <Check className="h-4 w-4 mr-1" /> Approve
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <ApplicationReviewDialog
+          application={reviewApp}
+          open={!!reviewApp}
+          onClose={() => setReviewApp(null)}
+          onApprove={(id) => updateAppStatus.mutate({ id, status: "approved" })}
+          onReject={(id) => updateAppStatus.mutate({ id, status: "rejected" })}
+        />
       </TabsContent>
 
       {/* ── APPROVED TAB ── */}
