@@ -86,7 +86,7 @@ const CandexApplication = () => {
         candidate_phone: personalDetails?.cellphone || invitation.candidate_phone,
         candidate_id_number: personalDetails?.idNumber || invitation.candidate_id_number,
         template_id: invitation.template_id,
-        status: "completed",
+        status: "submitted",
         submitted_at: new Date().toISOString(),
         answers: {
           questionnaire: answers,
