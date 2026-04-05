@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import AdminHeader from "@/components/admin/AdminHeader";
+import { Home } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
