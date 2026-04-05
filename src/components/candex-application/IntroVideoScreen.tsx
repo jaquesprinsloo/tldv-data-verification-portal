@@ -24,7 +24,7 @@ export default function IntroVideoScreen({
         <p className="text-gray-400 text-xs mt-2">Video coming soon</p>
       </div>
 
-      <p className="text-zinc-400 text-sm text-center mb-6 max-w-md">{description}</p>
+      <p className="text-gray-500 text-sm text-center mb-6 max-w-md">{description}</p>
 
       <Button
         onClick={onComplete}
