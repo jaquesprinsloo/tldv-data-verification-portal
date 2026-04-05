@@ -110,7 +110,7 @@ const CanDexPreScreening = () => {
               </div>
               <button
                 onClick={() => navigate("/admin/portal")}
-                className="bg-black border-[3px] border-red-600 text-white px-6 py-2 rounded-lg hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] transition-all duration-500 flex items-center gap-2 font-medium"
+                className="bg-white border-[3px] border-red-600 text-foreground px-6 py-2 rounded-lg hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] transition-all duration-500 flex items-center gap-2 font-medium"
               >
                 <Home className="h-4 w-4" />
                 Main Portal
