@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { User, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
-import candexLogo from "@/assets/candex-logo.png";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 
 interface PersonalDetailsScreenProps {
   prefilled?: {
@@ -126,7 +126,7 @@ export default function PersonalDetailsScreen({ prefilled, onComplete }: Persona
     <div className="min-h-screen bg-black">
       <div className="border-b border-zinc-800 bg-zinc-950">
         <div className="container mx-auto px-4 py-3">
-          <img src={candexLogo} alt="PreAppliCheck" className="h-8" />
+          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-8" />
         </div>
       </div>
 

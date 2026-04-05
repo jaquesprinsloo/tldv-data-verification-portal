@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Shield, FileText } from "lucide-react";
 import { toast } from "sonner";
-import candexLogo from "@/assets/candex-logo.png";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 
 interface POPIAIndemnityScreenProps {
   onComplete: (deviceData: DeviceData) => void;
@@ -170,7 +170,7 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
       {/* Header */}
       <div className="border-b border-zinc-800 bg-zinc-950">
         <div className="container mx-auto px-4 py-3 flex items-center gap-3">
-          <img src={candexLogo} alt="CanDex" className="h-8" />
+          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-8" />
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { User } from "@supabase/supabase-js";
-import { ShieldCheck } from "lucide-react";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
@@ -84,8 +84,7 @@ const CanDexPreScreening = () => {
       <main className="container mx-auto px-4 sm:px-6 py-8">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <ShieldCheck className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl sm:text-3xl font-bold">PreAppliCheck</h1>
+            <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-12" />
           </div>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             {isMasterAdmin

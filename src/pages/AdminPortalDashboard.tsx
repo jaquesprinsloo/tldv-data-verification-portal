@@ -7,6 +7,7 @@ import { PermissionKey } from "@/hooks/usePermissions";
 import { Badge } from "@/components/ui/badge";
 import { NotificationsDialog } from "@/components/admin/NotificationsDialog";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
 import { toast } from "sonner";
@@ -494,13 +495,21 @@ const AdminPortalDashboard = () => {
                     </div>
                   )}
                   <div className="flex flex-col items-center text-center space-y-2 sm:space-y-3 md:space-y-4">
-                    <div className={`p-3 sm:p-4 md:p-6 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
-                      hasAccess 
-                        ? 'bg-red-600/30 border-red-600' 
-                        : 'bg-gray-600/30 border-gray-600'
-                    }`}>
-                      <portal.icon className={`w-8 h-8 sm:w-10 sm:h-10 md:w-16 md:h-16 ${hasAccess ? 'text-red-500' : 'text-gray-500'}`} strokeWidth={2.5} />
-                    </div>
+                    {portal.key === "candex-pre-screening" ? (
+                      <div className={`p-3 sm:p-4 md:p-6 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
+                        hasAccess ? 'bg-white border-red-600' : 'bg-gray-600/30 border-gray-600'
+                      }`}>
+                        <img src={preapplicheckLogo} alt="PreAppliCheck" className="w-8 h-8 sm:w-10 sm:h-10 md:w-16 md:h-16 object-contain" />
+                      </div>
+                    ) : (
+                      <div className={`p-3 sm:p-4 md:p-6 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
+                        hasAccess 
+                          ? 'bg-red-600/30 border-red-600' 
+                          : 'bg-gray-600/30 border-gray-600'
+                      }`}>
+                        <portal.icon className={`w-8 h-8 sm:w-10 sm:h-10 md:w-16 md:h-16 ${hasAccess ? 'text-red-500' : 'text-gray-500'}`} strokeWidth={2.5} />
+                      </div>
+                    )}
                     <h2 className={`text-sm sm:text-lg md:text-2xl font-bold leading-tight ${hasAccess ? 'text-white' : 'text-gray-500'}`}>
                       {portal.title}
                     </h2>
