@@ -7,6 +7,7 @@ import { PermissionKey } from "@/hooks/usePermissions";
 import { Badge } from "@/components/ui/badge";
 import { NotificationsDialog } from "@/components/admin/NotificationsDialog";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
 import { toast } from "sonner";
