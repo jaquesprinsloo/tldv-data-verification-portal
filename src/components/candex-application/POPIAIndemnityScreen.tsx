@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Shield, FileText } from "lucide-react";
 import { toast } from "sonner";
-import candexLogo from "@/assets/candex-logo.png";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 
 interface POPIAIndemnityScreenProps {
   onComplete: (deviceData: DeviceData) => void;
