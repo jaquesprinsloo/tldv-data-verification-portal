@@ -14,7 +14,7 @@ export default function IntroVideoScreen({
   description = "Please watch the introduction video before proceeding.",
 }: IntroVideoScreenProps) {
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
       <img src={preapplicheckLogo} alt="PreAppliCheck" className="w-64 mb-8" />
 
       {/* Video placeholder */}
