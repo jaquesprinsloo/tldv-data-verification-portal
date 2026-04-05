@@ -123,7 +123,7 @@ const CanDexPreScreening = () => {
       <main className="container mx-auto px-4 sm:px-6 py-8">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-6">
-            <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-28 rounded-lg shadow-[0_0_40px_rgba(239,68,68,0.3)]" />
+            <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-80" />
           </div>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             {isMasterAdmin
