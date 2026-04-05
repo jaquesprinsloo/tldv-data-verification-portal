@@ -51,6 +51,8 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
+    const logoUrl = "https://irvpnyxtdzwpnhtdpweu.supabase.co/storage/v1/object/public/email-assets/preapplicheck-logo.jpg";
+
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -62,19 +64,21 @@ const handler = async (req: Request): Promise<Response> => {
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f4; padding: 40px 20px;">
 <tr>
 <td align="center">
-<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+<table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);">
 
-<!-- Header -->
+<!-- Logo Section -->
 <tr>
-<td style="background-color: #000000; padding: 30px 40px; text-align: center;">
-<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 auto;">
+<td style="padding: 40px 40px 20px 40px; text-align: center; background-color: #ffffff;">
+<img src="${logoUrl}" alt="PreAppliCheck" width="280" style="display: block; margin: 0 auto; max-width: 280px; height: auto;" />
+</td>
+</tr>
+
+<!-- Divider -->
 <tr>
-<td style="background-color: #BC000A; width: 40px; height: 40px; border-radius: 8px; text-align: center; vertical-align: middle;">
-<span style="color: #ffffff; font-size: 20px; font-weight: bold;">T</span>
-</td>
-<td style="padding-left: 12px;">
-<span style="color: #ffffff; font-size: 20px; font-weight: 600;">PreAppliCheck</span>
-</td>
+<td style="padding: 0 40px;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+<tr>
+<td style="border-bottom: 2px solid #e5e7eb; height: 1px; font-size: 0; line-height: 0;">&nbsp;</td>
 </tr>
 </table>
 </td>
@@ -82,35 +86,35 @@ const handler = async (req: Request): Promise<Response> => {
 
 <!-- Main Content -->
 <tr>
-<td style="padding: 40px;">
+<td style="padding: 30px 40px 40px 40px;">
 
-<h1 style="margin: 0 0 20px 0; color: #1a1a1a; font-size: 24px; font-weight: 700; text-align: center;">
-You're Invited to Complete a Pre-Screening
-</h1>
-
-<p style="margin: 0 0 30px 0; color: #4a4a4a; font-size: 16px; line-height: 1.6; text-align: center;">
-Dear ${candidateName}, you have been invited to complete a PreAppliCheck questionnaire. Please click the button below to begin.
+<p style="margin: 0 0 8px 0; color: #1a1a1a; font-size: 18px; font-weight: 600; text-align: center;">
+Dear ${candidateName},
 </p>
 
-<!-- CTA Button -->
+<p style="margin: 0 0 30px 0; color: #4a4a4a; font-size: 15px; line-height: 1.7; text-align: center;">
+You have been invited to complete a PreAppliCheck pre-screening application. Please click the button below to begin the process.
+</p>
+
+<!-- CTA Button - black/red matching logo -->
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
 <tr>
-<td align="center" style="padding: 10px 0 25px 0;">
-<a href="${invitationLink}" target="_blank" style="display: inline-block; background-color: #BC000A; color: #ffffff; text-decoration: none; padding: 16px 40px; font-size: 16px; font-weight: 600; border-radius: 8px;">Start Pre-Screening</a>
+<td align="center" style="padding: 10px 0 30px 0;">
+<a href="${invitationLink}" target="_blank" style="display: inline-block; background-color: #1a1a1a; color: #ffffff; text-decoration: none; padding: 16px 48px; font-size: 16px; font-weight: 700; border-radius: 8px; letter-spacing: 0.5px; border: 2px solid #1a1a1a;">Begin <span style="color: #DC2626;">PreAppli</span>Check</a>
 </td>
 </tr>
 </table>
 
 <p style="margin: 0 0 25px 0; color: #9ca3af; font-size: 12px; text-align: center; word-break: break-all;">
-If the button doesn't work, copy this link:<br>
-<a href="${invitationLink}" style="color: #BC000A;">${invitationLink}</a>
+If the button doesn't work, copy and paste this link into your browser:<br>
+<a href="${invitationLink}" style="color: #DC2626;">${invitationLink}</a>
 </p>
 
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; margin-bottom: 20px;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #fef2f2; border-left: 4px solid #DC2626; border-radius: 0 8px 8px 0;">
 <tr>
 <td style="padding: 15px 20px;">
-<p style="margin: 0; color: #92400e; font-size: 13px; line-height: 1.6;">
-This invitation expires in <strong>7 days</strong>. If you did not expect this invitation, you can safely ignore this email.
+<p style="margin: 0; color: #991b1b; font-size: 13px; line-height: 1.6;">
+This invitation expires in <strong>7 days</strong>. If you did not expect this invitation, you may safely ignore this email.
 </p>
 </td>
 </tr>
@@ -121,11 +125,11 @@ This invitation expires in <strong>7 days</strong>. If you did not expect this i
 
 <!-- Footer -->
 <tr>
-<td style="background-color: #1a1a1a; padding: 25px 40px; text-align: center;">
-<p style="margin: 0 0 5px 0; color: #9ca3af; font-size: 12px;">
-&copy; ${new Date().getFullYear()} TLDV Data Verification Portal
+<td style="background-color: #1a1a1a; padding: 20px 40px; text-align: center;">
+<p style="margin: 0 0 4px 0; color: #9ca3af; font-size: 11px;">
+Powered by True Lie Detectors &amp; Vetting
 </p>
-<p style="margin: 0; color: #6b7280; font-size: 11px;">All rights reserved</p>
+<p style="margin: 0; color: #6b7280; font-size: 10px;">&copy; ${new Date().getFullYear()} All rights reserved</p>
 </td>
 </tr>
 
