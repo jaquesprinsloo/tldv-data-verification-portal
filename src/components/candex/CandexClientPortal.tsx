@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw } from "lucide-react";
+import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import { format } from "date-fns";
 
 interface CandexClientPortalProps {
