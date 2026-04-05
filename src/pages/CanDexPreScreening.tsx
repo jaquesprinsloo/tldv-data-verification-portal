@@ -124,7 +124,7 @@ const CanDexPreScreening = () => {
           <div className="flex items-center justify-center mb-6">
             <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-28 rounded-lg shadow-[0_0_40px_rgba(239,68,68,0.3)]" />
           </div>
-          <p className="text-zinc-400 max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto">
             {isMasterAdmin
               ? "Pre-employment screening and candidate indexing portal"
               : "Manage candidate invitations, reviews, and risk assessments"}
