@@ -56,7 +56,7 @@ const handler = async (req: Request): Promise<Response> => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CanDex Pre-Screening Invitation</title>
+<title>PreAppliCheck Invitation</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f4f4f4; font-family: Arial, Helvetica, sans-serif;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f4; padding: 40px 20px;">
@@ -73,7 +73,7 @@ const handler = async (req: Request): Promise<Response> => {
 <span style="color: #ffffff; font-size: 20px; font-weight: bold;">T</span>
 </td>
 <td style="padding-left: 12px;">
-<span style="color: #ffffff; font-size: 20px; font-weight: 600;">CanDex Pre-Screening</span>
+<span style="color: #ffffff; font-size: 20px; font-weight: 600;">PreAppliCheck</span>
 </td>
 </tr>
 </table>
@@ -89,7 +89,7 @@ You're Invited to Complete a Pre-Screening
 </h1>
 
 <p style="margin: 0 0 30px 0; color: #4a4a4a; font-size: 16px; line-height: 1.6; text-align: center;">
-Dear ${candidateName}, you have been invited to complete a CanDex pre-screening questionnaire. Please click the button below to begin.
+Dear ${candidateName}, you have been invited to complete a PreAppliCheck questionnaire. Please click the button below to begin.
 </p>
 
 <!-- CTA Button -->
@@ -139,7 +139,7 @@ This invitation expires in <strong>7 days</strong>. If you did not expect this i
     await client.send({
       from: GMAIL_EMAIL,
       to: email,
-      subject: "CanDex Pre-Screening Invitation",
+      subject: "PreAppliCheck Invitation",
       html: htmlContent,
     });
 

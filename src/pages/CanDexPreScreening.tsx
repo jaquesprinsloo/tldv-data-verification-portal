@@ -85,7 +85,7 @@ const CanDexPreScreening = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <ShieldCheck className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl sm:text-3xl font-bold">CanDex Pre Screening</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">PreAppliCheck</h1>
           </div>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             {isMasterAdmin
@@ -106,7 +106,7 @@ const CanDexPreScreening = () => {
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="builder">CanDex Builder</TabsTrigger>
+              <TabsTrigger value="builder">PreAppliCheck Builder</TabsTrigger>
               <TabsTrigger value="clients">Clients</TabsTrigger>
             </TabsList>
 

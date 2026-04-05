@@ -116,7 +116,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const pendingReview = applications?.filter((a) => a.status === "submitted") || [];
   const approved = applications?.filter((a) => a.status === "approved") || [];
   const rejected = applications?.filter((a) => a.status === "rejected") || [];
-  const candexed = applications?.filter((a) => a.status === "candexed") || [];
+  const preAppliChecked = applications?.filter((a) => a.status === "preAppliChecked") || [];
 
   // Send invitation
   const sendInvite = useMutation({
@@ -198,7 +198,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
           body: {
             phone: candidatePhone,
-            message: `Hi ${inviteForm.name}, you've been invited to complete a CanDex Pre-Screening. Please click here to begin: ${portalUrl}`,
+            message: `Hi ${inviteForm.name}, you've been invited to complete a PreAppliCheck. Please click here to begin: ${portalUrl}`,
           },
         });
         if (waError) {
@@ -247,7 +247,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
           body: {
             phone: inv.candidate_phone,
-            message: `Reminder: You've been invited to complete a CanDex Pre-Screening. Please click here to begin: ${portalUrl}`,
+            message: `Reminder: You've been invited to complete a PreAppliCheck. Please click here to begin: ${portalUrl}`,
           },
         });
         if (waError) throw new Error("Failed to resend WhatsApp message");
@@ -337,7 +337,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           )}
         </TabsTrigger>
         <TabsTrigger value="approved">Approved</TabsTrigger>
-        <TabsTrigger value="candexed">Candexed</TabsTrigger>
+        <TabsTrigger value="preAppliChecked">PreAppliChecked</TabsTrigger>
       </TabsList>
 
       {/* ── INVITE TAB ── */}
@@ -426,7 +426,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Invite Candidate</DialogTitle>
-              <DialogDescription>Fill in the candidate's details to send a CanDex pre-screening invitation.</DialogDescription>
+              <DialogDescription>Fill in the candidate's details to send a PreAppliCheck invitation.</DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -659,15 +659,15 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       </TabsContent>
 
       {/* ── CANDEXED TAB ── */}
-      <TabsContent value="candexed">
+      <TabsContent value="preAppliChecked">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <UserCheck className="h-5 w-5 text-primary" /> Candexed Candidates
+              <UserCheck className="h-5 w-5 text-primary" /> PreAppliChecked Candidates
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!candexed.length ? (
+            {!preAppliChecked.length ? (
               <p className="text-sm text-muted-foreground text-center py-8">No fully screened candidates yet.</p>
             ) : (
               <Table>
@@ -681,7 +681,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {candexed.map((app) => (
+                  {preAppliChecked.map((app) => (
                     <TableRow key={app.id}>
                       <TableCell className="font-medium">{app.candidate_name}</TableCell>
                       <TableCell className="text-xs">{app.candidate_id_number || "—"}</TableCell>

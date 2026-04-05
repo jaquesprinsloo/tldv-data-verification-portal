@@ -41,7 +41,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
       >
         <img
           src={candexLogo}
-          alt="CanDex Pre-Screening"
+          alt="PreAppliCheck"
           className="w-[500px] max-w-[90vw] drop-shadow-[0_0_40px_rgba(220,38,38,0.3)]"
         />
         {/* Pulsing glow */}
