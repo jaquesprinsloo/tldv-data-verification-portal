@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Play, SkipForward } from "lucide-react";
-import candexLogo from "@/assets/candex-logo.png";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 
 interface IntroVideoScreenProps {
   onComplete: () => void;
