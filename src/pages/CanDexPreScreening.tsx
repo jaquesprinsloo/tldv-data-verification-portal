@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Home } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
+import preapplicheckShield from "@/assets/preapplicheck-shield.jpg";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
@@ -97,7 +98,7 @@ const CanDexPreScreening = () => {
         <div className="container mx-auto px-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-14 rounded" />
+              <img src={preapplicheckShield} alt="PreAppliCheck" className="h-10" />
               <div>
                 <h1 className="text-2xl font-bold font-poppins">PreAppliCheck Portal</h1>
               </div>
