@@ -101,7 +101,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                       {selectedEmployers.length > 0 ? (
                         <div className="mt-1 space-y-1">
                           {selectedEmployers.map((emp, i) => {
-                            const empDetail = questionnaire[`detail_${table.id}_${entryIdx}_${rowIdx}_${i}`] || "";
+                            const empDetail = questionnaireQuestions[`detail_${table.id}_${entryIdx}_${rowIdx}_${i}`] || "";
                             return (
                               <div key={i} className="flex items-start gap-2 text-sm">
                                 <Badge variant="outline" className="shrink-0 text-xs">{emp}</Badge>
