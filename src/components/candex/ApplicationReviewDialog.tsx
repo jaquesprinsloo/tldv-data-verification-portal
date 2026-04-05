@@ -42,7 +42,8 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   const appAnswers = application?.answers as any;
   const personalDetails = appAnswers?.personalDetails;
   const deviceData = appAnswers?.deviceData;
-  const questionnaire = appAnswers?.questionnaire || {};
+  const questionnaireTables = appAnswers?.questionnaire?.tables || {};
+  const questionnaireQuestions = appAnswers?.questionnaire?.questions || {};
   const popiaAccepted = appAnswers?.popiaAccepted;
   const indemnityAccepted = appAnswers?.indemnityAccepted;
 
