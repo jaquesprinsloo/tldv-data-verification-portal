@@ -18,10 +18,10 @@ export default function IntroVideoScreen({
       <img src={preapplicheckLogo} alt="PreAppliCheck" className="w-64 mb-8" />
 
       {/* Video placeholder */}
-      <div className="w-full max-w-2xl aspect-video bg-zinc-900 rounded-xl border border-zinc-800 flex flex-col items-center justify-center mb-8">
-        <Play className="h-16 w-16 text-zinc-600 mb-4" />
-        <p className="text-zinc-500 text-sm">{title}</p>
-        <p className="text-zinc-600 text-xs mt-2">Video coming soon</p>
+      <div className="w-full max-w-2xl aspect-video bg-gray-100 rounded-xl border border-gray-200 flex flex-col items-center justify-center mb-8">
+        <Play className="h-16 w-16 text-gray-400 mb-4" />
+        <p className="text-gray-500 text-sm">{title}</p>
+        <p className="text-gray-400 text-xs mt-2">Video coming soon</p>
       </div>
 
       <p className="text-zinc-400 text-sm text-center mb-6 max-w-md">{description}</p>
