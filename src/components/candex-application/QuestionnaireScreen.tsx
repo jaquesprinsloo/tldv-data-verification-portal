@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, CheckCircle, Plus, Trash2, CalendarIcon, HelpCircle, Play } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import candexLogo from "@/assets/candex-logo.png";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import type { Json } from "@/integrations/supabase/types";
 
 interface QuestionnaireScreenProps {
