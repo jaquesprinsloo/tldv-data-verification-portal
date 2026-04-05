@@ -91,15 +91,40 @@ const CanDexPreScreening = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <AdminHeader user={user} />
+    <div className="min-h-screen bg-black">
+      {/* PreAppliCheck branded header */}
+      <header className="bg-black text-white py-4 border-b-4 border-red-600 sticky top-0 z-50">
+        <div className="container mx-auto px-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-14 rounded" />
+              <div>
+                <h1 className="text-2xl font-bold font-poppins">PreAppliCheck Portal</h1>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right hidden md:block">
+                <p className="text-sm font-medium">{user?.email}</p>
+                <p className="text-xs text-white/70">Administrator</p>
+              </div>
+              <button
+                onClick={() => navigate("/admin/portal")}
+                className="bg-black border-[3px] border-red-600 text-white px-6 py-2 rounded-lg hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] transition-all duration-500 flex items-center gap-2 font-medium"
+              >
+                <Home className="h-4 w-4" />
+                Main Portal
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
 
       <main className="container mx-auto px-4 sm:px-6 py-8">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-12" />
+          <div className="flex items-center justify-center mb-6">
+            <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-28 rounded-lg shadow-[0_0_40px_rgba(239,68,68,0.3)]" />
           </div>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-zinc-400 max-w-2xl mx-auto">
             {isMasterAdmin
               ? "Pre-employment screening and candidate indexing portal"
               : "Manage candidate invitations, reviews, and risk assessments"}
