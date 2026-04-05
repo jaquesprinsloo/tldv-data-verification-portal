@@ -91,7 +91,7 @@ const CanDexPreScreening = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-white">
       {/* PreAppliCheck branded header */}
       <header className="bg-black text-white py-4 border-b-4 border-red-600 sticky top-0 z-50">
         <div className="container mx-auto px-6">
@@ -124,7 +124,7 @@ const CanDexPreScreening = () => {
           <div className="flex items-center justify-center mb-6">
             <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-28 rounded-lg shadow-[0_0_40px_rgba(239,68,68,0.3)]" />
           </div>
-          <p className="text-zinc-400 max-w-2xl mx-auto">
+          <p className="text-muted-foreground max-w-2xl mx-auto">
             {isMasterAdmin
               ? "Pre-employment screening and candidate indexing portal"
               : "Manage candidate invitations, reviews, and risk assessments"}
