@@ -156,6 +156,8 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
               })}
             </div>
           </div>
+        ))}
+      </div>
     );
   };
 
