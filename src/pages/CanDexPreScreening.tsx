@@ -60,7 +60,20 @@ const CanDexPreScreening = () => {
       const { count } = await supabase
         .from("candex_risk_requests")
         .select("id", { count: "exact", head: true })
-        .eq("status", "pending");
+        .in("status", ["pending", "in_progress"]);
+      return count ?? 0;
+    },
+    enabled: isMasterAdmin,
+  });
+
+  // Pending submitted applications count for master admin awareness
+  const { data: pendingSubmissionsCount = 0 } = useQuery({
+    queryKey: ["candex-pending-submissions-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("candex_applications")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "submitted");
       return count ?? 0;
     },
     enabled: isMasterAdmin,
