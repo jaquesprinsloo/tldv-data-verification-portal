@@ -106,6 +106,7 @@ const AdminPortalDashboard = () => {
 
   // Build portals list
   const buildPortals = useCallback((): PortalCard[] => {
+    const preAppliCheckKey = "candex-pre-screening";
     const allPortals: PortalCard[] = [
       {
         key: "data-employee-management",
@@ -208,7 +209,14 @@ const AdminPortalDashboard = () => {
       });
     }
 
-    return visiblePortals;
+    const preAppliCheckPortal = visiblePortals.find((portal) => portal.key === preAppliCheckKey)
+      ?? allPortals.find((portal) => portal.key === preAppliCheckKey);
+
+    const remainingPortals = visiblePortals.filter((portal) => portal.key !== preAppliCheckKey);
+
+    return preAppliCheckPortal
+      ? [preAppliCheckPortal, ...remainingPortals]
+      : visiblePortals;
   }, [isMasterAdmin, dataManagementBadge, pendingRequests, pendingPolygraphCount, savedOrder]);
 
   useEffect(() => {
@@ -455,7 +463,7 @@ const AdminPortalDashboard = () => {
             </p>
           )}
 
-          <div className={`grid grid-cols-2 ${isMasterAdmin ? 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'sm:grid-cols-3'} gap-3 sm:gap-4 md:gap-6`}>
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${isMasterAdmin ? 'xl:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-4 md:gap-6`}>
             {orderedPortals.map((portal, index) => {
               const hasAccess = isMasterAdmin || hasPermission(portal.permissionKey);
               
