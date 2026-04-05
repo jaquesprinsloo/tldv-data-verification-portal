@@ -86,7 +86,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                 const inputType = table.row_input_types?.[rowIdx];
                 const hasDetails = inputType?.require_explanation;
                 const value = entry?.[rowIdx]?.[0] || "";
-                const detail = questionnaire[`detail_${table.id}_${entryIdx}_${rowIdx}`] || "";
+                const detail = questionnaireQuestions[`detail_${table.id}_${entryIdx}_${rowIdx}`] || "";
 
                 // For employer_reference type, show selected employers and their details
                 if (inputType?.type === "employer_reference") {
