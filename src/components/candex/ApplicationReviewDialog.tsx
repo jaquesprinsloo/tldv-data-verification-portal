@@ -70,7 +70,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   );
 
   const renderTableAnswers = (table: SectionTable) => {
-    const entries: string[][][] = questionnaire[`table_${table.id}`] || [[]];
+    const entries: string[][][] = questionnaireTables[table.id] || [[]];
     
     return (
       <div className="space-y-3">
