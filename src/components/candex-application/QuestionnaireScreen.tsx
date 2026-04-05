@@ -157,6 +157,18 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     return getRowInputConfig(table, rowIdx).type;
   };
 
+  // Helper: get all dynamic select source values from tableData for a given source_table_id and source_row_index
+  const getDynamicSelectOptions = (sourceTableId: string, sourceRowIndex: number): string[] => {
+    const entries = tableData[sourceTableId] || [];
+    const options: string[] = [];
+    for (const entry of entries) {
+      // Collect from all columns for the given row, but typically col 0 is the value
+      const val = entry[sourceRowIndex]?.[0];
+      if (val && val.trim()) options.push(val.trim());
+    }
+    return options;
+  };
+
   const renderCellInput = (
     table: SectionTable,
     tableId: string,
@@ -165,7 +177,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     colIdx: number,
     value: string
   ) => {
-    const inputType = getInputType(table, rowIdx);
+    const rowConfig = getRowInputConfig(table, rowIdx);
+    const inputType = rowConfig.type;
+    const rowLabel = String(table.row_labels[rowIdx] || "").toLowerCase().trim();
 
     if (inputType === "yes_no") {
       return (
@@ -217,9 +231,130 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
-    if (inputType === "single_select" || inputType === "multi_select") {
-      // These types from builder would need options from row_input_types config
-      // Fallback to text for now in candidate view
+    if (inputType === "single_select" && rowConfig.options && rowConfig.options.length > 0) {
+      return (
+        <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
+            <SelectValue placeholder="Select an option" />
+          </SelectTrigger>
+          <SelectContent>
+            {rowConfig.options.map((opt) => (
+              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (inputType === "multi_select" && rowConfig.options && rowConfig.options.length > 0) {
+      const selectedItems: string[] = value ? (typeof value === 'string' ? (value.startsWith('[') ? JSON.parse(value) : value.split(',').filter(Boolean)) : []) : [];
+      return (
+        <div className="space-y-1">
+          {rowConfig.options.map((opt) => (
+            <div key={opt} className="flex items-center gap-2">
+              <Checkbox
+                checked={selectedItems.includes(opt)}
+                onCheckedChange={(checked) => {
+                  const next = checked ? [...selectedItems, opt] : selectedItems.filter((s) => s !== opt);
+                  setCellValue(tableId, entryIdx, rowIdx, colIdx, JSON.stringify(next));
+                }}
+                className="border-zinc-600 data-[state=checked]:bg-red-600 h-3 w-3"
+              />
+              <span className="text-xs text-zinc-300">{opt}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (inputType === "dynamic_select") {
+      const sourceTableId = rowConfig.source_table_id || "";
+      const sourceRowIndex = rowConfig.source_row_index ?? 0;
+      const dynamicOptions = getDynamicSelectOptions(sourceTableId, sourceRowIndex);
+      // Dynamic select is multi-select: each selected item gets its own details
+      const dynamicKey = `dynamic_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const selectedWithDetails: { name: string; details: string }[] = answers[dynamicKey] || [];
+
+      return (
+        <div className="space-y-2">
+          {dynamicOptions.length === 0 ? (
+            <p className="text-xs text-zinc-500 italic">No options available yet — fill in the source table first.</p>
+          ) : (
+            dynamicOptions.map((opt) => {
+              const existing = selectedWithDetails.find((s) => s.name === opt);
+              const isChecked = !!existing;
+              return (
+                <div key={opt} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={(checked) => {
+                        let next: { name: string; details: string }[];
+                        if (checked) {
+                          next = [...selectedWithDetails, { name: opt, details: "" }];
+                        } else {
+                          next = selectedWithDetails.filter((s) => s.name !== opt);
+                        }
+                        setAnswer(dynamicKey, next);
+                      }}
+                      className="border-zinc-600 data-[state=checked]:bg-red-600 h-3 w-3"
+                    />
+                    <span className="text-xs text-zinc-300">{opt}</span>
+                  </div>
+                  {isChecked && (
+                    <Input
+                      value={existing?.details || ""}
+                      onChange={(e) => {
+                        const next = selectedWithDetails.map((s) =>
+                          s.name === opt ? { ...s, details: e.target.value } : s
+                        );
+                        setAnswer(dynamicKey, next);
+                      }}
+                      className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 ml-5"
+                      placeholder={`Details for ${opt}...`}
+                    />
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      );
+    }
+
+    // Special handling: "employer" rows get split into two fields (name + location)
+    if (rowLabel.includes("employer") && rowLabel.includes("location")) {
+      const splitKey = `split_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const splitVal = answers[splitKey] || "";
+      return (
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            value={value}
+            onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
+            className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
+            placeholder="Employer name"
+          />
+          <Input
+            value={splitVal}
+            onChange={(e) => setAnswer(splitKey, e.target.value)}
+            className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
+            placeholder="Location"
+          />
+        </div>
+      );
+    }
+
+    // Special handling: "job description" rows get a larger textarea
+    if (rowLabel.includes("job") && rowLabel.includes("description") || rowLabel.includes("job description")) {
+      return (
+        <Textarea
+          value={value}
+          onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
+          className="bg-zinc-900 border-zinc-700 text-white text-xs min-h-[72px] resize-none"
+          rows={3}
+          placeholder="Describe your role and responsibilities..."
+        />
+      );
     }
 
     return (
@@ -239,13 +374,12 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       return t?.type === "currency";
     });
 
-    // Check if any row has require_explanation enabled
+    // Filter out "Details" column header if no rows need explanation
     const anyRowNeedsDetails = table.row_labels.some((_, rowIdx) => {
       const config = getRowInputConfig(table, rowIdx);
       return config.require_explanation === true;
     });
 
-    // Filter out "Details" column if no rows need explanation
     const visibleColIndices: number[] = [];
     const visibleColHeaders: string[] = [];
     table.column_headers.forEach((h, i) => {
@@ -297,25 +431,46 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   {table.row_labels.map((label, rowIdx) => {
                     const rowConfig = getRowInputConfig(table, rowIdx);
                     const needsDetails = rowConfig.require_explanation === true;
+                    const inputType = rowConfig.type;
                     const detailKey = `detail_${table.id}_${entryIdx}_${rowIdx}`;
+                    // For dynamic_select, details are handled inline — skip the separate details field
+                    const showSeparateDetails = needsDetails && inputType !== "dynamic_select";
                     return (
                       <tr key={rowIdx} className="border-b border-zinc-800/50">
                         <td className="p-2 text-xs text-zinc-400 font-medium">{label as string}</td>
-                        {visibleColIndices.map((colIdx, vi) => (
-                          <td key={vi} className="p-2">
-                            <div className="space-y-1">
-                              {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
-                              {needsDetails && vi === 0 && (
-                                <Input
-                                  value={answers[detailKey] || ""}
-                                  onChange={(e) => setAnswer(detailKey, e.target.value)}
-                                  className="bg-zinc-900 border-zinc-700 text-white text-xs h-7"
-                                  placeholder="Please provide details..."
-                                />
-                              )}
-                            </div>
-                          </td>
-                        ))}
+                        {visibleColIndices.map((colIdx, vi) => {
+                          const colHeader = String(table.column_headers[colIdx] || "").toLowerCase().trim();
+                          // If this is a "details" column, render a details input only if this row needs it
+                          if (colHeader === "details") {
+                            return (
+                              <td key={vi} className="p-2">
+                                {needsDetails ? (
+                                  <Input
+                                    value={answers[detailKey] || ""}
+                                    onChange={(e) => setAnswer(detailKey, e.target.value)}
+                                    className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
+                                    placeholder="Please provide details..."
+                                  />
+                                ) : null}
+                              </td>
+                            );
+                          }
+                          return (
+                            <td key={vi} className="p-2">
+                              <div className="space-y-1">
+                                {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
+                                {showSeparateDetails && vi === 0 && !visibleColHeaders.some(h => h.toLowerCase().trim() === "details") && (
+                                  <Input
+                                    value={answers[detailKey] || ""}
+                                    onChange={(e) => setAnswer(detailKey, e.target.value)}
+                                    className="bg-zinc-900 border-zinc-700 text-white text-xs h-7"
+                                    placeholder="Please provide details..."
+                                  />
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
                       </tr>
                     );
                   })}
@@ -324,12 +479,12 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     <tr className="bg-zinc-900/80 sticky bottom-0">
                       <td className="p-2 text-xs font-bold text-red-400">Total</td>
                       {visibleColIndices.map((colIdx, vi) => {
-                        const total = entry.reduce((sum, row, rIdx) => {
+                        const total = entries[0]?.reduce((sum, row, rIdx) => {
                           if (getInputType(table, rIdx) === "currency") {
                             return sum + (parseFloat(row[colIdx]) || 0);
                           }
                           return sum;
-                        }, 0);
+                        }, 0) || 0;
                         return (
                           <td key={vi} className="p-2 text-xs font-bold text-red-400">
                             R {total.toFixed(2)}
