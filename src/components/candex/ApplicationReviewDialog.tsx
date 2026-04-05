@@ -71,6 +71,9 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
 
   const renderTableAnswers = (table: SectionTable) => {
     const entries: string[][][] = questionnaireTables[table.id] || [[]];
+    const headers = table.column_headers || [];
+    // Filter out "Details" header if present (shown inline)
+    const displayHeaders = headers.filter((h: string) => h.toLowerCase() !== "details");
     
     return (
       <div className="space-y-3">
@@ -85,43 +88,63 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
               {table.row_labels.map((label: string, rowIdx: number) => {
                 const inputType = table.row_input_types?.[rowIdx];
                 const hasDetails = inputType?.require_explanation;
-                const value = entry?.[rowIdx]?.[0] || "";
+                const rowData = entry?.[rowIdx] || [];
                 const detail = questionnaireQuestions[`detail_${table.id}_${entryIdx}_${rowIdx}`] || "";
+                
+                // Check for dynamic employer reference data
+                const dynamicData = questionnaireQuestions[`dynamic_${table.id}_${entryIdx}_${rowIdx}_0`];
 
                 // For employer_reference type, show selected employers and their details
-                if (inputType?.type === "employer_reference") {
-                  let selectedEmployers: string[] = [];
-                  try {
-                    selectedEmployers = value ? JSON.parse(value) : [];
-                  } catch { selectedEmployers = value ? [value] : []; }
-
+                if (inputType?.type === "employer_reference" || dynamicData) {
                   return (
                     <div key={rowIdx} className="px-3 py-2">
                       <span className="text-xs text-muted-foreground">{label}</span>
-                      {selectedEmployers.length > 0 ? (
+                      {dynamicData && Array.isArray(dynamicData) ? (
                         <div className="mt-1 space-y-1">
-                          {selectedEmployers.map((emp, i) => {
-                            const empDetail = questionnaireQuestions[`detail_${table.id}_${entryIdx}_${rowIdx}_${i}`] || "";
-                            return (
-                              <div key={i} className="flex items-start gap-2 text-sm">
-                                <Badge variant="outline" className="shrink-0 text-xs">{emp}</Badge>
-                                {empDetail && <span className="text-muted-foreground">— {empDetail}</span>}
-                              </div>
-                            );
-                          })}
+                          {dynamicData.map((item: any, i: number) => (
+                            <div key={i} className="flex items-start gap-2 text-sm">
+                              <Badge variant="outline" className="shrink-0 text-xs">{item.name || "—"}</Badge>
+                              {item.details && <span className="text-muted-foreground">— {item.details}</span>}
+                            </div>
+                          ))}
                         </div>
                       ) : (
-                        <p className="text-sm mt-0.5">—</p>
+                        <p className="text-sm mt-0.5">{rowData[0] || "—"}</p>
                       )}
                     </div>
                   );
                 }
 
+                // Multiple columns: show each with its header
+                if (displayHeaders.length > 1) {
+                  return (
+                    <div key={rowIdx} className="px-3 py-2">
+                      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        {displayHeaders.map((header: string, colIdx: number) => (
+                          <div key={colIdx}>
+                            <span className="text-[10px] text-muted-foreground uppercase">{header}</span>
+                            <p className="text-sm font-medium">
+                              {inputType?.type === "currency" && rowData[colIdx] ? `R ${rowData[colIdx]}` : rowData[colIdx] || "—"}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      {hasDetails && detail && (
+                        <p className="text-xs text-muted-foreground mt-1 pl-2 border-l-2 border-primary/30">
+                          Details: {detail}
+                        </p>
+                      )}
+                    </div>
+                  );
+                }
+
+                // Single column
                 return (
                   <div key={rowIdx} className="px-3 py-2">
                     <span className="text-xs text-muted-foreground">{label}</span>
                     <p className="text-sm font-medium mt-0.5">
-                      {inputType?.type === "currency" && value ? `R ${value}` : value || "—"}
+                      {inputType?.type === "currency" && rowData[0] ? `R ${rowData[0]}` : rowData[0] || "—"}
                     </p>
                     {hasDetails && detail && (
                       <p className="text-xs text-muted-foreground mt-1 pl-2 border-l-2 border-primary/30">
@@ -133,8 +156,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
               })}
             </div>
           </div>
-        ))}
-      </div>
     );
   };
 
