@@ -15,7 +15,7 @@ export default function IntroVideoScreen({
 }: IntroVideoScreenProps) {
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
-      <img src={candexLogo} alt="CanDex" className="w-64 mb-8 opacity-80" />
+      <img src={preapplicheckLogo} alt="PreAppliCheck" className="w-64 mb-8" />
 
       {/* Video placeholder */}
       <div className="w-full max-w-2xl aspect-video bg-zinc-900 rounded-xl border border-zinc-800 flex flex-col items-center justify-center mb-8">

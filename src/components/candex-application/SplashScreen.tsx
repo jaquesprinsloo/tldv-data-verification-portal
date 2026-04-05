@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import candexLogo from "@/assets/candex-logo.png";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -20,16 +20,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
   }, [onComplete]);
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center overflow-hidden">
-      {/* Heartbeat line animation */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div
-          className={`h-[2px] bg-red-600 transition-all duration-1000 ease-out ${
-            phase === "enter" ? "w-0 opacity-0" : "w-full opacity-20"
-          }`}
-        />
-      </div>
-
+    <div className="min-h-screen bg-white flex items-center justify-center overflow-hidden">
       <div
         className={`relative z-10 transition-all duration-1000 ease-out ${
           phase === "enter"
@@ -40,18 +31,16 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
         }`}
       >
         <img
-          src={candexLogo}
+          src={preapplicheckLogo}
           alt="PreAppliCheck"
-          className="w-[500px] max-w-[90vw] drop-shadow-[0_0_40px_rgba(220,38,38,0.3)]"
+          className="w-[500px] max-w-[90vw]"
         />
-        {/* Pulsing glow */}
-        <div className="absolute inset-0 bg-red-600/10 rounded-full blur-3xl animate-pulse -z-10" />
       </div>
 
       {/* Skip hint */}
       <button
         onClick={onComplete}
-        className="absolute bottom-8 text-white/30 text-xs hover:text-white/60 transition-colors"
+        className="absolute bottom-8 text-black/30 text-xs hover:text-black/60 transition-colors"
       >
         Tap to skip
       </button>
