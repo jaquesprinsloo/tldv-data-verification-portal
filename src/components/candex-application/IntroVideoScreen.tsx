@@ -10,7 +10,7 @@ interface IntroVideoScreenProps {
 
 export default function IntroVideoScreen({
   onComplete,
-  title = "Introduction to CanDex Pre-Screening",
+  title = "Introduction to PreAppliCheck Screening",
   description = "Please watch the introduction video before proceeding.",
 }: IntroVideoScreenProps) {
   return (
