@@ -94,7 +94,7 @@ const CanDexPreScreening = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* PreAppliCheck branded header */}
-      <header className="bg-black text-white py-4 border-b-4 border-red-600 sticky top-0 z-50">
+      <header className="bg-white text-foreground py-4 border-b-4 border-red-600 sticky top-0 z-50">
         <div className="container mx-auto px-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
