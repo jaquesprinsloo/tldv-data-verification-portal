@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Home } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
+import preapplicheckShield from "@/assets/preapplicheck-shield.jpg";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
