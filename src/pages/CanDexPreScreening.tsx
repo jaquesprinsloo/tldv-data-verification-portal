@@ -109,7 +109,14 @@ const CanDexPreScreening = () => {
         {isMasterAdmin ? (
           <Tabs defaultValue="statistics" className="space-y-6">
             <TabsList className="grid w-full grid-cols-4 max-w-xl mx-auto">
-              <TabsTrigger value="statistics">Statistics</TabsTrigger>
+              <TabsTrigger value="statistics" className="relative">
+                Statistics
+                {pendingSubmissionsCount > 0 && (
+                  <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                    {pendingSubmissionsCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="risk-requests" className="relative">
                 Risk Requests
                 {pendingRiskCount > 0 && (
