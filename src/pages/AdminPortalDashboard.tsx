@@ -163,8 +163,8 @@ const AdminPortalDashboard = () => {
       },
       {
         key: "candex-pre-screening",
-        title: "CanDex Pre Screening",
-        description: "Pre-employment screening and candidate indexing",
+        title: "PreAppliCheck",
+        description: "Pre-employment screening and applicant checks",
         icon: ShieldCheck,
         path: "/admin/candex-pre-screening",
         color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",

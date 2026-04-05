@@ -63,8 +63,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
     category: "Portal Access",
   },
   [PERMISSION_KEYS.PORTAL_CANDEX_PRE_SCREENING]: {
-    label: "CanDex Pre Screening Portal",
-    description: "Access to the CanDex Pre Screening portal card",
+    label: "PreAppliCheck Portal",
+    description: "Access to the PreAppliCheck portal card",
     category: "Portal Access",
   },
   

@@ -126,7 +126,7 @@ export default function PersonalDetailsScreen({ prefilled, onComplete }: Persona
     <div className="min-h-screen bg-black">
       <div className="border-b border-zinc-800 bg-zinc-950">
         <div className="container mx-auto px-4 py-3">
-          <img src={candexLogo} alt="CanDex" className="h-8" />
+          <img src={candexLogo} alt="PreAppliCheck" className="h-8" />
         </div>
       </div>
 
@@ -190,7 +190,7 @@ export default function PersonalDetailsScreen({ prefilled, onComplete }: Persona
               onClick={handleSubmit}
               className="w-full bg-red-600 hover:bg-red-700 text-white"
             >
-              Proceed to Start CanDex Pre-Screening
+              Proceed to Start PreAppliCheck
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </CardContent>

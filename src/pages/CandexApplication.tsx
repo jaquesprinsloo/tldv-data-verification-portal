@@ -98,7 +98,7 @@ const CandexApplication = () => {
       }]);
 
       setStep("completed");
-      toast.success("CanDex Pre-Screening completed successfully!");
+      toast.success("PreAppliCheck completed successfully!");
     } catch (err) {
       console.error("Submission error:", err);
       toast.error("Failed to submit. Please try again.");
@@ -133,8 +133,8 @@ const CandexApplication = () => {
         <Card className="max-w-md w-full text-center bg-zinc-950 border-zinc-800">
           <CardContent className="pt-8 pb-8">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2 text-white">CanDex Pre-Screening Complete</h2>
-            <p className="text-zinc-400">Your application has been submitted successfully. Thank you for completing the CanDex Pre-Screening process. You may now close this page.</p>
+            <h2 className="text-xl font-bold mb-2 text-white">PreAppliCheck Complete</h2>
+            <p className="text-zinc-400">Your application has been submitted successfully. Thank you for completing the PreAppliCheck process. You may now close this page.</p>
           </CardContent>
         </Card>
       </div>
@@ -149,8 +149,8 @@ const CandexApplication = () => {
     return (
       <IntroVideoScreen
         onComplete={handleIntroComplete}
-        title="Introduction to CanDex Pre-Screening"
-        description="This video explains the CanDex Pre-Screening process. Once the video ends, you will proceed to accept the terms and conditions."
+        title="Introduction to PreAppliCheck"
+        description="This video explains the PreAppliCheck process. Once the video ends, you will proceed to accept the terms and conditions."
       />
     );
   }
@@ -177,7 +177,7 @@ const CandexApplication = () => {
     return (
       <IntroVideoScreen
         onComplete={handleQuestionnaireIntroComplete}
-        title="CanDex Pre-Screening Instructions"
+        title="PreAppliCheck Instructions"
         description="Please watch this instructional video before starting the pre-screening questionnaire."
       />
     );
