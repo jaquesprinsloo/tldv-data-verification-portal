@@ -170,7 +170,7 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
       {/* Header */}
       <div className="border-b border-zinc-800 bg-zinc-950">
         <div className="container mx-auto px-4 py-3 flex items-center gap-3">
-          <img src={candexLogo} alt="CanDex" className="h-8" />
+          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-8" />
         </div>
       </div>
 

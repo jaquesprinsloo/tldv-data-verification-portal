@@ -621,7 +621,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     <div className="min-h-screen bg-black">
       <div className="border-b border-zinc-800 bg-zinc-950">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <img src={candexLogo} alt="PreAppliCheck" className="h-8" />
+          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-8" />
           <span className="text-xs text-zinc-500">
             Section {currentSection + 1} of {sections.length}
           </span>
