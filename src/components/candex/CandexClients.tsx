@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Users, Send, CheckCircle, Search, FileText, Pencil } from "lucide-react";
+import { Plus, Users, Send, CheckCircle, Search, FileText, Pencil, Building2 } from "lucide-react";
 
 interface Client {
   id: string;
@@ -19,6 +19,7 @@ interface Client {
   contact_phone: string | null;
   company_name: string | null;
   template_id: string | null;
+  account_id: string | null;
   created_at: string;
 }
 
@@ -26,9 +27,9 @@ const CandexClients = () => {
   const queryClient = useQueryClient();
   const [showNewClient, setShowNewClient] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", company: "" });
+  const [newClient, setNewClient] = useState({ name: "", email: "", phone: "", company: "", account_id: "" });
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", company: "" });
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", company: "", account_id: "" });
 
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["candex-clients"],
@@ -39,6 +40,14 @@ const CandexClients = () => {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Client[];
+    },
+  });
+
+  const { data: accounts = [] } = useQuery({
+    queryKey: ["all-accounts-for-assignment"],
+    queryFn: async () => {
+      const { data } = await supabase.from("accounts").select("id, name, code").order("name");
+      return data || [];
     },
   });
 
@@ -72,7 +81,6 @@ const CandexClients = () => {
     },
   });
 
-  // Get available templates
   const { data: templates = [] } = useQuery({
     queryKey: ["candex-templates-for-assignment"],
     queryFn: async () => {
@@ -84,7 +92,6 @@ const CandexClients = () => {
     },
   });
 
-  // Assign template to client
   const assignTemplate = useMutation({
     mutationFn: async ({ clientId, templateId }: { clientId: string; templateId: string | null }) => {
       const { error } = await supabase
@@ -100,6 +107,21 @@ const CandexClients = () => {
     onError: (e) => toast.error(e.message),
   });
 
+  const assignAccount = useMutation({
+    mutationFn: async ({ clientId, accountId }: { clientId: string; accountId: string | null }) => {
+      const { error } = await supabase
+        .from("candex_clients")
+        .update({ account_id: accountId } as any)
+        .eq("id", clientId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-clients"] });
+      toast.success("Account assigned");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const updateClient = useMutation({
     mutationFn: async () => {
       if (!editingClient) return;
@@ -110,7 +132,8 @@ const CandexClients = () => {
           contact_email: editForm.email || null,
           contact_phone: editForm.phone || null,
           company_name: editForm.company || null,
-        })
+          account_id: editForm.account_id || null,
+        } as any)
         .eq("id", editingClient.id);
       if (error) throw error;
     },
@@ -130,14 +153,15 @@ const CandexClients = () => {
         contact_email: newClient.email || null,
         contact_phone: newClient.phone || null,
         company_name: newClient.company || null,
+        account_id: newClient.account_id || null,
         created_by: session?.user.id,
-      });
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["candex-clients"] });
       setShowNewClient(false);
-      setNewClient({ name: "", email: "", phone: "", company: "" });
+      setNewClient({ name: "", email: "", phone: "", company: "", account_id: "" });
       toast.success("Client added");
     },
     onError: (e) => toast.error(e.message),
@@ -149,6 +173,7 @@ const CandexClients = () => {
       email: client.contact_email || "",
       phone: client.contact_phone || "",
       company: client.company_name || "",
+      account_id: client.account_id || "",
     });
     setEditingClient(client);
   };
@@ -160,12 +185,18 @@ const CandexClients = () => {
       (c.contact_email || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const getAccountName = (accountId: string | null) => {
+    if (!accountId) return null;
+    const acc = accounts.find((a) => a.id === accountId);
+    return acc ? `${acc.name} (${acc.code})` : null;
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-lg font-semibold">Clients</h2>
-          <p className="text-sm text-muted-foreground">Manage clients and track their screening activity</p>
+          <p className="text-sm text-muted-foreground">Manage clients, assign accounts, and track screening activity</p>
         </div>
         <Button onClick={() => setShowNewClient(true)}>
           <Plus className="h-4 w-4 mr-2" /> Add Client
@@ -206,6 +237,7 @@ const CandexClients = () => {
               <TableRow>
                 <TableHead>Client Name</TableHead>
                 <TableHead>Company</TableHead>
+                <TableHead>Account</TableHead>
                 <TableHead>Contact</TableHead>
                 <TableHead>Template</TableHead>
                 <TableHead className="text-center">Invitations</TableHead>
@@ -222,6 +254,32 @@ const CandexClients = () => {
                   <TableRow key={client.id}>
                     <TableCell className="font-medium">{client.name}</TableCell>
                     <TableCell className="text-muted-foreground">{client.company_name || "—"}</TableCell>
+                    <TableCell>
+                      <Select
+                        value={client.account_id || "none"}
+                        onValueChange={(val) =>
+                          assignAccount.mutate({
+                            clientId: client.id,
+                            accountId: val === "none" ? null : val,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="w-[180px] h-8 text-xs">
+                          <SelectValue placeholder="No account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No account</SelectItem>
+                          {accounts.map((acc) => (
+                            <SelectItem key={acc.id} value={acc.id}>
+                              <div className="flex items-center gap-1.5">
+                                <Building2 className="h-3 w-3" />
+                                {acc.name} ({acc.code})
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell>
                       <div className="text-sm">
                         {client.contact_email && <div>{client.contact_email}</div>}
@@ -283,6 +341,7 @@ const CandexClients = () => {
         </Card>
       )}
 
+      {/* New Client Dialog */}
       <Dialog open={showNewClient} onOpenChange={setShowNewClient}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add New Client</DialogTitle></DialogHeader>
@@ -294,6 +353,18 @@ const CandexClients = () => {
             <div>
               <Label>Company Name</Label>
               <Input value={newClient.company} onChange={(e) => setNewClient((p) => ({ ...p, company: e.target.value }))} placeholder="Company name" />
+            </div>
+            <div>
+              <Label>Assign Account</Label>
+              <Select value={newClient.account_id || "none"} onValueChange={(val) => setNewClient((p) => ({ ...p, account_id: val === "none" ? "" : val }))}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select account" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No account</SelectItem>
+                  {accounts.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Email</Label>
@@ -311,6 +382,7 @@ const CandexClients = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Client Dialog */}
       <Dialog open={!!editingClient} onOpenChange={(open) => !open && setEditingClient(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Edit Client</DialogTitle></DialogHeader>
@@ -322,6 +394,18 @@ const CandexClients = () => {
             <div>
               <Label>Company Name</Label>
               <Input value={editForm.company} onChange={(e) => setEditForm((p) => ({ ...p, company: e.target.value }))} placeholder="Company name" />
+            </div>
+            <div>
+              <Label>Assign Account</Label>
+              <Select value={editForm.account_id || "none"} onValueChange={(val) => setEditForm((p) => ({ ...p, account_id: val === "none" ? "" : val }))}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select account" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No account</SelectItem>
+                  {accounts.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Email</Label>

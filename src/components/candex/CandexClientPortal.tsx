@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 const PUBLISHED_URL = "https://portal.tldv.co.za";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,8 +15,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw } from "lucide-react";
+import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store } from "lucide-react";
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import { format } from "date-fns";
 
@@ -24,9 +25,18 @@ interface CandexClientPortalProps {
   userId: string;
 }
 
+interface BulkCandidate {
+  name: string;
+  surname: string;
+  email: string;
+  phone: string;
+  id_number: string;
+}
+
 const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const queryClient = useQueryClient();
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteMode, setInviteMode] = useState<"single" | "bulk">("single");
   const [inviteMethod, setInviteMethod] = useState<"email" | "whatsapp">("email");
   const [inviteForm, setInviteForm] = useState({ name: "", surname: "", phone: "", email: "", id_number: "" });
   const [reviewApp, setReviewApp] = useState<any>(null);
@@ -36,11 +46,16 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
 
+  // Bulk invite state
+  const [bulkCandidates, setBulkCandidates] = useState<BulkCandidate[]>([]);
+  const [bulkEntry, setBulkEntry] = useState<BulkCandidate>({ name: "", surname: "", email: "", phone: "", id_number: "" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [bulkSending, setBulkSending] = useState(false);
+
   // Get client for this user - auto-create if not found
   const { data: client } = useQuery({
     queryKey: ["candex-my-client", userId],
     queryFn: async () => {
-      // First try to find existing client
       const { data: existing } = await supabase
         .from("candex_clients")
         .select("*")
@@ -48,7 +63,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         .maybeSingle();
       if (existing) return existing;
 
-      // Auto-create a client record for this admin
       const { data: profile } = await supabase
         .from("profiles")
         .select("full_name, email")
@@ -73,8 +87,23 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     },
   });
 
-  // Template is assigned by master admin via client record
   const clientTemplateId = (client as any)?.template_id || null;
+  const clientAccountId = (client as any)?.account_id || null;
+
+  // Get stores (sub-accounts) for assigned account
+  const { data: stores = [] } = useQuery({
+    queryKey: ["client-stores", clientAccountId],
+    queryFn: async () => {
+      if (!clientAccountId) return [];
+      const { data } = await supabase
+        .from("stores")
+        .select("id, store_name, store_code")
+        .eq("account_id", clientAccountId)
+        .order("store_name");
+      return data || [];
+    },
+    enabled: !!clientAccountId,
+  });
 
   // Get invitations
   const { data: invitations } = useQuery({
@@ -133,8 +162,21 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const approved = applications?.filter((a) => a.status === "approved") || [];
   const rejected = applications?.filter((a) => a.status === "rejected") || [];
   const preAppliChecked = applications?.filter((a) => a.status === "preAppliChecked") || [];
+  const inProgress = applications?.filter((a) => a.status === "in_progress") || [];
+  const totalApplications = applications?.length || 0;
 
-  // Send invitation
+  // ── Dashboard Stats ──
+  const dashboardStats = {
+    totalInvitations: invitations?.length || 0,
+    totalApplications,
+    submitted: pendingReview.length,
+    approved: approved.length,
+    rejected: rejected.length,
+    preAppliChecked: preAppliChecked.length,
+    inProgress: inProgress.length,
+  };
+
+  // ── Send single invitation ──
   const sendInvite = useMutation({
     mutationFn: async () => {
       if (!client?.id) throw new Error("No client found");
@@ -178,49 +220,29 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       const { data: invData, error } = existingInvite
         ? await supabase
             .from("candex_invitations")
-            .update({
-              ...invitationPayload,
-              status: existingInvite.status === "opened" ? "opened" : "sent",
-            })
+            .update({ ...invitationPayload, status: existingInvite.status === "opened" ? "opened" : "sent" })
             .eq("id", existingInvite.id)
             .select()
             .single()
         : await supabase
             .from("candex_invitations")
-            .insert({
-              ...invitationPayload,
-              status: "sent",
-            })
+            .insert({ ...invitationPayload, status: "sent" })
             .select()
             .single();
       if (error) throw error;
 
-      // Send the actual email/WhatsApp
       if (inviteMethod === "email" && candidateEmail) {
         const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
         const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
-          body: {
-            email: candidateEmail,
-            candidateName,
-            invitationLink: portalUrl,
-          },
+          body: { email: candidateEmail, candidateName, invitationLink: portalUrl },
         });
-        if (emailError) {
-          console.error("Email send error:", emailError);
-          throw new Error("Invitation saved but email failed to send");
-        }
+        if (emailError) throw new Error("Invitation saved but email failed to send");
       } else if (inviteMethod === "whatsapp" && candidatePhone) {
         const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
         const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
-          body: {
-            phone: candidatePhone,
-            message: `Hi ${inviteForm.name}, you've been invited to complete a PreAppliCheck. Please click here to begin: ${portalUrl}`,
-          },
+          body: { phone: candidatePhone, message: `Hi ${inviteForm.name}, you've been invited to complete a PreAppliCheck. Please click here to begin: ${portalUrl}` },
         });
-        if (waError) {
-          console.error("WhatsApp send error:", waError);
-          throw new Error("Invitation saved but WhatsApp message failed to send");
-        }
+        if (waError) throw new Error("Invitation saved but WhatsApp message failed to send");
       }
     },
     onSuccess: () => {
@@ -231,6 +253,110 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  // ── Send bulk invitations ──
+  const sendBulkInvites = async () => {
+    if (!client?.id || bulkCandidates.length === 0) return;
+    setBulkSending(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const candidate of bulkCandidates) {
+      try {
+        const candidateName = `${candidate.name} ${candidate.surname}`.trim();
+        const candidateEmail = candidate.email.trim().toLowerCase() || null;
+        const candidatePhone = candidate.phone.trim() || null;
+        const candidateIdNumber = candidate.id_number.trim() || null;
+
+        const { data: invData, error } = await supabase
+          .from("candex_invitations")
+          .insert({
+            client_id: client.id,
+            candidate_name: candidateName,
+            candidate_email: candidateEmail,
+            candidate_phone: candidatePhone,
+            candidate_id_number: candidateIdNumber,
+            template_id: clientTemplateId,
+            created_by: userId,
+            sent_at: new Date().toISOString(),
+            status: "sent",
+          })
+          .select()
+          .single();
+        if (error) throw error;
+
+        // Send notification
+        if (candidateEmail) {
+          const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
+          await supabase.functions.invoke("send-candex-invitation", {
+            body: { email: candidateEmail, candidateName, invitationLink: portalUrl },
+          });
+        } else if (candidatePhone) {
+          const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
+          await supabase.functions.invoke("send-whatsapp-invitation", {
+            body: { phone: candidatePhone, message: `Hi ${candidate.name}, you've been invited to complete a PreAppliCheck. Please click here to begin: ${portalUrl}` },
+          });
+        }
+        successCount++;
+      } catch {
+        failCount++;
+      }
+    }
+
+    setBulkSending(false);
+    setBulkCandidates([]);
+    setInviteOpen(false);
+    queryClient.invalidateQueries({ queryKey: ["candex-my-invitations"] });
+    toast.success(`${successCount} invitations sent${failCount > 0 ? `, ${failCount} failed` : ""}`);
+  };
+
+  // ── CSV parsing ──
+  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.split("\n").filter((l) => l.trim());
+      if (lines.length < 2) {
+        toast.error("CSV must have a header row and at least one data row");
+        return;
+      }
+      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+      const nameIdx = headers.findIndex((h) => h.includes("name") && !h.includes("surname") && !h.includes("last"));
+      const surnameIdx = headers.findIndex((h) => h.includes("surname") || h.includes("last"));
+      const emailIdx = headers.findIndex((h) => h.includes("email"));
+      const phoneIdx = headers.findIndex((h) => h.includes("phone") || h.includes("contact") || h.includes("cell"));
+      const idIdx = headers.findIndex((h) => h.includes("id") && !h.includes("email"));
+
+      const parsed: BulkCandidate[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+        if (!cols[nameIdx]) continue;
+        parsed.push({
+          name: cols[nameIdx] || "",
+          surname: surnameIdx >= 0 ? cols[surnameIdx] || "" : "",
+          email: emailIdx >= 0 ? cols[emailIdx] || "" : "",
+          phone: phoneIdx >= 0 ? cols[phoneIdx] || "" : "",
+          id_number: idIdx >= 0 ? cols[idIdx] || "" : "",
+        });
+      }
+      setBulkCandidates((prev) => [...prev, ...parsed]);
+      toast.success(`${parsed.length} candidates loaded from CSV`);
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const addBulkEntry = () => {
+    if (!bulkEntry.name.trim()) return;
+    setBulkCandidates((prev) => [...prev, { ...bulkEntry }]);
+    setBulkEntry({ name: "", surname: "", email: "", phone: "", id_number: "" });
+  };
+
+  const removeBulkCandidate = (idx: number) => {
+    setBulkCandidates((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   // Delete invitation
   const deleteInvite = useMutation({
@@ -251,29 +377,18 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       if (inv.candidate_email) {
         const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${inv.token}`;
         const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
-          body: {
-            email: inv.candidate_email,
-            candidateName: inv.candidate_name,
-            invitationLink: portalUrl,
-          },
+          body: { email: inv.candidate_email, candidateName: inv.candidate_name, invitationLink: portalUrl },
         });
         if (emailError) throw new Error("Failed to resend email");
       } else if (inv.candidate_phone) {
         const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${inv.token}`;
         const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
-          body: {
-            phone: inv.candidate_phone,
-            message: `Reminder: You've been invited to complete a PreAppliCheck. Please click here to begin: ${portalUrl}`,
-          },
+          body: { phone: inv.candidate_phone, message: `Reminder: You've been invited to complete a PreAppliCheck. Please click here to begin: ${portalUrl}` },
         });
         if (waError) throw new Error("Failed to resend WhatsApp message");
       }
-      // Update sent_at timestamp
       const nextStatus = inv.status === "opened" ? "opened" : "sent";
-      await supabase
-        .from("candex_invitations")
-        .update({ sent_at: new Date().toISOString(), status: nextStatus })
-        .eq("id", inv.id);
+      await supabase.from("candex_invitations").update({ sent_at: new Date().toISOString(), status: nextStatus }).eq("id", inv.id);
     },
     onSuccess: () => {
       toast.success("Invitation resent");
@@ -310,7 +425,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       if (!client?.id || !requestAccountId || selectedCandidates.length === 0) {
         throw new Error("Please fill all fields and select candidates");
       }
-      // Create request
       const { data: req, error: reqErr } = await supabase
         .from("candex_risk_requests" as any)
         .insert({
@@ -323,14 +437,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         .select("id")
         .single();
       if (reqErr) throw reqErr;
-      // Add candidates
       const candidates = selectedCandidates.map((appId) => ({
         request_id: (req as any).id,
         application_id: appId,
       }));
-      const { error: candErr } = await supabase
-        .from("candex_risk_request_candidates" as any)
-        .insert(candidates as any);
+      const { error: candErr } = await supabase.from("candex_risk_request_candidates" as any).insert(candidates as any);
       if (candErr) throw candErr;
     },
     onSuccess: () => {
@@ -344,15 +455,16 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   });
 
   const toggleCandidate = (id: string) => {
-    setSelectedCandidates((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
+    setSelectedCandidates((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
   };
 
   return (
-    <Tabs defaultValue="invite" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-4 max-w-lg mx-auto">
-        <TabsTrigger value="invite">Invite</TabsTrigger>
+    <Tabs defaultValue="dashboard" className="space-y-6">
+      <TabsList className="grid w-full grid-cols-5 max-w-2xl mx-auto">
+        <TabsTrigger value="dashboard">
+          <BarChart3 className="h-3.5 w-3.5 mr-1" /> Dashboard
+        </TabsTrigger>
+        <TabsTrigger value="invite">Invitations</TabsTrigger>
         <TabsTrigger value="review" className="relative">
           Review
           {pendingReview.length > 0 && (
@@ -362,17 +474,102 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           )}
         </TabsTrigger>
         <TabsTrigger value="approved">Approved</TabsTrigger>
-        <TabsTrigger value="preAppliChecked">PreAppliChecked</TabsTrigger>
+        <TabsTrigger value="preAppliChecked">Checked</TabsTrigger>
       </TabsList>
+
+      {/* ── DASHBOARD TAB ── */}
+      <TabsContent value="dashboard">
+        <div className="space-y-6">
+          {/* Account info */}
+          {clientAccountId && (
+            <Card className="border-primary/20">
+              <CardContent className="py-3 flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">
+                  Account: {accounts?.find(a => a.id === clientAccountId)?.name || "Assigned Account"}
+                </span>
+                {stores.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 text-xs">{stores.length} Sub-Accounts</Badge>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Overall Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            {[
+              { label: "Total Invitations", value: dashboardStats.totalInvitations, color: "text-blue-600" },
+              { label: "In Progress", value: dashboardStats.inProgress, color: "text-amber-600" },
+              { label: "Submitted", value: dashboardStats.submitted, color: "text-orange-600" },
+              { label: "Approved", value: dashboardStats.approved, color: "text-green-600" },
+              { label: "Rejected", value: dashboardStats.rejected, color: "text-red-600" },
+              { label: "PreAppliChecked", value: dashboardStats.preAppliChecked, color: "text-primary" },
+              { label: "Total Applications", value: dashboardStats.totalApplications, color: "text-foreground" },
+            ].map((stat) => (
+              <Card key={stat.label}>
+                <CardContent className="py-4 text-center">
+                  <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">{stat.label}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Per Sub-Account Breakdown */}
+          {stores.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Store className="h-4 w-4" /> Sub-Account Breakdown
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Sub-Account</TableHead>
+                      <TableHead className="text-center">Code</TableHead>
+                      <TableHead className="text-center">Invitations</TableHead>
+                      <TableHead className="text-center">Applications</TableHead>
+                      <TableHead className="text-center">Approved</TableHead>
+                      <TableHead className="text-center">Checked</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {stores.map((store) => (
+                      <TableRow key={store.id}>
+                        <TableCell className="font-medium">{store.store_name}</TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground">{store.store_code}</TableCell>
+                        <TableCell className="text-center">—</TableCell>
+                        <TableCell className="text-center">—</TableCell>
+                        <TableCell className="text-center">—</TableCell>
+                        <TableCell className="text-center">—</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Sub-account level tracking will be available once invitations are linked to specific sub-accounts.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </TabsContent>
 
       {/* ── INVITE TAB ── */}
       <TabsContent value="invite">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-lg">Candidate Invitations</CardTitle>
-            <Button onClick={() => setInviteOpen(true)} size="sm">
-              <Send className="h-4 w-4 mr-1" /> Invite Candidate
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => { setInviteMode("single"); setInviteOpen(true); }} size="sm">
+                <Send className="h-4 w-4 mr-1" /> Single Invite
+              </Button>
+              <Button onClick={() => { setInviteMode("bulk"); setInviteOpen(true); }} size="sm" variant="outline">
+                <Users className="h-4 w-4 mr-1" /> Bulk Invite
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {!invitations?.length ? (
@@ -413,27 +610,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         </TableCell>
                         <TableCell className="text-right space-x-1">
                           {inv.status !== "completed" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              title="Resend invitation"
-                              onClick={() => resendInvite.mutate(inv)}
-                              disabled={resendInvite.isPending}
-                            >
+                            <Button variant="ghost" size="icon" className="h-7 w-7" title="Resend invitation" onClick={() => resendInvite.mutate(inv)} disabled={resendInvite.isPending}>
                               <RefreshCw className="h-3.5 w-3.5" />
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
-                            title="Delete invitation"
-                            onClick={() => {
-                              if (confirm("Delete this invitation?")) deleteInvite.mutate(inv.id);
-                            }}
-                            disabled={deleteInvite.isPending}
-                          >
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete invitation" onClick={() => { if (confirm("Delete this invitation?")) deleteInvite.mutate(inv.id); }} disabled={deleteInvite.isPending}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </TableCell>
@@ -446,38 +627,113 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           </CardContent>
         </Card>
 
-        {/* Invite Dialog */}
-        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-          <DialogContent className="max-w-md">
+        {/* Invite Dialog - Single or Bulk */}
+        <Dialog open={inviteOpen} onOpenChange={(open) => { setInviteOpen(open); if (!open) { setBulkCandidates([]); } }}>
+          <DialogContent className={inviteMode === "bulk" ? "max-w-2xl" : "max-w-md"}>
             <DialogHeader>
-              <DialogTitle>Invite Candidate</DialogTitle>
-              <DialogDescription>Fill in the candidate's details to send a PreAppliCheck invitation.</DialogDescription>
+              <DialogTitle>{inviteMode === "single" ? "Invite Single Candidate" : "Bulk Invite Candidates"}</DialogTitle>
+              <DialogDescription>
+                {inviteMode === "single"
+                  ? "Fill in the candidate's details to send a PreAppliCheck invitation."
+                  : "Add multiple candidates manually or upload a CSV file."}
+              </DialogDescription>
             </DialogHeader>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Name</Label><Input value={inviteForm.name} onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })} /></div>
-                <div><Label>Surname</Label><Input value={inviteForm.surname} onChange={(e) => setInviteForm({ ...inviteForm, surname: e.target.value })} /></div>
-              </div>
-              <div><Label>ID Number</Label><Input value={inviteForm.id_number} onChange={(e) => setInviteForm({ ...inviteForm, id_number: e.target.value })} /></div>
-              <div><Label>Contact Number</Label><Input value={inviteForm.phone} onChange={(e) => setInviteForm({ ...inviteForm, phone: e.target.value })} /></div>
-              <div><Label>Email Address</Label><Input type="email" value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} /></div>
-              <div>
-                <Label>Send Via</Label>
-                <div className="flex gap-2 mt-1">
-                  <Button variant={inviteMethod === "email" ? "default" : "outline"} size="sm" onClick={() => setInviteMethod("email")}>
-                    <Mail className="h-4 w-4 mr-1" /> Email
-                  </Button>
-                  <Button variant={inviteMethod === "whatsapp" ? "default" : "outline"} size="sm" onClick={() => setInviteMethod("whatsapp")}>
-                    <Phone className="h-4 w-4 mr-1" /> WhatsApp
-                  </Button>
+
+            {inviteMode === "single" ? (
+              <>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><Label>Name</Label><Input value={inviteForm.name} onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })} /></div>
+                    <div><Label>Surname</Label><Input value={inviteForm.surname} onChange={(e) => setInviteForm({ ...inviteForm, surname: e.target.value })} /></div>
+                  </div>
+                  <div><Label>ID Number</Label><Input value={inviteForm.id_number} onChange={(e) => setInviteForm({ ...inviteForm, id_number: e.target.value })} /></div>
+                  <div><Label>Contact Number</Label><Input value={inviteForm.phone} onChange={(e) => setInviteForm({ ...inviteForm, phone: e.target.value })} /></div>
+                  <div><Label>Email Address</Label><Input type="email" value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} /></div>
+                  <div>
+                    <Label>Send Via</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Button variant={inviteMethod === "email" ? "default" : "outline"} size="sm" onClick={() => setInviteMethod("email")}><Mail className="h-4 w-4 mr-1" /> Email</Button>
+                      <Button variant={inviteMethod === "whatsapp" ? "default" : "outline"} size="sm" onClick={() => setInviteMethod("whatsapp")}><Phone className="h-4 w-4 mr-1" /> WhatsApp</Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={() => sendInvite.mutate()} disabled={!inviteForm.name || !inviteForm.surname || sendInvite.isPending}>
-                <Send className="h-4 w-4 mr-1" /> Send Invitation
-              </Button>
-            </DialogFooter>
+                <DialogFooter>
+                  <Button onClick={() => sendInvite.mutate()} disabled={!inviteForm.name || !inviteForm.surname || sendInvite.isPending}>
+                    <Send className="h-4 w-4 mr-1" /> Send Invitation
+                  </Button>
+                </DialogFooter>
+              </>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  {/* CSV Upload */}
+                  <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                    <input ref={fileInputRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                      <FileUp className="h-4 w-4 mr-2" /> Upload CSV
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      CSV should have columns: Name, Surname, Email, Phone, ID Number
+                    </p>
+                  </div>
+
+                  {/* Manual entry */}
+                  <div className="border rounded-lg p-3 space-y-2">
+                    <p className="text-sm font-medium">Add Manually</p>
+                    <div className="grid grid-cols-5 gap-2">
+                      <Input placeholder="Name" value={bulkEntry.name} onChange={(e) => setBulkEntry({ ...bulkEntry, name: e.target.value })} className="text-xs" />
+                      <Input placeholder="Surname" value={bulkEntry.surname} onChange={(e) => setBulkEntry({ ...bulkEntry, surname: e.target.value })} className="text-xs" />
+                      <Input placeholder="Email" value={bulkEntry.email} onChange={(e) => setBulkEntry({ ...bulkEntry, email: e.target.value })} className="text-xs" />
+                      <Input placeholder="Phone" value={bulkEntry.phone} onChange={(e) => setBulkEntry({ ...bulkEntry, phone: e.target.value })} className="text-xs" />
+                      <div className="flex gap-1">
+                        <Input placeholder="ID Number" value={bulkEntry.id_number} onChange={(e) => setBulkEntry({ ...bulkEntry, id_number: e.target.value })} className="text-xs" />
+                        <Button size="icon" className="h-10 w-10 shrink-0" onClick={addBulkEntry} disabled={!bulkEntry.name.trim()}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Candidates list */}
+                  {bulkCandidates.length > 0 && (
+                    <div className="border rounded-lg max-h-48 overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Name</TableHead>
+                            <TableHead className="text-xs">Email</TableHead>
+                            <TableHead className="text-xs">Phone</TableHead>
+                            <TableHead className="text-xs">ID</TableHead>
+                            <TableHead className="w-8"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {bulkCandidates.map((c, i) => (
+                            <TableRow key={i}>
+                              <TableCell className="text-xs py-1">{c.name} {c.surname}</TableCell>
+                              <TableCell className="text-xs py-1">{c.email || "—"}</TableCell>
+                              <TableCell className="text-xs py-1">{c.phone || "—"}</TableCell>
+                              <TableCell className="text-xs py-1">{c.id_number || "—"}</TableCell>
+                              <TableCell className="py-1">
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeBulkCandidate(i)}>
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <p className="text-sm text-muted-foreground mr-auto">{bulkCandidates.length} candidate(s) queued</p>
+                  <Button onClick={sendBulkInvites} disabled={bulkCandidates.length === 0 || bulkSending}>
+                    <Send className="h-4 w-4 mr-1" /> {bulkSending ? "Sending..." : `Send ${bulkCandidates.length} Invitation(s)`}
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       </TabsContent>
@@ -517,9 +773,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                       <TableCell className="text-xs">{app.candidate_id_number || "—"}</TableCell>
                       <TableCell>
                         {app.risk_level ? (
-                          <Badge variant={app.risk_level === "LOW" ? "default" : "destructive"} className="text-xs">
-                            {app.risk_level}
-                          </Badge>
+                          <Badge variant={app.risk_level === "LOW" ? "default" : "destructive"} className="text-xs">{app.risk_level}</Badge>
                         ) : (
                           <span className="text-xs text-muted-foreground">Pending</span>
                         )}
@@ -529,15 +783,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex gap-1 justify-end">
-                          <Button variant="ghost" size="sm" onClick={() => setReviewApp(app)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-primary" onClick={() => updateAppStatus.mutate({ id: app.id, status: "approved" })}>
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-destructive" onClick={() => updateAppStatus.mutate({ id: app.id, status: "rejected" })}>
-                            <X className="h-4 w-4" />
-                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setReviewApp(app)}><Eye className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="text-primary" onClick={() => updateAppStatus.mutate({ id: app.id, status: "approved" })}><Check className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="text-destructive" onClick={() => updateAppStatus.mutate({ id: app.id, status: "rejected" })}><X className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -548,7 +796,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           </CardContent>
         </Card>
 
-        {/* Review Detail Dialog */}
         <ApplicationReviewDialog
           application={reviewApp}
           open={!!reviewApp}
@@ -587,7 +834,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                 </TableHeader>
                 <TableBody>
                   {approved.map((app) => {
-                    // Find risk candidate data for this application
                     const riskCandidate = riskCandidateData?.find((rc: any) => rc.application_id === app.id);
                     const requestStatus = (riskCandidate as any)?.candex_risk_requests?.status;
                     const isRequested = !!riskCandidate;
@@ -630,9 +876,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         </TableCell>
                         <TableCell>
                           {app.risk_level ? (
-                            <Badge variant={app.risk_level === "LOW" ? "default" : "destructive"} className="text-xs">
-                              {app.risk_level}
-                            </Badge>
+                            <Badge variant={app.risk_level === "LOW" ? "default" : "destructive"} className="text-xs">{app.risk_level}</Badge>
                           ) : "—"}
                         </TableCell>
                         <TableCell className="text-right">
@@ -658,9 +902,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               <DialogTitle>Risk Assessment Report</DialogTitle>
               <DialogDescription>View the completed risk assessment document.</DialogDescription>
             </DialogHeader>
-            {viewRiskUrl && (
-              <iframe src={viewRiskUrl} className="w-full h-[65vh] border rounded" title="Risk Assessment" />
-            )}
+            {viewRiskUrl && <iframe src={viewRiskUrl} className="w-full h-[65vh] border rounded" title="Risk Assessment" />}
           </DialogContent>
         </Dialog>
 
@@ -717,7 +959,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         </Dialog>
       </TabsContent>
 
-      {/* ── CANDEXED TAB ── */}
+      {/* ── PREAPPLICHECKED TAB ── */}
       <TabsContent value="preAppliChecked">
         <Card>
           <CardHeader>
@@ -755,9 +997,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="outline" size="sm">
-                          Schedule Polygraph
-                        </Button>
+                        <Button variant="outline" size="sm">Schedule Polygraph</Button>
                       </TableCell>
                     </TableRow>
                   ))}
