@@ -148,6 +148,21 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     },
   });
 
+  // Get user's polygraph appointments
+  const { data: userAppointments = [] } = useQuery({
+    queryKey: ["user-polygraph-appointments", client?.id],
+    queryFn: async () => {
+      if (!client?.id) return [];
+      const { data } = await supabase
+        .from("polygraph_appointments" as any)
+        .select("*, polygraph_appointment_candidates(*)")
+        .eq("client_id", client.id)
+        .order("created_at", { ascending: false });
+      return (data as any[]) || [];
+    },
+    enabled: !!client?.id,
+  });
+
   // Get stores (sub-accounts) for the selected request account
   const { data: requestStores = [] } = useQuery({
     queryKey: ["request-stores", requestAccountId],
@@ -501,6 +516,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           )}
         </TabsTrigger>
         <TabsTrigger value="preAppliChecked" className="flex-1 text-xs px-2 whitespace-nowrap">Risk Assessment Completed</TabsTrigger>
+        <TabsTrigger value="appointments" className="relative flex-1 text-xs px-2">
+          <CalendarIcon className="h-3.5 w-3.5 mr-1" /> Appointments
+        </TabsTrigger>
       </TabsList>
 
       {/* ── DASHBOARD TAB ── */}
@@ -1111,6 +1129,82 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           accounts={accounts || []}
           defaultAccountId={clientAccountId}
         />
+      </TabsContent>
+
+      {/* ── APPOINTMENTS TAB ── */}
+      <TabsContent value="appointments">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <CalendarIcon className="h-5 w-5 text-primary" /> Polygraph Appointments
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {userAppointments.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No appointments requested yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Requested</TableHead>
+                    <TableHead>Venue</TableHead>
+                    <TableHead>Candidates</TableHead>
+                    <TableHead>Scheduled Date</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Booking Ref</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {userAppointments.map((apt: any) => {
+                    const candidatesList = apt.polygraph_appointment_candidates || [];
+                    const statusColor = apt.status === "confirmed" ? "bg-green-100 text-green-800 border-green-200"
+                      : apt.status === "scheduled" ? "bg-blue-100 text-blue-800 border-blue-200"
+                      : apt.status === "requested" ? "bg-amber-100 text-amber-800 border-amber-200"
+                      : "bg-muted text-muted-foreground";
+                    return (
+                      <TableRow key={apt.id}>
+                        <TableCell className="text-sm">
+                          {format(new Date(apt.created_at), "dd MMM yyyy")}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {apt.venue_type === "tldv_venue" ? "TLDV Venue" : apt.venue_type === "own_location" ? "Own Location" : "Rented Venue"}
+                          {apt.venue_address && apt.venue_type !== "tldv_venue" && (
+                            <p className="text-xs text-muted-foreground truncate max-w-[150px]">{apt.venue_address}</p>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            {candidatesList.slice(0, 3).map((c: any) => (
+                              <p key={c.id} className="text-xs">{c.candidate_name}</p>
+                            ))}
+                            {candidatesList.length > 3 && (
+                              <p className="text-xs text-muted-foreground">+{candidatesList.length - 3} more</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMM yyyy") : <span className="text-muted-foreground text-xs">Pending</span>}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {apt.scheduled_time || <span className="text-muted-foreground text-xs">Pending</span>}
+                        </TableCell>
+                        <TableCell className="text-sm font-mono">
+                          {apt.booking_reference || <span className="text-muted-foreground text-xs">—</span>}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={statusColor}>
+                            {apt.status === "confirmed" ? "Confirmed" : apt.status === "scheduled" ? "Scheduled" : apt.status === "requested" ? "Requested" : apt.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </TabsContent>
     </Tabs>
   );
