@@ -39,6 +39,7 @@ const AdminPortalDashboard = () => {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [orderedPortals, setOrderedPortals] = useState<PortalCard[]>([]);
+  const [portalsInitialized, setPortalsInitialized] = useState(false);
 
   const { hasPermission, checkAccessWithNotification } = usePermissions(currentUserId);
 
