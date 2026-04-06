@@ -950,7 +950,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               </div>
               <div>
                 <Label>Assign to Account</Label>
-                <Select value={requestAccountId} onValueChange={setRequestAccountId}>
+                <Select value={requestAccountId} onValueChange={(v) => { setRequestAccountId(v); setRequestStoreId(""); }}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Select account" /></SelectTrigger>
                   <SelectContent>
                     {accounts?.map((acc) => (
@@ -959,6 +959,19 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                   </SelectContent>
                 </Select>
               </div>
+              {requestAccountId && requestStores.length > 0 && (
+                <div>
+                  <Label>Sub-Account (Store)</Label>
+                  <Select value={requestStoreId} onValueChange={setRequestStoreId}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select sub-account" /></SelectTrigger>
+                    <SelectContent>
+                      {requestStores.map((store) => (
+                        <SelectItem key={store.id} value={store.id}>{store.store_name} ({store.store_code})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label>Select Candidates</Label>
                 <div className="border rounded-md mt-1 max-h-48 overflow-y-auto">
