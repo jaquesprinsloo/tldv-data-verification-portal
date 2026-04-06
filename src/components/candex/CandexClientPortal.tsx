@@ -270,15 +270,23 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   // Approve / Reject application
   const updateAppStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from("candex_applications").update({ status }).eq("id", id);
+      const { data, error } = await supabase
+        .from("candex_applications")
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .select("id")
+        .single();
       if (error) throw error;
+      if (!data) throw new Error("Update failed — you may not have permission to modify this application");
+      return status;
     },
-    onSuccess: (_, { status }) => {
+    onSuccess: (status) => {
       toast.success(`Application ${status}`);
       setReviewApp(null);
       queryClient.invalidateQueries({ queryKey: ["candex-my-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-pending-submissions-count"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: any) => toast.error(e.message || "Failed to update application status"),
   });
 
   // Submit risk assessment request
