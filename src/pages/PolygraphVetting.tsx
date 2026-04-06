@@ -4,15 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AdminHeader from "@/components/admin/AdminHeader";
-import PolygraphHome from "@/components/admin/PolygraphHome";
-import PolygraphPortal from "@/components/admin/polygraph/PolygraphPortal";
+import AppointmentsSchedule from "@/components/admin/AppointmentsSchedule";
 import { User } from "@supabase/supabase-js";
 
 const PolygraphVetting = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showPortal, setShowPortal] = useState(false);
+  const [isMasterAdmin, setIsMasterAdmin] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -28,15 +27,15 @@ const PolygraphVetting = () => {
           .from("user_roles")
           .select("role")
           .eq("user_id", user.id)
-          .eq("role", "admin")
-          .single();
+          .in("role", ["admin", "master_admin"]);
 
-        if (!roleData) {
+        if (!roleData || roleData.length === 0) {
           await supabase.auth.signOut();
           navigate("/admin/login");
           return;
         }
 
+        setIsMasterAdmin(roleData.some(r => r.role === "master_admin"));
         setUser(user);
       } catch (error) {
         console.error("Auth error:", error);
@@ -62,22 +61,18 @@ const PolygraphVetting = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader user={user} title="Polygraph & Vetting Portal" />
+      <AdminHeader user={user} title="Appointments" />
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         <Button
           variant="ghost"
-          onClick={() => showPortal ? setShowPortal(false) : navigate("/admin/dashboard")}
+          onClick={() => navigate("/admin/dashboard")}
           className="mb-6"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          {showPortal ? "Back to Overview" : "Back to Dashboard"}
+          Back to Dashboard
         </Button>
         
-        {!showPortal ? (
-          <PolygraphHome onEnterPortal={() => setShowPortal(true)} />
-        ) : (
-          <PolygraphPortal />
-        )}
+        <AppointmentsSchedule isMasterAdmin={isMasterAdmin} />
       </main>
     </div>
   );
