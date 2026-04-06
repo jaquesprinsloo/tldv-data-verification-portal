@@ -498,9 +498,40 @@ const CandexRiskRequests = () => {
                   className="mt-1"
                 />
               </div>
-            </div>
-          )}
-          <DialogFooter>
+
+              <div>
+                <Label>Upload Risk Assessment Document</Label>
+                <div className="mt-1 space-y-2">
+                  {uploadedFileUrl ? (
+                    <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-lg text-sm">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span className="flex-1 truncate">{assessmentFile?.name || "Document uploaded"}</span>
+                      <Button variant="ghost" size="sm" onClick={() => { setUploadedFileUrl(null); setAssessmentFile(null); }}>
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                      <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground mb-2">Upload PDF, DOCX, or image</p>
+                      <Input
+                        type="file"
+                        accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
+                        className="max-w-xs mx-auto"
+                        disabled={uploadingFile}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setAssessmentFile(file);
+                            handleFileUpload(file);
+                          }
+                        }}
+                      />
+                      {uploadingFile && <p className="text-xs text-muted-foreground mt-2">Uploading...</p>}
+                    </div>
+                  )}
+                </div>
+              </div>
             <Button variant="outline" onClick={() => setProcessCandidate(null)}>Cancel</Button>
             <Button
               onClick={() => processCandidateMutation.mutate()}
