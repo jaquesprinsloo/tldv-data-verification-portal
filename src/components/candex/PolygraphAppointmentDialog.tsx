@@ -39,14 +39,31 @@ const PolygraphAppointmentDialog = ({
   candidates,
   clientId,
   userId,
-  accountId,
-  storeId,
+  accounts,
+  defaultAccountId,
 }: PolygraphAppointmentDialogProps) => {
   const queryClient = useQueryClient();
   const [venueType, setVenueType] = useState<string>("own_location");
   const [venueAddress, setVenueAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState(defaultAccountId || "");
+  const [selectedStoreId, setSelectedStoreId] = useState("");
+
+  // Fetch stores for selected account
+  const { data: accountStores = [] } = useQuery({
+    queryKey: ["appointment-stores", selectedAccountId],
+    queryFn: async () => {
+      if (!selectedAccountId) return [];
+      const { data } = await supabase
+        .from("stores")
+        .select("id, store_name, store_code")
+        .eq("account_id", selectedAccountId)
+        .order("store_name");
+      return data || [];
+    },
+    enabled: !!selectedAccountId,
+  });
 
   const toggleCandidate = (id: string) => {
     setSelectedCandidates((prev) =>

@@ -1108,7 +1108,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           }))}
           clientId={client?.id || ""}
           userId={userId}
-          accountId={clientAccountId}
+          accounts={accounts || []}
+          defaultAccountId={clientAccountId}
         />
       </TabsContent>
     </Tabs>
