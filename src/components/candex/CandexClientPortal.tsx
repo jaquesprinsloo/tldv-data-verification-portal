@@ -501,6 +501,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           )}
         </TabsTrigger>
         <TabsTrigger value="preAppliChecked" className="flex-1 text-xs px-2 whitespace-nowrap">Risk Assessment Completed</TabsTrigger>
+        <TabsTrigger value="appointments" className="relative flex-1 text-xs px-2">
+          <CalendarIcon className="h-3.5 w-3.5 mr-1" /> Appointments
+        </TabsTrigger>
       </TabsList>
 
       {/* ── DASHBOARD TAB ── */}
