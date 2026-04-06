@@ -130,6 +130,8 @@ const PolygraphAppointmentDialog = ({
     setVenueAddress("");
     setNotes("");
     setSelectedCandidates([]);
+    setSelectedAccountId(defaultAccountId || "");
+    setSelectedStoreId("");
     onClose();
   };
 
