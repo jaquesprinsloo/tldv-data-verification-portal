@@ -125,6 +125,28 @@ const CandexRiskRequests = () => {
   const inProgressRequests = requests.filter((r) => r.status === "in_progress");
   const completedRequests = requests.filter((r) => r.status === "completed");
 
+  // Handle file upload
+  const handleFileUpload = async (file: File) => {
+    setUploadingFile(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const filePath = `risk-assessments/${processCandidate.id}_${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from("employee-documents")
+        .upload(filePath, file);
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage
+        .from("employee-documents")
+        .getPublicUrl(filePath);
+      setUploadedFileUrl(urlData.publicUrl);
+      toast.success("File uploaded successfully");
+    } catch (e: any) {
+      toast.error("Upload failed: " + e.message);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
   // Process a candidate's risk assessment
   const processCandidateMutation = useMutation({
     mutationFn: async () => {
@@ -134,6 +156,7 @@ const CandexRiskRequests = () => {
         .update({
           id_verified: idVerified,
           risk_assessment_result: assessmentResult,
+          risk_assessment_url: uploadedFileUrl,
         })
         .eq("id", processCandidate.id);
       if (error) throw error;
@@ -158,6 +181,8 @@ const CandexRiskRequests = () => {
       setAssessmentResult("");
       setAssessmentNotes("");
       setIdVerified(false);
+      setAssessmentFile(null);
+      setUploadedFileUrl(null);
       queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates"] });
       queryClient.invalidateQueries({ queryKey: ["candex-risk-apps"] });
     },
