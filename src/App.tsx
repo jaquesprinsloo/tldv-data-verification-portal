@@ -60,6 +60,7 @@ const App = () => (
           <Route path="/admin/pending-polygraph-review" element={<PendingPolygraphReview />} />
           <Route path="/admin/candex-pre-screening" element={<CanDexPreScreening />} />
           <Route path="/candex-apply" element={<CandexApplication />} />
+          <Route path="/examiner" element={<ExaminerPortal />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/install" element={<Install />} />
           <Route path="*" element={<NotFound />} />
