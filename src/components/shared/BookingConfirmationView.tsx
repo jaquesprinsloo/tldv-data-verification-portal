@@ -80,6 +80,7 @@ const BookingConfirmationView = ({ open, onClose, data }: BookingConfirmationVie
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto p-0">
+      <div ref={contentRef}>
         {/* Header with logo */}
         <div className="bg-black text-white p-6 rounded-t-lg">
           <div className="flex items-center justify-between">
