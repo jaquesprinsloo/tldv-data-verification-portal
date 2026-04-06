@@ -92,7 +92,7 @@ export const ProfileManagement = () => {
       const { data: allRoles } = await supabase
         .from("user_roles")
         .select("user_id, role")
-        .in("role", ["admin", "master_admin"]);
+        .in("role", ["admin", "master_admin", "examiner"]);
 
       if (!allRoles || allRoles.length === 0) return [];
 
