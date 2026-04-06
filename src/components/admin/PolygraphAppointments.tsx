@@ -110,7 +110,7 @@ const PolygraphAppointments = () => {
       // Send confirmation email
       try {
         const client = clients.find((c) => c.id === (selectedAppointment as any).client_id);
-        const clientEmail = client?.contact_email || (client as any)?.contact_email;
+        const clientEmail = (client as any)?.contact_email;
         if (clientEmail) {
           await supabase.functions.invoke("send-request-notification", {
             body: {
