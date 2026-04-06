@@ -1,7 +1,10 @@
+import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, MapPin, CalendarIcon, Clock, Users, FileText } from "lucide-react";
+import { Download, MapPin, CalendarIcon, Clock, Users, FileText, Loader2 } from "lucide-react";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
 
 export interface BookingData {
