@@ -1222,6 +1222,23 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                               </Button>
                             </div>
                           )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      {/* Booking Confirmation View */}
+      <BookingConfirmationView
+        open={!!viewBookingConfirmation}
+        onClose={() => setViewBookingConfirmation(null)}
+        data={viewBookingConfirmation}
+      />
     </Tabs>
   );
 };
