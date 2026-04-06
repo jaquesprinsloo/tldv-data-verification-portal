@@ -1,7 +1,10 @@
+import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, MapPin, CalendarIcon, Clock, Users, FileText } from "lucide-react";
+import { Download, MapPin, CalendarIcon, Clock, Users, FileText, Loader2 } from "lucide-react";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
 
 export interface BookingData {
@@ -43,22 +46,41 @@ const getStatusColor = (status: string) => {
 };
 
 const BookingConfirmationView = ({ open, onClose, data }: BookingConfirmationViewProps) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [downloading, setDownloading] = useState(false);
+
   if (!data) return null;
 
-  const handleDownload = () => {
-    const text = generatePlainText(data);
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Booking_Confirmation_${data.bookingReference}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownload = async () => {
+    if (!contentRef.current) return;
+    setDownloading(true);
+    try {
+      const canvas = await html2canvas(contentRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+      const imgWidth = pdfWidth - 20;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const yPos = imgHeight > pdfHeight - 20 ? 10 : (pdfHeight - imgHeight) / 2;
+      pdf.addImage(imgData, "PNG", 10, yPos, imgWidth, imgHeight);
+      pdf.save(`Booking_Confirmation_${data.bookingReference}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto p-0">
+      <div ref={contentRef}>
         {/* Header with logo */}
         <div className="bg-black text-white p-6 rounded-t-lg">
           <div className="flex items-center justify-between">
@@ -149,11 +171,13 @@ const BookingConfirmationView = ({ open, onClose, data }: BookingConfirmationVie
             </p>
           </div>
         </div>
+      </div>
 
         <DialogFooter className="px-6 pb-6">
           <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button onClick={handleDownload}>
-            <Download className="h-4 w-4 mr-1" /> Download
+          <Button onClick={handleDownload} disabled={downloading}>
+            {downloading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+            {downloading ? "Generating..." : "Download PDF"}
           </Button>
         </DialogFooter>
       </DialogContent>
