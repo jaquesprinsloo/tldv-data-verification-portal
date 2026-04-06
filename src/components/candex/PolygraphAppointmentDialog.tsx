@@ -148,6 +148,7 @@ const PolygraphAppointmentDialog = ({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="space-y-5">
           {/* Account Selection */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold flex items-center gap-1">
