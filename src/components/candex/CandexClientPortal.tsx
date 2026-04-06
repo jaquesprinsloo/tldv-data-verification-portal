@@ -473,8 +473,15 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
             </Badge>
           )}
         </TabsTrigger>
-        <TabsTrigger value="approved">Approved</TabsTrigger>
-        <TabsTrigger value="preAppliChecked">Checked</TabsTrigger>
+        <TabsTrigger value="approved" className="relative">
+          PreAppliChecked
+          {preAppliChecked.length > 0 && approved.length === 0 && (
+            <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px] animate-pulse">
+              {preAppliChecked.length}
+            </Badge>
+          )}
+        </TabsTrigger>
+        <TabsTrigger value="preAppliChecked">Risk Assessment Verified</TabsTrigger>
       </TabsList>
 
       {/* ── DASHBOARD TAB ── */}
