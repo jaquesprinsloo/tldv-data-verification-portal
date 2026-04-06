@@ -390,6 +390,8 @@ const CandexRiskRequests = () => {
                                   setProcessCandidate(cand);
                                   setIdVerified(cand.id_verified || false);
                                   setAssessmentResult(cand.risk_assessment_result || "");
+                                  setUploadedFileUrl(cand.risk_assessment_url || null);
+                                  setAssessmentFile(null);
                                 }}
                               >
                                 <FileText className="h-4 w-4 mr-1" /> Process
