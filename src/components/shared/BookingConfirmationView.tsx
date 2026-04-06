@@ -46,17 +46,35 @@ const getStatusColor = (status: string) => {
 };
 
 const BookingConfirmationView = ({ open, onClose, data }: BookingConfirmationViewProps) => {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [downloading, setDownloading] = useState(false);
+
   if (!data) return null;
 
-  const handleDownload = () => {
-    const text = generatePlainText(data);
-    const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Booking_Confirmation_${data.bookingReference}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownload = async () => {
+    if (!contentRef.current) return;
+    setDownloading(true);
+    try {
+      const canvas = await html2canvas(contentRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+      const imgWidth = pdfWidth - 20;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const yPos = imgHeight > pdfHeight - 20 ? 10 : (pdfHeight - imgHeight) / 2;
+      pdf.addImage(imgData, "PNG", 10, yPos, imgWidth, imgHeight);
+      pdf.save(`Booking_Confirmation_${data.bookingReference}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
