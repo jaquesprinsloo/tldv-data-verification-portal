@@ -41,6 +41,9 @@ const CandexRiskRequests = () => {
   const [assessmentResult, setAssessmentResult] = useState<string>("");
   const [assessmentNotes, setAssessmentNotes] = useState("");
   const [idVerified, setIdVerified] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [assessmentFile, setAssessmentFile] = useState<File | null>(null);
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
 
   // Fetch all risk requests with client info
   const { data: requests = [], isLoading } = useQuery({
