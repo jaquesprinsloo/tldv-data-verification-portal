@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { CalendarIcon, Clock, Eye, Check, UserPlus, MapPin, Users, Send, Download, Building2 } from "lucide-react";
+import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
 
 const PolygraphAppointments = () => {
   const queryClient = useQueryClient();
@@ -27,7 +28,7 @@ const PolygraphAppointments = () => {
   const [selectedExaminerId, setSelectedExaminerId] = useState("");
   const [selectedExaminerUserId, setSelectedExaminerUserId] = useState("");
   const [viewCandidatesOpen, setViewCandidatesOpen] = useState(false);
-  const [viewBookingConfirmation, setViewBookingConfirmation] = useState<string | null>(null);
+  const [viewBookingConfirmation, setViewBookingConfirmation] = useState<BookingData | null>(null);
 
   // Fetch all appointments
   const { data: appointments = [], isLoading } = useQuery({
@@ -312,24 +313,25 @@ True Lie Detectors & Vetting
                     <Users className="h-4 w-4" />
                   </Button>
                   {apt.booking_reference && (
-                    <>
-                      <Button variant="ghost" size="sm" title="View Confirmation" onClick={async () => {
-                        const enriched = await enrichWithCandidates(apt);
-                        const client = clients.find((c) => c.id === apt.client_id);
-                        const candidatesList = enriched._candidates || [];
-                        const venueInfo = apt.venue_address || "To be confirmed";
-                        const content = `BOOKING CONFIRMATION\n====================\n\nBooking Reference: ${apt.booking_reference}\nStatus: ${(apt.status || "").toUpperCase()}\n\nCLIENT: ${client?.name || client?.company_name || "N/A"}\n\nDate: ${apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMMM yyyy") : "TBC"}\nTime: ${apt.scheduled_time || "TBC"}\nVenue Type: ${getVenueLabel(apt.venue_type)}\nVenue: ${venueInfo}\nPreferred Area: ${apt.preferred_area || "N/A"}\n\nCANDIDATES\n----------\n${candidatesList.map((c: any, i: number) => `${i + 1}. ${c.candidate_name} (ID: ${c.candidate_id_number || "N/A"})`).join("\n")}\n\nNotes: ${apt.notes || "None"}\n\n---\nTrue Lie Detectors & Vetting`;
-                        setViewBookingConfirmation(content);
-                      }}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" title="Download Confirmation" onClick={async () => {
-                        const enriched = await enrichWithCandidates(apt);
-                        generateBookingConfirmation(enriched);
-                      }}>
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    </>
+                    <Button variant="ghost" size="sm" title="View Confirmation" onClick={async () => {
+                      const enriched = await enrichWithCandidates(apt);
+                      const client = clients.find((c) => c.id === apt.client_id);
+                      const candidatesList = enriched._candidates || [];
+                      setViewBookingConfirmation({
+                        bookingReference: apt.booking_reference,
+                        status: apt.status,
+                        clientName: client?.name || client?.company_name || undefined,
+                        scheduledDate: apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMMM yyyy") : undefined,
+                        scheduledTime: apt.scheduled_time || undefined,
+                        venueType: apt.venue_type,
+                        venueAddress: apt.venue_address || undefined,
+                        preferredArea: apt.preferred_area || undefined,
+                        candidates: candidatesList.map((c: any) => ({ name: c.candidate_name, idNumber: c.candidate_id_number })),
+                        notes: apt.notes || undefined,
+                      });
+                    }}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
                   )}
                   {apt.status === "requested" && (
                     <Button variant="ghost" size="sm" title="Schedule" onClick={() => {
@@ -556,33 +558,12 @@ True Lie Detectors & Vetting
         </DialogContent>
       </Dialog>
 
-      {/* View Booking Confirmation Dialog */}
-      <Dialog open={!!viewBookingConfirmation} onOpenChange={() => setViewBookingConfirmation(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Booking Confirmation</DialogTitle>
-            <DialogDescription>View the details of this booking confirmation.</DialogDescription>
-          </DialogHeader>
-          <pre className="whitespace-pre-wrap text-sm bg-muted/50 border rounded-md p-4 max-h-[55vh] overflow-y-auto font-mono">
-            {viewBookingConfirmation}
-          </pre>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewBookingConfirmation(null)}>Close</Button>
-            <Button onClick={() => {
-              if (!viewBookingConfirmation) return;
-              const blob = new Blob([viewBookingConfirmation], { type: "text/plain" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "Booking_Confirmation.txt";
-              a.click();
-              URL.revokeObjectURL(url);
-            }}>
-              <Download className="h-4 w-4 mr-1" /> Download
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Booking Confirmation View */}
+      <BookingConfirmationView
+        open={!!viewBookingConfirmation}
+        onClose={() => setViewBookingConfirmation(null)}
+        data={viewBookingConfirmation}
+      />
     </div>
   );
 };

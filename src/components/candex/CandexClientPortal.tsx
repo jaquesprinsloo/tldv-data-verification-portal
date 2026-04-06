@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList, Download } from "lucide-react";
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
+import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
 import { format } from "date-fns";
 
 interface CandexClientPortalProps {
@@ -49,7 +50,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
   const [appointmentOpen, setAppointmentOpen] = useState(false);
-  const [viewBookingConfirmation, setViewBookingConfirmation] = useState<string | null>(null);
+  const [viewBookingConfirmation, setViewBookingConfirmation] = useState<BookingData | null>(null);
 
   // Bulk invite state
   const [bulkCandidates, setBulkCandidates] = useState<BulkCandidate[]>([]);
@@ -1205,24 +1206,19 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           {apt.booking_reference && (
                             <div className="flex gap-1 justify-end">
                               <Button variant="ghost" size="sm" title="View Confirmation" onClick={() => {
-                                const cl = candidatesList;
-                                const content = `BOOKING CONFIRMATION\n====================\n\nBooking Reference: ${apt.booking_reference}\nStatus: ${(apt.status || "").toUpperCase()}\n\nDate: ${apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMMM yyyy") : "TBC"}\nTime: ${apt.scheduled_time || "TBC"}\nVenue: ${apt.venue_address || "TBC"}\nPreferred Area: ${apt.preferred_area || "N/A"}\n\nCANDIDATES\n----------\n${cl.map((c: any, i: number) => `${i + 1}. ${c.candidate_name}`).join("\n")}\n\n---\nTrue Lie Detectors & Vetting`;
-                                setViewBookingConfirmation(content);
+                                setViewBookingConfirmation({
+                                  bookingReference: apt.booking_reference,
+                                  status: apt.status,
+                                  scheduledDate: apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMMM yyyy") : undefined,
+                                  scheduledTime: apt.scheduled_time || undefined,
+                                  venueType: apt.venue_type,
+                                  venueAddress: apt.venue_address || undefined,
+                                  preferredArea: apt.preferred_area || undefined,
+                                  candidates: candidatesList.map((c: any) => ({ name: c.candidate_name, idNumber: c.candidate_id_number })),
+                                  notes: apt.notes || undefined,
+                                });
                               }}>
                                 <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="sm" title="Download Confirmation" onClick={() => {
-                                const cl = candidatesList;
-                                const content = `BOOKING CONFIRMATION\n====================\n\nBooking Reference: ${apt.booking_reference}\nStatus: ${(apt.status || "").toUpperCase()}\n\nDate: ${apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMMM yyyy") : "TBC"}\nTime: ${apt.scheduled_time || "TBC"}\nVenue: ${apt.venue_address || "TBC"}\nPreferred Area: ${apt.preferred_area || "N/A"}\n\nCANDIDATES\n----------\n${cl.map((c: any, i: number) => `${i + 1}. ${c.candidate_name}`).join("\n")}\n\n---\nTrue Lie Detectors & Vetting`;
-                                const blob = new Blob([content], { type: "text/plain" });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement("a");
-                                a.href = url;
-                                a.download = `Booking_${apt.booking_reference}.txt`;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                              }}>
-                                <Download className="h-4 w-4" />
                               </Button>
                             </div>
                           )}
@@ -1237,33 +1233,12 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         </Card>
       </TabsContent>
 
-      {/* View Booking Confirmation Dialog */}
-      <Dialog open={!!viewBookingConfirmation} onOpenChange={() => setViewBookingConfirmation(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Booking Confirmation</DialogTitle>
-            <DialogDescription>View the details of this booking confirmation.</DialogDescription>
-          </DialogHeader>
-          <pre className="whitespace-pre-wrap text-sm bg-muted/50 border rounded-md p-4 max-h-[55vh] overflow-y-auto font-mono">
-            {viewBookingConfirmation}
-          </pre>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewBookingConfirmation(null)}>Close</Button>
-            <Button onClick={() => {
-              if (!viewBookingConfirmation) return;
-              const blob = new Blob([viewBookingConfirmation], { type: "text/plain" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "Booking_Confirmation.txt";
-              a.click();
-              URL.revokeObjectURL(url);
-            }}>
-              <Download className="h-4 w-4 mr-1" /> Download
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Booking Confirmation View */}
+      <BookingConfirmationView
+        open={!!viewBookingConfirmation}
+        onClose={() => setViewBookingConfirmation(null)}
+        data={viewBookingConfirmation}
+      />
     </Tabs>
   );
 };
