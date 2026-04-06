@@ -88,8 +88,8 @@ const PolygraphAppointmentDialog = ({
         .from("polygraph_appointments" as any)
         .insert({
           client_id: clientId,
-          account_id: accountId,
-          store_id: storeId || null,
+           account_id: selectedAccountId || null,
+           store_id: selectedStoreId || null,
           requested_by: userId,
           venue_type: venueType,
           venue_address: venueType === "tldv_venue" ? "TLDV Vetted Venue (to be confirmed)" : venueAddress.trim(),
