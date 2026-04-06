@@ -903,12 +903,10 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                             <Badge variant={app.risk_level === "LOW" ? "default" : "destructive"} className="text-xs">{app.risk_level}</Badge>
                           ) : "—"}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {isCompleted && riskUrl && (
-                            <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={() => setViewRiskUrl(riskUrl)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          )}
+                        <TableCell className="text-right flex gap-1 justify-end">
+                          <Button variant="ghost" size="sm" title="View PreAppliCheck" onClick={() => setViewPreAppliCheckApp(app)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
