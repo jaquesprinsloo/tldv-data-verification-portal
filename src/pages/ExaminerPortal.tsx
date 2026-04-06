@@ -8,14 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, CalendarIcon, MapPin, Users, Eye, LogOut, FileText, Upload, Loader2 } from "lucide-react";
+import { CalendarIcon, MapPin, Users, Eye, LogOut, FileText, Upload, Loader2, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
 import ApplicationReviewDialog from "@/components/candex/ApplicationReviewDialog";
 import BookingConfirmationView from "@/components/shared/BookingConfirmationView";
 import { User } from "@supabase/supabase-js";
+import tldvLogo from "@/assets/tldv-logo-primary.png";
+
+type ActiveView = "dashboard" | "appointments" | "upload";
 
 const ExaminerPortal = () => {
   const navigate = useNavigate();
@@ -23,11 +25,12 @@ const ExaminerPortal = () => {
   const { toast: toastHook } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState("");
+  const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [viewCandidatesApt, setViewCandidatesApt] = useState<any>(null);
   const [viewAppDetails, setViewAppDetails] = useState<any>(null);
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
   const [viewBookingApt, setViewBookingApt] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("appointments");
 
   // Upload state
   const [file, setFile] = useState<File | null>(null);
@@ -36,6 +39,11 @@ const ExaminerPortal = () => {
   const [extractedData, setExtractedData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [matchedCandidate, setMatchedCandidate] = useState<any>(null);
+
+  // Animation state
+  const hasSeenAnimation = sessionStorage.getItem('examiner_animation_played') === 'true';
+  const [isAnimating, setIsAnimating] = useState(!hasSeenAnimation);
+  const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -58,6 +66,14 @@ const ExaminerPortal = () => {
         }
 
         setUser(user);
+
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .single();
+
+        if (profileData?.full_name) setUserName(profileData.full_name);
       } catch (error) {
         navigate("/admin/login");
       } finally {
@@ -65,7 +81,15 @@ const ExaminerPortal = () => {
       }
     };
     checkAuth();
-  }, [navigate]);
+
+    if (!hasSeenAnimation) {
+      const timer = setTimeout(() => {
+        setIsAnimating(false);
+        sessionStorage.setItem('examiner_animation_played', 'true');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [navigate, hasSeenAnimation]);
 
   // Fetch appointments assigned to this examiner
   const { data: appointments = [] } = useQuery({
@@ -97,22 +121,17 @@ const ExaminerPortal = () => {
     enabled: !!viewCandidatesApt?.id,
   });
 
-  // Fetch application + risk data for each candidate when viewing
   const { data: candidateApplications = [] } = useQuery({
     queryKey: ["examiner-candidate-apps", viewCandidatesApt?.id],
     queryFn: async () => {
       if (!candidates.length) return [];
       const appIds = (candidates as any[]).map((c: any) => c.application_id);
-      const { data: apps } = await supabase
-        .from("candex_applications")
-        .select("*")
-        .in("id", appIds);
+      const { data: apps } = await supabase.from("candex_applications").select("*").in("id", appIds);
       return apps || [];
     },
     enabled: !!candidates.length,
   });
 
-  // Fetch risk candidate data
   const { data: riskData = [] } = useQuery({
     queryKey: ["examiner-risk-data", viewCandidatesApt?.id],
     queryFn: async () => {
@@ -126,7 +145,6 @@ const ExaminerPortal = () => {
     enabled: !!candidates.length,
   });
 
-  // Fetch all appointment candidates for this examiner (for auto-matching)
   const { data: allExaminerCandidates = [] } = useQuery({
     queryKey: ["examiner-all-candidates", user?.id],
     queryFn: async () => {
@@ -143,9 +161,16 @@ const ExaminerPortal = () => {
   });
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/admin/login");
+    setIsExiting(true);
+    sessionStorage.removeItem('examiner_animation_played');
+    setTimeout(async () => {
+      await supabase.auth.signOut();
+      navigate("/admin/login");
+    }, 2000);
   };
+
+  const upcomingCount = (appointments as any[]).filter((a: any) => ["assigned", "confirmed"].includes(a.status)).length;
+  const completedCount = (appointments as any[]).filter((a: any) => a.status === "completed").length;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -162,10 +187,7 @@ const ExaminerPortal = () => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result.split(',')[1]);
-      };
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
       reader.onerror = (error) => reject(error);
     });
   };
@@ -173,16 +195,11 @@ const ExaminerPortal = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
-
     const lowerName = selectedFile.name.toLowerCase();
-    const isPdf = /\.pdf$/i.test(lowerName);
-    const isDocx = /\.docx$/i.test(lowerName);
-
-    if (!isPdf && !isDocx) {
+    if (!/\.(pdf|docx)$/i.test(lowerName)) {
       toastHook({ title: "Invalid File", description: "Please upload a PDF or Word (.docx) file.", variant: "destructive" });
       return;
     }
-
     setFile(selectedFile);
     setExtractedData(null);
     setMatchedCandidate(null);
@@ -193,17 +210,10 @@ const ExaminerPortal = () => {
     const idNumber = data.candidate.idNumber?.trim();
     const firstName = (data.candidate.firstName || "").trim().toLowerCase();
     const lastName = (data.candidate.lastName || "").trim().toLowerCase();
-
     for (const c of allExaminerCandidates as any[]) {
-      // Match by ID number first
-      if (idNumber && c.candidate_id_number && c.candidate_id_number.trim() === idNumber) {
-        return c;
-      }
-      // Match by name
+      if (idNumber && c.candidate_id_number && c.candidate_id_number.trim() === idNumber) return c;
       const candidateName = (c.candidate_name || "").toLowerCase();
-      if (firstName && lastName && candidateName.includes(firstName) && candidateName.includes(lastName)) {
-        return c;
-      }
+      if (firstName && lastName && candidateName.includes(firstName) && candidateName.includes(lastName)) return c;
     }
     return null;
   };
@@ -212,7 +222,6 @@ const ExaminerPortal = () => {
     if (!file) return;
     setUploading(true);
     setExtractionProgress(0);
-
     const progressInterval = setInterval(() => {
       setExtractionProgress(prev => {
         if (prev < 30) return prev + 2;
@@ -222,17 +231,13 @@ const ExaminerPortal = () => {
         return prev;
       });
     }, 500);
-
     try {
       const fileBase64 = await fileToBase64(file);
       const isWord = file.name.toLowerCase().endsWith('.docx');
       const body = isWord ? { docxBase64: fileBase64, fileName: file.name } : { pdfBase64: fileBase64, fileName: file.name };
-
       const { data, error } = await supabase.functions.invoke('extract-polygraph-report', { body });
       clearInterval(progressInterval);
-
       if (error || data?.error) throw new Error(data?.error || error?.message || 'Extraction failed');
-
       if (data?.success && data?.data) {
         setExtractionProgress(100);
         setExtractedData(data.data);
@@ -240,9 +245,7 @@ const ExaminerPortal = () => {
         setMatchedCandidate(match);
         toastHook({
           title: "Data Extracted",
-          description: match
-            ? `Matched to candidate: ${match.candidate_name}`
-            : "Report extracted. No automatic candidate match found.",
+          description: match ? `Matched to candidate: ${match.candidate_name}` : "Report extracted. No automatic candidate match found.",
         });
       }
     } catch (err: any) {
@@ -265,7 +268,6 @@ const ExaminerPortal = () => {
   const handleSubmitReport = async () => {
     if (!extractedData || !file) return;
     setSaving(true);
-
     try {
       const uploadId = crypto.randomUUID();
       const fileName = `pending/${uploadId}/${file.name}`;
@@ -273,18 +275,13 @@ const ExaminerPortal = () => {
         .from("polygraph-reports")
         .upload(fileName, file, { contentType: file.type });
       if (uploadError) throw uploadError;
-
       const { data: { publicUrl } } = supabase.storage.from("polygraph-reports").getPublicUrl(fileName);
 
-      // Find associated appointment for account/store info
       let accountId: string | null = null;
       let storeId: string | null = null;
       if (matchedCandidate) {
         const apt = (appointments as any[]).find((a: any) => a.id === matchedCandidate.appointment_id);
-        if (apt) {
-          accountId = apt.account_id;
-          storeId = apt.store_id;
-        }
+        if (apt) { accountId = apt.account_id; storeId = apt.store_id; }
       }
 
       const pendingPayload = {
@@ -321,11 +318,10 @@ const ExaminerPortal = () => {
           ? `Report submitted for review. Matched to: ${matchedCandidate.candidate_name}`
           : "Report submitted for review by Master Admin.",
       });
-
       setFile(null);
       setExtractedData(null);
       setMatchedCandidate(null);
-      setActiveTab("appointments");
+      setActiveView("dashboard");
     } catch (err: any) {
       toastHook({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -335,217 +331,282 @@ const ExaminerPortal = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
       </div>
     );
   }
 
+  // Portal cards for the examiner dashboard
+  const portalCards = [
+    {
+      key: "appointments",
+      title: "Appointments",
+      description: "View assigned appointments and candidates",
+      icon: CalendarIcon,
+      badge: upcomingCount > 0 ? upcomingCount : null,
+    },
+    {
+      key: "upload",
+      title: "Upload Report",
+      description: "Upload completed polygraph reports",
+      icon: Upload,
+      badge: null,
+    },
+  ];
+
+  // ====== DASHBOARD VIEW ======
+  if (activeView === "dashboard") {
+    return (
+      <div className="min-h-screen bg-black relative overflow-hidden">
+        {/* Entry Animation */}
+        <div className={`fixed inset-0 bg-black z-50 ${isAnimating ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+          <div className="absolute inset-0 flex items-center justify-center"
+            style={{ animation: isAnimating ? 'scanline 2s ease-out forwards' : 'none', opacity: 0 }}>
+            <div className="w-1 h-full bg-red-600" style={{ boxShadow: '0 0 40px rgba(239,68,68,0.8), 0 0 80px rgba(239,68,68,0.5)' }} />
+          </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-4"
+            style={{ animation: isAnimating ? 'logoSequence 3s ease-in-out 2s both' : 'none' }}>
+            <img src={tldvLogo} alt="TLDV Logo" className="w-3/4 sm:w-1/2 max-w-2xl object-contain" />
+            {userName && (
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold text-red-500 mt-4 sm:mt-8 tracking-wide text-center">
+                Welcome, {userName}
+              </h2>
+            )}
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mt-2 sm:mt-4 tracking-wider text-center">
+              Examiner Portal
+            </h1>
+          </div>
+        </div>
+
+        {/* Exit Animation */}
+        <div className={`fixed inset-0 bg-black z-50 transition-opacity duration-500 ${isExiting ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+          <div className="absolute inset-0 flex items-center justify-center px-4"
+            style={{ animation: isExiting ? 'portalExit 2s ease-in-out forwards' : 'none' }}>
+            <div className="relative">
+              <div className="w-48 h-48 sm:w-72 sm:h-72 rounded-full border-4 border-red-600"
+                style={{ boxShadow: '0 0 60px rgba(239,68,68,0.8), inset 0 0 60px rgba(239,68,68,0.5)', animation: isExiting ? 'portalShrink 2s ease-in-out forwards' : 'none' }} />
+              <p className="absolute inset-0 flex items-center justify-center text-white text-lg sm:text-xl font-bold">Exiting Portal...</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Dashboard */}
+        <div className={`min-h-screen flex items-center justify-center py-6 sm:py-8 pb-12 ${!hasSeenAnimation ? "transition-all duration-1000" : ""} ${isAnimating ? "opacity-0" : "opacity-100"}`}>
+          <div className="container mx-auto px-3 sm:px-4 max-w-4xl relative">
+            <div className="absolute top-2 sm:top-0 right-2 sm:right-4">
+              <button onClick={handleSignOut}
+                className="px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-red-600/20 border-2 border-red-600 text-white rounded-lg hover:bg-red-600/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] transition-all duration-300">
+                Sign Out
+              </button>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white text-center mb-6 sm:mb-8 md:mb-12 mt-12 sm:mt-8">
+              Examiner Portal
+            </h1>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-3 mb-8">
+              <div className="border-2 border-red-600/30 rounded-lg p-4 text-center bg-black">
+                <p className="text-2xl font-bold text-red-500">{(appointments as any[]).length}</p>
+                <p className="text-xs text-gray-400">Total</p>
+              </div>
+              <div className="border-2 border-red-600/30 rounded-lg p-4 text-center bg-black">
+                <p className="text-2xl font-bold text-green-500">{upcomingCount}</p>
+                <p className="text-xs text-gray-400">Upcoming</p>
+              </div>
+              <div className="border-2 border-red-600/30 rounded-lg p-4 text-center bg-black">
+                <p className="text-2xl font-bold text-gray-400">{completedCount}</p>
+                <p className="text-xs text-gray-400">Completed</p>
+              </div>
+            </div>
+
+            {/* Portal Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              {portalCards.map((portal) => (
+                <Card
+                  key={portal.key}
+                  onClick={() => setActiveView(portal.key as ActiveView)}
+                  className="p-5 sm:p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-[3px] border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)] relative"
+                >
+                  {portal.badge !== null && (
+                    <Badge className="absolute top-4 right-4 bg-red-600 text-white text-xs">{portal.badge}</Badge>
+                  )}
+                  <div className="flex flex-col items-center text-center space-y-3 sm:space-y-4">
+                    <div className="p-4 sm:p-6 rounded-full border-2 bg-red-600/30 border-red-600 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
+                      <portal.icon className="w-10 h-10 sm:w-16 sm:h-16 text-red-500" strokeWidth={2.5} />
+                    </div>
+                    <h2 className="text-lg sm:text-2xl font-bold text-white">{portal.title}</h2>
+                    <p className="text-sm text-gray-300">{portal.description}</p>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes scanline { 0% { transform: translateX(-100vw); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateX(100vw); opacity: 0; } }
+          @keyframes logoSequence { 0% { opacity: 0; transform: scale(0.95); } 10% { opacity: 1; transform: scale(1); } 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.05); } }
+          @keyframes portalExit { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 1; } }
+          @keyframes portalShrink { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(0); opacity: 0; } }
+        `}</style>
+      </div>
+    );
+  }
+
+  // ====== INNER VIEWS (Appointments / Upload) ======
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-card">
+      <header className="border-b bg-black">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold">Examiner Portal</h1>
-            <p className="text-xs text-muted-foreground">{user?.email}</p>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setActiveView("dashboard")} className="text-white hover:text-red-500">
+              <ArrowLeft className="h-4 w-4 mr-1" /> Back
+            </Button>
+            <div>
+              <h1 className="text-lg font-bold text-white">
+                {activeView === "appointments" ? "Appointments" : "Upload Report"}
+              </h1>
+              <p className="text-xs text-gray-400">{user?.email}</p>
+            </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleSignOut}>
+          <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-white hover:text-red-500">
             <LogOut className="h-4 w-4 mr-1" /> Sign Out
           </Button>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <Card><CardContent className="py-4 text-center">
-            <p className="text-2xl font-bold text-primary">{(appointments as any[]).length}</p>
-            <p className="text-xs text-muted-foreground">Total Appointments</p>
-          </CardContent></Card>
-          <Card><CardContent className="py-4 text-center">
-            <p className="text-2xl font-bold text-green-600">{(appointments as any[]).filter((a: any) => ["assigned", "confirmed"].includes(a.status)).length}</p>
-            <p className="text-xs text-muted-foreground">Upcoming</p>
-          </CardContent></Card>
-          <Card><CardContent className="py-4 text-center">
-            <p className="text-2xl font-bold text-muted-foreground">{(appointments as any[]).filter((a: any) => a.status === "completed").length}</p>
-            <p className="text-xs text-muted-foreground">Completed</p>
-          </CardContent></Card>
-        </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="appointments" className="flex items-center gap-1">
-              <CalendarIcon className="h-4 w-4" /> Appointments
-            </TabsTrigger>
-            <TabsTrigger value="upload" className="flex items-center gap-1">
-              <Upload className="h-4 w-4" /> Upload Report
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Appointments Tab */}
-          <TabsContent value="appointments" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5 text-primary" /> My Appointments
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {(appointments as any[]).length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">No appointments assigned yet.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Time</TableHead>
-                        <TableHead>Venue</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Reference</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(appointments as any[]).map((apt: any) => (
-                        <TableRow key={apt.id}>
-                          <TableCell className="text-sm">
-                            {apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMM yyyy") : "—"}
-                          </TableCell>
-                          <TableCell className="text-sm">{apt.scheduled_time || "—"}</TableCell>
-                          <TableCell className="text-xs">
-                            <p className="font-medium">{apt.venue_type === "tldv_venue" ? "TLDV Venue" : apt.venue_type === "own_location" ? "Client Location" : "Rented Venue"}</p>
-                            <p className="text-muted-foreground truncate max-w-[200px]">{apt.venue_address || "—"}</p>
-                          </TableCell>
-                          <TableCell>{getStatusBadge(apt.status)}</TableCell>
-                          <TableCell className="text-xs font-mono">{apt.booking_reference || "—"}</TableCell>
-                          <TableCell className="text-right space-x-1">
-                            <Button variant="ghost" size="sm" title="View Candidates" onClick={() => setViewCandidatesApt(apt)}>
-                              <Users className="h-4 w-4" />
+        {/* ====== APPOINTMENTS VIEW ====== */}
+        {activeView === "appointments" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CalendarIcon className="h-5 w-5 text-primary" /> My Appointments
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(appointments as any[]).length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">No appointments assigned yet.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Venue</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Reference</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(appointments as any[]).map((apt: any) => (
+                      <TableRow key={apt.id}>
+                        <TableCell className="text-sm">
+                          {apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMM yyyy") : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm">{apt.scheduled_time || "—"}</TableCell>
+                        <TableCell className="text-xs">
+                          <p className="font-medium">{apt.venue_type === "tldv_venue" ? "TLDV Venue" : apt.venue_type === "own_location" ? "Client Location" : "Rented Venue"}</p>
+                          <p className="text-muted-foreground truncate max-w-[200px]">{apt.venue_address || "—"}</p>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(apt.status)}</TableCell>
+                        <TableCell className="text-xs font-mono">{apt.booking_reference || "—"}</TableCell>
+                        <TableCell className="text-right space-x-1">
+                          <Button variant="ghost" size="sm" title="View Candidates" onClick={() => setViewCandidatesApt(apt)}>
+                            <Users className="h-4 w-4" />
+                          </Button>
+                          {apt.booking_reference && (
+                            <Button variant="ghost" size="sm" title="Booking Confirmation" onClick={() => setViewBookingApt(apt)}>
+                              <FileText className="h-4 w-4" />
                             </Button>
-                            {apt.booking_reference && (
-                              <Button variant="ghost" size="sm" title="Booking Confirmation" onClick={() => setViewBookingApt(apt)}>
-                                <FileText className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-          {/* Upload Tab */}
-          <TabsContent value="upload" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Upload Completed Report</CardTitle>
-                <CardDescription>
-                  Upload a completed polygraph report. The system will automatically try to match it to a scheduled candidate.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="text-center p-8 border-2 border-dashed rounded-lg">
-                  <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <input
-                    type="file"
-                    accept=".pdf,.docx"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="examiner-report-upload"
-                  />
-                  <label htmlFor="examiner-report-upload">
-                    <Button variant="outline" asChild className="cursor-pointer">
-                      <span>Select PDF or Word File</span>
-                    </Button>
-                  </label>
-                  {file && !uploading && !extractedData && (
-                    <div className="mt-4">
-                      <p className="text-sm font-medium">{file.name}</p>
-                      <Button onClick={handleExtract} className="mt-2">Extract Report Data</Button>
-                    </div>
-                  )}
-                  {uploading && (
-                    <div className="mt-6 space-y-3 max-w-md mx-auto">
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        <span className="text-sm font-medium">Extracting data...</span>
-                      </div>
-                      <Progress value={extractionProgress} className="h-3" />
-                      <p className="text-center text-sm font-semibold text-primary">{Math.round(extractionProgress)}%</p>
-                    </div>
-                  )}
-                </div>
-
-                {extractedData && (
-                  <div className="space-y-4">
-                    {/* Candidate match indicator */}
-                    {matchedCandidate ? (
-                      <div className="p-4 rounded-lg border border-green-300 bg-green-50">
-                        <p className="text-sm font-semibold text-green-700">✓ Auto-matched to scheduled candidate</p>
-                        <p className="text-sm text-green-600">{matchedCandidate.candidate_name} {matchedCandidate.candidate_id_number ? `(${matchedCandidate.candidate_id_number})` : ""}</p>
-                      </div>
-                    ) : (
-                      <div className="p-4 rounded-lg border border-amber-300 bg-amber-50">
-                        <p className="text-sm font-semibold text-amber-700">⚠ No automatic match found</p>
-                        <p className="text-sm text-amber-600">The report will be submitted for manual review by the Master Admin.</p>
-                      </div>
-                    )}
-
-                    {/* Extracted summary */}
-                    <Card className="bg-muted/50">
-                      <CardHeader>
-                        <CardTitle className="text-base">Extracted Candidate Data</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Name:</span>
-                            <span className="ml-2 font-medium">{extractedData.candidate?.firstName} {extractedData.candidate?.lastName}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">ID Number:</span>
-                            <span className="ml-2 font-medium">{extractedData.candidate?.idNumber || "—"}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Contact:</span>
-                            <span className="ml-2 font-medium">{extractedData.candidate?.contactNumber || "—"}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Result:</span>
-                            <span className="ml-2 font-medium">
-                              {(() => {
-                                const result = mapOverallResult(extractedData.examQuestions);
-                                if (result === 'passed') return <Badge className="bg-green-600 text-white">Passed (NSR)</Badge>;
-                                if (result === 'failed') return <Badge className="bg-destructive text-destructive-foreground">Failed (SR)</Badge>;
-                                return <Badge variant="secondary">Inconclusive</Badge>;
-                              })()}
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Button
-                      onClick={handleSubmitReport}
-                      disabled={saving}
-                      className="w-full"
-                    >
-                      {saving ? (
-                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>
-                      ) : (
-                        <><Upload className="mr-2 h-4 w-4" /> Submit Report for Review</>
-                      )}
-                    </Button>
+        {/* ====== UPLOAD VIEW ====== */}
+        {activeView === "upload" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Upload Completed Report</CardTitle>
+              <CardDescription>
+                Upload a completed polygraph report. The system will automatically try to match it to a scheduled candidate.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="text-center p-8 border-2 border-dashed rounded-lg">
+                <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <input type="file" accept=".pdf,.docx" onChange={handleFileChange} className="hidden" id="examiner-report-upload" />
+                <label htmlFor="examiner-report-upload">
+                  <Button variant="outline" asChild className="cursor-pointer"><span>Select PDF or Word File</span></Button>
+                </label>
+                {file && !uploading && !extractedData && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium">{file.name}</p>
+                    <Button onClick={handleExtract} className="mt-2">Extract Report Data</Button>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                {uploading && (
+                  <div className="mt-6 space-y-3 max-w-md mx-auto">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      <span className="text-sm font-medium">Extracting data...</span>
+                    </div>
+                    <Progress value={extractionProgress} className="h-3" />
+                    <p className="text-center text-sm font-semibold text-primary">{Math.round(extractionProgress)}%</p>
+                  </div>
+                )}
+              </div>
+
+              {extractedData && (
+                <div className="space-y-4">
+                  {matchedCandidate ? (
+                    <div className="p-4 rounded-lg border border-green-300 bg-green-50">
+                      <p className="text-sm font-semibold text-green-700">✓ Auto-matched to scheduled candidate</p>
+                      <p className="text-sm text-green-600">{matchedCandidate.candidate_name} {matchedCandidate.candidate_id_number ? `(${matchedCandidate.candidate_id_number})` : ""}</p>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-lg border border-amber-300 bg-amber-50">
+                      <p className="text-sm font-semibold text-amber-700">⚠ No automatic match found</p>
+                      <p className="text-sm text-amber-600">The report will be submitted for manual review by the Master Admin.</p>
+                    </div>
+                  )}
+                  <Card className="bg-muted/50">
+                    <CardHeader><CardTitle className="text-base">Extracted Candidate Data</CardTitle></CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div><span className="text-muted-foreground">Name:</span><span className="ml-2 font-medium">{extractedData.candidate?.firstName} {extractedData.candidate?.lastName}</span></div>
+                        <div><span className="text-muted-foreground">ID Number:</span><span className="ml-2 font-medium">{extractedData.candidate?.idNumber || "—"}</span></div>
+                        <div><span className="text-muted-foreground">Contact:</span><span className="ml-2 font-medium">{extractedData.candidate?.contactNumber || "—"}</span></div>
+                        <div><span className="text-muted-foreground">Result:</span><span className="ml-2 font-medium">
+                          {(() => {
+                            const result = mapOverallResult(extractedData.examQuestions);
+                            if (result === 'passed') return <Badge className="bg-green-600 text-white">Passed (NSR)</Badge>;
+                            if (result === 'failed') return <Badge className="bg-destructive text-destructive-foreground">Failed (SR)</Badge>;
+                            return <Badge variant="secondary">Inconclusive</Badge>;
+                          })()}
+                        </span></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Button onClick={handleSubmitReport} disabled={saving} className="w-full">
+                    {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : <><Upload className="mr-2 h-4 w-4" /> Submit Report for Review</>}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </main>
 
       {/* Candidates Dialog */}
