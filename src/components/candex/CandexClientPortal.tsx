@@ -159,9 +159,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   });
 
   const pendingReview = applications?.filter((a) => a.status === "submitted") || [];
-  const approved = applications?.filter((a) => a.status === "approved") || [];
+  const approved = applications?.filter((a) => a.status === "approved" || a.status === "candexed") || [];
   const rejected = applications?.filter((a) => a.status === "rejected") || [];
-  const preAppliChecked = applications?.filter((a) => a.status === "candexed" || a.status === "preAppliChecked") || [];
+  const preAppliChecked = applications?.filter((a) => a.status === "candexed") || [];
   const inProgress = applications?.filter((a) => a.status === "in_progress") || [];
   const totalApplications = applications?.length || 0;
 
