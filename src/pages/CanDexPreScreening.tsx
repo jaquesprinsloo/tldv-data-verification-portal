@@ -13,6 +13,7 @@ import CandexBuilder from "@/components/candex/CandexBuilder";
 import CandexClients from "@/components/candex/CandexClients";
 import CandexClientPortal from "@/components/candex/CandexClientPortal";
 import CandexRiskRequests from "@/components/candex/CandexRiskRequests";
+import PolygraphAppointments from "@/components/admin/PolygraphAppointments";
 
 const CanDexPreScreening = () => {
   const navigate = useNavigate();
