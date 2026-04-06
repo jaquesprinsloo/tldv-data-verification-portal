@@ -148,7 +148,38 @@ const PolygraphAppointmentDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
+          {/* Account Selection */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold flex items-center gap-1">
+              <Building2 className="h-4 w-4" /> Assign to Account
+            </Label>
+            <Select value={selectedAccountId} onValueChange={(v) => { setSelectedAccountId(v); setSelectedStoreId(""); }}>
+              <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+              <SelectContent>
+                {accounts.map((acc) => (
+                  <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Sub-account (Store) Selection */}
+          {selectedAccountId && accountStores.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold flex items-center gap-1">
+                <Store className="h-4 w-4" /> Sub-Account (Optional)
+              </Label>
+              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                <SelectTrigger><SelectValue placeholder="Select sub-account" /></SelectTrigger>
+                <SelectContent>
+                  {accountStores.map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>{s.store_name} ({s.store_code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Venue Type */}
           <div className="space-y-3">
             <Label className="text-sm font-semibold">Venue Selection</Label>
