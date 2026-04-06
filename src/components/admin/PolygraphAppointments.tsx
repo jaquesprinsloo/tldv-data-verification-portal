@@ -27,6 +27,7 @@ const PolygraphAppointments = () => {
   const [selectedExaminerId, setSelectedExaminerId] = useState("");
   const [selectedExaminerUserId, setSelectedExaminerUserId] = useState("");
   const [viewCandidatesOpen, setViewCandidatesOpen] = useState(false);
+  const [viewBookingConfirmation, setViewBookingConfirmation] = useState<string | null>(null);
 
   // Fetch all appointments
   const { data: appointments = [], isLoading } = useQuery({
