@@ -43,6 +43,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestDate, setRequestDate] = useState<Date | undefined>(new Date());
   const [requestAccountId, setRequestAccountId] = useState("");
+  const [requestStoreId, setRequestStoreId] = useState("");
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
 
@@ -142,6 +143,20 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       const { data } = await supabase.from("accounts").select("id, name, code");
       return data || [];
     },
+  });
+
+  // Get stores (sub-accounts) for the selected request account
+  const { data: requestStores = [] } = useQuery({
+    queryKey: ["request-stores", requestAccountId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("stores")
+        .select("id, store_name, store_code")
+        .eq("account_id", requestAccountId)
+        .order("store_name");
+      return data || [];
+    },
+    enabled: !!requestAccountId,
   });
 
   // Get risk request candidate statuses for approved apps
@@ -449,6 +464,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       setRequestOpen(false);
       setSelectedCandidates([]);
       setRequestAccountId("");
+      setRequestStoreId("");
       queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates-for-approved"] });
     },
     onError: (e: any) => toast.error(e.message),
@@ -935,7 +951,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               </div>
               <div>
                 <Label>Assign to Account</Label>
-                <Select value={requestAccountId} onValueChange={setRequestAccountId}>
+                <Select value={requestAccountId} onValueChange={(v) => { setRequestAccountId(v); setRequestStoreId(""); }}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Select account" /></SelectTrigger>
                   <SelectContent>
                     {accounts?.map((acc) => (
@@ -944,6 +960,19 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                   </SelectContent>
                 </Select>
               </div>
+              {requestAccountId && requestStores.length > 0 && (
+                <div>
+                  <Label>Sub-Account (Store)</Label>
+                  <Select value={requestStoreId} onValueChange={setRequestStoreId}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select sub-account" /></SelectTrigger>
+                    <SelectContent>
+                      {requestStores.map((store) => (
+                        <SelectItem key={store.id} value={store.id}>{store.store_name} ({store.store_code})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label>Select Candidates</Label>
                 <div className="border rounded-md mt-1 max-h-48 overflow-y-auto">
