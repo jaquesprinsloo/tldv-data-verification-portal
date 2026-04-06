@@ -104,8 +104,8 @@ const AdminPortalDashboard = () => {
     },
   });
 
-  // Build portals list
-  const buildPortals = useCallback((): PortalCard[] => {
+  // Build portals list - computed directly, no useEffect needed
+  useEffect(() => {
     const preAppliCheckKey = "candex-pre-screening";
     const allPortals: PortalCard[] = [
       {
@@ -193,7 +193,6 @@ const AdminPortalDashboard = () => {
     // Apply saved order if available
     if (savedOrder && savedOrder.length > 0) {
       const orderMap = new Map(savedOrder.map(o => [o.card_key, o.sort_order]));
-      // Assign stable fallback orders for cards not in saved order
       const maxSavedOrder = Math.max(...savedOrder.map(o => o.sort_order), -1);
       let nextFallback = maxSavedOrder + 1;
       const fallbackMap = new Map<string, number>();
@@ -209,19 +208,18 @@ const AdminPortalDashboard = () => {
       });
     }
 
+    // Always ensure PreAppliCheck is first
     const preAppliCheckPortal = visiblePortals.find((portal) => portal.key === preAppliCheckKey)
       ?? allPortals.find((portal) => portal.key === preAppliCheckKey);
 
     const remainingPortals = visiblePortals.filter((portal) => portal.key !== preAppliCheckKey);
 
-    return preAppliCheckPortal
+    const newPortals = preAppliCheckPortal
       ? [preAppliCheckPortal, ...remainingPortals]
       : visiblePortals;
-  }, [isMasterAdmin, dataManagementBadge, pendingRequests, pendingPolygraphCount, savedOrder]);
 
-  useEffect(() => {
-    setOrderedPortals(buildPortals());
-  }, [buildPortals]);
+    setOrderedPortals(newPortals);
+  }, [isMasterAdmin, dataManagementBadge, pendingRequests, pendingPolygraphCount, savedOrder]);
 
   useEffect(() => {
     const checkAuth = async () => {
