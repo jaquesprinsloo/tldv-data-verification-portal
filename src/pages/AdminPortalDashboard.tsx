@@ -131,8 +131,8 @@ const AdminPortalDashboard = () => {
     },
     {
       key: "reports-accounts",
-      title: "Reports & Accounts",
-      description: "View reports and accounts",
+      title: "Polygraph Reports",
+      description: "Upload, review, and manage polygraph reports",
       icon: FileText,
       path: "/admin/reports-accounts",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
