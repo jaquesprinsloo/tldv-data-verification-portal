@@ -900,7 +900,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         </TableCell>
                         <TableCell>
                           {app.risk_level ? (
-                            <Badge variant={app.risk_level === "LOW" ? "default" : "destructive"} className="text-xs">{app.risk_level}</Badge>
+                            <Badge className={`text-xs ${app.risk_level === "LOW" ? "bg-green-600 text-white" : "bg-destructive text-destructive-foreground"}`}>{app.risk_level}</Badge>
                           ) : "—"}
                         </TableCell>
                         <TableCell className="text-right flex gap-1 justify-end">
