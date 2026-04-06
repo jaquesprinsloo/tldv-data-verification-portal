@@ -34,7 +34,6 @@ const ExaminerPortal = () => {
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
   const [viewBookingApt, setViewBookingApt] = useState<any>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
-  const [viewBookingApt, setViewBookingApt] = useState<any>(null);
 
   // Upload state
   const [file, setFile] = useState<File | null>(null);
