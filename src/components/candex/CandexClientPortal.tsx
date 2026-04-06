@@ -148,6 +148,21 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     },
   });
 
+  // Get user's polygraph appointments
+  const { data: userAppointments = [] } = useQuery({
+    queryKey: ["user-polygraph-appointments", client?.id],
+    queryFn: async () => {
+      if (!client?.id) return [];
+      const { data } = await supabase
+        .from("polygraph_appointments" as any)
+        .select("*, polygraph_appointment_candidates(*)")
+        .eq("client_id", client.id)
+        .order("created_at", { ascending: false });
+      return (data as any[]) || [];
+    },
+    enabled: !!client?.id,
+  });
+
   // Get stores (sub-accounts) for the selected request account
   const { data: requestStores = [] } = useQuery({
     queryKey: ["request-stores", requestAccountId],
