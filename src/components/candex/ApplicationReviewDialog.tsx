@@ -15,6 +15,7 @@ interface ApplicationReviewDialogProps {
   onClose: () => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  readOnly?: boolean;
 }
 
 interface SectionTable {
@@ -34,7 +35,7 @@ interface Section {
   sort_order: number;
 }
 
-export default function ApplicationReviewDialog({ application, open, onClose, onApprove, onReject }: ApplicationReviewDialogProps) {
+export default function ApplicationReviewDialog({ application, open, onClose, onApprove, onReject, readOnly }: ApplicationReviewDialogProps) {
   const [sections, setSections] = useState<Section[]>([]);
   const [tables, setTables] = useState<SectionTable[]>([]);
   const [loading, setLoading] = useState(false);
@@ -310,14 +311,16 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           </Accordion>
         )}
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="destructive" onClick={() => onReject(application.id)}>
-            <X className="h-4 w-4 mr-1" /> Reject
-          </Button>
-          <Button onClick={() => onApprove(application.id)}>
-            <Check className="h-4 w-4 mr-1" /> Approve
-          </Button>
-        </DialogFooter>
+        {!readOnly && (
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="destructive" onClick={() => onReject(application.id)}>
+              <X className="h-4 w-4 mr-1" /> Reject
+            </Button>
+            <Button onClick={() => onApprove(application.id)}>
+              <Check className="h-4 w-4 mr-1" /> Approve
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

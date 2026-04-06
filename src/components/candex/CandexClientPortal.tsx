@@ -40,6 +40,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [inviteMethod, setInviteMethod] = useState<"email" | "whatsapp">("email");
   const [inviteForm, setInviteForm] = useState({ name: "", surname: "", phone: "", email: "", id_number: "" });
   const [reviewApp, setReviewApp] = useState<any>(null);
+  const [viewPreAppliCheckApp, setViewPreAppliCheckApp] = useState<any>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestDate, setRequestDate] = useState<Date | undefined>(new Date());
   const [requestAccountId, setRequestAccountId] = useState("");
@@ -902,12 +903,10 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                             <Badge variant={app.risk_level === "LOW" ? "default" : "destructive"} className="text-xs">{app.risk_level}</Badge>
                           ) : "—"}
                         </TableCell>
-                        <TableCell className="text-right">
-                          {isCompleted && riskUrl && (
-                            <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={() => setViewRiskUrl(riskUrl)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          )}
+                        <TableCell className="text-right flex gap-1 justify-end">
+                          <Button variant="ghost" size="sm" title="View PreAppliCheck" onClick={() => setViewPreAppliCheckApp(app)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -918,16 +917,16 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           </CardContent>
         </Card>
 
-        {/* View Risk Assessment Dialog */}
-        <Dialog open={!!viewRiskUrl} onOpenChange={() => setViewRiskUrl(null)}>
-          <DialogContent className="max-w-3xl max-h-[85vh]">
-            <DialogHeader>
-              <DialogTitle>Risk Assessment Report</DialogTitle>
-              <DialogDescription>View the completed risk assessment document.</DialogDescription>
-            </DialogHeader>
-            {viewRiskUrl && <iframe src={viewRiskUrl} className="w-full h-[65vh] border rounded" title="Risk Assessment" />}
-          </DialogContent>
-        </Dialog>
+        {/* View PreAppliCheck Application (read-only) */}
+        <ApplicationReviewDialog
+          application={viewPreAppliCheckApp}
+          open={!!viewPreAppliCheckApp}
+          onClose={() => setViewPreAppliCheckApp(null)}
+          onApprove={undefined as any}
+          onReject={undefined as any}
+          readOnly
+        />
+
 
         {/* Risk Assessment Request Dialog */}
         <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
@@ -997,15 +996,15 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
 
       {/* ── PREAPPLICHECKED TAB ── */}
       <TabsContent value="preAppliChecked">
-        <Card>
+         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <UserCheck className="h-5 w-5 text-primary" /> PreAppliChecked Candidates
+              <UserCheck className="h-5 w-5 text-primary" /> Risk Assessment Completed
             </CardTitle>
           </CardHeader>
           <CardContent>
             {!preAppliChecked.length ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No fully screened candidates yet.</p>
+              <p className="text-sm text-muted-foreground text-center py-8">No completed risk assessments yet.</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -1018,30 +1017,64 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {preAppliChecked.map((app) => (
-                    <TableRow key={app.id}>
-                      <TableCell className="font-medium">{app.candidate_name}</TableCell>
-                      <TableCell className="text-xs">{app.candidate_id_number || "—"}</TableCell>
-                      <TableCell>
-                        <Badge className="bg-primary text-primary-foreground text-xs">
-                          <CheckCircle className="h-3 w-3 mr-1" /> Verified
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`text-xs ${app.risk_level === "LOW" || !app.risk_level ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"}`}>
-                          {app.risk_level === "LOW" || !app.risk_level ? "Clear" : "Flagged"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm">Schedule Polygraph</Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {preAppliChecked.map((app) => {
+                    const riskCandidate = riskCandidateData?.find((rc: any) => rc.application_id === app.id);
+                    const riskResult = riskCandidate?.risk_assessment_result;
+                    const riskUrl = riskCandidate?.risk_assessment_url;
+                    const idVerified = riskCandidate?.id_verified;
+
+                    return (
+                      <TableRow key={app.id}>
+                        <TableCell className="font-medium">{app.candidate_name}</TableCell>
+                        <TableCell className="text-xs">{app.candidate_id_number || "—"}</TableCell>
+                        <TableCell>
+                          {idVerified ? (
+                            <Badge className="bg-primary text-primary-foreground text-xs">
+                              <CheckCircle className="h-3 w-3 mr-1" /> Verified
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Unverified</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {riskResult === "clear" ? (
+                            <Badge className="bg-primary text-primary-foreground text-xs">
+                              <CheckCircle className="h-3 w-3 mr-1" /> No Risk Identified
+                            </Badge>
+                          ) : riskResult === "flagged" ? (
+                            <Badge className="bg-destructive text-destructive-foreground text-xs">
+                              <AlertTriangle className="h-3 w-3 mr-1" /> Risk Identified
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Completed</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {riskUrl && (
+                            <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={() => setViewRiskUrl(riskUrl)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
           </CardContent>
         </Card>
+
+        {/* View Risk Assessment Dialog (for completed tab) */}
+        <Dialog open={!!viewRiskUrl} onOpenChange={() => setViewRiskUrl(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh]">
+            <DialogHeader>
+              <DialogTitle>Risk Assessment Report</DialogTitle>
+              <DialogDescription>View the completed risk assessment document.</DialogDescription>
+            </DialogHeader>
+            {viewRiskUrl && <iframe src={viewRiskUrl} className="w-full h-[65vh] border rounded" title="Risk Assessment" />}
+          </DialogContent>
+        </Dialog>
       </TabsContent>
     </Tabs>
   );
