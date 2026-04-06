@@ -419,10 +419,12 @@ export const ProfileManagement = () => {
                               className={`text-xs ${
                                 role === 'master_admin' 
                                   ? 'border-yellow-500 text-yellow-500' 
+                                  : role === 'examiner'
+                                  ? 'border-blue-500 text-blue-500'
                                   : 'border-red-500 text-red-500'
                               }`}
                             >
-                              {role === 'master_admin' ? 'Master' : 'Admin'}
+                              {role === 'master_admin' ? 'Master' : role === 'examiner' ? 'Examiner' : 'Admin'}
                             </Badge>
                           ))}
                         </div>
