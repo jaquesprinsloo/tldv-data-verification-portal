@@ -172,10 +172,14 @@ const BookingConfirmationView = ({ open, onClose, data }: BookingConfirmationVie
           </div>
         </div>
 
+        </div>
+        </div>
+
         <DialogFooter className="px-6 pb-6">
           <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button onClick={handleDownload}>
-            <Download className="h-4 w-4 mr-1" /> Download
+          <Button onClick={handleDownload} disabled={downloading}>
+            {downloading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
+            {downloading ? "Generating..." : "Download PDF"}
           </Button>
         </DialogFooter>
       </DialogContent>
