@@ -1,25 +1,41 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, CalendarIcon, MapPin, Users, Eye, LogOut, FileText } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, CalendarIcon, MapPin, Users, Eye, LogOut, FileText, Upload, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import ApplicationReviewDialog from "@/components/candex/ApplicationReviewDialog";
+import BookingConfirmationView from "@/components/shared/BookingConfirmationView";
 import { User } from "@supabase/supabase-js";
 
 const ExaminerPortal = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { toast: toastHook } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewCandidatesApt, setViewCandidatesApt] = useState<any>(null);
   const [viewAppDetails, setViewAppDetails] = useState<any>(null);
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
+  const [viewBookingApt, setViewBookingApt] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState("appointments");
+
+  // Upload state
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [extractionProgress, setExtractionProgress] = useState(0);
+  const [extractedData, setExtractedData] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+  const [matchedCandidate, setMatchedCandidate] = useState<any>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -110,6 +126,22 @@ const ExaminerPortal = () => {
     enabled: !!candidates.length,
   });
 
+  // Fetch all appointment candidates for this examiner (for auto-matching)
+  const { data: allExaminerCandidates = [] } = useQuery({
+    queryKey: ["examiner-all-candidates", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const aptIds = (appointments as any[]).map((a: any) => a.id);
+      if (aptIds.length === 0) return [];
+      const { data } = await supabase
+        .from("polygraph_appointment_candidates" as any)
+        .select("*, polygraph_appointments!inner(assigned_examiner_user_id)")
+        .in("appointment_id", aptIds);
+      return data || [];
+    },
+    enabled: !!(appointments as any[]).length,
+  });
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate("/admin/login");
@@ -119,8 +151,185 @@ const ExaminerPortal = () => {
     switch (status) {
       case "assigned": return <Badge className="bg-green-600 text-white text-xs">Assigned</Badge>;
       case "scheduled": return <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">Scheduled</Badge>;
-      case "completed": return <Badge className="bg-primary text-primary-foreground text-xs">Completed</Badge>;
+      case "confirmed": return <Badge className="bg-primary text-primary-foreground text-xs">Confirmed</Badge>;
+      case "completed": return <Badge variant="outline" className="text-xs">Completed</Badge>;
       default: return <Badge variant="outline" className="text-xs">{status}</Badge>;
+    }
+  };
+
+  // --- Upload Logic ---
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]);
+      };
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    const lowerName = selectedFile.name.toLowerCase();
+    const isPdf = /\.pdf$/i.test(lowerName);
+    const isDocx = /\.docx$/i.test(lowerName);
+
+    if (!isPdf && !isDocx) {
+      toastHook({ title: "Invalid File", description: "Please upload a PDF or Word (.docx) file.", variant: "destructive" });
+      return;
+    }
+
+    setFile(selectedFile);
+    setExtractedData(null);
+    setMatchedCandidate(null);
+  };
+
+  const tryMatchCandidate = (data: any) => {
+    if (!data?.candidate) return null;
+    const idNumber = data.candidate.idNumber?.trim();
+    const firstName = (data.candidate.firstName || "").trim().toLowerCase();
+    const lastName = (data.candidate.lastName || "").trim().toLowerCase();
+
+    for (const c of allExaminerCandidates as any[]) {
+      // Match by ID number first
+      if (idNumber && c.candidate_id_number && c.candidate_id_number.trim() === idNumber) {
+        return c;
+      }
+      // Match by name
+      const candidateName = (c.candidate_name || "").toLowerCase();
+      if (firstName && lastName && candidateName.includes(firstName) && candidateName.includes(lastName)) {
+        return c;
+      }
+    }
+    return null;
+  };
+
+  const handleExtract = async () => {
+    if (!file) return;
+    setUploading(true);
+    setExtractionProgress(0);
+
+    const progressInterval = setInterval(() => {
+      setExtractionProgress(prev => {
+        if (prev < 30) return prev + 2;
+        if (prev < 60) return prev + 1.5;
+        if (prev < 80) return prev + 0.8;
+        if (prev < 90) return prev + 0.3;
+        return prev;
+      });
+    }, 500);
+
+    try {
+      const fileBase64 = await fileToBase64(file);
+      const isWord = file.name.toLowerCase().endsWith('.docx');
+      const body = isWord ? { docxBase64: fileBase64, fileName: file.name } : { pdfBase64: fileBase64, fileName: file.name };
+
+      const { data, error } = await supabase.functions.invoke('extract-polygraph-report', { body });
+      clearInterval(progressInterval);
+
+      if (error || data?.error) throw new Error(data?.error || error?.message || 'Extraction failed');
+
+      if (data?.success && data?.data) {
+        setExtractionProgress(100);
+        setExtractedData(data.data);
+        const match = tryMatchCandidate(data.data);
+        setMatchedCandidate(match);
+        toastHook({
+          title: "Data Extracted",
+          description: match
+            ? `Matched to candidate: ${match.candidate_name}`
+            : "Report extracted. No automatic candidate match found.",
+        });
+      }
+    } catch (err: any) {
+      clearInterval(progressInterval);
+      toastHook({ title: "Extraction Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const mapOverallResult = (examQuestions: any[]): string | null => {
+    if (!examQuestions?.length) return null;
+    const findings = examQuestions.map(q => (q.finding || q.result || '').toUpperCase());
+    if (findings.some(f => f === 'SR')) return 'failed';
+    if (findings.some(f => f === 'INC')) return 'inconclusive';
+    if (findings.every(f => f === 'NSR')) return 'passed';
+    return 'inconclusive';
+  };
+
+  const handleSubmitReport = async () => {
+    if (!extractedData || !file) return;
+    setSaving(true);
+
+    try {
+      const uploadId = crypto.randomUUID();
+      const fileName = `pending/${uploadId}/${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("polygraph-reports")
+        .upload(fileName, file, { contentType: file.type });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from("polygraph-reports").getPublicUrl(fileName);
+
+      // Find associated appointment for account/store info
+      let accountId: string | null = null;
+      let storeId: string | null = null;
+      if (matchedCandidate) {
+        const apt = (appointments as any[]).find((a: any) => a.id === matchedCandidate.appointment_id);
+        if (apt) {
+          accountId = apt.account_id;
+          storeId = apt.store_id;
+        }
+      }
+
+      const pendingPayload = {
+        account_id: accountId,
+        store_id: storeId,
+        examiner_id: null,
+        original_file_url: publicUrl,
+        original_file_name: file.name,
+        extracted_data: extractedData,
+        first_name: extractedData.candidate?.firstName || null,
+        last_name: extractedData.candidate?.lastName || null,
+        id_number: extractedData.candidate?.idNumber || null,
+        email: extractedData.candidate?.email || null,
+        contact_number: extractedData.candidate?.contactNumber || null,
+        physical_address: extractedData.candidate?.physicalAddress || null,
+        position_applying_for: extractedData.candidate?.positionApplyingFor || null,
+        risk_score: extractedData.riskAnalysis?.TotalRiskScore || null,
+        risk_level: extractedData.riskAnalysis?.RiskLevel || null,
+        risk_analysis: extractedData.riskAnalysis || null,
+        examination_date: extractedData.examination?.date
+          ? new Date(extractedData.examination.date).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0],
+        overall_result: mapOverallResult(extractedData.examQuestions),
+        status: "pending",
+        uploaded_by: user?.id,
+      };
+
+      const { error } = await supabase.from("pending_polygraph_uploads").insert([pendingPayload]);
+      if (error) throw error;
+
+      toastHook({
+        title: "Report Submitted",
+        description: matchedCandidate
+          ? `Report submitted for review. Matched to: ${matchedCandidate.candidate_name}`
+          : "Report submitted for review by Master Admin.",
+      });
+
+      setFile(null);
+      setExtractedData(null);
+      setMatchedCandidate(null);
+      setActiveTab("appointments");
+    } catch (err: any) {
+      toastHook({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -155,7 +364,7 @@ const ExaminerPortal = () => {
             <p className="text-xs text-muted-foreground">Total Appointments</p>
           </CardContent></Card>
           <Card><CardContent className="py-4 text-center">
-            <p className="text-2xl font-bold text-green-600">{(appointments as any[]).filter((a: any) => a.status === "assigned").length}</p>
+            <p className="text-2xl font-bold text-green-600">{(appointments as any[]).filter((a: any) => ["assigned", "confirmed"].includes(a.status)).length}</p>
             <p className="text-xs text-muted-foreground">Upcoming</p>
           </CardContent></Card>
           <Card><CardContent className="py-4 text-center">
@@ -164,56 +373,182 @@ const ExaminerPortal = () => {
           </CardContent></Card>
         </div>
 
-        {/* Appointments list */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5 text-primary" /> My Appointments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(appointments as any[]).length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No appointments assigned yet.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Venue</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Reference</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(appointments as any[]).map((apt: any) => (
-                    <TableRow key={apt.id}>
-                      <TableCell className="text-sm">
-                        {apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMM yyyy") : "—"}
-                      </TableCell>
-                      <TableCell className="text-sm">{apt.scheduled_time || "—"}</TableCell>
-                      <TableCell className="text-xs">
-                        <p className="font-medium">{apt.venue_type === "tldv_venue" ? "TLDV Venue" : apt.venue_type === "own_location" ? "Client Location" : "Rented Venue"}</p>
-                        <p className="text-muted-foreground truncate max-w-[200px]">{apt.venue_address || "—"}</p>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(apt.status)}</TableCell>
-                      <TableCell className="text-xs font-mono">{apt.booking_reference || "—"}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" title="View Candidates" onClick={() => setViewCandidatesApt(apt)}>
-                          <Users className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="appointments" className="flex items-center gap-1">
+              <CalendarIcon className="h-4 w-4" /> Appointments
+            </TabsTrigger>
+            <TabsTrigger value="upload" className="flex items-center gap-1">
+              <Upload className="h-4 w-4" /> Upload Report
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Appointments Tab */}
+          <TabsContent value="appointments" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CalendarIcon className="h-5 w-5 text-primary" /> My Appointments
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(appointments as any[]).length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">No appointments assigned yet.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Venue</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Reference</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(appointments as any[]).map((apt: any) => (
+                        <TableRow key={apt.id}>
+                          <TableCell className="text-sm">
+                            {apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMM yyyy") : "—"}
+                          </TableCell>
+                          <TableCell className="text-sm">{apt.scheduled_time || "—"}</TableCell>
+                          <TableCell className="text-xs">
+                            <p className="font-medium">{apt.venue_type === "tldv_venue" ? "TLDV Venue" : apt.venue_type === "own_location" ? "Client Location" : "Rented Venue"}</p>
+                            <p className="text-muted-foreground truncate max-w-[200px]">{apt.venue_address || "—"}</p>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(apt.status)}</TableCell>
+                          <TableCell className="text-xs font-mono">{apt.booking_reference || "—"}</TableCell>
+                          <TableCell className="text-right space-x-1">
+                            <Button variant="ghost" size="sm" title="View Candidates" onClick={() => setViewCandidatesApt(apt)}>
+                              <Users className="h-4 w-4" />
+                            </Button>
+                            {apt.booking_reference && (
+                              <Button variant="ghost" size="sm" title="Booking Confirmation" onClick={() => setViewBookingApt(apt)}>
+                                <FileText className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Upload Tab */}
+          <TabsContent value="upload" className="mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Upload Completed Report</CardTitle>
+                <CardDescription>
+                  Upload a completed polygraph report. The system will automatically try to match it to a scheduled candidate.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="text-center p-8 border-2 border-dashed rounded-lg">
+                  <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <input
+                    type="file"
+                    accept=".pdf,.docx"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="examiner-report-upload"
+                  />
+                  <label htmlFor="examiner-report-upload">
+                    <Button variant="outline" asChild className="cursor-pointer">
+                      <span>Select PDF or Word File</span>
+                    </Button>
+                  </label>
+                  {file && !uploading && !extractedData && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium">{file.name}</p>
+                      <Button onClick={handleExtract} className="mt-2">Extract Report Data</Button>
+                    </div>
+                  )}
+                  {uploading && (
+                    <div className="mt-6 space-y-3 max-w-md mx-auto">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium">Extracting data...</span>
+                      </div>
+                      <Progress value={extractionProgress} className="h-3" />
+                      <p className="text-center text-sm font-semibold text-primary">{Math.round(extractionProgress)}%</p>
+                    </div>
+                  )}
+                </div>
+
+                {extractedData && (
+                  <div className="space-y-4">
+                    {/* Candidate match indicator */}
+                    {matchedCandidate ? (
+                      <div className="p-4 rounded-lg border border-green-300 bg-green-50">
+                        <p className="text-sm font-semibold text-green-700">✓ Auto-matched to scheduled candidate</p>
+                        <p className="text-sm text-green-600">{matchedCandidate.candidate_name} {matchedCandidate.candidate_id_number ? `(${matchedCandidate.candidate_id_number})` : ""}</p>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-lg border border-amber-300 bg-amber-50">
+                        <p className="text-sm font-semibold text-amber-700">⚠ No automatic match found</p>
+                        <p className="text-sm text-amber-600">The report will be submitted for manual review by the Master Admin.</p>
+                      </div>
+                    )}
+
+                    {/* Extracted summary */}
+                    <Card className="bg-muted/50">
+                      <CardHeader>
+                        <CardTitle className="text-base">Extracted Candidate Data</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Name:</span>
+                            <span className="ml-2 font-medium">{extractedData.candidate?.firstName} {extractedData.candidate?.lastName}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">ID Number:</span>
+                            <span className="ml-2 font-medium">{extractedData.candidate?.idNumber || "—"}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Contact:</span>
+                            <span className="ml-2 font-medium">{extractedData.candidate?.contactNumber || "—"}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Result:</span>
+                            <span className="ml-2 font-medium">
+                              {(() => {
+                                const result = mapOverallResult(extractedData.examQuestions);
+                                if (result === 'passed') return <Badge className="bg-green-600 text-white">Passed (NSR)</Badge>;
+                                if (result === 'failed') return <Badge className="bg-destructive text-destructive-foreground">Failed (SR)</Badge>;
+                                return <Badge variant="secondary">Inconclusive</Badge>;
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Button
+                      onClick={handleSubmitReport}
+                      disabled={saving}
+                      className="w-full"
+                    >
+                      {saving ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>
+                      ) : (
+                        <><Upload className="mr-2 h-4 w-4" /> Submit Report for Review</>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
 
-      {/* Candidates Dialog with PreAppliCheck and Risk Assessment access */}
+      {/* Candidates Dialog */}
       <Dialog open={!!viewCandidatesApt} onOpenChange={() => setViewCandidatesApt(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -298,6 +633,21 @@ const ExaminerPortal = () => {
           {viewRiskUrl && <iframe src={viewRiskUrl} className="w-full h-[65vh] border rounded" title="Risk Assessment" />}
         </DialogContent>
       </Dialog>
+
+      {/* Booking Confirmation viewer */}
+      <BookingConfirmationView
+        open={!!viewBookingApt}
+        onClose={() => setViewBookingApt(null)}
+        data={viewBookingApt ? {
+          bookingReference: viewBookingApt.booking_reference || "",
+          scheduledDate: viewBookingApt.scheduled_date || "",
+          scheduledTime: viewBookingApt.scheduled_time || "",
+          venueType: viewBookingApt.venue_type || "",
+          venueAddress: viewBookingApt.venue_address || "",
+          status: viewBookingApt.status || "",
+          candidates: [],
+        } : null}
+      />
     </div>
   );
 };
