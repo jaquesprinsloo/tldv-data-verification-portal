@@ -17,14 +17,20 @@ interface Candidate {
   candidate_id_number: string | null;
 }
 
+interface AccountOption {
+  id: string;
+  name: string;
+  code: string;
+}
+
 interface PolygraphAppointmentDialogProps {
   open: boolean;
   onClose: () => void;
   candidates: Candidate[];
   clientId: string;
   userId: string;
-  accountId: string | null;
-  storeId?: string | null;
+  accounts: AccountOption[];
+  defaultAccountId: string | null;
 }
 
 const PolygraphAppointmentDialog = ({
