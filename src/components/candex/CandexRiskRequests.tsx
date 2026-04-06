@@ -41,6 +41,9 @@ const CandexRiskRequests = () => {
   const [assessmentResult, setAssessmentResult] = useState<string>("");
   const [assessmentNotes, setAssessmentNotes] = useState("");
   const [idVerified, setIdVerified] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [assessmentFile, setAssessmentFile] = useState<File | null>(null);
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
 
   // Fetch all risk requests with client info
   const { data: requests = [], isLoading } = useQuery({
@@ -122,6 +125,28 @@ const CandexRiskRequests = () => {
   const inProgressRequests = requests.filter((r) => r.status === "in_progress");
   const completedRequests = requests.filter((r) => r.status === "completed");
 
+  // Handle file upload
+  const handleFileUpload = async (file: File) => {
+    setUploadingFile(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const filePath = `risk-assessments/${processCandidate.id}_${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from("employee-documents")
+        .upload(filePath, file);
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage
+        .from("employee-documents")
+        .getPublicUrl(filePath);
+      setUploadedFileUrl(urlData.publicUrl);
+      toast.success("File uploaded successfully");
+    } catch (e: any) {
+      toast.error("Upload failed: " + e.message);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
   // Process a candidate's risk assessment
   const processCandidateMutation = useMutation({
     mutationFn: async () => {
@@ -131,6 +156,7 @@ const CandexRiskRequests = () => {
         .update({
           id_verified: idVerified,
           risk_assessment_result: assessmentResult,
+          risk_assessment_url: uploadedFileUrl,
         })
         .eq("id", processCandidate.id);
       if (error) throw error;
@@ -155,6 +181,8 @@ const CandexRiskRequests = () => {
       setAssessmentResult("");
       setAssessmentNotes("");
       setIdVerified(false);
+      setAssessmentFile(null);
+      setUploadedFileUrl(null);
       queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates"] });
       queryClient.invalidateQueries({ queryKey: ["candex-risk-apps"] });
     },
@@ -362,6 +390,8 @@ const CandexRiskRequests = () => {
                                   setProcessCandidate(cand);
                                   setIdVerified(cand.id_verified || false);
                                   setAssessmentResult(cand.risk_assessment_result || "");
+                                  setUploadedFileUrl(cand.risk_assessment_url || null);
+                                  setAssessmentFile(null);
                                 }}
                               >
                                 <FileText className="h-4 w-4 mr-1" /> Process
@@ -374,6 +404,8 @@ const CandexRiskRequests = () => {
                                   setProcessCandidate(cand);
                                   setIdVerified(cand.id_verified || false);
                                   setAssessmentResult(cand.risk_assessment_result || "");
+                                  setUploadedFileUrl(cand.risk_assessment_url || null);
+                                  setAssessmentFile(null);
                                 }}
                               >
                                 <Eye className="h-4 w-4" />
@@ -469,6 +501,40 @@ const CandexRiskRequests = () => {
                   placeholder="Any additional notes..."
                   className="mt-1"
                 />
+              </div>
+
+              <div>
+                <Label>Upload Risk Assessment Document</Label>
+                <div className="mt-1 space-y-2">
+                  {uploadedFileUrl ? (
+                    <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-lg text-sm">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span className="flex-1 truncate">{assessmentFile?.name || "Document uploaded"}</span>
+                      <Button variant="ghost" size="sm" onClick={() => { setUploadedFileUrl(null); setAssessmentFile(null); }}>
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                      <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-sm text-muted-foreground mb-2">Upload PDF, DOCX, or image</p>
+                      <Input
+                        type="file"
+                        accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
+                        className="max-w-xs mx-auto"
+                        disabled={uploadingFile}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setAssessmentFile(file);
+                            handleFileUpload(file);
+                          }
+                        }}
+                      />
+                      {uploadingFile && <p className="text-xs text-muted-foreground mt-2">Uploading...</p>}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
