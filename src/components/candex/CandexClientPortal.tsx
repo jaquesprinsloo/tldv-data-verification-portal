@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList, Download } from "lucide-react";
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
+import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
 import { format } from "date-fns";
 
 interface CandexClientPortalProps {
