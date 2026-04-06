@@ -196,6 +196,7 @@ export type Database = {
       }
       candex_clients: {
         Row: {
+          account_id: string | null
           company_name: string | null
           contact_email: string | null
           contact_phone: string | null
@@ -207,6 +208,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          account_id?: string | null
           company_name?: string | null
           contact_email?: string | null
           contact_phone?: string | null
@@ -218,6 +220,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          account_id?: string | null
           company_name?: string | null
           contact_email?: string | null
           contact_phone?: string | null
@@ -229,6 +232,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "candex_clients_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "candex_clients_template_id_fkey"
             columns: ["template_id"]
