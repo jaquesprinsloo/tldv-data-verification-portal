@@ -917,6 +917,16 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           </CardContent>
         </Card>
 
+        {/* View PreAppliCheck Application (read-only) */}
+        <ApplicationReviewDialog
+          application={viewPreAppliCheckApp}
+          open={!!viewPreAppliCheckApp}
+          onClose={() => setViewPreAppliCheckApp(null)}
+          onApprove={undefined as any}
+          onReject={undefined as any}
+          readOnly
+        />
+
         {/* View Risk Assessment Dialog */}
         <Dialog open={!!viewRiskUrl} onOpenChange={() => setViewRiskUrl(null)}>
           <DialogContent className="max-w-3xl max-h-[85vh]">
