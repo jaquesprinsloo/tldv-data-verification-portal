@@ -43,6 +43,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestDate, setRequestDate] = useState<Date | undefined>(new Date());
   const [requestAccountId, setRequestAccountId] = useState("");
+  const [requestStoreId, setRequestStoreId] = useState("");
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
 
