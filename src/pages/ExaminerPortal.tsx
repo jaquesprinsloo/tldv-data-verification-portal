@@ -642,6 +642,8 @@ const ExaminerPortal = () => {
           </DialogHeader>
           {viewBookingApt && (
             <BookingConfirmationView
+              open={true}
+              onClose={() => setViewBookingApt(null)}
               data={{
                 bookingReference: viewBookingApt.booking_reference || "",
                 scheduledDate: viewBookingApt.scheduled_date || "",
@@ -649,6 +651,7 @@ const ExaminerPortal = () => {
                 venueType: viewBookingApt.venue_type || "",
                 venueAddress: viewBookingApt.venue_address || "",
                 status: viewBookingApt.status || "",
+                candidates: [],
               }}
             />
           )}
