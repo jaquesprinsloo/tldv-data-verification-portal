@@ -1051,7 +1051,22 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         </TableCell>
                         <TableCell className="text-right">
                           {riskUrl && (
-                            <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={() => setViewRiskUrl(riskUrl)}>
+                            <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={async () => {
+                              // If it's already a full URL (legacy), try it directly
+                              if (riskUrl.startsWith("http")) {
+                                setViewRiskUrl(riskUrl);
+                                return;
+                              }
+                              // Generate a signed URL for private bucket
+                              const { data, error } = await supabase.storage
+                                .from("employee-documents")
+                                .createSignedUrl(riskUrl, 3600);
+                              if (error || !data?.signedUrl) {
+                                toast.error("Could not load document");
+                                return;
+                              }
+                              setViewRiskUrl(data.signedUrl);
+                            }}>
                               <Eye className="h-4 w-4" />
                             </Button>
                           )}
