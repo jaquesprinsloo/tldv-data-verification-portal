@@ -40,6 +40,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [inviteMethod, setInviteMethod] = useState<"email" | "whatsapp">("email");
   const [inviteForm, setInviteForm] = useState({ name: "", surname: "", phone: "", email: "", id_number: "" });
   const [reviewApp, setReviewApp] = useState<any>(null);
+  const [viewPreAppliCheckApp, setViewPreAppliCheckApp] = useState<any>(null);
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestDate, setRequestDate] = useState<Date | undefined>(new Date());
   const [requestAccountId, setRequestAccountId] = useState("");
