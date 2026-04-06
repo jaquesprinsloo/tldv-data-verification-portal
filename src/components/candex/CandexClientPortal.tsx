@@ -900,7 +900,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         </TableCell>
                         <TableCell>
                           {app.risk_level ? (
-                            <Badge variant={app.risk_level === "LOW" ? "default" : "destructive"} className="text-xs">{app.risk_level}</Badge>
+                            <Badge className={`text-xs ${app.risk_level === "LOW" ? "bg-green-600 text-white" : "bg-destructive text-destructive-foreground"}`}>{app.risk_level}</Badge>
                           ) : "—"}
                         </TableCell>
                         <TableCell className="text-right flex gap-1 justify-end">
@@ -1029,16 +1029,16 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         <TableCell className="text-xs">{app.candidate_id_number || "—"}</TableCell>
                         <TableCell>
                           {idVerified ? (
-                            <Badge className="bg-primary text-primary-foreground text-xs">
+                            <Badge className="bg-green-600 text-white text-xs">
                               <CheckCircle className="h-3 w-3 mr-1" /> Verified
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="text-xs">Unverified</Badge>
+                            <Badge className="bg-destructive text-destructive-foreground text-xs">Unverified</Badge>
                           )}
                         </TableCell>
                         <TableCell>
                           {riskResult === "clear" ? (
-                            <Badge className="bg-primary text-primary-foreground text-xs">
+                            <Badge className="bg-green-600 text-white text-xs">
                               <CheckCircle className="h-3 w-3 mr-1" /> No Risk Identified
                             </Badge>
                           ) : riskResult === "flagged" ? (
