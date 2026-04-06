@@ -201,6 +201,7 @@ const CandexRiskRequests = () => {
     onSuccess: (_, { status }) => {
       toast.success(`Request marked as ${status}`);
       queryClient.invalidateQueries({ queryKey: ["candex-risk-requests-master"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-pending-risk-count"] });
       if (status === "completed") setSelectedRequest(null);
     },
     onError: (e: any) => toast.error(e.message),
