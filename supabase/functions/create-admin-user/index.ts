@@ -135,7 +135,7 @@ serve(async (req) => {
     if (resendApiKey) {
       try {
         const siteUrl = Deno.env.get('SITE_URL') || 'https://tldv-data-verification-portal.lovable.app';
-        const roleDisplay = role === 'master_admin' ? 'Master Admin' : 'Admin';
+        const roleDisplay = role === 'master_admin' ? 'Master Admin' : role === 'examiner' ? 'Examiner' : 'Admin';
 
         const emailHtml = `
           <!DOCTYPE html>
