@@ -5,10 +5,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { CalendarIcon, MapPin, Users, Eye, LogOut, FileText, Upload, Loader2, ArrowLeft } from "lucide-react";
+import { CalendarIcon, MapPin, Users, Eye, LogOut, FileText, Upload, Loader2, ArrowLeft, ShieldCheck, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +33,7 @@ const ExaminerPortal = () => {
   const [viewAppDetails, setViewAppDetails] = useState<any>(null);
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
   const [viewBookingApt, setViewBookingApt] = useState<any>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
 
   // Upload state
   const [file, setFile] = useState<File | null>(null);
@@ -610,8 +613,8 @@ const ExaminerPortal = () => {
       </main>
 
       {/* Candidates Dialog */}
-      <Dialog open={!!viewCandidatesApt} onOpenChange={() => setViewCandidatesApt(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <Dialog open={!!viewCandidatesApt} onOpenChange={(open) => { if (!open) { setViewCandidatesApt(null); setSelectedCandidate(null); } }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Appointment Candidates</DialogTitle>
             <DialogDescription>
@@ -619,58 +622,229 @@ const ExaminerPortal = () => {
               {viewCandidatesApt?.scheduled_date && ` • ${format(new Date(viewCandidatesApt.scheduled_date), "dd MMM yyyy")}`}
             </DialogDescription>
           </DialogHeader>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>ID Number</TableHead>
-                <TableHead>Risk</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+
+          {!selectedCandidate ? (
+            /* Candidate List */
+            <div className="space-y-3">
               {(candidates as any[]).map((c: any) => {
                 const app = candidateApplications.find((a: any) => a.id === c.application_id);
                 const risk = riskData.find((r: any) => r.application_id === c.application_id);
                 return (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.candidate_name}</TableCell>
-                    <TableCell className="text-xs">{c.candidate_id_number || "—"}</TableCell>
-                    <TableCell>
-                      {risk?.risk_assessment_result === "clear" ? (
-                        <Badge className="bg-green-600 text-white text-xs">No Risk</Badge>
-                      ) : risk?.risk_assessment_result === "flagged" ? (
-                        <Badge className="bg-destructive text-destructive-foreground text-xs">Risk</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs">—</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right flex gap-1 justify-end">
-                      {app && (
-                        <Button variant="ghost" size="sm" title="View PreAppliCheck" onClick={() => setViewAppDetails(app)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {risk?.risk_assessment_url && (
-                        <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={async () => {
-                          const url = risk.risk_assessment_url;
-                          if (url.startsWith("http")) { setViewRiskUrl(url); return; }
-                          const { data } = await supabase.storage.from("employee-documents").createSignedUrl(url, 3600);
-                          if (data?.signedUrl) setViewRiskUrl(data.signedUrl);
-                          else toast.error("Could not load document");
-                        }}>
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                  <Card key={c.id} className="cursor-pointer hover:border-primary transition-colors" onClick={() => setSelectedCandidate(c)}>
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="font-semibold">{c.candidate_name}</p>
+                        <p className="text-xs text-muted-foreground">ID: {c.candidate_id_number || "—"}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {app && <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">PreAppliChecked</Badge>}
+                        {risk?.id_verified && <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">ID Verified</Badge>}
+                        {risk?.risk_assessment_result === "clear" ? (
+                          <Badge className="bg-green-600 text-white text-xs">No Risk</Badge>
+                        ) : risk?.risk_assessment_result === "flagged" ? (
+                          <Badge className="bg-destructive text-destructive-foreground text-xs">Risk Identified</Badge>
+                        ) : null}
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </CardContent>
+                  </Card>
                 );
               })}
               {candidates.length === 0 && (
-                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-4">No candidates</TableCell></TableRow>
+                <p className="text-center text-muted-foreground py-8">No candidates linked to this appointment.</p>
               )}
-            </TableBody>
-          </Table>
+            </div>
+          ) : (
+            /* Candidate Detail View */
+            (() => {
+              const c = selectedCandidate;
+              const app = candidateApplications.find((a: any) => a.id === c.application_id);
+              const risk = riskData.find((r: any) => r.application_id === c.application_id);
+              const appAnswers = app?.answers as any;
+              const personalDetails = appAnswers?.personalDetails;
+              const popiaAccepted = appAnswers?.popiaAccepted;
+              const indemnityAccepted = appAnswers?.indemnityAccepted;
+              const deviceData = appAnswers?.deviceData;
+
+              return (
+                <div className="space-y-4">
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedCandidate(null)} className="mb-2">
+                    <ArrowLeft className="h-4 w-4 mr-1" /> Back to list
+                  </Button>
+
+                  {/* Candidate Header */}
+                  <Card>
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="text-xl font-bold">{c.candidate_name}</h3>
+                          <p className="text-sm text-muted-foreground mt-1">ID Number: <span className="font-mono font-medium text-foreground">{c.candidate_id_number || "—"}</span></p>
+                          {personalDetails?.email && <p className="text-sm text-muted-foreground">Email: {personalDetails.email}</p>}
+                          {personalDetails?.contactNumber && <p className="text-sm text-muted-foreground">Contact: {personalDetails.contactNumber}</p>}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Status Cards Grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* PreAppliCheck Status */}
+                    <Card className={`border-2 ${app ? "border-green-400 bg-green-50" : "border-muted"}`}>
+                      <CardContent className="p-3 text-center">
+                        <ShieldCheck className={`h-6 w-6 mx-auto mb-1 ${app ? "text-green-600" : "text-muted-foreground"}`} />
+                        <p className="text-xs font-semibold">PreAppliChecked</p>
+                        <p className={`text-xs mt-1 ${app ? "text-green-700" : "text-muted-foreground"}`}>
+                          {app ? "Approved" : "Not Available"}
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    {/* ID Verification */}
+                    <Card className={`border-2 ${risk?.id_verified ? "border-green-400 bg-green-50" : risk?.id_verified === false ? "border-destructive bg-red-50" : "border-muted"}`}>
+                      <CardContent className="p-3 text-center">
+                        {risk?.id_verified ? (
+                          <CheckCircle className="h-6 w-6 mx-auto mb-1 text-green-600" />
+                        ) : risk?.id_verified === false ? (
+                          <XCircle className="h-6 w-6 mx-auto mb-1 text-destructive" />
+                        ) : (
+                          <AlertTriangle className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
+                        )}
+                        <p className="text-xs font-semibold">ID Verification</p>
+                        <p className={`text-xs mt-1 ${risk?.id_verified ? "text-green-700" : risk?.id_verified === false ? "text-destructive" : "text-muted-foreground"}`}>
+                          {risk?.id_verified ? "Verified" : risk?.id_verified === false ? "Not Verified" : "Pending"}
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    {/* Risk Assessment */}
+                    <Card className={`border-2 ${risk?.risk_assessment_result === "clear" ? "border-green-400 bg-green-50" : risk?.risk_assessment_result === "flagged" ? "border-destructive bg-red-50" : "border-muted"}`}>
+                      <CardContent className="p-3 text-center">
+                        <FileText className={`h-6 w-6 mx-auto mb-1 ${risk?.risk_assessment_result === "clear" ? "text-green-600" : risk?.risk_assessment_result === "flagged" ? "text-destructive" : "text-muted-foreground"}`} />
+                        <p className="text-xs font-semibold">Risk Assessment</p>
+                        <p className={`text-xs mt-1 ${risk?.risk_assessment_result === "clear" ? "text-green-700" : risk?.risk_assessment_result === "flagged" ? "text-destructive" : "text-muted-foreground"}`}>
+                          {risk?.risk_assessment_result === "clear" ? "No Risk Identified" : risk?.risk_assessment_result === "flagged" ? "Risk Identified" : "Pending"}
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    {/* POPIA & Indemnity */}
+                    <Card className={`border-2 ${popiaAccepted && indemnityAccepted ? "border-green-400 bg-green-50" : "border-muted"}`}>
+                      <CardContent className="p-3 text-center">
+                        <ShieldCheck className={`h-6 w-6 mx-auto mb-1 ${popiaAccepted && indemnityAccepted ? "text-green-600" : "text-muted-foreground"}`} />
+                        <p className="text-xs font-semibold">POPIA & Indemnity</p>
+                        <p className={`text-xs mt-1 ${popiaAccepted && indemnityAccepted ? "text-green-700" : "text-muted-foreground"}`}>
+                          {popiaAccepted && indemnityAccepted ? "Accepted" : "Not Available"}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Document Actions */}
+                  <Accordion type="multiple" className="w-full">
+                    {/* PreAppliCheck Section */}
+                    {app && (
+                      <AccordionItem value="preapplicheck">
+                        <AccordionTrigger className="text-sm font-semibold">
+                          <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-green-600" /> PreAppliCheck Application</span>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-3">
+                            <p className="text-sm text-muted-foreground">View the full PreAppliCheck submission completed by the candidate.</p>
+                            <Button variant="outline" size="sm" onClick={() => setViewAppDetails(app)}>
+                              <Eye className="h-4 w-4 mr-2" /> View PreAppliCheck
+                            </Button>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )}
+
+                    {/* Risk Assessment Section */}
+                    {risk?.risk_assessment_url && (
+                      <AccordionItem value="risk-assessment">
+                        <AccordionTrigger className="text-sm font-semibold">
+                          <span className="flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /> Risk Assessment Document</span>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div><span className="text-muted-foreground">ID Verified:</span> <span className={`font-medium ${risk.id_verified ? "text-green-700" : "text-destructive"}`}>{risk.id_verified ? "Yes" : "No"}</span></div>
+                              <div><span className="text-muted-foreground">Result:</span> <span className={`font-medium ${risk.risk_assessment_result === "clear" ? "text-green-700" : "text-destructive"}`}>{risk.risk_assessment_result === "clear" ? "No Risk Identified" : "Risk Identified"}</span></div>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={async () => {
+                              const url = risk.risk_assessment_url;
+                              if (url.startsWith("http")) { setViewRiskUrl(url); return; }
+                              const { data } = await supabase.storage.from("employee-documents").createSignedUrl(url, 3600);
+                              if (data?.signedUrl) setViewRiskUrl(data.signedUrl);
+                              else toast.error("Could not load document");
+                            }}>
+                              <Eye className="h-4 w-4 mr-2" /> View Risk Assessment
+                            </Button>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )}
+
+                    {/* POPIA & Indemnity Section */}
+                    {(popiaAccepted || indemnityAccepted) && (
+                      <AccordionItem value="popia-indemnity">
+                        <AccordionTrigger className="text-sm font-semibold">
+                          <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /> POPIA & Indemnity Details</span>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 gap-2 text-sm">
+                              <div className="flex justify-between py-1.5 border-b border-border/50">
+                                <span className="text-muted-foreground">POPIA Declaration:</span>
+                                <span className={`font-medium ${popiaAccepted ? "text-green-700" : "text-muted-foreground"}`}>
+                                  {popiaAccepted ? "✓ Accepted" : "Not accepted"}
+                                </span>
+                              </div>
+                              <div className="flex justify-between py-1.5 border-b border-border/50">
+                                <span className="text-muted-foreground">Indemnity Form:</span>
+                                <span className={`font-medium ${indemnityAccepted ? "text-green-700" : "text-muted-foreground"}`}>
+                                  {indemnityAccepted ? "✓ Accepted" : "Not accepted"}
+                                </span>
+                              </div>
+                              {deviceData && (
+                                <>
+                                  <Separator className="my-2" />
+                                  <p className="text-xs font-semibold text-muted-foreground">Electronic Signature Metadata</p>
+                                  {deviceData.timestamp && (
+                                    <div className="flex justify-between py-1">
+                                      <span className="text-muted-foreground text-xs">Signed At:</span>
+                                      <span className="text-xs font-medium">{format(new Date(deviceData.timestamp), "dd MMM yyyy, HH:mm:ss")}</span>
+                                    </div>
+                                  )}
+                                  {deviceData.ipAddress && (
+                                    <div className="flex justify-between py-1">
+                                      <span className="text-muted-foreground text-xs">IP Address:</span>
+                                      <span className="text-xs font-mono">{deviceData.ipAddress}</span>
+                                    </div>
+                                  )}
+                                  {(deviceData.gpsLatitude || deviceData.gps_latitude) && (
+                                    <div className="flex justify-between py-1">
+                                      <span className="text-muted-foreground text-xs">GPS:</span>
+                                      <span className="text-xs font-mono">{deviceData.gpsLatitude || deviceData.gps_latitude}, {deviceData.gpsLongitude || deviceData.gps_longitude}</span>
+                                    </div>
+                                  )}
+                                  {deviceData.userAgent && (
+                                    <div className="flex justify-between py-1">
+                                      <span className="text-muted-foreground text-xs">Device:</span>
+                                      <span className="text-xs truncate max-w-[250px]">{deviceData.userAgent}</span>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )}
+                  </Accordion>
+                </div>
+              );
+            })()
+          )}
         </DialogContent>
       </Dialog>
 
