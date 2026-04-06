@@ -460,12 +460,12 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
 
   return (
     <Tabs defaultValue="dashboard" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-5 max-w-2xl mx-auto">
-        <TabsTrigger value="dashboard">
+      <TabsList className="flex w-full max-w-3xl mx-auto gap-1">
+        <TabsTrigger value="dashboard" className="flex-1 text-xs px-2">
           <BarChart3 className="h-3.5 w-3.5 mr-1" /> Dashboard
         </TabsTrigger>
-        <TabsTrigger value="invite">Invitations</TabsTrigger>
-        <TabsTrigger value="review" className="relative">
+        <TabsTrigger value="invite" className="flex-1 text-xs px-2">Invitations</TabsTrigger>
+        <TabsTrigger value="review" className="relative flex-1 text-xs px-2">
           Review
           {pendingReview.length > 0 && (
             <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
@@ -473,7 +473,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
             </Badge>
           )}
         </TabsTrigger>
-        <TabsTrigger value="approved" className="relative">
+        <TabsTrigger value="approved" className="relative flex-1 text-xs px-2">
           PreAppliChecked
           {preAppliChecked.length > 0 && approved.length === 0 && (
             <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px] animate-pulse">
@@ -481,7 +481,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
             </Badge>
           )}
         </TabsTrigger>
-        <TabsTrigger value="preAppliChecked">Risk Assessment Verified</TabsTrigger>
+        <TabsTrigger value="preAppliChecked" className="flex-1 text-xs px-2 whitespace-nowrap">Risk Verified</TabsTrigger>
       </TabsList>
 
       {/* ── DASHBOARD TAB ── */}
