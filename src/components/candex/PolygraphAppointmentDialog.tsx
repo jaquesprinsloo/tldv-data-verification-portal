@@ -50,6 +50,7 @@ const PolygraphAppointmentDialog = ({
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState(defaultAccountId || "");
   const [selectedStoreId, setSelectedStoreId] = useState("");
+  const [preferredArea, setPreferredArea] = useState("");
 
   // Fetch stores for selected account
   const { data: accountStores = [] } = useQuery({
@@ -94,6 +95,7 @@ const PolygraphAppointmentDialog = ({
           requested_by: userId,
           venue_type: venueType,
           venue_address: venueType === "tldv_venue" ? "TLDV Vetted Venue (to be confirmed)" : venueAddress.trim(),
+          preferred_area: preferredArea.trim() || null,
           notes: notes.trim() || null,
           status: "requested",
         } as any)
@@ -133,6 +135,7 @@ const PolygraphAppointmentDialog = ({
     setSelectedCandidates([]);
     setSelectedAccountId(defaultAccountId || "");
     setSelectedStoreId("");
+    setPreferredArea("");
     onClose();
   };
 
@@ -232,6 +235,17 @@ const PolygraphAppointmentDialog = ({
               </p>
             </div>
           )}
+
+          {/* Preferred Area */}
+          <div className="space-y-2">
+            <Label>Preferred Area / Region for Examination *</Label>
+            <Input
+              placeholder="e.g. Durban CBD, Centurion, Bloemfontein..."
+              value={preferredArea}
+              onChange={(e) => setPreferredArea(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">Indicate the area where you would prefer the examination to take place.</p>
+          </div>
 
           {/* Candidate Selection */}
           <div className="space-y-2">

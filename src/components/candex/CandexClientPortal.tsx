@@ -17,7 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList } from "lucide-react";
+import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList, Download } from "lucide-react";
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import { format } from "date-fns";
@@ -1146,13 +1146,15 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Requested</TableHead>
-                    <TableHead>Venue</TableHead>
-                    <TableHead>Candidates</TableHead>
-                    <TableHead>Scheduled Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Booking Ref</TableHead>
-                    <TableHead>Status</TableHead>
+                     <TableHead>Requested</TableHead>
+                     <TableHead>Venue</TableHead>
+                     <TableHead>Area</TableHead>
+                     <TableHead>Candidates</TableHead>
+                     <TableHead>Scheduled Date</TableHead>
+                     <TableHead>Time</TableHead>
+                     <TableHead>Booking Ref</TableHead>
+                     <TableHead>Status</TableHead>
+                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1169,10 +1171,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         </TableCell>
                         <TableCell className="text-sm">
                           {apt.venue_type === "tldv_venue" ? "TLDV Venue" : apt.venue_type === "own_location" ? "Own Location" : "Rented Venue"}
-                          {apt.venue_address && apt.venue_type !== "tldv_venue" && (
+                          {apt.venue_address && (
                             <p className="text-xs text-muted-foreground truncate max-w-[150px]">{apt.venue_address}</p>
                           )}
                         </TableCell>
+                        <TableCell className="text-xs">{apt.preferred_area || "—"}</TableCell>
                         <TableCell>
                           <div className="space-y-0.5">
                             {candidatesList.slice(0, 3).map((c: any) => (
@@ -1196,6 +1199,23 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           <Badge variant="outline" className={statusColor}>
                             {apt.status === "confirmed" ? "Confirmed" : apt.status === "scheduled" ? "Scheduled" : apt.status === "requested" ? "Requested" : apt.status}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {apt.booking_reference && (
+                            <Button variant="ghost" size="sm" title="Download Confirmation" onClick={() => {
+                              const cl = candidatesList;
+                              const content = `BOOKING CONFIRMATION\n====================\n\nBooking Reference: ${apt.booking_reference}\nStatus: ${(apt.status || "").toUpperCase()}\n\nDate: ${apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMMM yyyy") : "TBC"}\nTime: ${apt.scheduled_time || "TBC"}\nVenue: ${apt.venue_address || "TBC"}\nPreferred Area: ${apt.preferred_area || "N/A"}\n\nCANDIDATES\n----------\n${cl.map((c: any, i: number) => `${i + 1}. ${c.candidate_name}`).join("\n")}\n\n---\nTrue Lie Detectors & Vetting`;
+                              const blob = new Blob([content], { type: "text/plain" });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download = `Booking_${apt.booking_reference}.txt`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }}>
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     );

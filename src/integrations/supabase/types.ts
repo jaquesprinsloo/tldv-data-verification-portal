@@ -1307,6 +1307,7 @@ export type Database = {
           examiner_id: string | null
           id: string
           notes: string | null
+          preferred_area: string | null
           requested_by: string
           scheduled_date: string | null
           scheduled_time: string | null
@@ -1314,6 +1315,7 @@ export type Database = {
           store_id: string | null
           updated_at: string
           venue_address: string | null
+          venue_id: string | null
           venue_type: string
         }
         Insert: {
@@ -1327,6 +1329,7 @@ export type Database = {
           examiner_id?: string | null
           id?: string
           notes?: string | null
+          preferred_area?: string | null
           requested_by: string
           scheduled_date?: string | null
           scheduled_time?: string | null
@@ -1334,6 +1337,7 @@ export type Database = {
           store_id?: string | null
           updated_at?: string
           venue_address?: string | null
+          venue_id?: string | null
           venue_type?: string
         }
         Update: {
@@ -1347,6 +1351,7 @@ export type Database = {
           examiner_id?: string | null
           id?: string
           notes?: string | null
+          preferred_area?: string | null
           requested_by?: string
           scheduled_date?: string | null
           scheduled_time?: string | null
@@ -1354,6 +1359,7 @@ export type Database = {
           store_id?: string | null
           updated_at?: string
           venue_address?: string | null
+          venue_id?: string | null
           venue_type?: string
         }
         Relationships: [
@@ -1383,6 +1389,13 @@ export type Database = {
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polygraph_appointments_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "polygraph_venues"
             referencedColumns: ["id"]
           },
         ]
@@ -1804,6 +1817,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      polygraph_venues: {
+        Row: {
+          address: string
+          city: string | null
+          created_at: string
+          gps_latitude: number | null
+          gps_longitude: number | null
+          id: string
+          is_active: boolean
+          province: string | null
+          updated_at: string
+          venue_name: string
+        }
+        Insert: {
+          address: string
+          city?: string | null
+          created_at?: string
+          gps_latitude?: number | null
+          gps_longitude?: number | null
+          id?: string
+          is_active?: boolean
+          province?: string | null
+          updated_at?: string
+          venue_name: string
+        }
+        Update: {
+          address?: string
+          city?: string | null
+          created_at?: string
+          gps_latitude?: number | null
+          gps_longitude?: number | null
+          id?: string
+          is_active?: boolean
+          province?: string | null
+          updated_at?: string
+          venue_name?: string
+        }
+        Relationships: []
       }
       popia_acceptances: {
         Row: {
