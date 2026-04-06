@@ -577,36 +577,91 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                   <TableRow>
                     <TableHead>Candidate</TableHead>
                     <TableHead>ID Number</TableHead>
+                    <TableHead>Date Approved</TableHead>
                     <TableHead>ID Verified</TableHead>
                     <TableHead>Risk Assessment</TableHead>
                     <TableHead>Pre Risk</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {approved.map((app) => (
-                    <TableRow key={app.id}>
-                      <TableCell className="font-medium">{app.candidate_name}</TableCell>
-                      <TableCell className="text-xs">{app.candidate_id_number || "—"}</TableCell>
-                      <TableCell>
-                        <span className="text-xs text-muted-foreground">Pending</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs text-muted-foreground">Pending</span>
-                      </TableCell>
-                      <TableCell>
-                        {app.risk_level ? (
-                          <Badge variant={app.risk_level === "LOW" ? "default" : "destructive"} className="text-xs">
-                            {app.risk_level}
-                          </Badge>
-                        ) : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {approved.map((app) => {
+                    // Find risk candidate data for this application
+                    const riskCandidate = riskCandidateData?.find((rc: any) => rc.application_id === app.id);
+                    const requestStatus = (riskCandidate as any)?.candex_risk_requests?.status;
+                    const isRequested = !!riskCandidate;
+                    const isCompleted = requestStatus === "completed";
+                    const isPending = isRequested && !isCompleted;
+                    const idVerified = riskCandidate?.id_verified;
+                    const riskResult = riskCandidate?.risk_assessment_result;
+                    const riskUrl = riskCandidate?.risk_assessment_url;
+
+                    return (
+                      <TableRow key={app.id}>
+                        <TableCell className="font-medium">{app.candidate_name}</TableCell>
+                        <TableCell className="text-xs">{app.candidate_id_number || "—"}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {app.updated_at ? format(new Date(app.updated_at), "dd MMM yyyy") : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {!isRequested ? (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">Not Requested</Badge>
+                          ) : isPending ? (
+                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">Pending</Badge>
+                          ) : idVerified ? (
+                            <Badge className="text-xs bg-green-600 text-white"><CheckCircle className="h-3 w-3 mr-1" />Verified</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Unverified</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {!isRequested ? (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">Not Requested</Badge>
+                          ) : isPending ? (
+                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">Requested</Badge>
+                          ) : isCompleted && riskResult === "clear" ? (
+                            <Badge className="text-xs bg-green-600 text-white"><CheckCircle className="h-3 w-3 mr-1" />No Risk Identified</Badge>
+                          ) : isCompleted && riskResult === "flagged" ? (
+                            <Badge className="text-xs bg-destructive text-destructive-foreground"><AlertTriangle className="h-3 w-3 mr-1" />Risk Identified</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Completed</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {app.risk_level ? (
+                            <Badge variant={app.risk_level === "LOW" ? "default" : "destructive"} className="text-xs">
+                              {app.risk_level}
+                            </Badge>
+                          ) : "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isCompleted && riskUrl && (
+                            <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={() => setViewRiskUrl(riskUrl)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
           </CardContent>
         </Card>
+
+        {/* View Risk Assessment Dialog */}
+        <Dialog open={!!viewRiskUrl} onOpenChange={() => setViewRiskUrl(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh]">
+            <DialogHeader>
+              <DialogTitle>Risk Assessment Report</DialogTitle>
+              <DialogDescription>View the completed risk assessment document.</DialogDescription>
+            </DialogHeader>
+            {viewRiskUrl && (
+              <iframe src={viewRiskUrl} className="w-full h-[65vh] border rounded" title="Risk Assessment" />
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Risk Assessment Request Dialog */}
         <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
