@@ -95,6 +95,7 @@ const PolygraphAppointmentDialog = ({
           requested_by: userId,
           venue_type: venueType,
           venue_address: venueType === "tldv_venue" ? "TLDV Vetted Venue (to be confirmed)" : venueAddress.trim(),
+          preferred_area: preferredArea.trim() || null,
           notes: notes.trim() || null,
           status: "requested",
         } as any)
