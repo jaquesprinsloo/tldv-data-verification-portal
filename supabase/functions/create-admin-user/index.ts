@@ -20,8 +20,8 @@ serve(async (req) => {
     }
 
     // Validate role
-    if (!['admin', 'master_admin'].includes(role)) {
-      throw new Error("Invalid role. Must be 'admin' or 'master_admin'");
+    if (!['admin', 'master_admin', 'examiner'].includes(role)) {
+      throw new Error("Invalid role. Must be 'admin', 'master_admin', or 'examiner'");
     }
 
     // Validate password length
