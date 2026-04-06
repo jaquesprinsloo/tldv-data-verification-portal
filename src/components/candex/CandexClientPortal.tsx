@@ -1029,11 +1029,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         <TableCell className="text-xs">{app.candidate_id_number || "—"}</TableCell>
                         <TableCell>
                           {idVerified ? (
-                            <Badge className="bg-primary text-primary-foreground text-xs">
+                            <Badge className="bg-green-600 text-white text-xs">
                               <CheckCircle className="h-3 w-3 mr-1" /> Verified
                             </Badge>
                           ) : (
-                            <Badge variant="secondary" className="text-xs">Unverified</Badge>
+                            <Badge className="bg-destructive text-destructive-foreground text-xs">Unverified</Badge>
                           )}
                         </TableCell>
                         <TableCell>
