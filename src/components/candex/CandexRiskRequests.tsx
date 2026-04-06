@@ -532,6 +532,9 @@ const CandexRiskRequests = () => {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+          <DialogFooter>
             <Button variant="outline" onClick={() => setProcessCandidate(null)}>Cancel</Button>
             <Button
               onClick={() => processCandidateMutation.mutate()}
