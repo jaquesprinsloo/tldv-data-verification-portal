@@ -14,7 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CalendarIcon, Clock, Eye, Check, UserPlus, MapPin, Users, Send } from "lucide-react";
+import { CalendarIcon, Clock, Eye, Check, UserPlus, MapPin, Users, Send, Download, Building2 } from "lucide-react";
 
 const PolygraphAppointments = () => {
   const queryClient = useQueryClient();
@@ -22,6 +22,7 @@ const PolygraphAppointments = () => {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
   const [scheduleTime, setScheduleTime] = useState("");
+  const [selectedVenueId, setSelectedVenueId] = useState("");
   const [assignExaminerOpen, setAssignExaminerOpen] = useState(false);
   const [selectedExaminerId, setSelectedExaminerId] = useState("");
   const [selectedExaminerUserId, setSelectedExaminerUserId] = useState("");
@@ -54,6 +55,19 @@ const PolygraphAppointments = () => {
     queryKey: ["appointment-examiners"],
     queryFn: async () => {
       const { data } = await supabase.from("examiners").select("*").eq("is_active", true);
+      return data || [];
+    },
+  });
+
+  // Fetch TLDV venues
+  const { data: venues = [] } = useQuery({
+    queryKey: ["polygraph-venues"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("polygraph_venues" as any)
+        .select("*")
+        .eq("is_active", true)
+        .order("venue_name");
       return data || [];
     },
   });
@@ -95,15 +109,26 @@ const PolygraphAppointments = () => {
     mutationFn: async () => {
       if (!selectedAppointment || !scheduleDate || !scheduleTime) throw new Error("Select date and time");
       const bookingRef = `PG-${Date.now().toString(36).toUpperCase()}`;
+
+      const isTldv = (selectedAppointment as any).venue_type === "tldv_venue";
+      const selectedVenue = isTldv && selectedVenueId ? (venues as any[]).find((v: any) => v.id === selectedVenueId) : null;
+
+      const updateData: any = {
+        scheduled_date: format(scheduleDate, "yyyy-MM-dd"),
+        scheduled_time: scheduleTime,
+        status: "scheduled",
+        confirmed_at: new Date().toISOString(),
+        booking_reference: bookingRef,
+      };
+
+      if (selectedVenue) {
+        updateData.venue_id = selectedVenue.id;
+        updateData.venue_address = `${selectedVenue.venue_name}, ${selectedVenue.address}`;
+      }
+
       const { error } = await supabase
         .from("polygraph_appointments" as any)
-        .update({
-          scheduled_date: format(scheduleDate, "yyyy-MM-dd"),
-          scheduled_time: scheduleTime,
-          status: "scheduled",
-          confirmed_at: new Date().toISOString(),
-          booking_reference: bookingRef,
-        } as any)
+        .update(updateData)
         .eq("id", selectedAppointment.id);
       if (error) throw error;
 
@@ -111,11 +136,14 @@ const PolygraphAppointments = () => {
       try {
         const client = clients.find((c) => c.id === (selectedAppointment as any).client_id);
         const clientEmail = (client as any)?.contact_email;
+        const venueInfo = selectedVenue
+          ? `${selectedVenue.venue_name}, ${selectedVenue.address}`
+          : (selectedAppointment as any).venue_address || "To be confirmed";
         if (clientEmail) {
           await supabase.functions.invoke("send-request-notification", {
             body: {
               subject: `Polygraph Appointment Confirmed - ${bookingRef}`,
-              message: `Your polygraph appointment has been confirmed.\n\nBooking Reference: ${bookingRef}\nDate: ${format(scheduleDate, "dd MMMM yyyy")}\nTime: ${scheduleTime}\nVenue: ${(selectedAppointment as any).venue_address || "To be confirmed"}\n\nPlease ensure all candidates are available at the scheduled time.`,
+              message: `Your polygraph appointment has been confirmed.\n\nBooking Reference: ${bookingRef}\nDate: ${format(scheduleDate, "dd MMMM yyyy")}\nTime: ${scheduleTime}\nVenue: ${venueInfo}\n\nPlease ensure all candidates are available at the scheduled time.`,
             },
           });
         }
@@ -129,6 +157,7 @@ const PolygraphAppointments = () => {
       setSelectedAppointment(null);
       setScheduleDate(undefined);
       setScheduleTime("");
+      setSelectedVenueId("");
       queryClient.invalidateQueries({ queryKey: ["polygraph-appointments-master"] });
     },
     onError: (e: any) => toast.error(e.message),
@@ -159,6 +188,49 @@ const PolygraphAppointments = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const generateBookingConfirmation = (apt: any) => {
+    const client = clients.find((c) => c.id === apt.client_id);
+    const candidatesList = apt._candidates || [];
+    const venueInfo = apt.venue_address || "To be confirmed";
+    const content = `
+BOOKING CONFIRMATION
+====================
+
+Booking Reference: ${apt.booking_reference || "N/A"}
+Status: ${(apt.status || "").toUpperCase()}
+
+CLIENT DETAILS
+--------------
+Client: ${client?.name || client?.company_name || "N/A"}
+
+APPOINTMENT DETAILS
+-------------------
+Date: ${apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMMM yyyy") : "To be confirmed"}
+Time: ${apt.scheduled_time || "To be confirmed"}
+Venue Type: ${getVenueLabel(apt.venue_type)}
+Venue: ${venueInfo}
+Preferred Area: ${apt.preferred_area || "Not specified"}
+
+CANDIDATES
+----------
+${candidatesList.length > 0 ? candidatesList.map((c: any, i: number) => `${i + 1}. ${c.candidate_name} (ID: ${c.candidate_id_number || "N/A"})`).join("\n") : "No candidates listed"}
+
+Notes: ${apt.notes || "None"}
+
+---
+Generated: ${format(new Date(), "dd MMMM yyyy HH:mm")}
+True Lie Detectors & Vetting
+    `.trim();
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Booking_Confirmation_${apt.booking_reference || apt.id}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "requested": return <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">Requested</Badge>;
@@ -183,12 +255,22 @@ const PolygraphAppointments = () => {
   const assigned = (appointments as any[]).filter((a) => a.status === "assigned");
   const completed = (appointments as any[]).filter((a) => a.status === "completed");
 
+  // Enrich appointments with candidates for download
+  const enrichWithCandidates = async (apt: any) => {
+    const { data } = await supabase
+      .from("polygraph_appointment_candidates" as any)
+      .select("*")
+      .eq("appointment_id", apt.id);
+    return { ...apt, _candidates: data || [] };
+  };
+
   const renderTable = (items: any[]) => (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Client</TableHead>
           <TableHead>Venue</TableHead>
+          <TableHead>Area</TableHead>
           <TableHead>Date/Time</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Reference</TableHead>
@@ -207,6 +289,7 @@ const PolygraphAppointments = () => {
                   <p className="text-muted-foreground truncate max-w-[200px]">{apt.venue_address || "—"}</p>
                 </div>
               </TableCell>
+              <TableCell className="text-xs">{apt.preferred_area || "—"}</TableCell>
               <TableCell className="text-xs">
                 {apt.scheduled_date ? (
                   <div>
@@ -227,6 +310,14 @@ const PolygraphAppointments = () => {
                   }}>
                     <Users className="h-4 w-4" />
                   </Button>
+                  {apt.booking_reference && (
+                    <Button variant="ghost" size="sm" title="Download Confirmation" onClick={async () => {
+                      const enriched = await enrichWithCandidates(apt);
+                      generateBookingConfirmation(enriched);
+                    }}>
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  )}
                   {apt.status === "requested" && (
                     <Button variant="ghost" size="sm" title="Schedule" onClick={() => {
                       setSelectedAppointment(apt);
@@ -310,15 +401,51 @@ const PolygraphAppointments = () => {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Schedule Appointment</DialogTitle>
-            <DialogDescription>Set the date and time for this polygraph examination.</DialogDescription>
+            <DialogDescription>Set the date, time, and venue for this polygraph examination.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {selectedAppointment && (
               <div className="bg-muted/50 rounded-md p-3 text-sm space-y-1">
-                <p><strong>Venue:</strong> {getVenueLabel((selectedAppointment as any).venue_type)}</p>
+                <p><strong>Venue Type:</strong> {getVenueLabel((selectedAppointment as any).venue_type)}</p>
+                {(selectedAppointment as any).preferred_area && (
+                  <p><strong>Preferred Area:</strong> {(selectedAppointment as any).preferred_area}</p>
+                )}
                 <p className="text-muted-foreground">{(selectedAppointment as any).venue_address}</p>
               </div>
             )}
+
+            {/* TLDV Venue Selection */}
+            {selectedAppointment && (selectedAppointment as any).venue_type === "tldv_venue" && (
+              <div>
+                <Label className="flex items-center gap-1"><Building2 className="h-4 w-4" /> Select TLDV Venue *</Label>
+                <Select value={selectedVenueId} onValueChange={setSelectedVenueId}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Select a vetted venue" /></SelectTrigger>
+                  <SelectContent>
+                    {(venues as any[]).map((v: any) => (
+                      <SelectItem key={v.id} value={v.id}>
+                        <div>
+                          <span className="font-medium">{v.venue_name}</span>
+                          <span className="text-muted-foreground text-xs ml-2">{v.city}{v.province ? `, ${v.province}` : ""}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedVenueId && (() => {
+                  const v = (venues as any[]).find((v: any) => v.id === selectedVenueId);
+                  return v ? (
+                    <div className="mt-2 bg-muted/30 border rounded p-2 text-xs space-y-0.5">
+                      <p><strong>{v.venue_name}</strong></p>
+                      <p>{v.address}</p>
+                      {v.gps_latitude && v.gps_longitude && (
+                        <p className="text-muted-foreground">GPS: {v.gps_latitude}, {v.gps_longitude}</p>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+
             <div>
               <Label>Date *</Label>
               <Popover>
