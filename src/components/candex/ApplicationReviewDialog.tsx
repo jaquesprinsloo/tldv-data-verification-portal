@@ -15,6 +15,7 @@ interface ApplicationReviewDialogProps {
   onClose: () => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  readOnly?: boolean;
 }
 
 interface SectionTable {
