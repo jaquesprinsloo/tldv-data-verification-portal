@@ -1203,19 +1203,28 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         </TableCell>
                         <TableCell className="text-right">
                           {apt.booking_reference && (
-                            <Button variant="ghost" size="sm" title="Download Confirmation" onClick={() => {
-                              const cl = candidatesList;
-                              const content = `BOOKING CONFIRMATION\n====================\n\nBooking Reference: ${apt.booking_reference}\nStatus: ${(apt.status || "").toUpperCase()}\n\nDate: ${apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMMM yyyy") : "TBC"}\nTime: ${apt.scheduled_time || "TBC"}\nVenue: ${apt.venue_address || "TBC"}\nPreferred Area: ${apt.preferred_area || "N/A"}\n\nCANDIDATES\n----------\n${cl.map((c: any, i: number) => `${i + 1}. ${c.candidate_name}`).join("\n")}\n\n---\nTrue Lie Detectors & Vetting`;
-                              const blob = new Blob([content], { type: "text/plain" });
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement("a");
-                              a.href = url;
-                              a.download = `Booking_${apt.booking_reference}.txt`;
-                              a.click();
-                              URL.revokeObjectURL(url);
-                            }}>
-                              <Download className="h-4 w-4" />
-                            </Button>
+                            <div className="flex gap-1 justify-end">
+                              <Button variant="ghost" size="sm" title="View Confirmation" onClick={() => {
+                                const cl = candidatesList;
+                                const content = `BOOKING CONFIRMATION\n====================\n\nBooking Reference: ${apt.booking_reference}\nStatus: ${(apt.status || "").toUpperCase()}\n\nDate: ${apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMMM yyyy") : "TBC"}\nTime: ${apt.scheduled_time || "TBC"}\nVenue: ${apt.venue_address || "TBC"}\nPreferred Area: ${apt.preferred_area || "N/A"}\n\nCANDIDATES\n----------\n${cl.map((c: any, i: number) => `${i + 1}. ${c.candidate_name}`).join("\n")}\n\n---\nTrue Lie Detectors & Vetting`;
+                                setViewBookingConfirmation(content);
+                              }}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" title="Download Confirmation" onClick={() => {
+                                const cl = candidatesList;
+                                const content = `BOOKING CONFIRMATION\n====================\n\nBooking Reference: ${apt.booking_reference}\nStatus: ${(apt.status || "").toUpperCase()}\n\nDate: ${apt.scheduled_date ? format(new Date(apt.scheduled_date), "dd MMMM yyyy") : "TBC"}\nTime: ${apt.scheduled_time || "TBC"}\nVenue: ${apt.venue_address || "TBC"}\nPreferred Area: ${apt.preferred_area || "N/A"}\n\nCANDIDATES\n----------\n${cl.map((c: any, i: number) => `${i + 1}. ${c.candidate_name}`).join("\n")}\n\n---\nTrue Lie Detectors & Vetting`;
+                                const blob = new Blob([content], { type: "text/plain" });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = url;
+                                a.download = `Booking_${apt.booking_reference}.txt`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                              }}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
