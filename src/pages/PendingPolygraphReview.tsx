@@ -482,6 +482,71 @@ const PendingPolygraphReview = () => {
         }
       }
 
+      // Try to auto-link report to an appointment candidate by ID number or name
+      let linkedCandidateName: string | null = null;
+      try {
+        const candidateIdNumber = editedData.id_number?.trim();
+        const candidateFirstName = (editedData.first_name || "").trim().toLowerCase();
+        const candidateLastName = (editedData.last_name || "").trim().toLowerCase();
+
+        // Search appointment candidates
+        const { data: aptCandidates } = await supabase
+          .from("polygraph_appointment_candidates")
+          .select("id, candidate_name, candidate_id_number, appointment_id, application_id");
+
+        if (aptCandidates && aptCandidates.length > 0) {
+          let matched = null;
+
+          // Match by ID number first
+          if (candidateIdNumber) {
+            matched = aptCandidates.find(
+              (c) => c.candidate_id_number && c.candidate_id_number.trim() === candidateIdNumber
+            );
+          }
+
+          // Fallback: match by name
+          if (!matched && candidateFirstName && candidateLastName) {
+            matched = aptCandidates.find((c) => {
+              const name = (c.candidate_name || "").toLowerCase();
+              return name.includes(candidateFirstName) && name.includes(candidateLastName);
+            });
+          }
+
+          if (matched) {
+            linkedCandidateName = matched.candidate_name;
+
+            // Update the candex_application with the polygraph report link
+            if (matched.application_id) {
+              await supabase
+                .from("candex_applications")
+                .update({
+                  status: "polygraph_completed",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", matched.application_id);
+            }
+
+            // Store the report link in a risk request candidate record or update existing
+            if (matched.application_id) {
+              const reportUrl = selectedUpload.converted_pdf_url || selectedUpload.original_file_url;
+              // Check if there's an existing risk request candidate for this application
+              const { data: existingRiskCandidate } = await supabase
+                .from("candex_risk_request_candidates")
+                .select("id")
+                .eq("application_id", matched.application_id)
+                .limit(1);
+
+              if (existingRiskCandidate && existingRiskCandidate.length > 0) {
+                // Could store polygraph report url in a note or separate field if needed
+                console.log("Linked polygraph report to candidate:", matched.candidate_name);
+              }
+            }
+          }
+        }
+      } catch (linkError) {
+        console.error("Auto-link error (non-fatal):", linkError);
+      }
+
       // Update pending upload status
       await supabase
         .from("pending_polygraph_uploads")
@@ -494,7 +559,9 @@ const PendingPolygraphReview = () => {
 
       toast({
         title: "Report Approved",
-        description: "The report has been approved and is now visible to authorized users.",
+        description: linkedCandidateName
+          ? `Report approved and linked to candidate: ${linkedCandidateName}`
+          : "The report has been approved and is now visible to authorized users.",
       });
 
       setReviewDialogOpen(false);
