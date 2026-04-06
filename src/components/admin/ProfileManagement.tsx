@@ -92,7 +92,7 @@ export const ProfileManagement = () => {
       const { data: allRoles } = await supabase
         .from("user_roles")
         .select("user_id, role")
-        .in("role", ["admin", "master_admin"]);
+        .in("role", ["admin", "master_admin", "examiner"]);
 
       if (!allRoles || allRoles.length === 0) return [];
 
@@ -324,7 +324,7 @@ export const ProfileManagement = () => {
               </div>
               <div>
                 <Label htmlFor="role" className="text-white">Role</Label>
-                <Select value={selectedRole} onValueChange={(value: "admin" | "master_admin") => setSelectedRole(value)}>
+                <Select value={selectedRole} onValueChange={(value: "admin" | "master_admin" | "examiner") => setSelectedRole(value)}>
                   <SelectTrigger className="bg-black border-red-600 text-white">
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
@@ -337,6 +337,8 @@ export const ProfileManagement = () => {
                 <p className="text-gray-500 text-xs mt-1">
                   {selectedRole === 'master_admin' 
                     ? 'Master Admins have full access including user management' 
+                    : selectedRole === 'examiner'
+                    ? 'Examiners can view assigned polygraph appointments and candidate data'
                     : 'Admins have access based on assigned permissions'}
                 </p>
               </div>
@@ -417,10 +419,12 @@ export const ProfileManagement = () => {
                               className={`text-xs ${
                                 role === 'master_admin' 
                                   ? 'border-yellow-500 text-yellow-500' 
+                                  : role === 'examiner'
+                                  ? 'border-blue-500 text-blue-500'
                                   : 'border-red-500 text-red-500'
                               }`}
                             >
-                              {role === 'master_admin' ? 'Master' : 'Admin'}
+                              {role === 'master_admin' ? 'Master' : role === 'examiner' ? 'Examiner' : 'Admin'}
                             </Badge>
                           ))}
                         </div>
