@@ -63,12 +63,12 @@ const AdminLogin = () => {
 
         if (error) throw error;
 
-        // Check if user has admin or master_admin role
+        // Check if user has admin, master_admin, or examiner role
         const { data: roleData, error: roleError } = await supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", data.user.id)
-          .in("role", ["admin", "master_admin"]);
+          .in("role", ["admin", "master_admin", "examiner"]);
 
         if (roleError || !roleData || roleData.length === 0) {
           await supabase.auth.signOut();
@@ -89,7 +89,16 @@ const AdminLogin = () => {
           title: "Welcome back!",
           description: "You have successfully logged in.",
         });
-        navigate("/admin/portal");
+
+        // Redirect based on role
+        const isExaminer = roleData.some(r => r.role === "examiner");
+        const isAdmin = roleData.some(r => r.role === "admin" || r.role === "master_admin");
+        
+        if (isExaminer && !isAdmin) {
+          navigate("/examiner");
+        } else {
+          navigate("/admin/portal");
+        }
       }
     } catch (error: any) {
       toast({
