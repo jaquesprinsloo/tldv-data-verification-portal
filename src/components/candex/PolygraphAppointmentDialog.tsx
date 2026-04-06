@@ -50,6 +50,7 @@ const PolygraphAppointmentDialog = ({
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState(defaultAccountId || "");
   const [selectedStoreId, setSelectedStoreId] = useState("");
+  const [preferredArea, setPreferredArea] = useState("");
 
   // Fetch stores for selected account
   const { data: accountStores = [] } = useQuery({
