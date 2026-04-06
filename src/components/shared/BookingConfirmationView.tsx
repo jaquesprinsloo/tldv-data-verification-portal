@@ -171,9 +171,7 @@ const BookingConfirmationView = ({ open, onClose, data }: BookingConfirmationVie
             </p>
           </div>
         </div>
-
-        </div>
-        </div>
+      </div>
 
         <DialogFooter className="px-6 pb-6">
           <Button variant="outline" onClick={onClose}>Close</Button>
