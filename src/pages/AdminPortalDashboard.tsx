@@ -120,8 +120,8 @@ const AdminPortalDashboard = () => {
     },
     {
       key: "polygraph-vetting",
-      title: "Polygraph & Vetting",
-      description: "Book appointments and request vetting",
+      title: "Appointments",
+      description: "View and manage polygraph appointments",
       icon: ClipboardCheck,
       path: "/admin/polygraph-vetting",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
