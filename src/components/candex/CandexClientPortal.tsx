@@ -34,6 +34,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [requestDate, setRequestDate] = useState<Date | undefined>(new Date());
   const [requestAccountId, setRequestAccountId] = useState("");
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
+  const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
 
   // Get client for this user - auto-create if not found
   const { data: client } = useQuery({
