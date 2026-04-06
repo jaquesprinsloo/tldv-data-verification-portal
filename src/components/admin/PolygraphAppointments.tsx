@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { CalendarIcon, Clock, Eye, Check, UserPlus, MapPin, Users, Send, Download, Building2 } from "lucide-react";
+import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
 
 const PolygraphAppointments = () => {
   const queryClient = useQueryClient();
