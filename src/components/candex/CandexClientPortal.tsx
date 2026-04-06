@@ -497,7 +497,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
             </Badge>
           )}
         </TabsTrigger>
-        <TabsTrigger value="preAppliChecked" className="flex-1 text-xs px-2 whitespace-nowrap">Risk Verified</TabsTrigger>
+        <TabsTrigger value="preAppliChecked" className="flex-1 text-xs px-2 whitespace-nowrap">Risk Assessment Completed</TabsTrigger>
       </TabsList>
 
       {/* ── DASHBOARD TAB ── */}
