@@ -20,6 +20,7 @@ import RequestInboxPage from "./pages/RequestInboxPage";
 import PendingPolygraphReview from "./pages/PendingPolygraphReview";
 import CanDexPreScreening from "./pages/CanDexPreScreening";
 import CandexApplication from "./pages/CandexApplication";
+import ExaminerPortal from "./pages/ExaminerPortal";
 import NotFound from "./pages/NotFound";
 import VerifyEmail from "./pages/VerifyEmail";
 import Install from "./pages/Install";
@@ -59,6 +60,7 @@ const App = () => (
           <Route path="/admin/pending-polygraph-review" element={<PendingPolygraphReview />} />
           <Route path="/admin/candex-pre-screening" element={<CanDexPreScreening />} />
           <Route path="/candex-apply" element={<CandexApplication />} />
+          <Route path="/examiner" element={<ExaminerPortal />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/install" element={<Install />} />
           <Route path="*" element={<NotFound />} />

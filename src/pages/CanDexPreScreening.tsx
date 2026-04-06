@@ -13,6 +13,7 @@ import CandexBuilder from "@/components/candex/CandexBuilder";
 import CandexClients from "@/components/candex/CandexClients";
 import CandexClientPortal from "@/components/candex/CandexClientPortal";
 import CandexRiskRequests from "@/components/candex/CandexRiskRequests";
+import PolygraphAppointments from "@/components/admin/PolygraphAppointments";
 
 const CanDexPreScreening = () => {
   const navigate = useNavigate();
@@ -67,6 +68,19 @@ const CanDexPreScreening = () => {
     enabled: isMasterAdmin,
   });
 
+  // Pending appointment requests count
+  const { data: pendingAppointmentCount = 0 } = useQuery({
+    queryKey: ["candex-pending-appointment-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("polygraph_appointments" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("status", "requested");
+      return count ?? 0;
+    },
+    enabled: isMasterAdmin,
+  });
+
   // Pending submitted applications count for master admin awareness
   const { data: pendingSubmissionsCount = 0 } = useQuery({
     queryKey: ["candex-pending-submissions-count"],
@@ -112,8 +126,8 @@ const CanDexPreScreening = () => {
 
         {isMasterAdmin ? (
           <Tabs defaultValue="statistics" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4 max-w-xl mx-auto">
-              <TabsTrigger value="statistics" className="relative">
+            <TabsList className="grid w-full grid-cols-5 max-w-2xl mx-auto">
+              <TabsTrigger value="statistics" className="relative text-xs">
                 Statistics
                 {pendingSubmissionsCount > 0 && (
                   <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
@@ -121,7 +135,7 @@ const CanDexPreScreening = () => {
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="risk-requests" className="relative">
+              <TabsTrigger value="risk-requests" className="relative text-xs">
                 Risk Requests
                 {pendingRiskCount > 0 && (
                   <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
@@ -129,8 +143,16 @@ const CanDexPreScreening = () => {
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="builder">PreAppliCheck Builder</TabsTrigger>
-              <TabsTrigger value="clients">Clients</TabsTrigger>
+              <TabsTrigger value="appointments" className="relative text-xs">
+                Appointments
+                {pendingAppointmentCount > 0 && (
+                  <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                    {pendingAppointmentCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="builder" className="text-xs">Builder</TabsTrigger>
+              <TabsTrigger value="clients" className="text-xs">Clients</TabsTrigger>
             </TabsList>
 
             <TabsContent value="statistics">
@@ -139,6 +161,10 @@ const CanDexPreScreening = () => {
 
             <TabsContent value="risk-requests">
               <CandexRiskRequests />
+            </TabsContent>
+
+            <TabsContent value="appointments">
+              <PolygraphAppointments />
             </TabsContent>
 
             <TabsContent value="builder">

@@ -1253,6 +1253,140 @@ export type Database = {
           },
         ]
       }
+      polygraph_appointment_candidates: {
+        Row: {
+          application_id: string
+          appointment_id: string
+          candidate_id_number: string | null
+          candidate_name: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          application_id: string
+          appointment_id: string
+          candidate_id_number?: string | null
+          candidate_name: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          application_id?: string
+          appointment_id?: string
+          candidate_id_number?: string | null
+          candidate_name?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polygraph_appointment_candidates_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "candex_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polygraph_appointment_candidates_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "polygraph_appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      polygraph_appointments: {
+        Row: {
+          account_id: string | null
+          assigned_examiner_user_id: string | null
+          booking_reference: string | null
+          client_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          examiner_id: string | null
+          id: string
+          notes: string | null
+          requested_by: string
+          scheduled_date: string | null
+          scheduled_time: string | null
+          status: string
+          store_id: string | null
+          updated_at: string
+          venue_address: string | null
+          venue_type: string
+        }
+        Insert: {
+          account_id?: string | null
+          assigned_examiner_user_id?: string | null
+          booking_reference?: string | null
+          client_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          examiner_id?: string | null
+          id?: string
+          notes?: string | null
+          requested_by: string
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+          venue_address?: string | null
+          venue_type?: string
+        }
+        Update: {
+          account_id?: string | null
+          assigned_examiner_user_id?: string | null
+          booking_reference?: string | null
+          client_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          examiner_id?: string | null
+          id?: string
+          notes?: string | null
+          requested_by?: string
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          status?: string
+          store_id?: string | null
+          updated_at?: string
+          venue_address?: string | null
+          venue_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "polygraph_appointments_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polygraph_appointments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "candex_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polygraph_appointments_examiner_id_fkey"
+            columns: ["examiner_id"]
+            isOneToOne: false
+            referencedRelation: "examiners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "polygraph_appointments_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       polygraph_batches: {
         Row: {
           created_at: string
@@ -2435,7 +2569,7 @@ export type Database = {
         | "2_5_years"
         | "5_plus_years"
         | "never"
-      app_role: "admin" | "employee" | "master_admin"
+      app_role: "admin" | "employee" | "master_admin" | "examiner"
       designation_type:
         | "team_leader"
         | "fdo"
@@ -2600,7 +2734,7 @@ export const Constants = {
         "5_plus_years",
         "never",
       ],
-      app_role: ["admin", "employee", "master_admin"],
+      app_role: ["admin", "employee", "master_admin", "examiner"],
       designation_type: [
         "team_leader",
         "fdo",

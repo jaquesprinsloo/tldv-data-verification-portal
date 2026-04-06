@@ -17,8 +17,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store } from "lucide-react";
+import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList } from "lucide-react";
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
+import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import { format } from "date-fns";
 
 interface CandexClientPortalProps {
@@ -47,6 +48,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [requestStoreId, setRequestStoreId] = useState("");
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
+  const [appointmentOpen, setAppointmentOpen] = useState(false);
 
   // Bulk invite state
   const [bulkCandidates, setBulkCandidates] = useState<BulkCandidate[]>([]);
@@ -997,10 +999,15 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       {/* ── PREAPPLICHECKED TAB ── */}
       <TabsContent value="preAppliChecked">
          <Card>
-          <CardHeader>
+           <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <UserCheck className="h-5 w-5 text-primary" /> Risk Assessment Completed
             </CardTitle>
+            {preAppliChecked.length > 0 && (
+              <Button size="sm" onClick={() => setAppointmentOpen(true)}>
+                <ClipboardList className="h-4 w-4 mr-1" /> Request Polygraph
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {!preAppliChecked.length ? (
@@ -1090,6 +1097,19 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
             {viewRiskUrl && <iframe src={viewRiskUrl} className="w-full h-[65vh] border rounded" title="Risk Assessment" />}
           </DialogContent>
         </Dialog>
+        {/* Polygraph Appointment Request Dialog */}
+        <PolygraphAppointmentDialog
+          open={appointmentOpen}
+          onClose={() => setAppointmentOpen(false)}
+          candidates={preAppliChecked.map((a) => ({
+            id: a.id,
+            candidate_name: a.candidate_name,
+            candidate_id_number: a.candidate_id_number || null,
+          }))}
+          clientId={client?.id || ""}
+          userId={userId}
+          accountId={clientAccountId}
+        />
       </TabsContent>
     </Tabs>
   );

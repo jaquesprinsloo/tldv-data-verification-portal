@@ -26,7 +26,7 @@ export const ProfileManagement = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<"admin" | "master_admin">("admin");
+  const [selectedRole, setSelectedRole] = useState<"admin" | "master_admin" | "examiner">("admin");
   const [isLoading, setIsLoading] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
@@ -171,7 +171,7 @@ export const ProfileManagement = () => {
         return;
       }
 
-      toast.success(`${selectedRole === 'master_admin' ? 'Master Admin' : 'Admin'} created successfully! Login credentials have been sent to their email.`);
+      toast.success(`${selectedRole === 'master_admin' ? 'Master Admin' : selectedRole === 'examiner' ? 'Examiner' : 'Admin'} created successfully! Login credentials have been sent to their email.`);
       setFirstName("");
       setLastName("");
       setEmail("");
@@ -331,6 +331,7 @@ export const ProfileManagement = () => {
                   <SelectContent className="bg-black border-red-600">
                     <SelectItem value="admin" className="text-white hover:bg-red-600/20">Admin</SelectItem>
                     <SelectItem value="master_admin" className="text-white hover:bg-red-600/20">Master Admin</SelectItem>
+                    <SelectItem value="examiner" className="text-white hover:bg-red-600/20">Examiner</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-gray-500 text-xs mt-1">
