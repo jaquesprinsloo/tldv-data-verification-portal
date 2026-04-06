@@ -338,6 +338,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       setRequestOpen(false);
       setSelectedCandidates([]);
       setRequestAccountId("");
+      queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates-for-approved"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
