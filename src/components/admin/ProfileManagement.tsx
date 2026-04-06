@@ -171,7 +171,7 @@ export const ProfileManagement = () => {
         return;
       }
 
-      toast.success(`${selectedRole === 'master_admin' ? 'Master Admin' : 'Admin'} created successfully! Login credentials have been sent to their email.`);
+      toast.success(`${selectedRole === 'master_admin' ? 'Master Admin' : selectedRole === 'examiner' ? 'Examiner' : 'Admin'} created successfully! Login credentials have been sent to their email.`);
       setFirstName("");
       setLastName("");
       setEmail("");
