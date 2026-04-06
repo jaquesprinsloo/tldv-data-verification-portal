@@ -35,7 +35,7 @@ interface Section {
   sort_order: number;
 }
 
-export default function ApplicationReviewDialog({ application, open, onClose, onApprove, onReject }: ApplicationReviewDialogProps) {
+export default function ApplicationReviewDialog({ application, open, onClose, onApprove, onReject, readOnly }: ApplicationReviewDialogProps) {
   const [sections, setSections] = useState<Section[]>([]);
   const [tables, setTables] = useState<SectionTable[]>([]);
   const [loading, setLoading] = useState(false);
