@@ -1038,7 +1038,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         </TableCell>
                         <TableCell>
                           {riskResult === "clear" ? (
-                            <Badge className="bg-primary text-primary-foreground text-xs">
+                            <Badge className="bg-green-600 text-white text-xs">
                               <CheckCircle className="h-3 w-3 mr-1" /> No Risk Identified
                             </Badge>
                           ) : riskResult === "flagged" ? (
