@@ -135,10 +135,8 @@ const CandexRiskRequests = () => {
         .from("employee-documents")
         .upload(filePath, file);
       if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage
-        .from("employee-documents")
-        .getPublicUrl(filePath);
-      setUploadedFileUrl(urlData.publicUrl);
+      // Store the path (not a public URL) since bucket is private
+      setUploadedFileUrl(filePath);
       toast.success("File uploaded successfully");
     } catch (e: any) {
       toast.error("Upload failed: " + e.message);
