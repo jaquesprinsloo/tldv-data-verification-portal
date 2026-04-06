@@ -48,6 +48,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [requestStoreId, setRequestStoreId] = useState("");
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
+  const [appointmentOpen, setAppointmentOpen] = useState(false);
 
   // Bulk invite state
   const [bulkCandidates, setBulkCandidates] = useState<BulkCandidate[]>([]);
