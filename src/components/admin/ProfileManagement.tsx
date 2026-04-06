@@ -331,6 +331,7 @@ export const ProfileManagement = () => {
                   <SelectContent className="bg-black border-red-600">
                     <SelectItem value="admin" className="text-white hover:bg-red-600/20">Admin</SelectItem>
                     <SelectItem value="master_admin" className="text-white hover:bg-red-600/20">Master Admin</SelectItem>
+                    <SelectItem value="examiner" className="text-white hover:bg-red-600/20">Examiner</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-gray-500 text-xs mt-1">
