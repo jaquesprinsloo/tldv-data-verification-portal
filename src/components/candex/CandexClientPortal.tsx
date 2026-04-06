@@ -1146,13 +1146,15 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Requested</TableHead>
-                    <TableHead>Venue</TableHead>
-                    <TableHead>Candidates</TableHead>
-                    <TableHead>Scheduled Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Booking Ref</TableHead>
-                    <TableHead>Status</TableHead>
+                     <TableHead>Requested</TableHead>
+                     <TableHead>Venue</TableHead>
+                     <TableHead>Area</TableHead>
+                     <TableHead>Candidates</TableHead>
+                     <TableHead>Scheduled Date</TableHead>
+                     <TableHead>Time</TableHead>
+                     <TableHead>Booking Ref</TableHead>
+                     <TableHead>Status</TableHead>
+                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
