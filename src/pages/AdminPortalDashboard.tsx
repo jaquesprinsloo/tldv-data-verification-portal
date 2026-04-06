@@ -105,88 +105,90 @@ const AdminPortalDashboard = () => {
     },
   });
 
-  // Build portals list - computed directly, no useEffect needed
+  // Build the base portals list using useMemo to avoid unnecessary rebuilds
+  const allPortals: PortalCard[] = useMemo(() => [
+    {
+      key: "data-employee-management",
+      title: "Data & Employee Management",
+      description: "Manage employees, submissions, and invitations",
+      icon: Users,
+      path: "/admin/data-employee-management",
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: dataManagementBadge > 0 ? dataManagementBadge : null,
+      permissionKey: PERMISSION_KEYS.PORTAL_DATA_MANAGEMENT,
+      requiresMasterAdmin: false
+    },
+    {
+      key: "polygraph-vetting",
+      title: "Polygraph & Vetting",
+      description: "Book appointments and request vetting",
+      icon: ClipboardCheck,
+      path: "/admin/polygraph-vetting",
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: null,
+      permissionKey: PERMISSION_KEYS.PORTAL_POLYGRAPH_VETTING,
+      requiresMasterAdmin: false
+    },
+    {
+      key: "reports-accounts",
+      title: "Reports & Accounts",
+      description: "View reports and accounts",
+      icon: FileText,
+      path: "/admin/reports-accounts",
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: null,
+      permissionKey: PERMISSION_KEYS.PORTAL_REPORTS_ACCOUNTS,
+      requiresMasterAdmin: false
+    },
+    {
+      key: "profile-management",
+      title: "Profile Management",
+      description: "Create and manage admin profiles",
+      icon: Users,
+      path: "/admin/profile-management",
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: null,
+      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
+      requiresMasterAdmin: true
+    },
+    {
+      key: "request-inbox",
+      title: "Request Inbox",
+      description: "View and respond to profile requests",
+      icon: Mail,
+      path: "/admin/request-inbox",
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: pendingRequests || null,
+      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
+      requiresMasterAdmin: true
+    },
+    {
+      key: "candex-pre-screening",
+      title: "PreAppliCheck",
+      description: "Pre-employment screening and applicant checks",
+      icon: ShieldCheck,
+      path: "/admin/candex-pre-screening",
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: null,
+      permissionKey: PERMISSION_KEYS.PORTAL_CANDEX_PRE_SCREENING,
+      requiresMasterAdmin: false
+    },
+    {
+      key: "pending-polygraph-review",
+      title: "Pending Polygraph Review",
+      description: "Review and approve polygraph report uploads",
+      icon: FileCheck,
+      path: "/admin/pending-polygraph-review",
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: pendingPolygraphCount || null,
+      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
+      requiresMasterAdmin: true
+    }
+  ], [dataManagementBadge, pendingRequests, pendingPolygraphCount]);
+
+  // Compute ordered portals whenever dependencies change
   useEffect(() => {
     const preAppliCheckKey = "candex-pre-screening";
-    const allPortals: PortalCard[] = [
-      {
-        key: "data-employee-management",
-        title: "Data & Employee Management",
-        description: "Manage employees, submissions, and invitations",
-        icon: Users,
-        path: "/admin/data-employee-management",
-        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-        badge: dataManagementBadge > 0 ? dataManagementBadge : null,
-        permissionKey: PERMISSION_KEYS.PORTAL_DATA_MANAGEMENT,
-        requiresMasterAdmin: false
-      },
-      {
-        key: "polygraph-vetting",
-        title: "Polygraph & Vetting",
-        description: "Book appointments and request vetting",
-        icon: ClipboardCheck,
-        path: "/admin/polygraph-vetting",
-        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-        badge: null,
-        permissionKey: PERMISSION_KEYS.PORTAL_POLYGRAPH_VETTING,
-        requiresMasterAdmin: false
-      },
-      {
-        key: "reports-accounts",
-        title: "Reports & Accounts",
-        description: "View reports and accounts",
-        icon: FileText,
-        path: "/admin/reports-accounts",
-        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-        badge: null,
-        permissionKey: PERMISSION_KEYS.PORTAL_REPORTS_ACCOUNTS,
-        requiresMasterAdmin: false
-      },
-      {
-        key: "profile-management",
-        title: "Profile Management",
-        description: "Create and manage admin profiles",
-        icon: Users,
-        path: "/admin/profile-management",
-        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-        badge: null,
-        permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
-        requiresMasterAdmin: true
-      },
-      {
-        key: "request-inbox",
-        title: "Request Inbox",
-        description: "View and respond to profile requests",
-        icon: Mail,
-        path: "/admin/request-inbox",
-        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-        badge: pendingRequests || null,
-        permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
-        requiresMasterAdmin: true
-      },
-      {
-        key: "candex-pre-screening",
-        title: "PreAppliCheck",
-        description: "Pre-employment screening and applicant checks",
-        icon: ShieldCheck,
-        path: "/admin/candex-pre-screening",
-        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-        badge: null,
-        permissionKey: PERMISSION_KEYS.PORTAL_CANDEX_PRE_SCREENING,
-        requiresMasterAdmin: false
-      },
-      {
-        key: "pending-polygraph-review",
-        title: "Pending Polygraph Review",
-        description: "Review and approve polygraph report uploads",
-        icon: FileCheck,
-        path: "/admin/pending-polygraph-review",
-        color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-        badge: pendingPolygraphCount || null,
-        permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
-        requiresMasterAdmin: true
-      }
-    ];
 
     // Filter based on role
     const visiblePortals = allPortals.filter(p => !p.requiresMasterAdmin || isMasterAdmin);
@@ -220,7 +222,8 @@ const AdminPortalDashboard = () => {
       : visiblePortals;
 
     setOrderedPortals(newPortals);
-  }, [isMasterAdmin, dataManagementBadge, pendingRequests, pendingPolygraphCount, savedOrder]);
+    setPortalsInitialized(true);
+  }, [isMasterAdmin, allPortals, savedOrder]);
 
   useEffect(() => {
     const checkAuth = async () => {
