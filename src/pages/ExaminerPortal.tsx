@@ -635,28 +635,19 @@ const ExaminerPortal = () => {
       </Dialog>
 
       {/* Booking Confirmation viewer */}
-      <Dialog open={!!viewBookingApt} onOpenChange={() => setViewBookingApt(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Booking Confirmation</DialogTitle>
-          </DialogHeader>
-          {viewBookingApt && (
-            <BookingConfirmationView
-              open={true}
-              onClose={() => setViewBookingApt(null)}
-              data={{
-                bookingReference: viewBookingApt.booking_reference || "",
-                scheduledDate: viewBookingApt.scheduled_date || "",
-                scheduledTime: viewBookingApt.scheduled_time || "",
-                venueType: viewBookingApt.venue_type || "",
-                venueAddress: viewBookingApt.venue_address || "",
-                status: viewBookingApt.status || "",
-                candidates: [],
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <BookingConfirmationView
+        open={!!viewBookingApt}
+        onClose={() => setViewBookingApt(null)}
+        data={viewBookingApt ? {
+          bookingReference: viewBookingApt.booking_reference || "",
+          scheduledDate: viewBookingApt.scheduled_date || "",
+          scheduledTime: viewBookingApt.scheduled_time || "",
+          venueType: viewBookingApt.venue_type || "",
+          venueAddress: viewBookingApt.venue_address || "",
+          status: viewBookingApt.status || "",
+          candidates: [],
+        } : null}
+      />
     </div>
   );
 };
