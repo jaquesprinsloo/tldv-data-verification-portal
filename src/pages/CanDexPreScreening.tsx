@@ -68,6 +68,19 @@ const CanDexPreScreening = () => {
     enabled: isMasterAdmin,
   });
 
+  // Pending appointment requests count
+  const { data: pendingAppointmentCount = 0 } = useQuery({
+    queryKey: ["candex-pending-appointment-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("polygraph_appointments" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("status", "requested");
+      return count ?? 0;
+    },
+    enabled: isMasterAdmin,
+  });
+
   // Pending submitted applications count for master admin awareness
   const { data: pendingSubmissionsCount = 0 } = useQuery({
     queryKey: ["candex-pending-submissions-count"],
