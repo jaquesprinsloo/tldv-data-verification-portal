@@ -26,7 +26,7 @@ export const ProfileManagement = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<"admin" | "master_admin">("admin");
+  const [selectedRole, setSelectedRole] = useState<"admin" | "master_admin" | "examiner">("admin");
   const [isLoading, setIsLoading] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
