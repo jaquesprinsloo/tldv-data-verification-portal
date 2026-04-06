@@ -236,6 +236,17 @@ const PolygraphAppointmentDialog = ({
             </div>
           )}
 
+          {/* Preferred Area */}
+          <div className="space-y-2">
+            <Label>Preferred Area / Region for Examination *</Label>
+            <Input
+              placeholder="e.g. Durban CBD, Centurion, Bloemfontein..."
+              value={preferredArea}
+              onChange={(e) => setPreferredArea(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">Indicate the area where you would prefer the examination to take place.</p>
+          </div>
+
           {/* Candidate Selection */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
