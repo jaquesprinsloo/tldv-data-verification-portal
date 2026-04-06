@@ -1097,6 +1097,19 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
             {viewRiskUrl && <iframe src={viewRiskUrl} className="w-full h-[65vh] border rounded" title="Risk Assessment" />}
           </DialogContent>
         </Dialog>
+        {/* Polygraph Appointment Request Dialog */}
+        <PolygraphAppointmentDialog
+          open={appointmentOpen}
+          onClose={() => setAppointmentOpen(false)}
+          candidates={preAppliChecked.map((a) => ({
+            id: a.id,
+            candidate_name: a.candidate_name,
+            candidate_id_number: a.candidate_id_number || null,
+          }))}
+          clientId={client?.id || ""}
+          userId={userId}
+          accountId={clientAccountId}
+        />
       </TabsContent>
     </Tabs>
   );
