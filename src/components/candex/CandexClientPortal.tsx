@@ -927,16 +927,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           readOnly
         />
 
-        {/* View Risk Assessment Dialog */}
-        <Dialog open={!!viewRiskUrl} onOpenChange={() => setViewRiskUrl(null)}>
-          <DialogContent className="max-w-3xl max-h-[85vh]">
-            <DialogHeader>
-              <DialogTitle>Risk Assessment Report</DialogTitle>
-              <DialogDescription>View the completed risk assessment document.</DialogDescription>
-            </DialogHeader>
-            {viewRiskUrl && <iframe src={viewRiskUrl} className="w-full h-[65vh] border rounded" title="Risk Assessment" />}
-          </DialogContent>
-        </Dialog>
 
         {/* Risk Assessment Request Dialog */}
         <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
