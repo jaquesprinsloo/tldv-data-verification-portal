@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,12 +9,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { MapPin, Send, Building2 } from "lucide-react";
+import { MapPin, Send, Building2, Store } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Candidate {
   id: string;
   candidate_name: string;
   candidate_id_number: string | null;
+}
+
+interface AccountOption {
+  id: string;
+  name: string;
+  code: string;
 }
 
 interface PolygraphAppointmentDialogProps {
@@ -23,8 +30,8 @@ interface PolygraphAppointmentDialogProps {
   candidates: Candidate[];
   clientId: string;
   userId: string;
-  accountId: string | null;
-  storeId?: string | null;
+  accounts: AccountOption[];
+  defaultAccountId: string | null;
 }
 
 const PolygraphAppointmentDialog = ({
@@ -33,14 +40,31 @@ const PolygraphAppointmentDialog = ({
   candidates,
   clientId,
   userId,
-  accountId,
-  storeId,
+  accounts,
+  defaultAccountId,
 }: PolygraphAppointmentDialogProps) => {
   const queryClient = useQueryClient();
   const [venueType, setVenueType] = useState<string>("own_location");
   const [venueAddress, setVenueAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState(defaultAccountId || "");
+  const [selectedStoreId, setSelectedStoreId] = useState("");
+
+  // Fetch stores for selected account
+  const { data: accountStores = [] } = useQuery({
+    queryKey: ["appointment-stores", selectedAccountId],
+    queryFn: async () => {
+      if (!selectedAccountId) return [];
+      const { data } = await supabase
+        .from("stores")
+        .select("id, store_name, store_code")
+        .eq("account_id", selectedAccountId)
+        .order("store_name");
+      return data || [];
+    },
+    enabled: !!selectedAccountId,
+  });
 
   const toggleCandidate = (id: string) => {
     setSelectedCandidates((prev) =>
@@ -65,8 +89,8 @@ const PolygraphAppointmentDialog = ({
         .from("polygraph_appointments" as any)
         .insert({
           client_id: clientId,
-          account_id: accountId,
-          store_id: storeId || null,
+           account_id: selectedAccountId || null,
+           store_id: selectedStoreId || null,
           requested_by: userId,
           venue_type: venueType,
           venue_address: venueType === "tldv_venue" ? "TLDV Vetted Venue (to be confirmed)" : venueAddress.trim(),
@@ -107,6 +131,8 @@ const PolygraphAppointmentDialog = ({
     setVenueAddress("");
     setNotes("");
     setSelectedCandidates([]);
+    setSelectedAccountId(defaultAccountId || "");
+    setSelectedStoreId("");
     onClose();
   };
 
@@ -123,6 +149,38 @@ const PolygraphAppointmentDialog = ({
         </DialogHeader>
 
         <div className="space-y-5">
+          {/* Account Selection */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold flex items-center gap-1">
+              <Building2 className="h-4 w-4" /> Assign to Account
+            </Label>
+            <Select value={selectedAccountId} onValueChange={(v) => { setSelectedAccountId(v); setSelectedStoreId(""); }}>
+              <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
+              <SelectContent>
+                {accounts.map((acc) => (
+                  <SelectItem key={acc.id} value={acc.id}>{acc.name} ({acc.code})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Sub-account (Store) Selection */}
+          {selectedAccountId && accountStores.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold flex items-center gap-1">
+                <Store className="h-4 w-4" /> Sub-Account (Optional)
+              </Label>
+              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                <SelectTrigger><SelectValue placeholder="Select sub-account" /></SelectTrigger>
+                <SelectContent>
+                  {accountStores.map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>{s.store_name} ({s.store_code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Venue Type */}
           <div className="space-y-3">
             <Label className="text-sm font-semibold">Venue Selection</Label>
