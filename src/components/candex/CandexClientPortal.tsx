@@ -999,10 +999,15 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       {/* ── PREAPPLICHECKED TAB ── */}
       <TabsContent value="preAppliChecked">
          <Card>
-          <CardHeader>
+           <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-lg flex items-center gap-2">
               <UserCheck className="h-5 w-5 text-primary" /> Risk Assessment Completed
             </CardTitle>
+            {preAppliChecked.length > 0 && (
+              <Button size="sm" onClick={() => setAppointmentOpen(true)}>
+                <ClipboardList className="h-4 w-4 mr-1" /> Request Polygraph
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {!preAppliChecked.length ? (
