@@ -558,33 +558,12 @@ True Lie Detectors & Vetting
         </DialogContent>
       </Dialog>
 
-      {/* View Booking Confirmation Dialog */}
-      <Dialog open={!!viewBookingConfirmation} onOpenChange={() => setViewBookingConfirmation(null)}>
-        <DialogContent className="max-w-lg max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Booking Confirmation</DialogTitle>
-            <DialogDescription>View the details of this booking confirmation.</DialogDescription>
-          </DialogHeader>
-          <pre className="whitespace-pre-wrap text-sm bg-muted/50 border rounded-md p-4 max-h-[55vh] overflow-y-auto font-mono">
-            {viewBookingConfirmation}
-          </pre>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewBookingConfirmation(null)}>Close</Button>
-            <Button onClick={() => {
-              if (!viewBookingConfirmation) return;
-              const blob = new Blob([viewBookingConfirmation], { type: "text/plain" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "Booking_Confirmation.txt";
-              a.click();
-              URL.revokeObjectURL(url);
-            }}>
-              <Download className="h-4 w-4 mr-1" /> Download
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Booking Confirmation View */}
+      <BookingConfirmationView
+        open={!!viewBookingConfirmation}
+        onClose={() => setViewBookingConfirmation(null)}
+        data={viewBookingConfirmation}
+      />
     </div>
   );
 };
