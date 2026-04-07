@@ -1125,6 +1125,26 @@ const CandexBuilder = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {/* Live Applicant Preview Dialog */}
+        <Dialog open={showLivePreview} onOpenChange={setShowLivePreview}>
+          <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-full p-0 overflow-hidden">
+            <DialogHeader className="px-4 py-2 border-b bg-muted/50 flex flex-row items-center justify-between">
+              <DialogTitle className="text-sm flex items-center gap-2">
+                <Eye className="h-4 w-4" /> Live Applicant Preview — {selectedTemplate.name}
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground">This is exactly what the applicant will see when filling in the questionnaire.</p>
+            </DialogHeader>
+            <div className="overflow-auto h-full">
+              <QuestionnaireScreen
+                templateId={selectedTemplate.id}
+                onComplete={() => {
+                  toast.info("Preview mode — submissions are not saved.");
+                  setShowLivePreview(false);
+                }}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
