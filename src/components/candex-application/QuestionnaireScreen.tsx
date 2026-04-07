@@ -128,7 +128,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     setGlobalAudio = setStickyAudio;
     return () => { setGlobalAudio = null; };
   }, []);
-  const [currentSection, setCurrentSection] = useState(0);
 
   useEffect(() => {
     const load = async () => {
