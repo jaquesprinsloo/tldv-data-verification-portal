@@ -121,6 +121,14 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [tableData, setTableData] = useState<Record<string, string[][][]>>({});
   const [currentSection, setCurrentSection] = useState(0);
+  const [stickyAudio, setStickyAudio] = useState<{ url: string; label: string } | null>(null);
+
+  // Wire up the global audio setter so VideoPlayButton can trigger it
+  useEffect(() => {
+    setGlobalAudio = setStickyAudio;
+    return () => { setGlobalAudio = null; };
+  }, []);
+  const [currentSection, setCurrentSection] = useState(0);
 
   useEffect(() => {
     const load = async () => {
