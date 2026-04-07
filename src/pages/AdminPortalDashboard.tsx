@@ -239,11 +239,19 @@ const AdminPortalDashboard = () => {
         .from("user_roles")
         .select("role")
         .eq("user_id", session.user.id)
-        .in("role", ["admin", "master_admin"]);
+        .in("role", ["admin", "master_admin", "examiner"]);
 
       if (!roleData || roleData.length === 0) {
         await supabase.auth.signOut();
         navigate("/admin/login");
+        return;
+      }
+
+      // If user is only an examiner, redirect to examiner portal
+      const isExaminer = roleData.some(r => r.role === "examiner");
+      const isAdminOrMaster = roleData.some(r => r.role === "admin" || r.role === "master_admin");
+      if (isExaminer && !isAdminOrMaster) {
+        navigate("/examiner");
         return;
       }
 

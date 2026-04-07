@@ -51,15 +51,20 @@ const ExaminerPortal = () => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { navigate("/admin/login"); return; }
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { navigate("/admin/login"); return; }
+        const currentUser = session.user;
 
-        const { data: roleData } = await supabase
+        const { data: roleData, error: roleError } = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", user.id)
+          .eq("user_id", currentUser.id)
           .eq("role", "examiner")
-          .single();
+          .maybeSingle();
+
+        if (roleError) {
+          console.error("Error checking examiner role:", roleError);
+        }
 
         if (!roleData) {
           toast.error("Access denied. Examiner role required.");
@@ -68,12 +73,12 @@ const ExaminerPortal = () => {
           return;
         }
 
-        setUser(user);
+        setUser(currentUser);
 
         const { data: profileData } = await supabase
           .from("profiles")
           .select("full_name")
-          .eq("id", user.id)
+          .eq("id", currentUser.id)
           .single();
 
         if (profileData?.full_name) setUserName(profileData.full_name);
