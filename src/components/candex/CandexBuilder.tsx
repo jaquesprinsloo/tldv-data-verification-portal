@@ -518,6 +518,20 @@ const CandexBuilder = () => {
     },
   });
 
+  const updateTemplateVideo = useMutation({
+    mutationFn: async ({ id, field, url }: { id: string; field: "intro_video_url" | "brief_video_url"; url: string | null }) => {
+      const { error } = await supabase
+        .from("candex_questionnaire_templates")
+        .update({ [field]: url, updated_at: new Date().toISOString() } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-templates"] });
+      toast.success("Video updated");
+    },
+  });
+
   const deleteTemplate = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("candex_questionnaire_templates").delete().eq("id", id);
