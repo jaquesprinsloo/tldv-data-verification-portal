@@ -442,13 +442,14 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           const colHeader = String(table.column_headers[colIdx] || "").toLowerCase().trim();
                           // If this is a "details" column, render a details input only if this row needs it
                           if (colHeader === "details") {
+                            const isSelectRow = inputType === "select" || inputType === "single_select";
                             return (
                               <td key={vi} className="p-2">
                                 {needsDetails ? (
                                   <Input
                                     value={answers[detailKey] || ""}
                                     onChange={(e) => setAnswer(detailKey, e.target.value)}
-                                    className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
+                                    className={`bg-zinc-900 border-zinc-700 text-white text-xs h-8 ${isSelectRow ? "w-full min-w-[250px]" : ""}`}
                                     placeholder="Please provide details..."
                                   />
                                 ) : null}
