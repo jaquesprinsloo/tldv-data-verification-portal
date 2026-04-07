@@ -1017,6 +1017,11 @@ const CandexBuilder = () => {
                                         {INPUT_TYPE_LABELS[rit.type]}
                                       </Badge>
                                     )}
+                                    {!previewMode && tbl.row_video_urls?.[i] && (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+                                        <Video className="h-2.5 w-2.5" /> Video
+                                      </Badge>
+                                    )}
                                   </div>
                                 </TableCell>
                                 {tbl.column_headers.slice(1).map((_, ci) => (
