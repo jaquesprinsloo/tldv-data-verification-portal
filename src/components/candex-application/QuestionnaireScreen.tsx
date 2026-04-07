@@ -126,6 +126,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         row_labels: Array.isArray(t.row_labels) ? t.row_labels : [],
         row_input_types: Array.isArray(t.row_input_types) ? t.row_input_types : null,
         column_widths: Array.isArray(t.column_widths) ? t.column_widths : null,
+        row_video_urls: Array.isArray(t.row_video_urls) ? t.row_video_urls : [],
       }));
       setTables(parsedTables);
 
@@ -479,7 +480,14 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     const showSeparateDetails = needsDetails && inputType !== "dynamic_select";
                     return (
                       <tr key={rowIdx} className="border-b border-zinc-800/50">
-                        <td className="p-2 text-xs text-zinc-400 font-medium">{label as string}</td>
+                        <td className="p-2 text-xs text-zinc-400 font-medium">
+                          <div className="flex items-center gap-1.5">
+                            {label as string}
+                            {table.row_video_urls?.[rowIdx] && (
+                              <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
+                            )}
+                          </div>
+                        </td>
                         {visibleColIndices.map((colIdx, vi) => {
                           const colHeader = String(table.column_headers[colIdx] || "").toLowerCase().trim();
                           // If this is a "details" column, render a details input only if this row needs it
