@@ -469,7 +469,7 @@ export default function QuestionnaireScreen({ templateId, onComplete, isAdminPre
               </div>
             )}
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className={`w-full text-sm ${isAdminPreview ? 'table-fixed' : ''}`}>
                 <thead>
                   <tr className="bg-zinc-900">
                     <th className="text-left p-2 text-xs text-zinc-500 font-medium border-b border-zinc-800 min-w-[120px]" />
@@ -477,8 +477,17 @@ export default function QuestionnaireScreen({ templateId, onComplete, isAdminPre
                       const origColIdx = visibleColIndices[i];
                       const widthStyle = table.column_widths?.[origColIdx] ? { width: `${table.column_widths[origColIdx]}%` } : undefined;
                       return (
-                        <th key={i} className="text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 min-w-[80px]" style={widthStyle}>
+                        <th key={i} className="text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 min-w-[80px] relative" style={widthStyle}>
                           {h}
+                          {isAdminPreview && i < visibleColHeaders.length - 1 && (
+                            <div
+                              className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/30 z-10"
+                              onMouseDown={(e) => {
+                                const tableEl = (e.target as HTMLElement).closest("table") as HTMLTableElement;
+                                if (tableEl) handleResizeStart(e, table.id, origColIdx, table.column_headers.length, table.column_widths, tableEl);
+                              }}
+                            />
+                          )}
                         </th>
                       );
                     })}
