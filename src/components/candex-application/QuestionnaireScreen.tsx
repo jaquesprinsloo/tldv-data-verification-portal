@@ -46,6 +46,7 @@ interface SectionTable {
   row_input_types: (RowInputType | null)[] | null;
   is_repeatable: boolean;
   video_url: string | null;
+  column_widths: number[] | null;
 }
 
 interface Question {
@@ -86,6 +87,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         column_headers: Array.isArray(t.column_headers) ? t.column_headers : [],
         row_labels: Array.isArray(t.row_labels) ? t.row_labels : [],
         row_input_types: Array.isArray(t.row_input_types) ? t.row_input_types : null,
+        column_widths: Array.isArray(t.column_widths) ? t.column_widths : null,
       }));
       setTables(parsedTables);
 
@@ -234,7 +236,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if ((inputType === "single_select" || inputType === "select") && rowConfig.options && rowConfig.options.length > 0) {
       return (
         <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
-          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 max-w-[180px]">
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
             <SelectValue placeholder="Select an option" />
           </SelectTrigger>
           <SelectContent>
@@ -420,11 +422,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <thead>
                   <tr className="bg-zinc-900">
                     <th className="text-left p-2 text-xs text-zinc-500 font-medium border-b border-zinc-800 min-w-[120px]" />
-                    {visibleColHeaders.map((h, i) => (
-                      <th key={i} className="text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 min-w-[150px]">
-                        {h}
-                      </th>
-                    ))}
+                    {visibleColHeaders.map((h, i) => {
+                      const origColIdx = visibleColIndices[i];
+                      const widthStyle = table.column_widths?.[origColIdx] ? { width: `${table.column_widths[origColIdx]}%` } : undefined;
+                      return (
+                        <th key={i} className="text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 min-w-[80px]" style={widthStyle}>
+                          {h}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
@@ -442,14 +448,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           const colHeader = String(table.column_headers[colIdx] || "").toLowerCase().trim();
                           // If this is a "details" column, render a details input only if this row needs it
                           if (colHeader === "details") {
-                            const isSelectRow = inputType === "select" || inputType === "single_select";
                             return (
                               <td key={vi} className="p-2">
                                 {needsDetails ? (
                                   <Input
                                     value={answers[detailKey] || ""}
                                     onChange={(e) => setAnswer(detailKey, e.target.value)}
-                                    className={`bg-zinc-900 border-zinc-700 text-white text-xs h-8 ${isSelectRow ? "w-full min-w-[250px]" : ""}`}
+                                    className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
                                     placeholder="Please provide details..."
                                   />
                                 ) : null}

@@ -56,6 +56,7 @@ interface SectionTable {
   is_repeatable: boolean;
   sort_order: number;
   video_url: string | null;
+  column_widths: number[] | null;
 }
 
 // Notification bubble component for candidate preview
@@ -437,6 +438,7 @@ const CandexBuilder = () => {
     is_repeatable: false,
   });
   const [editTableInputTypes, setEditTableInputTypes] = useState<RowInputType[]>([]);
+  const [editTableColumnWidths, setEditTableColumnWidths] = useState<number[]>([]);
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["candex-templates"],
     queryFn: async () => {
@@ -614,6 +616,7 @@ const CandexBuilder = () => {
       if (!editingTable) return;
       const colHeaders = editTable.columns.split(",").map((c) => c.trim()).filter(Boolean);
       const rowLabels = editTable.rows.split("\n").map((r) => r.trim()).filter(Boolean);
+      const widths = editTableColumnWidths.length === colHeaders.length ? editTableColumnWidths : colHeaders.map(() => Math.floor(100 / colHeaders.length));
       const { error } = await supabase
         .from("candex_section_tables")
         .update({
@@ -622,6 +625,7 @@ const CandexBuilder = () => {
           row_labels: rowLabels as any,
           row_input_types: editTableInputTypes.slice(0, rowLabels.length) as any,
           is_repeatable: editTable.is_repeatable,
+          column_widths: widths as any,
         } as any)
         .eq("id", editingTable.id);
       if (error) throw error;
@@ -656,6 +660,8 @@ const CandexBuilder = () => {
       is_repeatable: tbl.is_repeatable,
     });
     setEditTableInputTypes(tbl.row_input_types.length > 0 ? [...tbl.row_input_types] : tbl.row_labels.map(() => ({ type: "text" as const })));
+    const defaultWidths = tbl.column_headers.map(() => Math.floor(100 / tbl.column_headers.length));
+    setEditTableColumnWidths(tbl.column_widths || defaultWidths);
     setEditingTable(tbl);
   };
 
@@ -890,7 +896,7 @@ const CandexBuilder = () => {
                         <TableHeader>
                           <TableRow>
                             {tbl.column_headers.map((col, i) => (
-                              <TableHead key={i}>{col}</TableHead>
+                              <TableHead key={i} style={tbl.column_widths?.[i] ? { width: `${tbl.column_widths[i]}%` } : undefined}>{col}</TableHead>
                             ))}
                           </TableRow>
                         </TableHeader>
@@ -1173,6 +1179,50 @@ const CandexBuilder = () => {
                 allTables={sectionTables}
                 allSections={sections}
               />
+              {/* Column Width Configurator */}
+              {(() => {
+                const cols = editTable.columns.split(",").map(c => c.trim()).filter(Boolean);
+                if (cols.length < 2) return null;
+                // Ensure widths array matches columns
+                const widths = editTableColumnWidths.length === cols.length
+                  ? editTableColumnWidths
+                  : cols.map(() => Math.floor(100 / cols.length));
+                return (
+                  <div>
+                    <Label className="mb-2 block">Column Widths (%)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Drag sliders to adjust each column's width. Total must be 100%.
+                    </p>
+                    <div className="space-y-2 border rounded-md p-3">
+                      {cols.map((col, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className="text-xs font-medium w-24 truncate">{col}</span>
+                          <input
+                            type="range"
+                            min={5}
+                            max={80}
+                            value={widths[i] || Math.floor(100 / cols.length)}
+                            onChange={(e) => {
+                              const newVal = parseInt(e.target.value);
+                              const updated = [...widths];
+                              updated[i] = newVal;
+                              // Auto-adjust the last column to ensure total = 100
+                              const otherTotal = updated.reduce((sum, w, idx) => idx === cols.length - 1 ? sum : sum + w, 0);
+                              updated[cols.length - 1] = Math.max(5, 100 - otherTotal);
+                              setEditTableColumnWidths(updated);
+                            }}
+                            className="flex-1 h-2 accent-primary"
+                          />
+                          <span className="text-xs font-mono w-8 text-right">{widths[i]}%</span>
+                        </div>
+                      ))}
+                      <div className="text-xs text-muted-foreground text-right">
+                        Total: {widths.reduce((s, w) => s + w, 0)}%
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
                   checked={editTable.is_repeatable}
