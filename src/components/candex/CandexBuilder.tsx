@@ -743,6 +743,7 @@ const CandexBuilder = () => {
     setEditTableInputTypes(tbl.row_input_types.length > 0 ? [...tbl.row_input_types] : tbl.row_labels.map(() => ({ type: "text" as const })));
     const defaultWidths = tbl.column_headers.map(() => Math.floor(100 / tbl.column_headers.length));
     setEditTableColumnWidths(tbl.column_widths || defaultWidths);
+    setEditTableRowVideoUrls(tbl.row_video_urls || tbl.row_labels.map(() => null));
     setEditingTable(tbl);
   };
 
