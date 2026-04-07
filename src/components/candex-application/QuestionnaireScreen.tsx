@@ -235,7 +235,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if ((inputType === "single_select" || inputType === "select") && rowConfig.options && rowConfig.options.length > 0) {
       return (
         <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
-          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 max-w-[180px]">
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
             <SelectValue placeholder="Select an option" />
           </SelectTrigger>
           <SelectContent>
@@ -447,14 +447,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           const colHeader = String(table.column_headers[colIdx] || "").toLowerCase().trim();
                           // If this is a "details" column, render a details input only if this row needs it
                           if (colHeader === "details") {
-                            const isSelectRow = inputType === "select" || inputType === "single_select";
                             return (
                               <td key={vi} className="p-2">
                                 {needsDetails ? (
                                   <Input
                                     value={answers[detailKey] || ""}
                                     onChange={(e) => setAnswer(detailKey, e.target.value)}
-                                    className={`bg-zinc-900 border-zinc-700 text-white text-xs h-8 ${isSelectRow ? "w-full min-w-[250px]" : ""}`}
+                                    className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
                                     placeholder="Please provide details..."
                                   />
                                 ) : null}
