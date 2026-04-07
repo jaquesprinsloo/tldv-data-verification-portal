@@ -19,7 +19,6 @@ import type { Json } from "@/integrations/supabase/types";
 interface QuestionnaireScreenProps {
   templateId: string;
   onComplete: (answers: Record<string, any>) => void;
-  isAdminPreview?: boolean;
 }
 
 interface Section {
@@ -60,7 +59,7 @@ interface Question {
   options: string[] | null;
 }
 
-export default function QuestionnaireScreen({ templateId, onComplete, isAdminPreview = false }: QuestionnaireScreenProps) {
+export default function QuestionnaireScreen({ templateId, onComplete }: QuestionnaireScreenProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
@@ -69,91 +68,6 @@ export default function QuestionnaireScreen({ templateId, onComplete, isAdminPre
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [tableData, setTableData] = useState<Record<string, string[][][]>>({});
   const [currentSection, setCurrentSection] = useState(0);
-
-  // Admin preview: drag-to-resize columns
-  const resizeRef = useRef<{
-    tableId: string;
-    leftColIndex: number;
-    rightColIndex: number;
-    startX: number;
-    startWidths: number[];
-    tableEl: HTMLTableElement;
-    currentWidths?: number[];
-  } | null>(null);
-
-  const handleResizeStart = useCallback((
-    e: React.MouseEvent,
-    tableId: string,
-    leftColIndex: number,
-    rightColIndex: number,
-    colCount: number,
-    currentWidths: number[] | null,
-    tableEl: HTMLTableElement,
-  ) => {
-    if (!isAdminPreview) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    const widths = currentWidths && currentWidths.length === colCount
-      ? [...currentWidths]
-      : Array.from({ length: colCount }, () => Math.floor(100 / colCount));
-
-    resizeRef.current = {
-      tableId,
-      leftColIndex,
-      rightColIndex,
-      startX: e.clientX,
-      startWidths: widths,
-      tableEl,
-    };
-
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!resizeRef.current) return;
-
-      const { leftColIndex: leftIdx, rightColIndex: rightIdx, startX, startWidths: sw, tableEl: tEl } = resizeRef.current;
-      const tableWidth = tEl.getBoundingClientRect().width;
-      if (!tableWidth) return;
-
-      const deltaPct = ((ev.clientX - startX) / tableWidth) * 100;
-      const newWidths = [...sw];
-      const combinedWidth = sw[leftIdx] + sw[rightIdx];
-      const nextLeft = Math.max(5, Math.min(combinedWidth - 5, sw[leftIdx] + deltaPct));
-      const nextRight = combinedWidth - nextLeft;
-
-      newWidths[leftIdx] = Math.round(nextLeft);
-      newWidths[rightIdx] = Math.round(nextRight);
-
-      resizeRef.current.currentWidths = newWidths;
-      setTables((prev) => prev.map((t) => (t.id === resizeRef.current?.tableId ? { ...t, column_widths: newWidths } : t)));
-    };
-
-    const onMouseUp = () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-
-      const finalWidths = resizeRef.current?.currentWidths || resizeRef.current?.startWidths;
-      if (finalWidths && resizeRef.current) {
-        const tid = resizeRef.current.tableId;
-        supabase
-          .from("candex_section_tables")
-          .update({ column_widths: finalWidths as unknown as import("@/integrations/supabase/types").Json })
-          .eq("id", tid)
-          .then(({ error }) => {
-            if (error) {
-              console.error("Failed to save column widths:", error);
-              toast.error("Failed to save column widths");
-            } else {
-              toast.success("Column widths saved");
-            }
-          });
-      }
-
-      resizeRef.current = null;
-    };
-
-    document.addEventListener("mousemove", onMouseMove);
-    document.addEventListener("mouseup", onMouseUp);
-  }, [isAdminPreview, setTables]);
 
   useEffect(() => {
     const load = async () => {
@@ -504,7 +418,7 @@ export default function QuestionnaireScreen({ templateId, onComplete, isAdminPre
               </div>
             )}
             <div className="overflow-x-auto">
-              <table className={`w-full text-sm ${isAdminPreview ? 'table-fixed' : ''}`}>
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900">
                     <th className="text-left p-2 text-xs text-zinc-500 font-medium border-b border-zinc-800 min-w-[120px]" />
@@ -512,28 +426,8 @@ export default function QuestionnaireScreen({ templateId, onComplete, isAdminPre
                       const origColIdx = visibleColIndices[i];
                       const widthStyle = table.column_widths?.[origColIdx] ? { width: `${table.column_widths[origColIdx]}%` } : undefined;
                       return (
-                        <th key={i} className="text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 min-w-[80px] relative" style={widthStyle}>
+                        <th key={i} className="text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 min-w-[80px]" style={widthStyle}>
                           {h}
-                          {isAdminPreview && i < visibleColHeaders.length - 1 && (
-                            <div
-                              className="absolute right-0 top-0 bottom-0 z-10 w-3 cursor-col-resize border-r border-dashed border-primary/50 bg-primary/5 hover:bg-primary/20"
-                              onMouseDown={(e) => {
-                                const tableEl = (e.target as HTMLElement).closest("table") as HTMLTableElement;
-                                const nextOrigColIdx = visibleColIndices[i + 1];
-                                if (tableEl && nextOrigColIdx !== undefined) {
-                                  handleResizeStart(
-                                    e,
-                                    table.id,
-                                    origColIdx,
-                                    nextOrigColIdx,
-                                    table.column_headers.length,
-                                    table.column_widths,
-                                    tableEl,
-                                  );
-                                }
-                              }}
-                            />
-                          )}
                         </th>
                       );
                     })}

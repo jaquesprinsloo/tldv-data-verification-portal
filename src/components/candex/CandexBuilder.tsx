@@ -957,7 +957,7 @@ const CandexBuilder = () => {
                                 className="relative select-none"
                               >
                                 {col}
-                                {i < tbl.column_headers.length - 1 && (
+                                {!previewMode && i < tbl.column_headers.length - 1 && (
                                   <div
                                     className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/30 z-10"
                                     onMouseDown={(e) => {
@@ -1284,7 +1284,6 @@ const CandexBuilder = () => {
             <div className="overflow-auto h-full">
               <QuestionnaireScreen
                 templateId={selectedTemplate.id}
-                isAdminPreview={true}
                 onComplete={() => {
                   toast.info("Preview mode — submissions are not saved.");
                   setShowLivePreview(false);
