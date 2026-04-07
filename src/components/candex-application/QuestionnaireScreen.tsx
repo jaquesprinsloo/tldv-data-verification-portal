@@ -11,24 +11,37 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, CheckCircle, Plus, Trash2, CalendarIcon, PlayCircle, Video } from "lucide-react";
+import { Loader2, CheckCircle, Plus, Trash2, CalendarIcon, PlayCircle, Video, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import type { Json } from "@/integrations/supabase/types";
 
+// Shared state for sticky audio player in header
+let setGlobalAudio: ((audio: { url: string; label: string } | null) => void) | null = null;
+
 const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string }) => {
   const [open, setOpen] = useState(false);
   const [showPulse, setShowPulse] = useState(true);
+  const isAudio = /\.(mp3|wav|ogg|aac|m4a|flac|wma)/i.test(videoUrl);
+
+  const handleClick = () => {
+    setShowPulse(false);
+    if (isAudio && setGlobalAudio) {
+      setGlobalAudio({ url: videoUrl, label });
+    } else {
+      setOpen(true);
+    }
+  };
 
   return (
     <>
       <button
-        onClick={() => { setOpen(true); setShowPulse(false); }}
+        onClick={handleClick}
         className="relative inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-600/20 border border-red-600/40 text-red-400 hover:bg-red-600/30 hover:text-red-300 transition-colors text-xs font-medium"
       >
         <PlayCircle className="h-4 w-4" />
-        <span>{/\.(mp3|wav|ogg|aac|m4a|flac|wma)/i.test(videoUrl) ? "Listen" : "Watch Video"}</span>
+        <span>{isAudio ? "Listen" : "Watch Video"}</span>
         {showPulse && (
           <span className="absolute -top-1 -right-1 flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
@@ -37,24 +50,20 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
         )}
       </button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl bg-zinc-950 border-zinc-800">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-white">
-              <Video className="h-5 w-5 text-red-500" /> {label}
-            </DialogTitle>
-          </DialogHeader>
-          {/\.(mp3|wav|ogg|aac|m4a|flac|wma)/i.test(videoUrl) ? (
-            <div className="py-4">
-              <audio src={videoUrl} controls autoPlay className="w-full" />
-            </div>
-          ) : (
+      {!isAudio && (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="max-w-2xl bg-zinc-950 border-zinc-800">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-white">
+                <Video className="h-5 w-5 text-red-500" /> {label}
+              </DialogTitle>
+            </DialogHeader>
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
               <video src={videoUrl} controls autoPlay className="w-full h-full" />
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };
@@ -112,6 +121,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [tableData, setTableData] = useState<Record<string, string[][][]>>({});
   const [currentSection, setCurrentSection] = useState(0);
+  const [stickyAudio, setStickyAudio] = useState<{ url: string; label: string } | null>(null);
+
+  // Wire up the global audio setter so VideoPlayButton can trigger it
+  useEffect(() => {
+    setGlobalAudio = setStickyAudio;
+    return () => { setGlobalAudio = null; };
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -675,13 +691,36 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
   return (
     <div className="min-h-screen bg-black">
-      <div className="border-b border-zinc-800 bg-zinc-950">
+      <div className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-8" />
           <span className="text-xs text-zinc-500">
             Section {currentSection + 1} of {sections.length}
           </span>
         </div>
+        {stickyAudio && (
+          <div className="border-t border-zinc-800 bg-zinc-900/80 px-4 py-2">
+            <div className="container mx-auto flex items-center gap-3 max-w-3xl">
+              <div className="flex items-center gap-2 shrink-0">
+                <PlayCircle className="h-4 w-4 text-red-500" />
+                <span className="text-xs text-zinc-300 font-medium truncate max-w-[140px]">{stickyAudio.label}</span>
+              </div>
+              <audio
+                src={stickyAudio.url}
+                controls
+                autoPlay
+                className="flex-1 h-8 min-w-0"
+                style={{ colorScheme: "dark" }}
+              />
+              <button
+                onClick={() => setStickyAudio(null)}
+                className="text-zinc-500 hover:text-zinc-300 transition-colors shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Progress bar */}
