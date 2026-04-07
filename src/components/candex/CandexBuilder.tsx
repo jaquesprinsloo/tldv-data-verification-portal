@@ -84,7 +84,7 @@ const VideoHelpBubble = ({ videoUrl, label }: { videoUrl: string; label: string 
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-[200px]">
-            <p className="text-xs">Click to watch a short video explaining how to fill in this section</p>
+            <p className="text-xs">Click to play a short explainer for this section</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -96,9 +96,15 @@ const VideoHelpBubble = ({ videoUrl, label }: { videoUrl: string; label: string 
               <Video className="h-5 w-5 text-primary" /> {label}
             </DialogTitle>
           </DialogHeader>
-          <div className="aspect-video bg-black rounded-lg overflow-hidden">
-            <video src={videoUrl} controls autoPlay className="w-full h-full" />
-          </div>
+          {/\.(mp3|wav|ogg|aac|m4a|flac|wma)/i.test(videoUrl) ? (
+            <div className="py-4">
+              <audio src={videoUrl} controls autoPlay className="w-full" />
+            </div>
+          ) : (
+            <div className="aspect-video bg-black rounded-lg overflow-hidden">
+              <video src={videoUrl} controls autoPlay className="w-full h-full" />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

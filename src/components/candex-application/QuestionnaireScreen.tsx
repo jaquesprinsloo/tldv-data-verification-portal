@@ -28,7 +28,7 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
         className="relative inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-600/20 border border-red-600/40 text-red-400 hover:bg-red-600/30 hover:text-red-300 transition-colors text-xs font-medium"
       >
         <PlayCircle className="h-4 w-4" />
-        <span>Watch Video</span>
+        <span>{/\.(mp3|wav|ogg|aac|m4a|flac|wma)/i.test(videoUrl) ? "Listen" : "Watch Video"}</span>
         {showPulse && (
           <span className="absolute -top-1 -right-1 flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
@@ -44,9 +44,15 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
               <Video className="h-5 w-5 text-red-500" /> {label}
             </DialogTitle>
           </DialogHeader>
-          <div className="aspect-video bg-black rounded-lg overflow-hidden">
-            <video src={videoUrl} controls autoPlay className="w-full h-full" />
-          </div>
+          {/\.(mp3|wav|ogg|aac|m4a|flac|wma)/i.test(videoUrl) ? (
+            <div className="py-4">
+              <audio src={videoUrl} controls autoPlay className="w-full" />
+            </div>
+          ) : (
+            <div className="aspect-video bg-black rounded-lg overflow-hidden">
+              <video src={videoUrl} controls autoPlay className="w-full h-full" />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
