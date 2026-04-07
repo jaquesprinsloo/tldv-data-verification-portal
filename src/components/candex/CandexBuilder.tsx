@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -638,6 +638,61 @@ const CandexBuilder = () => {
     onError: (e) => toast.error(e.message),
   });
 
+  // Save column widths from drag-resize in preview
+  const saveColumnWidths = useMutation({
+    mutationFn: async ({ tableId, widths }: { tableId: string; widths: number[] }) => {
+      const { error } = await supabase
+        .from("candex_section_tables")
+        .update({ column_widths: widths as any } as any)
+        .eq("id", tableId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
+    },
+  });
+
+  // Drag-to-resize column handler
+  const resizeRef = useRef<{ tableId: string; colIndex: number; startX: number; startWidths: number[]; tableEl: HTMLTableElement; currentWidths?: number[] } | null>(null);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent, tableId: string, colIndex: number, colCount: number, currentWidths: number[] | null, tableEl: HTMLTableElement) => {
+    e.preventDefault();
+    const widths = currentWidths && currentWidths.length === colCount
+      ? [...currentWidths]
+      : Array.from({ length: colCount }, () => Math.floor(100 / colCount));
+    resizeRef.current = { tableId, colIndex, startX: e.clientX, startWidths: widths, tableEl };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const { colIndex: ci, startX, startWidths: sw, tableEl: tEl } = resizeRef.current;
+      const tableWidth = tEl.getBoundingClientRect().width;
+      const deltaPct = ((ev.clientX - startX) / tableWidth) * 100;
+      const newWidths = [...sw];
+      const nextCi = ci + 1;
+      if (nextCi >= newWidths.length) return;
+      newWidths[ci] = Math.max(5, Math.round(sw[ci] + deltaPct));
+      newWidths[nextCi] = Math.max(5, Math.round(sw[nextCi] - deltaPct));
+      const ths = tEl.querySelectorAll("thead th");
+      ths.forEach((th, idx) => {
+        if (newWidths[idx]) (th as HTMLElement).style.width = `${newWidths[idx]}%`;
+      });
+      resizeRef.current.currentWidths = newWidths;
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      const finalWidths = resizeRef.current?.currentWidths || resizeRef.current?.startWidths;
+      if (finalWidths && resizeRef.current) {
+        saveColumnWidths.mutate({ tableId: resizeRef.current.tableId, widths: finalWidths });
+      }
+      resizeRef.current = null;
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [saveColumnWidths]);
+
   const toggleRepeatable = useMutation({
     mutationFn: async ({ id, is_repeatable }: { id: string; is_repeatable: boolean }) => {
       const { error } = await supabase
@@ -892,11 +947,26 @@ const CandexBuilder = () => {
                           </div>
                         )}
                       </div>
-                      <Table>
+                      <Table className="table-fixed" ref={(el) => { if (el) el.dataset.tableId = tbl.id; }}>
                         <TableHeader>
                           <TableRow>
                             {tbl.column_headers.map((col, i) => (
-                              <TableHead key={i} style={tbl.column_widths?.[i] ? { width: `${tbl.column_widths[i]}%` } : undefined}>{col}</TableHead>
+                              <TableHead
+                                key={i}
+                                style={tbl.column_widths?.[i] ? { width: `${tbl.column_widths[i]}%` } : undefined}
+                                className="relative select-none"
+                              >
+                                {col}
+                                {!previewMode && i < tbl.column_headers.length - 1 && (
+                                  <div
+                                    className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/30 z-10"
+                                    onMouseDown={(e) => {
+                                      const tableEl = (e.target as HTMLElement).closest("table") as HTMLTableElement;
+                                      if (tableEl) handleResizeStart(e, tbl.id, i, tbl.column_headers.length, tbl.column_widths, tableEl);
+                                    }}
+                                  />
+                                )}
+                              </TableHead>
                             ))}
                           </TableRow>
                         </TableHeader>
@@ -1179,50 +1249,7 @@ const CandexBuilder = () => {
                 allTables={sectionTables}
                 allSections={sections}
               />
-              {/* Column Width Configurator */}
-              {(() => {
-                const cols = editTable.columns.split(",").map(c => c.trim()).filter(Boolean);
-                if (cols.length < 2) return null;
-                // Ensure widths array matches columns
-                const widths = editTableColumnWidths.length === cols.length
-                  ? editTableColumnWidths
-                  : cols.map(() => Math.floor(100 / cols.length));
-                return (
-                  <div>
-                    <Label className="mb-2 block">Column Widths (%)</Label>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Drag sliders to adjust each column's width. Total must be 100%.
-                    </p>
-                    <div className="space-y-2 border rounded-md p-3">
-                      {cols.map((col, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                          <span className="text-xs font-medium w-24 truncate">{col}</span>
-                          <input
-                            type="range"
-                            min={5}
-                            max={80}
-                            value={widths[i] || Math.floor(100 / cols.length)}
-                            onChange={(e) => {
-                              const newVal = parseInt(e.target.value);
-                              const updated = [...widths];
-                              updated[i] = newVal;
-                              // Auto-adjust the last column to ensure total = 100
-                              const otherTotal = updated.reduce((sum, w, idx) => idx === cols.length - 1 ? sum : sum + w, 0);
-                              updated[cols.length - 1] = Math.max(5, 100 - otherTotal);
-                              setEditTableColumnWidths(updated);
-                            }}
-                            className="flex-1 h-2 accent-primary"
-                          />
-                          <span className="text-xs font-mono w-8 text-right">{widths[i]}%</span>
-                        </div>
-                      ))}
-                      <div className="text-xs text-muted-foreground text-right">
-                        Total: {widths.reduce((s, w) => s + w, 0)}%
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
+              {/* Column widths are now adjusted by dragging column borders in the preview table */}
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
                   checked={editTable.is_repeatable}
