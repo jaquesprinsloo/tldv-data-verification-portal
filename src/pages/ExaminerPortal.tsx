@@ -904,6 +904,7 @@ const ExaminerPortal = () => {
           candidates: [],
         } : null}
       />
+      <DebugDiagnosticsDialog open={debugOpen} onOpenChange={setDebugOpen} />
     </div>
   );
 };
