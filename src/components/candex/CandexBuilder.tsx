@@ -217,6 +217,8 @@ const RowInputTypeConfigurator = ({
   onChange: (types: RowInputType[]) => void;
   allTables?: SectionTable[];
   allSections?: Section[];
+  rowVideoUrls?: (string | null)[];
+  onVideoUrlsChange?: (urls: (string | null)[]) => void;
 }) => {
   const [editingOptions, setEditingOptions] = useState<number | null>(null);
   const [optionsText, setOptionsText] = useState("");
