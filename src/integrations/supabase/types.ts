@@ -452,6 +452,7 @@ export type Database = {
           is_repeatable: boolean
           row_input_types: Json | null
           row_labels: Json
+          row_video_urls: Json | null
           section_id: string
           sort_order: number
           table_title: string
@@ -465,6 +466,7 @@ export type Database = {
           is_repeatable?: boolean
           row_input_types?: Json | null
           row_labels?: Json
+          row_video_urls?: Json | null
           section_id: string
           sort_order?: number
           table_title: string
@@ -478,6 +480,7 @@ export type Database = {
           is_repeatable?: boolean
           row_input_types?: Json | null
           row_labels?: Json
+          row_video_urls?: Json | null
           section_id?: string
           sort_order?: number
           table_title?: string

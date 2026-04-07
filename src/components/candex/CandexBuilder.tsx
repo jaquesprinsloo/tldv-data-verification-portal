@@ -57,6 +57,7 @@ interface SectionTable {
   sort_order: number;
   video_url: string | null;
   column_widths: number[] | null;
+  row_video_urls: (string | null)[];
 }
 
 // Notification bubble component for candidate preview
@@ -208,12 +209,16 @@ const RowInputTypeConfigurator = ({
   onChange,
   allTables,
   allSections,
+  rowVideoUrls,
+  onVideoUrlsChange,
 }: {
   rowLabels: string[];
   inputTypes: RowInputType[];
   onChange: (types: RowInputType[]) => void;
   allTables?: SectionTable[];
   allSections?: Section[];
+  rowVideoUrls?: (string | null)[];
+  onVideoUrlsChange?: (urls: (string | null)[]) => void;
 }) => {
   const [editingOptions, setEditingOptions] = useState<number | null>(null);
   const [optionsText, setOptionsText] = useState("");
@@ -315,6 +320,24 @@ const RowInputTypeConfigurator = ({
                 <Button size="sm" variant="outline" className="h-7 text-xs gap-1 max-w-[160px] truncate" onClick={() => setEditingSource(i)}>
                   <List className="h-3 w-3" /> {getSourceLabel(rit)}
                 </Button>
+              )}
+              {onVideoUrlsChange && (
+                <VideoUploadButton
+                  currentUrl={rowVideoUrls?.[i] || null}
+                  onUploaded={(url) => {
+                    const updated = [...(rowVideoUrls || [])];
+                    while (updated.length <= i) updated.push(null);
+                    updated[i] = url;
+                    onVideoUrlsChange(updated);
+                  }}
+                  onRemoved={() => {
+                    const updated = [...(rowVideoUrls || [])];
+                    while (updated.length <= i) updated.push(null);
+                    updated[i] = null;
+                    onVideoUrlsChange(updated);
+                  }}
+                  label="Field"
+                />
               )}
             </div>
           );
@@ -439,6 +462,8 @@ const CandexBuilder = () => {
   });
   const [editTableInputTypes, setEditTableInputTypes] = useState<RowInputType[]>([]);
   const [editTableColumnWidths, setEditTableColumnWidths] = useState<number[]>([]);
+  const [editTableRowVideoUrls, setEditTableRowVideoUrls] = useState<(string | null)[]>([]);
+  const [newTableRowVideoUrls, setNewTableRowVideoUrls] = useState<(string | null)[]>([]);
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["candex-templates"],
     queryFn: async () => {
@@ -481,6 +506,7 @@ const CandexBuilder = () => {
         column_headers: Array.isArray(t.column_headers) ? t.column_headers : JSON.parse(t.column_headers || "[]"),
         row_labels: Array.isArray(t.row_labels) ? t.row_labels : JSON.parse(t.row_labels || "[]"),
         row_input_types: Array.isArray(t.row_input_types) ? t.row_input_types : JSON.parse(t.row_input_types || "[]"),
+        row_video_urls: Array.isArray(t.row_video_urls) ? t.row_video_urls : [],
       })) as SectionTable[];
     },
   });
@@ -585,6 +611,7 @@ const CandexBuilder = () => {
         column_headers: colHeaders as any,
         row_labels: rowLabels as any,
         row_input_types: newTableInputTypes.slice(0, rowLabels.length) as any,
+        row_video_urls: newTableRowVideoUrls.slice(0, rowLabels.length) as any,
         is_repeatable: newTable.is_repeatable,
         sort_order: existing.length,
       } as any);
@@ -595,6 +622,7 @@ const CandexBuilder = () => {
       setShowAddTable(null);
       setNewTable({ title: "", columns: "Field, Details", rows: "", is_repeatable: false });
       setNewTableInputTypes([]);
+      setNewTableRowVideoUrls([]);
       toast.success("Table added");
     },
     onError: (e) => toast.error(e.message),
@@ -617,6 +645,7 @@ const CandexBuilder = () => {
       const colHeaders = editTable.columns.split(",").map((c) => c.trim()).filter(Boolean);
       const rowLabels = editTable.rows.split("\n").map((r) => r.trim()).filter(Boolean);
       const widths = editTableColumnWidths.length === colHeaders.length ? editTableColumnWidths : colHeaders.map(() => Math.floor(100 / colHeaders.length));
+      const videoUrls = editTableRowVideoUrls.slice(0, rowLabels.length);
       const { error } = await supabase
         .from("candex_section_tables")
         .update({
@@ -626,6 +655,7 @@ const CandexBuilder = () => {
           row_input_types: editTableInputTypes.slice(0, rowLabels.length) as any,
           is_repeatable: editTable.is_repeatable,
           column_widths: widths as any,
+          row_video_urls: videoUrls as any,
         } as any)
         .eq("id", editingTable.id);
       if (error) throw error;
@@ -717,6 +747,7 @@ const CandexBuilder = () => {
     setEditTableInputTypes(tbl.row_input_types.length > 0 ? [...tbl.row_input_types] : tbl.row_labels.map(() => ({ type: "text" as const })));
     const defaultWidths = tbl.column_headers.map(() => Math.floor(100 / tbl.column_headers.length));
     setEditTableColumnWidths(tbl.column_widths || defaultWidths);
+    setEditTableRowVideoUrls(tbl.row_video_urls || tbl.row_labels.map(() => null));
     setEditingTable(tbl);
   };
 
@@ -978,9 +1009,17 @@ const CandexBuilder = () => {
                                 <TableCell className="font-medium text-sm">
                                   <div className="flex items-center gap-2">
                                     {row}
+                                    {previewMode && tbl.row_video_urls?.[i] && (
+                                      <VideoHelpBubble videoUrl={tbl.row_video_urls[i]!} label={`How to: ${row}`} />
+                                    )}
                                     {!previewMode && rit.type !== "text" && (
                                       <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                                         {INPUT_TYPE_LABELS[rit.type]}
+                                      </Badge>
+                                    )}
+                                    {!previewMode && tbl.row_video_urls?.[i] && (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+                                        <Video className="h-2.5 w-2.5" /> Video
                                       </Badge>
                                     )}
                                   </div>
@@ -1187,6 +1226,8 @@ const CandexBuilder = () => {
                 onChange={setNewTableInputTypes}
                 allTables={sectionTables}
                 allSections={sections}
+                rowVideoUrls={newTableRowVideoUrls}
+                onVideoUrlsChange={setNewTableRowVideoUrls}
               />
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
@@ -1248,6 +1289,8 @@ const CandexBuilder = () => {
                 onChange={setEditTableInputTypes}
                 allTables={sectionTables}
                 allSections={sections}
+                rowVideoUrls={editTableRowVideoUrls}
+                onVideoUrlsChange={setEditTableRowVideoUrls}
               />
               {/* Column widths are now adjusted by dragging column borders in the preview table */}
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
