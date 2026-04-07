@@ -462,6 +462,8 @@ const CandexBuilder = () => {
   });
   const [editTableInputTypes, setEditTableInputTypes] = useState<RowInputType[]>([]);
   const [editTableColumnWidths, setEditTableColumnWidths] = useState<number[]>([]);
+  const [editTableRowVideoUrls, setEditTableRowVideoUrls] = useState<(string | null)[]>([]);
+  const [newTableRowVideoUrls, setNewTableRowVideoUrls] = useState<(string | null)[]>([]);
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["candex-templates"],
     queryFn: async () => {
@@ -504,6 +506,7 @@ const CandexBuilder = () => {
         column_headers: Array.isArray(t.column_headers) ? t.column_headers : JSON.parse(t.column_headers || "[]"),
         row_labels: Array.isArray(t.row_labels) ? t.row_labels : JSON.parse(t.row_labels || "[]"),
         row_input_types: Array.isArray(t.row_input_types) ? t.row_input_types : JSON.parse(t.row_input_types || "[]"),
+        row_video_urls: Array.isArray(t.row_video_urls) ? t.row_video_urls : [],
       })) as SectionTable[];
     },
   });
