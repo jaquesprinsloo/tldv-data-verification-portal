@@ -896,7 +896,7 @@ const CandexBuilder = () => {
                         <TableHeader>
                           <TableRow>
                             {tbl.column_headers.map((col, i) => (
-                              <TableHead key={i}>{col}</TableHead>
+                              <TableHead key={i} style={tbl.column_widths?.[i] ? { width: `${tbl.column_widths[i]}%` } : undefined}>{col}</TableHead>
                             ))}
                           </TableRow>
                         </TableHeader>

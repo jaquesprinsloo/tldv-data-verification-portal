@@ -46,6 +46,7 @@ interface SectionTable {
   row_input_types: (RowInputType | null)[] | null;
   is_repeatable: boolean;
   video_url: string | null;
+  column_widths: number[] | null;
 }
 
 interface Question {
