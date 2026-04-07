@@ -71,54 +71,89 @@ export default function QuestionnaireScreen({ templateId, onComplete, isAdminPre
   const [currentSection, setCurrentSection] = useState(0);
 
   // Admin preview: drag-to-resize columns
-  const resizeRef = useRef<{ tableId: string; colIndex: number; startX: number; startWidths: number[]; tableEl: HTMLTableElement; currentWidths?: number[] } | null>(null);
+  const resizeRef = useRef<{
+    tableId: string;
+    leftColIndex: number;
+    rightColIndex: number;
+    startX: number;
+    startWidths: number[];
+    tableEl: HTMLTableElement;
+    currentWidths?: number[];
+  } | null>(null);
 
-  const handleResizeStart = useCallback((e: React.MouseEvent, tableId: string, colIndex: number, colCount: number, currentWidths: number[] | null, tableEl: HTMLTableElement) => {
+  const handleResizeStart = useCallback((
+    e: React.MouseEvent,
+    tableId: string,
+    leftColIndex: number,
+    rightColIndex: number,
+    colCount: number,
+    currentWidths: number[] | null,
+    tableEl: HTMLTableElement,
+  ) => {
     if (!isAdminPreview) return;
     e.preventDefault();
+    e.stopPropagation();
+
     const widths = currentWidths && currentWidths.length === colCount
       ? [...currentWidths]
       : Array.from({ length: colCount }, () => Math.floor(100 / colCount));
-    resizeRef.current = { tableId, colIndex, startX: e.clientX, startWidths: widths, tableEl };
+
+    resizeRef.current = {
+      tableId,
+      leftColIndex,
+      rightColIndex,
+      startX: e.clientX,
+      startWidths: widths,
+      tableEl,
+    };
 
     const onMouseMove = (ev: MouseEvent) => {
       if (!resizeRef.current) return;
-      const { colIndex: ci, startX, startWidths: sw, tableEl: tEl } = resizeRef.current;
+
+      const { leftColIndex: leftIdx, rightColIndex: rightIdx, startX, startWidths: sw, tableEl: tEl } = resizeRef.current;
       const tableWidth = tEl.getBoundingClientRect().width;
+      if (!tableWidth) return;
+
       const deltaPct = ((ev.clientX - startX) / tableWidth) * 100;
       const newWidths = [...sw];
-      newWidths[ci] = Math.max(5, Math.round(sw[ci] + deltaPct));
-      newWidths[ci + 1] = Math.max(5, Math.round(sw[ci + 1] - deltaPct));
-      tEl.querySelectorAll("thead th").forEach((th, idx) => {
-        if (newWidths[idx]) (th as HTMLElement).style.width = `${newWidths[idx]}%`;
-      });
+      const combinedWidth = sw[leftIdx] + sw[rightIdx];
+      const nextLeft = Math.max(5, Math.min(combinedWidth - 5, sw[leftIdx] + deltaPct));
+      const nextRight = combinedWidth - nextLeft;
+
+      newWidths[leftIdx] = Math.round(nextLeft);
+      newWidths[rightIdx] = Math.round(nextRight);
+
       resizeRef.current.currentWidths = newWidths;
+      setTables((prev) => prev.map((t) => (t.id === resizeRef.current?.tableId ? { ...t, column_widths: newWidths } : t)));
     };
 
     const onMouseUp = () => {
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
+
       const finalWidths = resizeRef.current?.currentWidths || resizeRef.current?.startWidths;
       if (finalWidths && resizeRef.current) {
         const tid = resizeRef.current.tableId;
-        // Save to DB
-        supabase.from("candex_section_tables").update({ column_widths: finalWidths as unknown as import("@/integrations/supabase/types").Json }).eq("id", tid).then(({ error }) => {
-          if (error) {
-            console.error("Failed to save column widths:", error);
-            toast.error("Failed to save column widths");
-          } else {
-            // Update local state
-            setTables(prev => prev.map(t => t.id === tid ? { ...t, column_widths: finalWidths } : t));
-            toast.success("Column widths saved");
-          }
-        });
+        supabase
+          .from("candex_section_tables")
+          .update({ column_widths: finalWidths as unknown as import("@/integrations/supabase/types").Json })
+          .eq("id", tid)
+          .then(({ error }) => {
+            if (error) {
+              console.error("Failed to save column widths:", error);
+              toast.error("Failed to save column widths");
+            } else {
+              toast.success("Column widths saved");
+            }
+          });
       }
+
       resizeRef.current = null;
     };
 
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
-  }, [isAdminPreview]);
+  }, [isAdminPreview, setTables]);
 
   useEffect(() => {
     const load = async () => {
@@ -481,10 +516,21 @@ export default function QuestionnaireScreen({ templateId, onComplete, isAdminPre
                           {h}
                           {isAdminPreview && i < visibleColHeaders.length - 1 && (
                             <div
-                              className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/30 z-10"
+                              className="absolute right-0 top-0 bottom-0 z-10 w-3 cursor-col-resize border-r border-dashed border-primary/50 bg-primary/5 hover:bg-primary/20"
                               onMouseDown={(e) => {
                                 const tableEl = (e.target as HTMLElement).closest("table") as HTMLTableElement;
-                                if (tableEl) handleResizeStart(e, table.id, origColIdx, table.column_headers.length, table.column_widths, tableEl);
+                                const nextOrigColIdx = visibleColIndices[i + 1];
+                                if (tableEl && nextOrigColIdx !== undefined) {
+                                  handleResizeStart(
+                                    e,
+                                    table.id,
+                                    origColIdx,
+                                    nextOrigColIdx,
+                                    table.column_headers.length,
+                                    table.column_widths,
+                                    tableEl,
+                                  );
+                                }
                               }}
                             />
                           )}
