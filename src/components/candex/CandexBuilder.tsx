@@ -26,6 +26,8 @@ interface Template {
   description: string | null;
   is_active: boolean;
   created_at: string;
+  intro_video_url: string | null;
+  brief_video_url: string | null;
 }
 
 interface Section {
