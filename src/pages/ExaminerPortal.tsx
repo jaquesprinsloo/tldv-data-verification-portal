@@ -73,8 +73,7 @@ const ExaminerPortal = () => {
           return;
         }
 
-        // Set user from session - getUser() can cause race conditions
-        const user = currentUser;
+        setUser(currentUser);
 
         setUser(user);
 
