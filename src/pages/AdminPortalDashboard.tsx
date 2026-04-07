@@ -580,6 +580,8 @@ const AdminPortalDashboard = () => {
           100% { transform: scale(0); opacity: 0; }
         }
       `}</style>
+
+      <DebugDiagnosticsDialog open={debugOpen} onOpenChange={setDebugOpen} />
     </div>
   );
 };
