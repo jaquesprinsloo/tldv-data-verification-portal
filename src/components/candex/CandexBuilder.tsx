@@ -84,7 +84,7 @@ const VideoHelpBubble = ({ videoUrl, label }: { videoUrl: string; label: string 
             </button>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-[200px]">
-            <p className="text-xs">Click to watch a short video explaining how to fill in this section</p>
+            <p className="text-xs">Click to play a short explainer for this section</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -96,9 +96,15 @@ const VideoHelpBubble = ({ videoUrl, label }: { videoUrl: string; label: string 
               <Video className="h-5 w-5 text-primary" /> {label}
             </DialogTitle>
           </DialogHeader>
-          <div className="aspect-video bg-black rounded-lg overflow-hidden">
-            <video src={videoUrl} controls autoPlay className="w-full h-full" />
-          </div>
+          {/\.(mp3|wav|ogg|aac|m4a|flac|wma)/i.test(videoUrl) ? (
+            <div className="py-4">
+              <audio src={videoUrl} controls autoPlay className="w-full" />
+            </div>
+          ) : (
+            <div className="aspect-video bg-black rounded-lg overflow-hidden">
+              <video src={videoUrl} controls autoPlay className="w-full h-full" />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
@@ -121,12 +127,12 @@ const VideoUploadButton = ({
   const [uploading, setUploading] = useState(false);
 
   const handleUpload = async (file: File) => {
-    if (!file.type.startsWith("video/")) {
-      toast.error("Please select a video file");
+    if (!file.type.startsWith("video/") && !file.type.startsWith("audio/")) {
+      toast.error("Please select a video or audio file");
       return;
     }
     if (file.size > 50 * 1024 * 1024) {
-      toast.error("Video must be under 50MB");
+      toast.error("File must be under 50MB");
       return;
     }
 
@@ -140,7 +146,7 @@ const VideoUploadButton = ({
       const { data: signedData } = await supabase.storage.from("candex-videos").createSignedUrl(path, 60 * 60 * 24 * 365);
       if (signedData?.signedUrl) {
         onUploaded(signedData.signedUrl);
-        toast.success("Video uploaded");
+        toast.success(file.type.startsWith("audio/") ? "Audio uploaded" : "Video uploaded");
       }
     } catch (e: any) {
       toast.error(e.message || "Upload failed");
@@ -154,7 +160,7 @@ const VideoUploadButton = ({
       <input
         ref={fileRef}
         type="file"
-        accept="video/*"
+        accept="video/*,audio/*"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -165,7 +171,7 @@ const VideoUploadButton = ({
       {currentUrl ? (
         <div className="flex items-center gap-1.5">
           <Badge variant="secondary" className="gap-1 text-xs">
-            <Video className="h-3 w-3" /> {label} video
+            <Video className="h-3 w-3" /> {label} media
           </Badge>
           <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={onRemoved}>
             <X className="h-3 w-3 text-destructive" />
@@ -180,7 +186,7 @@ const VideoUploadButton = ({
           disabled={uploading}
         >
           <Upload className="h-3 w-3" />
-          {uploading ? "Uploading..." : `${label} Video`}
+          {uploading ? "Uploading..." : `${label} Media`}
         </Button>
       )}
     </div>
