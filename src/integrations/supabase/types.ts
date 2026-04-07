@@ -313,28 +313,34 @@ export type Database = {
       }
       candex_questionnaire_templates: {
         Row: {
+          brief_video_url: string | null
           created_at: string
           created_by: string | null
           description: string | null
           id: string
+          intro_video_url: string | null
           is_active: boolean
           name: string
           updated_at: string
         }
         Insert: {
+          brief_video_url?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
+          intro_video_url?: string | null
           is_active?: boolean
           name: string
           updated_at?: string
         }
         Update: {
+          brief_video_url?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
+          intro_video_url?: string | null
           is_active?: boolean
           name?: string
           updated_at?: string

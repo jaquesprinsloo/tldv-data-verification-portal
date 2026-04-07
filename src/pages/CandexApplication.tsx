@@ -17,6 +17,7 @@ const CandexApplication = () => {
   const token = searchParams.get("token");
   const [step, setStep] = useState<Step>("loading");
   const [invitation, setInvitation] = useState<any>(null);
+  const [templateVideos, setTemplateVideos] = useState<{ intro_video_url: string | null; brief_video_url: string | null }>({ intro_video_url: null, brief_video_url: null });
   const [deviceData, setDeviceData] = useState<DeviceData | null>(null);
   const [personalDetails, setPersonalDetails] = useState<PersonalDetails | null>(null);
 
@@ -39,6 +40,21 @@ const CandexApplication = () => {
       }
 
       setInvitation(data);
+
+      // Fetch template videos if template is assigned
+      if (data.template_id) {
+        const { data: tplData } = await supabase
+          .from("candex_questionnaire_templates")
+          .select("*")
+          .eq("id", data.template_id)
+          .maybeSingle();
+        if (tplData) {
+          setTemplateVideos({
+            intro_video_url: (tplData as any).intro_video_url || null,
+            brief_video_url: (tplData as any).brief_video_url || null,
+          });
+        }
+      }
 
       if (data.status === "sent") {
         await supabase.rpc("mark_candex_invitation_opened", { _token: token });
@@ -151,6 +167,7 @@ const CandexApplication = () => {
         onComplete={handleIntroComplete}
         title="Introduction to PreAppliCheck"
         description="This video explains the PreAppliCheck process. Once the video ends, you will proceed to accept the terms and conditions."
+        videoUrl={templateVideos.intro_video_url}
       />
     );
   }
@@ -179,6 +196,7 @@ const CandexApplication = () => {
         onComplete={handleQuestionnaireIntroComplete}
         title="PreAppliCheck Instructions"
         description="Please watch this instructional video before starting the pre-screening questionnaire."
+        videoUrl={templateVideos.brief_video_url}
       />
     );
   }

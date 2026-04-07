@@ -26,6 +26,8 @@ interface Template {
   description: string | null;
   is_active: boolean;
   created_at: string;
+  intro_video_url: string | null;
+  brief_video_url: string | null;
 }
 
 interface Section {
@@ -516,6 +518,20 @@ const CandexBuilder = () => {
     },
   });
 
+  const updateTemplateVideo = useMutation({
+    mutationFn: async ({ id, field, url }: { id: string; field: "intro_video_url" | "brief_video_url"; url: string | null }) => {
+      const { error } = await supabase
+        .from("candex_questionnaire_templates")
+        .update({ [field]: url, updated_at: new Date().toISOString() } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-templates"] });
+      toast.success("Video updated");
+    },
+  });
+
   const deleteTemplate = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("candex_questionnaire_templates").delete().eq("id", id);
@@ -701,7 +717,61 @@ const CandexBuilder = () => {
             <Button onClick={() => setShowAddSection(true)}>
               <Plus className="h-4 w-4 mr-2" /> Add Section
             </Button>
-          </div>
+        </div>
+
+        {/* Template Video Uploads */}
+        {!previewMode && (
+          <Card className="border-dashed">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Video className="h-4 w-4" /> Template Videos
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Upload the introduction and brief videos that applicants will see before starting the questionnaire.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Introduction Video</Label>
+                <p className="text-[10px] text-muted-foreground">Shown after the splash screen — explains the PreAppliCheck process.</p>
+                <VideoUploadButton
+                  currentUrl={(selectedTemplate as any).intro_video_url || null}
+                  onUploaded={(url) => {
+                    updateTemplateVideo.mutate({ id: selectedTemplate.id, field: "intro_video_url", url });
+                    setSelectedTemplate({ ...selectedTemplate, intro_video_url: url } as any);
+                  }}
+                  onRemoved={() => {
+                    updateTemplateVideo.mutate({ id: selectedTemplate.id, field: "intro_video_url", url: null });
+                    setSelectedTemplate({ ...selectedTemplate, intro_video_url: null } as any);
+                  }}
+                  label="Intro"
+                />
+                {(selectedTemplate as any).intro_video_url && (
+                  <video src={(selectedTemplate as any).intro_video_url} controls className="w-full rounded-md border max-h-32" />
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Brief / Instructions Video</Label>
+                <p className="text-[10px] text-muted-foreground">Shown before the questionnaire begins — instructs candidates on how to complete it.</p>
+                <VideoUploadButton
+                  currentUrl={(selectedTemplate as any).brief_video_url || null}
+                  onUploaded={(url) => {
+                    updateTemplateVideo.mutate({ id: selectedTemplate.id, field: "brief_video_url", url });
+                    setSelectedTemplate({ ...selectedTemplate, brief_video_url: url } as any);
+                  }}
+                  onRemoved={() => {
+                    updateTemplateVideo.mutate({ id: selectedTemplate.id, field: "brief_video_url", url: null });
+                    setSelectedTemplate({ ...selectedTemplate, brief_video_url: null } as any);
+                  }}
+                  label="Brief"
+                />
+                {(selectedTemplate as any).brief_video_url && (
+                  <video src={(selectedTemplate as any).brief_video_url} controls className="w-full rounded-md border max-h-32" />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
         </div>
 
         {previewMode && (
