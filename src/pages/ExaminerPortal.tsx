@@ -18,6 +18,7 @@ import ApplicationReviewDialog from "@/components/candex/ApplicationReviewDialog
 import BookingConfirmationView from "@/components/shared/BookingConfirmationView";
 import { User } from "@supabase/supabase-js";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
+import DebugDiagnosticsDialog from "@/components/admin/DebugDiagnosticsDialog";
 
 type ActiveView = "dashboard" | "appointments" | "upload";
 
