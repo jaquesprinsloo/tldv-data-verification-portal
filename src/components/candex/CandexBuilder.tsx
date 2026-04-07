@@ -947,11 +947,26 @@ const CandexBuilder = () => {
                           </div>
                         )}
                       </div>
-                      <Table>
+                      <Table className="table-fixed" ref={(el) => { if (el) el.dataset.tableId = tbl.id; }}>
                         <TableHeader>
                           <TableRow>
                             {tbl.column_headers.map((col, i) => (
-                              <TableHead key={i} style={tbl.column_widths?.[i] ? { width: `${tbl.column_widths[i]}%` } : undefined}>{col}</TableHead>
+                              <TableHead
+                                key={i}
+                                style={tbl.column_widths?.[i] ? { width: `${tbl.column_widths[i]}%` } : undefined}
+                                className="relative select-none"
+                              >
+                                {col}
+                                {!previewMode && i < tbl.column_headers.length - 1 && (
+                                  <div
+                                    className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/30 z-10"
+                                    onMouseDown={(e) => {
+                                      const tableEl = (e.target as HTMLElement).closest("table") as HTMLTableElement;
+                                      if (tableEl) handleResizeStart(e, tbl.id, i, tbl.column_headers.length, tbl.column_widths, tableEl);
+                                    }}
+                                  />
+                                )}
+                              </TableHead>
                             ))}
                           </TableRow>
                         </TableHeader>
