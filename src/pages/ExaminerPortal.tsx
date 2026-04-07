@@ -75,12 +75,10 @@ const ExaminerPortal = () => {
 
         setUser(currentUser);
 
-        setUser(user);
-
         const { data: profileData } = await supabase
           .from("profiles")
           .select("full_name")
-          .eq("id", user.id)
+          .eq("id", currentUser.id)
           .single();
 
         if (profileData?.full_name) setUserName(profileData.full_name);
