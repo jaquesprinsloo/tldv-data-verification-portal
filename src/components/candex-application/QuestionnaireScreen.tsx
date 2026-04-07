@@ -19,6 +19,7 @@ import type { Json } from "@/integrations/supabase/types";
 interface QuestionnaireScreenProps {
   templateId: string;
   onComplete: (answers: Record<string, any>) => void;
+  isAdminPreview?: boolean;
 }
 
 interface Section {
@@ -59,7 +60,7 @@ interface Question {
   options: string[] | null;
 }
 
-export default function QuestionnaireScreen({ templateId, onComplete }: QuestionnaireScreenProps) {
+export default function QuestionnaireScreen({ templateId, onComplete, isAdminPreview = false }: QuestionnaireScreenProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
@@ -68,6 +69,56 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [tableData, setTableData] = useState<Record<string, string[][][]>>({});
   const [currentSection, setCurrentSection] = useState(0);
+
+  // Admin preview: drag-to-resize columns
+  const resizeRef = useRef<{ tableId: string; colIndex: number; startX: number; startWidths: number[]; tableEl: HTMLTableElement; currentWidths?: number[] } | null>(null);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent, tableId: string, colIndex: number, colCount: number, currentWidths: number[] | null, tableEl: HTMLTableElement) => {
+    if (!isAdminPreview) return;
+    e.preventDefault();
+    const widths = currentWidths && currentWidths.length === colCount
+      ? [...currentWidths]
+      : Array.from({ length: colCount }, () => Math.floor(100 / colCount));
+    resizeRef.current = { tableId, colIndex, startX: e.clientX, startWidths: widths, tableEl };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const { colIndex: ci, startX, startWidths: sw, tableEl: tEl } = resizeRef.current;
+      const tableWidth = tEl.getBoundingClientRect().width;
+      const deltaPct = ((ev.clientX - startX) / tableWidth) * 100;
+      const newWidths = [...sw];
+      newWidths[ci] = Math.max(5, Math.round(sw[ci] + deltaPct));
+      newWidths[ci + 1] = Math.max(5, Math.round(sw[ci + 1] - deltaPct));
+      tEl.querySelectorAll("thead th").forEach((th, idx) => {
+        if (newWidths[idx]) (th as HTMLElement).style.width = `${newWidths[idx]}%`;
+      });
+      resizeRef.current.currentWidths = newWidths;
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      const finalWidths = resizeRef.current?.currentWidths || resizeRef.current?.startWidths;
+      if (finalWidths && resizeRef.current) {
+        const tid = resizeRef.current.tableId;
+        // Save to DB
+        supabase.from("candex_section_tables").update({ column_widths: finalWidths as unknown as import("@/integrations/supabase/types").Json }).eq("id", tid).then(({ error }) => {
+          if (error) {
+            console.error("Failed to save column widths:", error);
+            toast.error("Failed to save column widths");
+          } else {
+            // Update local state
+            setTables(prev => prev.map(t => t.id === tid ? { ...t, column_widths: finalWidths } : t));
+            toast.success("Column widths saved");
+          }
+        });
+      }
+      resizeRef.current = null;
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [isAdminPreview]);
 
   useEffect(() => {
     const load = async () => {
@@ -418,7 +469,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               </div>
             )}
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className={`w-full text-sm ${isAdminPreview ? 'table-fixed' : ''}`}>
                 <thead>
                   <tr className="bg-zinc-900">
                     <th className="text-left p-2 text-xs text-zinc-500 font-medium border-b border-zinc-800 min-w-[120px]" />
@@ -426,8 +477,17 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       const origColIdx = visibleColIndices[i];
                       const widthStyle = table.column_widths?.[origColIdx] ? { width: `${table.column_widths[origColIdx]}%` } : undefined;
                       return (
-                        <th key={i} className="text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 min-w-[80px]" style={widthStyle}>
+                        <th key={i} className="text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 min-w-[80px] relative" style={widthStyle}>
                           {h}
+                          {isAdminPreview && i < visibleColHeaders.length - 1 && (
+                            <div
+                              className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-primary/30 z-10"
+                              onMouseDown={(e) => {
+                                const tableEl = (e.target as HTMLElement).closest("table") as HTMLTableElement;
+                                if (tableEl) handleResizeStart(e, table.id, origColIdx, table.column_headers.length, table.column_widths, tableEl);
+                              }}
+                            />
+                          )}
                         </th>
                       );
                     })}

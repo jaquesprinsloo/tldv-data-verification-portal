@@ -1284,6 +1284,7 @@ const CandexBuilder = () => {
             <div className="overflow-auto h-full">
               <QuestionnaireScreen
                 templateId={selectedTemplate.id}
+                isAdminPreview={true}
                 onComplete={() => {
                   toast.info("Preview mode — submissions are not saved.");
                   setShowLivePreview(false);
