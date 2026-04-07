@@ -167,6 +167,7 @@ const CandexApplication = () => {
         onComplete={handleIntroComplete}
         title="Introduction to PreAppliCheck"
         description="This video explains the PreAppliCheck process. Once the video ends, you will proceed to accept the terms and conditions."
+        videoUrl={templateVideos.intro_video_url}
       />
     );
   }
@@ -195,6 +196,7 @@ const CandexApplication = () => {
         onComplete={handleQuestionnaireIntroComplete}
         title="PreAppliCheck Instructions"
         description="Please watch this instructional video before starting the pre-screening questionnaire."
+        videoUrl={templateVideos.brief_video_url}
       />
     );
   }
