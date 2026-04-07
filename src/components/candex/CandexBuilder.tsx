@@ -438,6 +438,7 @@ const CandexBuilder = () => {
     is_repeatable: false,
   });
   const [editTableInputTypes, setEditTableInputTypes] = useState<RowInputType[]>([]);
+  const [editTableColumnWidths, setEditTableColumnWidths] = useState<number[]>([]);
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["candex-templates"],
     queryFn: async () => {
@@ -615,6 +616,7 @@ const CandexBuilder = () => {
       if (!editingTable) return;
       const colHeaders = editTable.columns.split(",").map((c) => c.trim()).filter(Boolean);
       const rowLabels = editTable.rows.split("\n").map((r) => r.trim()).filter(Boolean);
+      const widths = editTableColumnWidths.length === colHeaders.length ? editTableColumnWidths : colHeaders.map(() => Math.floor(100 / colHeaders.length));
       const { error } = await supabase
         .from("candex_section_tables")
         .update({
@@ -623,6 +625,7 @@ const CandexBuilder = () => {
           row_labels: rowLabels as any,
           row_input_types: editTableInputTypes.slice(0, rowLabels.length) as any,
           is_repeatable: editTable.is_repeatable,
+          column_widths: widths as any,
         } as any)
         .eq("id", editingTable.id);
       if (error) throw error;
@@ -657,6 +660,8 @@ const CandexBuilder = () => {
       is_repeatable: tbl.is_repeatable,
     });
     setEditTableInputTypes(tbl.row_input_types.length > 0 ? [...tbl.row_input_types] : tbl.row_labels.map(() => ({ type: "text" as const })));
+    const defaultWidths = tbl.column_headers.map(() => Math.floor(100 / tbl.column_headers.length));
+    setEditTableColumnWidths(tbl.column_widths || defaultWidths);
     setEditingTable(tbl);
   };
 
