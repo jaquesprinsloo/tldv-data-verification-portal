@@ -638,6 +638,61 @@ const CandexBuilder = () => {
     onError: (e) => toast.error(e.message),
   });
 
+  // Save column widths from drag-resize in preview
+  const saveColumnWidths = useMutation({
+    mutationFn: async ({ tableId, widths }: { tableId: string; widths: number[] }) => {
+      const { error } = await supabase
+        .from("candex_section_tables")
+        .update({ column_widths: widths as any } as any)
+        .eq("id", tableId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
+    },
+  });
+
+  // Drag-to-resize column handler
+  const resizeRef = useRef<{ tableId: string; colIndex: number; startX: number; startWidths: number[]; tableEl: HTMLTableElement; currentWidths?: number[] } | null>(null);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent, tableId: string, colIndex: number, colCount: number, currentWidths: number[] | null, tableEl: HTMLTableElement) => {
+    e.preventDefault();
+    const widths = currentWidths && currentWidths.length === colCount
+      ? [...currentWidths]
+      : Array.from({ length: colCount }, () => Math.floor(100 / colCount));
+    resizeRef.current = { tableId, colIndex, startX: e.clientX, startWidths: widths, tableEl };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!resizeRef.current) return;
+      const { colIndex: ci, startX, startWidths: sw, tableEl: tEl } = resizeRef.current;
+      const tableWidth = tEl.getBoundingClientRect().width;
+      const deltaPct = ((ev.clientX - startX) / tableWidth) * 100;
+      const newWidths = [...sw];
+      const nextCi = ci + 1;
+      if (nextCi >= newWidths.length) return;
+      newWidths[ci] = Math.max(5, Math.round(sw[ci] + deltaPct));
+      newWidths[nextCi] = Math.max(5, Math.round(sw[nextCi] - deltaPct));
+      const ths = tEl.querySelectorAll("thead th");
+      ths.forEach((th, idx) => {
+        if (newWidths[idx]) (th as HTMLElement).style.width = `${newWidths[idx]}%`;
+      });
+      resizeRef.current.currentWidths = newWidths;
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      const finalWidths = resizeRef.current?.currentWidths || resizeRef.current?.startWidths;
+      if (finalWidths && resizeRef.current) {
+        saveColumnWidths.mutate({ tableId: resizeRef.current.tableId, widths: finalWidths });
+      }
+      resizeRef.current = null;
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, [saveColumnWidths]);
+
   const toggleRepeatable = useMutation({
     mutationFn: async ({ id, is_repeatable }: { id: string; is_repeatable: boolean }) => {
       const { error } = await supabase
