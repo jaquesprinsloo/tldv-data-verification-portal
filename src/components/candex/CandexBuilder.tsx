@@ -643,6 +643,7 @@ const CandexBuilder = () => {
       const colHeaders = editTable.columns.split(",").map((c) => c.trim()).filter(Boolean);
       const rowLabels = editTable.rows.split("\n").map((r) => r.trim()).filter(Boolean);
       const widths = editTableColumnWidths.length === colHeaders.length ? editTableColumnWidths : colHeaders.map(() => Math.floor(100 / colHeaders.length));
+      const videoUrls = editTableRowVideoUrls.slice(0, rowLabels.length);
       const { error } = await supabase
         .from("candex_section_tables")
         .update({
@@ -652,6 +653,7 @@ const CandexBuilder = () => {
           row_input_types: editTableInputTypes.slice(0, rowLabels.length) as any,
           is_repeatable: editTable.is_repeatable,
           column_widths: widths as any,
+          row_video_urls: videoUrls as any,
         } as any)
         .eq("id", editingTable.id);
       if (error) throw error;
