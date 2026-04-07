@@ -19,6 +19,7 @@ import type { Json } from "@/integrations/supabase/types";
 interface QuestionnaireScreenProps {
   templateId: string;
   onComplete: (answers: Record<string, any>) => void;
+  isAdminPreview?: boolean;
 }
 
 interface Section {
