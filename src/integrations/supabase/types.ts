@@ -1913,6 +1913,36 @@ export type Database = {
           },
         ]
       }
+      popia_indemnity_settings: {
+        Row: {
+          id: string
+          indemnity_audio_url: string | null
+          indemnity_text: string
+          popia_audio_url: string | null
+          popia_text: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          indemnity_audio_url?: string | null
+          indemnity_text: string
+          popia_audio_url?: string | null
+          popia_text: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          indemnity_audio_url?: string | null
+          indemnity_text?: string
+          popia_audio_url?: string | null
+          popia_text?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       portal_card_order: {
         Row: {
           card_key: string
