@@ -1,0 +1,1 @@
+ALTER TABLE public.candex_section_tables ADD COLUMN row_video_urls jsonb DEFAULT '[]'::jsonb;
