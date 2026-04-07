@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -425,6 +426,7 @@ const CandexBuilder = () => {
   });
   const [newTableInputTypes, setNewTableInputTypes] = useState<RowInputType[]>([]);
   const [previewMode, setPreviewMode] = useState(false);
+  const [showLivePreview, setShowLivePreview] = useState(false);
   const [editingTable, setEditingTable] = useState<SectionTable | null>(null);
   const [editTable, setEditTable] = useState({
     title: "",
@@ -691,7 +693,10 @@ const CandexBuilder = () => {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setPreviewMode(!previewMode)}>
-              <Eye className="h-4 w-4 mr-2" /> {previewMode ? "Edit Mode" : "Preview"}
+              <Eye className="h-4 w-4 mr-2" /> {previewMode ? "Edit Mode" : "Quick Preview"}
+            </Button>
+            <Button variant="default" onClick={() => setShowLivePreview(true)} className="bg-red-600 hover:bg-red-700 text-white">
+              <Eye className="h-4 w-4 mr-2" /> Live Applicant Preview
             </Button>
             <Button onClick={() => setShowAddSection(true)}>
               <Plus className="h-4 w-4 mr-2" /> Add Section
@@ -1118,6 +1123,26 @@ const CandexBuilder = () => {
                 Save Changes
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {/* Live Applicant Preview Dialog */}
+        <Dialog open={showLivePreview} onOpenChange={setShowLivePreview}>
+          <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-full p-0 overflow-hidden">
+            <DialogHeader className="px-4 py-2 border-b bg-muted/50 flex flex-row items-center justify-between">
+              <DialogTitle className="text-sm flex items-center gap-2">
+                <Eye className="h-4 w-4" /> Live Applicant Preview — {selectedTemplate.name}
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground">This is exactly what the applicant will see when filling in the questionnaire.</p>
+            </DialogHeader>
+            <div className="overflow-auto h-full">
+              <QuestionnaireScreen
+                templateId={selectedTemplate.id}
+                onComplete={() => {
+                  toast.info("Preview mode — submissions are not saved.");
+                  setShowLivePreview(false);
+                }}
+              />
+            </div>
           </DialogContent>
         </Dialog>
       </div>
