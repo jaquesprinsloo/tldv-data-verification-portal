@@ -404,7 +404,14 @@ const ExaminerPortal = () => {
         {/* Main Dashboard */}
         <div className={`min-h-screen flex items-center justify-center py-6 sm:py-8 pb-12 ${!hasSeenAnimation ? "transition-all duration-1000" : ""} ${isAnimating ? "opacity-0" : "opacity-100"}`}>
           <div className="container mx-auto px-3 sm:px-4 max-w-4xl relative">
-            <div className="absolute top-2 sm:top-0 right-2 sm:right-4">
+            <div className="absolute top-2 sm:top-0 right-2 sm:right-4 flex gap-2">
+              <button
+                onClick={() => setDebugOpen(true)}
+                className="px-2 sm:px-3 py-2 sm:py-3 text-sm bg-gray-800/50 border-2 border-gray-700 text-gray-400 rounded-lg hover:bg-gray-700/50 hover:text-white transition-all duration-300"
+                title="System Diagnostics"
+              >
+                <Bug className="w-4 h-4" />
+              </button>
               <button onClick={handleSignOut}
                 className="px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-red-600/20 border-2 border-red-600 text-white rounded-lg hover:bg-red-600/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] transition-all duration-300">
                 Sign Out
