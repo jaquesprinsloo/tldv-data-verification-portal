@@ -48,6 +48,7 @@ const ExaminerPortal = () => {
   const hasSeenAnimation = sessionStorage.getItem('examiner_animation_played') === 'true';
   const [isAnimating, setIsAnimating] = useState(!hasSeenAnimation);
   const [isExiting, setIsExiting] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
