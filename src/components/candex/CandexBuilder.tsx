@@ -1007,6 +1007,9 @@ const CandexBuilder = () => {
                                 <TableCell className="font-medium text-sm">
                                   <div className="flex items-center gap-2">
                                     {row}
+                                    {previewMode && tbl.row_video_urls?.[i] && (
+                                      <VideoHelpBubble videoUrl={tbl.row_video_urls[i]!} label={`How to: ${row}`} />
+                                    )}
                                     {!previewMode && rit.type !== "text" && (
                                       <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                                         {INPUT_TYPE_LABELS[rit.type]}
@@ -1216,6 +1219,8 @@ const CandexBuilder = () => {
                 onChange={setNewTableInputTypes}
                 allTables={sectionTables}
                 allSections={sections}
+                rowVideoUrls={newTableRowVideoUrls}
+                onVideoUrlsChange={setNewTableRowVideoUrls}
               />
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
@@ -1277,6 +1282,8 @@ const CandexBuilder = () => {
                 onChange={setEditTableInputTypes}
                 allTables={sectionTables}
                 allSections={sections}
+                rowVideoUrls={editTableRowVideoUrls}
+                onVideoUrlsChange={setEditTableRowVideoUrls}
               />
               {/* Column widths are now adjusted by dragging column borders in the preview table */}
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
