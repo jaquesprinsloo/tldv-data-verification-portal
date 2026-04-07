@@ -611,6 +611,7 @@ const CandexBuilder = () => {
         column_headers: colHeaders as any,
         row_labels: rowLabels as any,
         row_input_types: newTableInputTypes.slice(0, rowLabels.length) as any,
+        row_video_urls: newTableRowVideoUrls.slice(0, rowLabels.length) as any,
         is_repeatable: newTable.is_repeatable,
         sort_order: existing.length,
       } as any);
@@ -621,6 +622,7 @@ const CandexBuilder = () => {
       setShowAddTable(null);
       setNewTable({ title: "", columns: "Field, Details", rows: "", is_repeatable: false });
       setNewTableInputTypes([]);
+      setNewTableRowVideoUrls([]);
       toast.success("Table added");
     },
     onError: (e) => toast.error(e.message),
