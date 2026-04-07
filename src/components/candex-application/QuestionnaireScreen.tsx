@@ -87,6 +87,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         column_headers: Array.isArray(t.column_headers) ? t.column_headers : [],
         row_labels: Array.isArray(t.row_labels) ? t.row_labels : [],
         row_input_types: Array.isArray(t.row_input_types) ? t.row_input_types : null,
+        column_widths: Array.isArray(t.column_widths) ? t.column_widths : null,
       }));
       setTables(parsedTables);
 
