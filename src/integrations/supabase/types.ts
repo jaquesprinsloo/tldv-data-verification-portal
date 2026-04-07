@@ -446,6 +446,7 @@ export type Database = {
       candex_section_tables: {
         Row: {
           column_headers: Json
+          column_widths: Json | null
           created_at: string
           id: string
           is_repeatable: boolean
@@ -458,6 +459,7 @@ export type Database = {
         }
         Insert: {
           column_headers?: Json
+          column_widths?: Json | null
           created_at?: string
           id?: string
           is_repeatable?: boolean
@@ -470,6 +472,7 @@ export type Database = {
         }
         Update: {
           column_headers?: Json
+          column_widths?: Json | null
           created_at?: string
           id?: string
           is_repeatable?: boolean
