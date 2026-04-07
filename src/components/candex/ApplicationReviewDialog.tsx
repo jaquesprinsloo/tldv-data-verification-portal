@@ -175,7 +175,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <Accordion type="multiple" defaultValue={["personal", "popia", "questionnaire"]} className="space-y-2">
+          <Accordion type="multiple" defaultValue={[]} className="space-y-2">
             
             {/* ── PERSONAL DETAILS ── */}
             <AccordionItem value="personal" className="border rounded-lg px-1">
