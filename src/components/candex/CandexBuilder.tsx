@@ -693,7 +693,10 @@ const CandexBuilder = () => {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setPreviewMode(!previewMode)}>
-              <Eye className="h-4 w-4 mr-2" /> {previewMode ? "Edit Mode" : "Preview"}
+              <Eye className="h-4 w-4 mr-2" /> {previewMode ? "Edit Mode" : "Quick Preview"}
+            </Button>
+            <Button variant="default" onClick={() => setShowLivePreview(true)} className="bg-red-600 hover:bg-red-700 text-white">
+              <Eye className="h-4 w-4 mr-2" /> Live Applicant Preview
             </Button>
             <Button onClick={() => setShowAddSection(true)}>
               <Plus className="h-4 w-4 mr-2" /> Add Section
