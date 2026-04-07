@@ -776,11 +776,18 @@ const ExaminerPortal = () => {
                               <div><span className="text-muted-foreground">Result:</span> <span className={`font-medium ${risk.risk_assessment_result === "clear" ? "text-green-700" : "text-destructive"}`}>{risk.risk_assessment_result === "clear" ? "No Risk Identified" : "Risk Identified"}</span></div>
                             </div>
                             <Button variant="outline" size="sm" onClick={async () => {
-                              const url = risk.risk_assessment_url;
-                              if (url.startsWith("http")) { setViewRiskUrl(url); return; }
-                              const { data } = await supabase.storage.from("employee-documents").createSignedUrl(url, 3600);
+                              let filePath = risk.risk_assessment_url;
+                              // Extract path from full URL if needed
+                              const bucketMarker = "/object/public/employee-documents/";
+                              const bucketMarker2 = "/object/sign/employee-documents/";
+                              if (filePath.includes(bucketMarker)) {
+                                filePath = filePath.split(bucketMarker)[1];
+                              } else if (filePath.includes(bucketMarker2)) {
+                                filePath = filePath.split(bucketMarker2)[1];
+                              }
+                              const { data, error } = await supabase.storage.from("employee-documents").createSignedUrl(filePath, 3600);
                               if (data?.signedUrl) setViewRiskUrl(data.signedUrl);
-                              else toast.error("Could not load document");
+                              else { console.error("Signed URL error:", error); toast.error("Could not load document"); }
                             }}>
                               <Eye className="h-4 w-4 mr-2" /> View Risk Assessment
                             </Button>
