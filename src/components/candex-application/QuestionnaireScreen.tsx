@@ -53,6 +53,7 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
   );
 };
 
+interface QuestionnaireScreenProps {
   templateId: string;
   onComplete: (answers: Record<string, any>) => void;
 }
