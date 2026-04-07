@@ -195,6 +195,10 @@ const AdminPortalDashboard = () => {
     // Filter based on role
     const visiblePortals = allPortals.filter(p => !p.requiresMasterAdmin || isMasterAdmin);
 
+    console.log("[Portal Debug] isMasterAdmin:", isMasterAdmin, "| allPortals:", allPortals.length, "| visiblePortals:", visiblePortals.length);
+    console.log("[Portal Debug] PreAppliCheck in allPortals:", allPortals.some(p => p.key === preAppliCheckKey));
+    console.log("[Portal Debug] PreAppliCheck in visiblePortals:", visiblePortals.some(p => p.key === preAppliCheckKey));
+
     // Apply saved order if available
     if (savedOrder && savedOrder.length > 0) {
       const orderMap = new Map(savedOrder.map(o => [o.card_key, o.sort_order]));
@@ -222,6 +226,8 @@ const AdminPortalDashboard = () => {
     const newPortals = preAppliCheckPortal
       ? [preAppliCheckPortal, ...remainingPortals]
       : visiblePortals;
+
+    console.log("[Portal Debug] Final orderedPortals:", newPortals.map(p => p.key));
 
     setOrderedPortals(newPortals);
     setPortalsInitialized(true);
