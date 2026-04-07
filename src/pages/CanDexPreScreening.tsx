@@ -14,6 +14,7 @@ import CandexClients from "@/components/candex/CandexClients";
 import CandexClientPortal from "@/components/candex/CandexClientPortal";
 import CandexRiskRequests from "@/components/candex/CandexRiskRequests";
 import PolygraphAppointments from "@/components/admin/PolygraphAppointments";
+import POPIAIndemnityEditor from "@/components/candex/POPIAIndemnityEditor";
 
 const CanDexPreScreening = () => {
   const navigate = useNavigate();
@@ -126,7 +127,7 @@ const CanDexPreScreening = () => {
 
         {isMasterAdmin ? (
           <Tabs defaultValue="statistics" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5 max-w-2xl mx-auto">
+            <TabsList className="grid w-full grid-cols-6 max-w-3xl mx-auto">
               <TabsTrigger value="statistics" className="relative text-xs">
                 Statistics
                 {pendingSubmissionsCount > 0 && (
@@ -152,6 +153,7 @@ const CanDexPreScreening = () => {
                 )}
               </TabsTrigger>
               <TabsTrigger value="builder" className="text-xs">Builder</TabsTrigger>
+              <TabsTrigger value="popia" className="text-xs">POPIA & Indemnity</TabsTrigger>
               <TabsTrigger value="clients" className="text-xs">Clients</TabsTrigger>
             </TabsList>
 
@@ -169,6 +171,10 @@ const CanDexPreScreening = () => {
 
             <TabsContent value="builder">
               <CandexBuilder />
+            </TabsContent>
+
+            <TabsContent value="popia">
+              <POPIAIndemnityEditor />
             </TabsContent>
 
             <TabsContent value="clients">
