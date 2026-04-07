@@ -1179,6 +1179,50 @@ const CandexBuilder = () => {
                 allTables={sectionTables}
                 allSections={sections}
               />
+              {/* Column Width Configurator */}
+              {(() => {
+                const cols = editTable.columns.split(",").map(c => c.trim()).filter(Boolean);
+                if (cols.length < 2) return null;
+                // Ensure widths array matches columns
+                const widths = editTableColumnWidths.length === cols.length
+                  ? editTableColumnWidths
+                  : cols.map(() => Math.floor(100 / cols.length));
+                return (
+                  <div>
+                    <Label className="mb-2 block">Column Widths (%)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Drag sliders to adjust each column's width. Total must be 100%.
+                    </p>
+                    <div className="space-y-2 border rounded-md p-3">
+                      {cols.map((col, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className="text-xs font-medium w-24 truncate">{col}</span>
+                          <input
+                            type="range"
+                            min={5}
+                            max={80}
+                            value={widths[i] || Math.floor(100 / cols.length)}
+                            onChange={(e) => {
+                              const newVal = parseInt(e.target.value);
+                              const updated = [...widths];
+                              updated[i] = newVal;
+                              // Auto-adjust the last column to ensure total = 100
+                              const otherTotal = updated.reduce((sum, w, idx) => idx === cols.length - 1 ? sum : sum + w, 0);
+                              updated[cols.length - 1] = Math.max(5, 100 - otherTotal);
+                              setEditTableColumnWidths(updated);
+                            }}
+                            className="flex-1 h-2 accent-primary"
+                          />
+                          <span className="text-xs font-mono w-8 text-right">{widths[i]}%</span>
+                        </div>
+                      ))}
+                      <div className="text-xs text-muted-foreground text-right">
+                        Total: {widths.reduce((s, w) => s + w, 0)}%
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
                   checked={editTable.is_repeatable}
