@@ -57,6 +57,7 @@ interface SectionTable {
   sort_order: number;
   video_url: string | null;
   column_widths: number[] | null;
+  row_video_urls: (string | null)[];
 }
 
 // Notification bubble component for candidate preview

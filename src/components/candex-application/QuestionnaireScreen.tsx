@@ -84,6 +84,7 @@ interface SectionTable {
   is_repeatable: boolean;
   video_url: string | null;
   column_widths: number[] | null;
+  row_video_urls: (string | null)[];
 }
 
 interface Question {
