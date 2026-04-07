@@ -420,11 +420,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <thead>
                   <tr className="bg-zinc-900">
                     <th className="text-left p-2 text-xs text-zinc-500 font-medium border-b border-zinc-800 min-w-[120px]" />
-                    {visibleColHeaders.map((h, i) => (
-                      <th key={i} className="text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 min-w-[150px]">
-                        {h}
-                      </th>
-                    ))}
+                    {visibleColHeaders.map((h, i) => {
+                      const hLower = String(h).toLowerCase().trim();
+                      const isDetails = hLower === "details";
+                      return (
+                        <th key={i} className={`text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 ${isDetails ? "min-w-[250px] w-[60%]" : "min-w-[120px]"}`}>
+                          {h}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
