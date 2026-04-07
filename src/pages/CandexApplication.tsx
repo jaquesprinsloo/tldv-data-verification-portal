@@ -17,6 +17,7 @@ const CandexApplication = () => {
   const token = searchParams.get("token");
   const [step, setStep] = useState<Step>("loading");
   const [invitation, setInvitation] = useState<any>(null);
+  const [templateVideos, setTemplateVideos] = useState<{ intro_video_url: string | null; brief_video_url: string | null }>({ intro_video_url: null, brief_video_url: null });
   const [deviceData, setDeviceData] = useState<DeviceData | null>(null);
   const [personalDetails, setPersonalDetails] = useState<PersonalDetails | null>(null);
 
