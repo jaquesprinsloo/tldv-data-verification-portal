@@ -425,6 +425,7 @@ const CandexBuilder = () => {
   });
   const [newTableInputTypes, setNewTableInputTypes] = useState<RowInputType[]>([]);
   const [previewMode, setPreviewMode] = useState(false);
+  const [showLivePreview, setShowLivePreview] = useState(false);
   const [editingTable, setEditingTable] = useState<SectionTable | null>(null);
   const [editTable, setEditTable] = useState({
     title: "",
