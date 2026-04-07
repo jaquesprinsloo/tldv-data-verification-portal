@@ -56,6 +56,7 @@ interface SectionTable {
   is_repeatable: boolean;
   sort_order: number;
   video_url: string | null;
+  column_widths: number[] | null;
 }
 
 // Notification bubble component for candidate preview
