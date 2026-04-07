@@ -209,6 +209,8 @@ const RowInputTypeConfigurator = ({
   onChange,
   allTables,
   allSections,
+  rowVideoUrls,
+  onVideoUrlsChange,
 }: {
   rowLabels: string[];
   inputTypes: RowInputType[];
