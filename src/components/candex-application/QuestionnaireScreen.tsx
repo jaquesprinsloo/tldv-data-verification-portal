@@ -210,7 +210,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
-    if (inputType === "date") {
+    if (inputType === "date" || inputType === "date_picker") {
       const dateVal = value ? new Date(value) : undefined;
       return (
         <Popover>
@@ -231,7 +231,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
-    if (inputType === "single_select" && rowConfig.options && rowConfig.options.length > 0) {
+    if ((inputType === "single_select" || inputType === "select") && rowConfig.options && rowConfig.options.length > 0) {
       return (
         <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
           <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
