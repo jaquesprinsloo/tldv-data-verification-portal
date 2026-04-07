@@ -321,6 +321,24 @@ const RowInputTypeConfigurator = ({
                   <List className="h-3 w-3" /> {getSourceLabel(rit)}
                 </Button>
               )}
+              {onVideoUrlsChange && (
+                <VideoUploadButton
+                  currentUrl={rowVideoUrls?.[i] || null}
+                  onUploaded={(url) => {
+                    const updated = [...(rowVideoUrls || [])];
+                    while (updated.length <= i) updated.push(null);
+                    updated[i] = url;
+                    onVideoUrlsChange(updated);
+                  }}
+                  onRemoved={() => {
+                    const updated = [...(rowVideoUrls || [])];
+                    while (updated.length <= i) updated.push(null);
+                    updated[i] = null;
+                    onVideoUrlsChange(updated);
+                  }}
+                  label="Field"
+                />
+              )}
             </div>
           );
         })}
