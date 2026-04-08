@@ -3,6 +3,37 @@ import { registerSW } from "virtual:pwa-register";
 import App from "./App.tsx";
 import "./index.css";
 
+const STALE_CLIENT_RECOVERY_KEY = "app_stale_client_recovery_at";
+
+const unregisterServiceWorkers = async () => {
+  const registrations = await navigator.serviceWorker?.getRegistrations();
+  await Promise.all((registrations ?? []).map((registration) => registration.unregister()));
+};
+
+const clearAppCaches = async () => {
+  if (!("caches" in window)) return;
+
+  const cacheKeys = await caches.keys();
+  await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)));
+};
+
+const recoverFromStaleClient = async () => {
+  const lastRecoveryAt = Number(sessionStorage.getItem(STALE_CLIENT_RECOVERY_KEY) ?? "0");
+
+  if (Date.now() - lastRecoveryAt < 15000) {
+    return;
+  }
+
+  sessionStorage.setItem(STALE_CLIENT_RECOVERY_KEY, String(Date.now()));
+  await Promise.all([unregisterServiceWorkers(), clearAppCaches()]);
+  window.location.reload();
+};
+
+window.addEventListener("vite:preloadError", (event) => {
+  event.preventDefault();
+  void recoverFromStaleClient();
+});
+
 const isInIframe = (() => {
   try {
     return window.self !== window.top;
@@ -18,12 +49,22 @@ const isPreviewHost =
 const isCandidateRoute = window.location.pathname === "/candex-apply";
 
 if (isPreviewHost || isInIframe || isCandidateRoute) {
-  navigator.serviceWorker?.getRegistrations().then((registrations) => {
-    registrations.forEach((registration) => registration.unregister());
-  });
+  void unregisterServiceWorkers();
 } else {
-  registerSW({
+  const updateSW = registerSW({
     immediate: true,
+    onNeedRefresh() {
+      void updateSW(true);
+    },
+    onRegisteredSW(_swUrl, registration) {
+      void registration?.update();
+    },
+  });
+
+  window.addEventListener("focus", () => {
+    void navigator.serviceWorker?.ready
+      .then((registration) => registration.update())
+      .catch(() => undefined);
   });
 }
 
