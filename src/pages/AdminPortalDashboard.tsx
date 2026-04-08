@@ -42,8 +42,16 @@ const AdminPortalDashboard = () => {
   const [orderedPortals, setOrderedPortals] = useState<PortalCard[]>([]);
   const [portalsInitialized, setPortalsInitialized] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [authResolved, setAuthResolved] = useState(false);
 
-  const { hasPermission, checkAccessWithNotification } = usePermissions(currentUserId);
+  const {
+    hasPermission,
+    checkAccessWithNotification,
+    isLoading: permissionsLoading,
+    isMasterAdmin: permissionsMasterAdmin,
+  } = usePermissions(currentUserId);
+
+  const hasFullAccess = isMasterAdmin || permissionsMasterAdmin;
 
   const { data: pendingRequests } = useQuery({
     queryKey: ['pending-requests-count'],
@@ -192,24 +200,24 @@ const AdminPortalDashboard = () => {
   useEffect(() => {
     const preAppliCheckKey = "candex-pre-screening";
 
-    // Filter based on role
-    const visiblePortals = allPortals.filter(p => !p.requiresMasterAdmin || isMasterAdmin);
+    const visiblePortals = allPortals.filter((portal) => !portal.requiresMasterAdmin || hasFullAccess);
 
-    console.log("[Portal Debug] isMasterAdmin:", isMasterAdmin, "| allPortals:", allPortals.length, "| visiblePortals:", visiblePortals.length);
-    console.log("[Portal Debug] PreAppliCheck in allPortals:", allPortals.some(p => p.key === preAppliCheckKey));
-    console.log("[Portal Debug] PreAppliCheck in visiblePortals:", visiblePortals.some(p => p.key === preAppliCheckKey));
+    console.log("[Portal Debug] hasFullAccess:", hasFullAccess, "| allPortals:", allPortals.length, "| visiblePortals:", visiblePortals.length);
+    console.log("[Portal Debug] PreAppliCheck in allPortals:", allPortals.some((portal) => portal.key === preAppliCheckKey));
+    console.log("[Portal Debug] PreAppliCheck in visiblePortals:", visiblePortals.some((portal) => portal.key === preAppliCheckKey));
 
-    // Apply saved order if available
     if (savedOrder && savedOrder.length > 0) {
-      const orderMap = new Map(savedOrder.map(o => [o.card_key, o.sort_order]));
-      const maxSavedOrder = Math.max(...savedOrder.map(o => o.sort_order), -1);
+      const orderMap = new Map(savedOrder.map((item) => [item.card_key, item.sort_order]));
+      const maxSavedOrder = Math.max(...savedOrder.map((item) => item.sort_order), -1);
       let nextFallback = maxSavedOrder + 1;
       const fallbackMap = new Map<string, number>();
-      visiblePortals.forEach(p => {
-        if (!orderMap.has(p.key)) {
-          fallbackMap.set(p.key, nextFallback++);
+
+      visiblePortals.forEach((portal) => {
+        if (!orderMap.has(portal.key)) {
+          fallbackMap.set(portal.key, nextFallback++);
         }
       });
+
       visiblePortals.sort((a, b) => {
         const orderA = orderMap.get(a.key) ?? fallbackMap.get(a.key) ?? 999;
         const orderB = orderMap.get(b.key) ?? fallbackMap.get(b.key) ?? 999;
@@ -217,65 +225,66 @@ const AdminPortalDashboard = () => {
       });
     }
 
-    // Always ensure PreAppliCheck is first
     const preAppliCheckPortal = visiblePortals.find((portal) => portal.key === preAppliCheckKey)
       ?? allPortals.find((portal) => portal.key === preAppliCheckKey);
 
     const remainingPortals = visiblePortals.filter((portal) => portal.key !== preAppliCheckKey);
+    const newPortals = preAppliCheckPortal ? [preAppliCheckPortal, ...remainingPortals] : visiblePortals;
 
-    const newPortals = preAppliCheckPortal
-      ? [preAppliCheckPortal, ...remainingPortals]
-      : visiblePortals;
-
-    console.log("[Portal Debug] Final orderedPortals:", newPortals.map(p => p.key));
+    console.log("[Portal Debug] Final orderedPortals:", newPortals.map((portal) => portal.key));
 
     setOrderedPortals(newPortals);
     setPortalsInitialized(true);
-  }, [isMasterAdmin, allPortals, savedOrder]);
+  }, [hasFullAccess, allPortals, savedOrder]);
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/admin/login");
-        return;
-      }
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          navigate("/admin/login");
+          return;
+        }
 
-      setCurrentUserId(session.user.id);
+        setCurrentUserId(session.user.id);
 
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id)
-        .in("role", ["admin", "master_admin", "examiner"]);
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", session.user.id)
+          .in("role", ["admin", "master_admin", "examiner"]);
 
-      if (!roleData || roleData.length === 0) {
-        await supabase.auth.signOut();
-        navigate("/admin/login");
-        return;
-      }
+        if (!roleData || roleData.length === 0) {
+          await supabase.auth.signOut();
+          navigate("/admin/login");
+          return;
+        }
 
-      // If user is only an examiner, redirect to examiner portal
-      const isExaminer = roleData.some(r => r.role === "examiner");
-      const isAdminOrMaster = roleData.some(r => r.role === "admin" || r.role === "master_admin");
-      if (isExaminer && !isAdminOrMaster) {
-        navigate("/examiner");
-        return;
-      }
+        const isExaminer = roleData.some((role) => role.role === "examiner");
+        const isAdminOrMaster = roleData.some((role) => role.role === "admin" || role.role === "master_admin");
+        if (isExaminer && !isAdminOrMaster) {
+          navigate("/examiner");
+          return;
+        }
 
-      const isMaster = roleData.some(r => r.role === "master_admin");
-      setIsMasterAdmin(isMaster);
-      sessionStorage.setItem('user_is_master_admin', isMaster ? 'true' : 'false');
+        const isMaster = roleData.some((role) => role.role === "master_admin");
+        setIsMasterAdmin(isMaster);
+        sessionStorage.setItem('user_is_master_admin', isMaster ? 'true' : 'false');
 
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", session.user.id)
-        .single();
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", session.user.id)
+          .single();
 
-      if (profileData?.full_name) {
-        setUserName(profileData.full_name);
-        sessionStorage.setItem('user_display_name', profileData.full_name);
+        if (profileData?.full_name) {
+          setUserName(profileData.full_name);
+          sessionStorage.setItem('user_display_name', profileData.full_name);
+        }
+      } catch (error) {
+        console.error("[Portal Debug] Failed to resolve auth state:", error);
+      } finally {
+        setAuthResolved(true);
       }
     };
 
@@ -302,11 +311,18 @@ const AdminPortalDashboard = () => {
     }, 2000);
   };
 
+  const isStillLoadingAccess = !authResolved || !currentUserId || !portalsInitialized || (!hasFullAccess && permissionsLoading);
+
   const handlePortalClick = (portal: PortalCard) => {
-    if (isMasterAdmin) {
+    if (isStillLoadingAccess) {
+      return;
+    }
+
+    if (hasFullAccess) {
       navigate(portal.path);
       return;
     }
+
     if (checkAccessWithNotification(portal.permissionKey, portal.title)) {
       navigate(portal.path);
     }
@@ -469,7 +485,7 @@ const AdminPortalDashboard = () => {
             >
               <Bug className="w-4 h-4" />
             </button>
-            {!isMasterAdmin && <NotificationsDialog />}
+            {!hasFullAccess && <NotificationsDialog />}
             <button
               onClick={handleSignOut}
               className="px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-red-600/20 border-2 border-red-600 text-white rounded-lg hover:bg-red-600/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] transition-all duration-300"
@@ -479,23 +495,31 @@ const AdminPortalDashboard = () => {
           </div>
           
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white text-center mb-6 sm:mb-8 md:mb-12 mt-12 sm:mt-8">
-            {isMasterAdmin ? "Master Profile - Portal Selection" : "Portal Selection"}
+            {hasFullAccess ? "Master Profile - Portal Selection" : "Portal Selection"}
           </h1>
 
-          {isMasterAdmin && (
+          {hasFullAccess && (
             <p className="text-center text-xs text-gray-500 mb-3 -mt-4">
               Drag cards to reorder — changes apply to all profiles
             </p>
           )}
 
-          <div className={`grid grid-cols-1 sm:grid-cols-2 ${isMasterAdmin ? 'xl:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-4 md:gap-6`}>
+          {isStillLoadingAccess ? (
+            <div className="flex min-h-[16rem] items-center justify-center rounded-xl border-2 border-gray-800 bg-black/60">
+              <div className="text-center">
+                <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-b-2 border-primary" />
+                <p className="text-sm text-gray-400">Loading portal access...</p>
+              </div>
+            </div>
+          ) : (
+          <div className={`grid grid-cols-1 sm:grid-cols-2 ${hasFullAccess ? 'xl:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-4 md:gap-6`}>
             {orderedPortals.map((portal, index) => {
-              const hasAccess = isMasterAdmin || hasPermission(portal.permissionKey);
+              const hasAccess = hasFullAccess || hasPermission(portal.permissionKey);
               
               return (
                 <Card
                   key={portal.key}
-                  draggable={isMasterAdmin}
+                  draggable={hasFullAccess}
                   onDragStart={(e) => handleDragStart(e, index)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragLeave={handleDragLeave}
@@ -512,7 +536,7 @@ const AdminPortalDashboard = () => {
                     dragOverIndex === index && draggedIndex !== index ? 'ring-2 ring-red-400 ring-offset-2 ring-offset-black' : ''
                   }`}
                 >
-                  {isMasterAdmin && (
+                  {hasFullAccess && (
                     <div className="absolute top-1 left-1/2 -translate-x-1/2 cursor-grab active:cursor-grabbing">
                       <GripVertical className="w-4 h-4 text-gray-600 hover:text-gray-400 transition-colors" />
                     </div>
@@ -559,6 +583,7 @@ const AdminPortalDashboard = () => {
               );
             })}
           </div>
+          )}
         </div>
       </div>
 
