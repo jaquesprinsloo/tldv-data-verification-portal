@@ -65,16 +65,17 @@ const DebugDiagnosticsDialog = ({ open, onOpenChange }: DebugDiagnosticsDialogPr
         .select("role")
         .eq("user_id", session.user.id);
 
+      let userRoles: string[] = [];
+
       if (roleError) {
         diagnostics.push({ label: "Role Access", status: "fail", detail: `Error reading roles: ${roleError.message}` });
       } else if (!roleData || roleData.length === 0) {
         diagnostics.push({ label: "Role Access", status: "fail", detail: "No roles assigned. This user cannot access any portal." });
       } else {
-        const userRoles = roleData.map(r => r.role);
+        userRoles = roleData.map((role) => role.role);
         setRoles(userRoles);
         diagnostics.push({ label: "Role Access", status: "pass", detail: `Roles: ${userRoles.join(", ")}` });
 
-        // Check specific role implications
         if (userRoles.includes("master_admin")) {
           diagnostics.push({ label: "Master Admin", status: "pass", detail: "Full access to all features." });
         }
@@ -93,13 +94,16 @@ const DebugDiagnosticsDialog = ({ open, onOpenChange }: DebugDiagnosticsDialogPr
         diagnostics.push({ label: "Permissions", status: "fail", detail: `Error reading permissions: ${permError.message}` });
       } else {
         const perms: Record<string, boolean> = {};
-        permData?.forEach(p => { perms[p.permission_key] = p.granted; });
+        permData?.forEach((permission) => {
+          perms[permission.permission_key] = permission.granted;
+        });
         setPermissions(perms);
 
         const grantedCount = Object.values(perms).filter(Boolean).length;
         const totalKeys = Object.keys(PERMISSION_KEYS).length;
+        const isMasterAdmin = userRoles.includes("master_admin");
 
-        if (roles.includes("master_admin")) {
+        if (isMasterAdmin) {
           diagnostics.push({ label: "Permissions", status: "pass", detail: `Master admin has all ${totalKeys} permissions implicitly.` });
         } else if (grantedCount === 0) {
           diagnostics.push({ label: "Permissions", status: "warn", detail: "No permissions granted. All portal cards will show as locked." });
@@ -107,7 +111,6 @@ const DebugDiagnosticsDialog = ({ open, onOpenChange }: DebugDiagnosticsDialogPr
           diagnostics.push({ label: "Permissions", status: "pass", detail: `${grantedCount} of ${totalKeys} permissions granted.` });
         }
 
-        // Check portal card permissions specifically
         const portalPerms = [
           { key: PERMISSION_KEYS.PORTAL_DATA_MANAGEMENT, name: "Data Management" },
           { key: PERMISSION_KEYS.PORTAL_POLYGRAPH_VETTING, name: "Appointments" },
@@ -116,15 +119,13 @@ const DebugDiagnosticsDialog = ({ open, onOpenChange }: DebugDiagnosticsDialogPr
           { key: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT, name: "Profile Management" },
         ];
 
-        for (const pp of portalPerms) {
-          const granted = perms[pp.key] === true;
-          if (!roles.includes("master_admin")) {
-            diagnostics.push({
-              label: `Portal: ${pp.name}`,
-              status: granted ? "pass" : "warn",
-              detail: granted ? "Access granted" : "No access — card will show locked icon",
-            });
-          }
+        for (const portalPermission of portalPerms) {
+          const granted = isMasterAdmin || perms[portalPermission.key] === true;
+          diagnostics.push({
+            label: `Portal: ${portalPermission.name}`,
+            status: granted ? "pass" : "warn",
+            detail: granted ? (isMasterAdmin ? "Access granted via master admin role" : "Access granted") : "No access — card will show locked icon",
+          });
         }
       }
 
