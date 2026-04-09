@@ -28,6 +28,15 @@ export interface DeviceData {
 const FALLBACK_POPIA = "POPIA DECLARATION\n\nPlease contact the administrator – the POPIA document has not been configured yet.";
 const FALLBACK_INDEMNITY = "INDEMNITY & CONSENT\n\nPlease contact the administrator – the Indemnity document has not been configured yet.";
 
+const extractStoredAudioPath = (storedUrl: string | null): string | null => {
+  if (!storedUrl) return null;
+
+  const pathMatch = storedUrl.match(/\/object\/(?:public|sign)\/employee-documents\/(.+?)(?:\?|$)/);
+  const extractedPath = pathMatch ? decodeURIComponent(pathMatch[1]) : storedUrl.replace(/^\//, "");
+
+  return extractedPath.startsWith("popia-indemnity/") ? extractedPath : null;
+};
+
 export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScreenProps) {
   const [popiaAccepted, setPopiaAccepted] = useState(false);
   const [indemnityAccepted, setIndemnityAccepted] = useState(false);
@@ -48,17 +57,20 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
     },
   });
 
-  // Generate signed URLs for audio files from private bucket
   const getSignedAudioUrl = async (storedUrl: string | null): Promise<string | null> => {
-    if (!storedUrl) return null;
-    // If it's already a signed URL, return as-is
-    if (storedUrl.includes('/sign/')) return storedUrl;
-    // Extract the path from a public URL or use as path directly
-    const pathMatch = storedUrl.match(/\/object\/(?:public|sign)\/employee-documents\/(.+?)(?:\?|$)/);
-    const path = pathMatch ? pathMatch[1] : storedUrl.replace(/^\//, '');
-    if (!path || !path.startsWith('popia-indemnity/')) return storedUrl;
-    const { data } = await supabase.storage.from("employee-documents").createSignedUrl(path, 3600);
-    return data?.signedUrl || null;
+    const path = extractStoredAudioPath(storedUrl);
+    if (!path) return null;
+
+    const { data, error } = await supabase.storage
+      .from("employee-documents")
+      .createSignedUrl(path, 3600);
+
+    if (error) {
+      console.error("Failed to create signed POPIA audio URL:", error);
+      return null;
+    }
+
+    return data?.signedUrl ?? null;
   };
 
   const { data: popiaAudioUrl } = useQuery({
@@ -131,22 +143,27 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
       audioRef.current.currentTime = 0;
       audioRef.current = null;
     }
+
     if (playingAudio === label) {
       setPlayingAudio(null);
       return;
     }
+
     const audio = new Audio(url);
     audioRef.current = audio;
     setPlayingAudio(label);
+
     audio.onended = () => {
       setPlayingAudio(null);
       audioRef.current = null;
     };
+
     audio.onerror = () => {
       setPlayingAudio(null);
       audioRef.current = null;
       toast.error("Failed to play audio");
     };
+
     audio.play().catch(() => {
       setPlayingAudio(null);
       toast.error("Playback failed");
@@ -184,7 +201,6 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header */}
       <div className="border-b border-zinc-800 bg-zinc-950">
         <div className="container mx-auto px-4 py-3 flex items-center gap-3">
           <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-8" />
@@ -254,7 +270,6 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
               </TabsContent>
             </Tabs>
 
-            {/* Electronic signature notice */}
             <div className="p-4 rounded-lg bg-red-950/30 border border-red-900/50 text-sm">
               <p className="font-semibold text-red-400 mb-1">Electronic Signature Notice</p>
               <p className="text-zinc-400">
@@ -263,7 +278,6 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
               </p>
             </div>
 
-            {/* Status indicators */}
             <div className="flex gap-4 text-xs text-zinc-500">
               <span className={popiaAccepted ? "text-green-500" : ""}>
                 ● POPIA {popiaAccepted ? "Accepted" : "Pending"}
