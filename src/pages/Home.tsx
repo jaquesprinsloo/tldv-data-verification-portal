@@ -19,39 +19,47 @@ const Home = () => {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
-          navigate("/admin/login");
+          setLoading(false);
           return;
         }
 
-        const { data: roleData, error: roleError } = await supabase
+        const { data: roleData } = await supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", user.id)
-          .in("role", ["admin", "master_admin"]);
+          .in("role", ["admin", "master_admin", "examiner"]);
 
-        if (roleError || !roleData || roleData.length === 0) {
-          navigate("/admin/login");
+        if (roleData && roleData.length > 0) {
+          const isExaminer = roleData.every(r => r.role === "examiner");
+          navigate(isExaminer ? "/examiner" : "/admin/portal", { replace: true });
           return;
         }
 
-        setUser(user);
-
-        // Fetch employee count
-        const { count } = await supabase
-          .from("employees")
-          .select("*", { count: "exact", head: true })
-          .eq("employment_status", "active");
-
-        setEmployeeCount(count || 0);
+        setLoading(false);
       } catch (error) {
         console.error("Auth error:", error);
-        navigate("/admin/login");
-      } finally {
         setLoading(false);
       }
     };
 
     checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", session.user.id)
+          .in("role", ["admin", "master_admin", "examiner"]);
+
+        if (roleData && roleData.length > 0) {
+          const isExaminer = roleData.every(r => r.role === "examiner");
+          navigate(isExaminer ? "/examiner" : "/admin/portal", { replace: true });
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   if (loading) {
@@ -120,7 +128,7 @@ const Home = () => {
         </div>
 
         <div className="flex justify-center gap-4">
-          <Button size="lg" className="text-sm sm:text-base px-4 sm:px-6" onClick={() => navigate("/admin/data-employee-management")}>
+          <Button size="lg" className="text-sm sm:text-base px-4 sm:px-6" onClick={() => navigate("/admin/portal")}>
             <ShieldCheck className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
             Access Portal
           </Button>
