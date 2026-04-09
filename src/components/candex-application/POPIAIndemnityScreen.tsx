@@ -47,10 +47,33 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
     },
   });
 
+  // Generate signed URLs for audio files from private bucket
+  const getSignedAudioUrl = async (storedUrl: string | null): Promise<string | null> => {
+    if (!storedUrl) return null;
+    // If it's already a signed URL, return as-is
+    if (storedUrl.includes('/sign/')) return storedUrl;
+    // Extract the path from a public URL or use as path directly
+    const pathMatch = storedUrl.match(/\/object\/(?:public|sign)\/employee-documents\/(.+?)(?:\?|$)/);
+    const path = pathMatch ? pathMatch[1] : storedUrl.replace(/^\//, '');
+    if (!path || !path.startsWith('popia-indemnity/')) return storedUrl;
+    const { data } = await supabase.storage.from("employee-documents").createSignedUrl(path, 3600);
+    return data?.signedUrl || null;
+  };
+
+  const { data: popiaAudioUrl } = useQuery({
+    queryKey: ["popia-audio-signed", settings?.popia_audio_url],
+    queryFn: () => getSignedAudioUrl(settings?.popia_audio_url),
+    enabled: !!settings?.popia_audio_url,
+  });
+
+  const { data: indemnityAudioUrl } = useQuery({
+    queryKey: ["indemnity-audio-signed", settings?.indemnity_audio_url],
+    queryFn: () => getSignedAudioUrl(settings?.indemnity_audio_url),
+    enabled: !!settings?.indemnity_audio_url,
+  });
+
   const popiaText = settings?.popia_text || FALLBACK_POPIA;
   const indemnityText = settings?.indemnity_text || FALLBACK_INDEMNITY;
-  const popiaAudioUrl = settings?.popia_audio_url || null;
-  const indemnityAudioUrl = settings?.indemnity_audio_url || null;
 
   const getIPAddress = async (): Promise<string> => {
     try {
