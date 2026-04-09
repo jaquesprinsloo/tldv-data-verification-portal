@@ -227,7 +227,8 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
                     className="mt-0.5 border-zinc-600 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
                   />
                   <label htmlFor="popia" className="text-sm text-zinc-300 cursor-pointer">
-                    I have read, understood, and agree to the POPIA Declaration.
+                    I have read, listened and understood the POPIA Declaration and hereby{" "}
+                    <span className="font-bold text-red-500 underline">Accept</span> this declaration.
                   </label>
                 </div>
               </TabsContent>
@@ -246,7 +247,8 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
                     className="mt-0.5 border-zinc-600 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
                   />
                   <label htmlFor="indemnity" className="text-sm text-zinc-300 cursor-pointer">
-                    I have read, understood, and agree to the Indemnity & Consent terms.
+                    I have read, listened and understood the Indemnity & Consent terms and hereby{" "}
+                    <span className="font-bold text-red-500 underline">Accept</span> these terms.
                   </label>
                 </div>
               </TabsContent>
