@@ -103,8 +103,8 @@ export default function POPIAIndemnityEditor() {
         .createSignedUrl(path, 3600);
       const previewUrl = signedData?.signedUrl || path;
 
-      if (type === "popia") setPopiaAudioUrl(urlData.publicUrl);
-      else setIndemnityAudioUrl(urlData.publicUrl);
+      if (type === "popia") setPopiaAudioUrl(previewUrl);
+      else setIndemnityAudioUrl(previewUrl);
 
       toast.success(`${type === "popia" ? "POPIA" : "Indemnity"} audio uploaded`);
     } catch (err: any) {
