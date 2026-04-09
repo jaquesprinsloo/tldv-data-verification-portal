@@ -27,10 +27,9 @@ const Home = () => {
           .from("user_roles")
           .select("role")
           .eq("user_id", user.id)
-          .eq("role", "admin")
-          .single();
+          .in("role", ["admin", "master_admin"]);
 
-        if (roleError || !roleData) {
+        if (roleError || !roleData || roleData.length === 0) {
           navigate("/admin/login");
           return;
         }
