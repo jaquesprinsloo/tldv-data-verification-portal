@@ -42,6 +42,16 @@ export default function POPIAIndemnityEditor() {
     },
   });
 
+  const getSignedUrl = async (storedUrl: string | null): Promise<string | null> => {
+    if (!storedUrl) return null;
+    if (storedUrl.includes('/sign/')) return storedUrl;
+    const pathMatch = storedUrl.match(/\/object\/(?:public|sign)\/employee-documents\/(.+?)(?:\?|$)/);
+    const path = pathMatch ? pathMatch[1] : storedUrl.replace(/^\//, '');
+    if (!path || !path.startsWith('popia-indemnity/')) return storedUrl;
+    const { data } = await supabase.storage.from("employee-documents").createSignedUrl(path, 3600);
+    return data?.signedUrl || storedUrl;
+  };
+
   // Use effect-like approach since meta.onSettled may not fire
   const { data: settings } = useQuery({
     queryKey: ["popia-indemnity-settings-init"],
@@ -56,8 +66,13 @@ export default function POPIAIndemnityEditor() {
         const d = data as any;
         setPopiaText(d.popia_text);
         setIndemnityText(d.indemnity_text);
-        setPopiaAudioUrl(d.popia_audio_url);
-        setIndemnityAudioUrl(d.indemnity_audio_url);
+        // Generate signed URLs for private bucket audio
+        const [signedPopia, signedIndemnity] = await Promise.all([
+          getSignedUrl(d.popia_audio_url),
+          getSignedUrl(d.indemnity_audio_url),
+        ]);
+        setPopiaAudioUrl(signedPopia);
+        setIndemnityAudioUrl(signedIndemnity);
         setSettingsId(d.id);
       }
       return data;
