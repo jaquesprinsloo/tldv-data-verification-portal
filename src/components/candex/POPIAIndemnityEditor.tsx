@@ -97,9 +97,11 @@ export default function POPIAIndemnityEditor() {
         .upload(path, file);
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage
+      // Store the path, and create a signed URL for preview
+      const { data: signedData } = await supabase.storage
         .from("employee-documents")
-        .getPublicUrl(path);
+        .createSignedUrl(path, 3600);
+      const previewUrl = signedData?.signedUrl || path;
 
       if (type === "popia") setPopiaAudioUrl(urlData.publicUrl);
       else setIndemnityAudioUrl(urlData.publicUrl);
