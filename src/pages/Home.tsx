@@ -5,7 +5,7 @@ import { ShieldCheck, Users, MapPin, FileCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { supabase } from "@/integrations/supabase/client";
-import { User } from "@supabase/supabase-js";
+import { Session, User } from "@supabase/supabase-js";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -14,11 +14,16 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
+    let isActive = true;
+
+    const resolvePortalRoute = async (session: Session | null) => {
+      if (!isActive) return;
+
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
+        const nextUser = session?.user ?? null;
+        setUser(nextUser);
+
+        if (!nextUser) {
           setLoading(false);
           return;
         }
@@ -26,8 +31,10 @@ const Home = () => {
         const { data: roleData } = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", user.id)
+          .eq("user_id", nextUser.id)
           .in("role", ["admin", "master_admin", "examiner"]);
+
+        if (!isActive) return;
 
         if (roleData && roleData.length > 0) {
           const isExaminer = roleData.every(r => r.role === "examiner");
@@ -42,24 +49,33 @@ const Home = () => {
       }
     };
 
-    checkAuth();
+    const initializeAuth = async () => {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      void resolvePortalRoute(session);
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session?.user) {
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", session.user.id)
-          .in("role", ["admin", "master_admin", "examiner"]);
+    void initializeAuth();
 
-        if (roleData && roleData.length > 0) {
-          const isExaminer = roleData.every(r => r.role === "examiner");
-          navigate(isExaminer ? "/examiner" : "/admin/portal", { replace: true });
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isActive) return;
+
+      if (event === "SIGNED_OUT") {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
+      if (["INITIAL_SESSION", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"].includes(event)) {
+        setLoading(true);
+        void resolvePortalRoute(session);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isActive = false;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   if (loading) {
