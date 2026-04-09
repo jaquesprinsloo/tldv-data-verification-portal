@@ -206,7 +206,7 @@ ${formData.additionalDetails ? `\nAdditional Details:\n${formData.additionalDeta
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate("/admin/dashboard")}
+              onClick={() => navigate("/admin/portal")}
             >
               Cancel
             </Button>
