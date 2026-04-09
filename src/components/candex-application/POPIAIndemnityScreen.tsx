@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -33,6 +33,7 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
   const [indemnityAccepted, setIndemnityAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const { data: settings } = useQuery({
     queryKey: ["popia-indemnity-settings-public"],
@@ -124,24 +125,60 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
     }
   };
 
+  const handlePlayAudio = useCallback((label: string, url: string) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    if (playingAudio === label) {
+      setPlayingAudio(null);
+      return;
+    }
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    setPlayingAudio(label);
+    audio.onended = () => {
+      setPlayingAudio(null);
+      audioRef.current = null;
+    };
+    audio.onerror = () => {
+      setPlayingAudio(null);
+      audioRef.current = null;
+      toast.error("Failed to play audio");
+    };
+    audio.play().catch(() => {
+      setPlayingAudio(null);
+      toast.error("Playback failed");
+    });
+  }, [playingAudio]);
+
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+    };
+  }, []);
+
   const AudioPlayer = ({ url, label }: { url: string; label: string }) => (
     <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/80 border border-zinc-700 mb-3">
       <button
-        onClick={() => setPlayingAudio(playingAudio === label ? null : label)}
+        onClick={() => handlePlayAudio(label, url)}
         className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors"
       >
         <div className="relative">
           <Volume2 className="h-5 w-5" />
-          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
-          </span>
+          {playingAudio !== label && (
+            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+            </span>
+          )}
         </div>
-        <span className="text-sm font-medium">Listen to {label}</span>
+        <span className="text-sm font-medium">
+          {playingAudio === label ? "Playing..." : `Listen to ${label}`}
+        </span>
       </button>
-      {playingAudio === label && (
-        <audio src={url} controls autoPlay className="flex-1 h-8" onEnded={() => setPlayingAudio(null)} />
-      )}
     </div>
   );
 
@@ -168,11 +205,11 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
           <CardContent className="space-y-6">
             <Tabs defaultValue="popia" className="w-full">
               <TabsList className="w-full bg-zinc-900 border border-zinc-800">
-                <TabsTrigger value="popia" className="flex-1 data-[state=active]:bg-red-600 data-[state=active]:text-white">
-                  <FileText className="h-4 w-4 mr-1" /> POPIA Declaration
+                <TabsTrigger value="popia" className="flex-1 data-[state=active]:bg-red-600 data-[state=active]:text-white text-xs sm:text-sm">
+                  <FileText className="h-4 w-4 mr-1 shrink-0" /> POPIA
                 </TabsTrigger>
-                <TabsTrigger value="indemnity" className="flex-1 data-[state=active]:bg-red-600 data-[state=active]:text-white">
-                  <FileText className="h-4 w-4 mr-1" /> Indemnity & Consent
+                <TabsTrigger value="indemnity" className="flex-1 data-[state=active]:bg-red-600 data-[state=active]:text-white text-xs sm:text-sm">
+                  <FileText className="h-4 w-4 mr-1 shrink-0" /> Indemnity & Consent
                 </TabsTrigger>
               </TabsList>
 
