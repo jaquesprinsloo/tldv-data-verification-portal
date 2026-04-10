@@ -311,7 +311,8 @@ const AdminPortalDashboard = () => {
     }, 2000);
   };
 
-  const isStillLoadingAccess = !authResolved || !currentUserId || !portalsInitialized || (!hasFullAccess && permissionsLoading);
+  // Only block on auth + portal init. Don't block on permissions — cards render with lock icons until access resolves.
+  const isStillLoadingAccess = !authResolved || !currentUserId || !portalsInitialized;
 
   const handlePortalClick = (portal: PortalCard) => {
     if (isStillLoadingAccess) {
