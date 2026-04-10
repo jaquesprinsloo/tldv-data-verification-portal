@@ -185,6 +185,8 @@ export const usePermissions = (userId?: string) => {
       return;
     }
 
+    setIsLoading(true);
+
     try {
       // Check if user is master admin
       const { data: roleData } = await supabase
