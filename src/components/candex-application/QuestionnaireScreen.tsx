@@ -67,6 +67,55 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
   );
 };
 
+
+const DateDropdowns = ({ value, onChange, fromYear = 1950 }: { value?: Date; fromYear?: number; onChange: (d: Date) => void }) => {
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: currentYear - fromYear + 1 }, (_, i) => currentYear - i);
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  const selYear = value ? String(value.getFullYear()) : "";
+  const selMonth = value ? String(value.getMonth()) : "";
+  const selDay = value ? String(value.getDate()) : "";
+
+  const daysInMonth = selYear && selMonth !== "" ? new Date(Number(selYear), Number(selMonth) + 1, 0).getDate() : 31;
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  const buildDate = (y: string, m: string, d: string) => {
+    if (y && m !== "" && d) {
+      onChange(new Date(Number(y), Number(m), Number(d)));
+    }
+  };
+
+  return (
+    <div className="flex gap-1.5 w-full">
+      <Select value={selYear} onValueChange={(v) => buildDate(v, selMonth || "0", selDay || "1")}>
+        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 flex-1 min-w-0">
+          <SelectValue placeholder="Year" />
+        </SelectTrigger>
+        <SelectContent className="max-h-[200px]">
+          {years.map(y => <SelectItem key={y} value={String(y)} className="text-xs">{y}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={selMonth} onValueChange={(v) => buildDate(selYear || String(currentYear), v, selDay || "1")}>
+        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 flex-1 min-w-0">
+          <SelectValue placeholder="Month" />
+        </SelectTrigger>
+        <SelectContent className="max-h-[200px]">
+          {months.map((m, i) => <SelectItem key={i} value={String(i)} className="text-xs">{m}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={selDay} onValueChange={(v) => buildDate(selYear || String(currentYear), selMonth || "0", v)}>
+        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[70px] flex-shrink-0">
+          <SelectValue placeholder="Day" />
+        </SelectTrigger>
+        <SelectContent className="max-h-[200px]">
+          {days.map(d => <SelectItem key={d} value={String(d)} className="text-xs">{d}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
 interface QuestionnaireScreenProps {
   templateId: string;
   onComplete: (answers: Record<string, any>) => void;
