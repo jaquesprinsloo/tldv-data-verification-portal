@@ -3351,13 +3351,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   const isSelected = selectedDisciplinaryRows.includes(rowKey);
                   const rowMediaUrl = table.row_video_urls?.[rowIdx];
                   return (
-                    <div key={rowIdx} className="flex items-center gap-2">
-                      <div className="w-8 flex-shrink-0 flex justify-center">
+                    <div key={rowIdx} className="flex items-center gap-3">
+                      <div className="flex-shrink-0">
                         {rowMediaUrl ? (
                           <VideoPlayButton videoUrl={rowMediaUrl} label={rowKey} />
-                        ) : <span className="w-8" />}
+                        ) : <span className="inline-block w-[70px]" />}
                       </div>
-                      <label htmlFor={`disc_row_${table.id}_${rowIdx}`} className="text-xs text-zinc-300 cursor-pointer flex-1">
+                      <label htmlFor={`disc_row_${table.id}_${rowIdx}`} className="text-xs text-zinc-300 cursor-pointer ml-1">
                         {rowKey}
                       </label>
                       <Checkbox
@@ -3369,7 +3369,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                             : selectedDisciplinaryRows.filter((r) => r !== rowKey);
                           setAnswer(disciplinaryRowSelectKey, next);
                         }}
-                        className="border-zinc-600 data-[state=checked]:bg-red-600 flex-shrink-0"
+                        className="border-zinc-600 data-[state=checked]:bg-red-600 flex-shrink-0 ml-1"
                       />
                     </div>
                   );
