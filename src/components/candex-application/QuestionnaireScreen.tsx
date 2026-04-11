@@ -368,6 +368,146 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    // "name" & "surname" row → two fields side by side, full width
+    if ((rowLabel.includes("name") && rowLabel.includes("surname")) || rowLabel.includes("name & surname") || rowLabel.includes("name and surname")) {
+      const surnameKey = `surname_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const surnameVal = answers[surnameKey] || "";
+      return (
+        <div className="flex gap-2 w-full">
+          <div className="flex-1 min-w-0">
+            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Name</Label>
+            <Input
+              value={value}
+              onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
+              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+              placeholder="First name"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Surname</Label>
+            <Input
+              value={surnameVal}
+              onChange={(e) => setAnswer(surnameKey, e.target.value)}
+              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+              placeholder="Surname"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // "residence" or standalone "location" row → full width input
+    if (rowLabel.includes("residence") || (rowLabel.includes("location") && !rowLabel.includes("employer"))) {
+      return (
+        <Input
+          value={value}
+          onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
+          className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+          placeholder="Enter location / address..."
+        />
+      );
+    }
+
+    // "employment status" → dropdown
+    if (rowLabel.includes("employment status")) {
+      const empOptions = (rowConfig.options && rowConfig.options.length > 0)
+        ? rowConfig.options
+        : ["Employed", "Unemployed", "Retired"];
+      return (
+        <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            {empOptions.map((opt) => (
+              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    // "employer" & "position" row → two equal fields, conditional on employment status
+    if (rowLabel.includes("employer") && rowLabel.includes("position")) {
+      // Find employment status value for this table entry
+      const empStatusRowIdx = table.row_labels.findIndex((l) => String(l).toLowerCase().includes("employment status"));
+      const empStatus = empStatusRowIdx >= 0 ? (tableData[tableId]?.[entryIdx]?.[empStatusRowIdx]?.[0] || "").toLowerCase() : "";
+
+      if (empStatus === "unemployed") {
+        return null;
+      }
+
+      const positionKey = `position_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const positionVal = answers[positionKey] || "";
+
+      return (
+        <div className="space-y-1 w-full">
+          {empStatus === "retired" && (
+            <p className="text-[10px] text-yellow-500 italic">Please enter last employer and position held</p>
+          )}
+          <div className="flex gap-2 w-full">
+            <div className="flex-1 min-w-0">
+              <Label className="text-[10px] text-zinc-500 mb-0.5 block">Employer Name</Label>
+              <Input
+                value={value}
+                onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
+                className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+                placeholder="Employer name"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <Label className="text-[10px] text-zinc-500 mb-0.5 block">Position</Label>
+              <Input
+                value={positionVal}
+                onChange={(e) => setAnswer(positionKey, e.target.value)}
+                className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+                placeholder="Position / Job title"
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // "criminal history" → dropdown + conditional details
+    if (rowLabel.includes("criminal") && rowLabel.includes("history")) {
+      const crimDetailKey = `criminal_details_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const crimDetails = answers[crimDetailKey] || "";
+      const crimOptions = (rowConfig.options && rowConfig.options.length > 0)
+        ? rowConfig.options
+        : ["Has no criminal history", "Has criminal history"];
+      const showDetails = value === "Has criminal history";
+      return (
+        <div className="flex gap-2 w-full">
+          <div className="w-[200px] flex-shrink-0">
+            <Select value={value || ""} onValueChange={(v) => {
+              setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
+              if (v === "Has no criminal history") setAnswer(crimDetailKey, "");
+            }}>
+              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {crimOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {showDetails && (
+            <div className="flex-1 min-w-0">
+              <Input
+                value={crimDetails}
+                onChange={(e) => setAnswer(crimDetailKey, e.target.value)}
+                className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+                placeholder="Please provide details..."
+              />
+            </div>
+          )}
+        </div>
+      );
+    }
+
     // === GENERIC INPUT TYPE HANDLERS ===
 
     if (inputType === "yes_no") {
@@ -599,7 +739,19 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       || (rl.includes("job") && rl.includes("description"))
                       || rl.includes("job description")
                       || rl.includes("duration")
-                      || (rl.includes("reason") && rl.includes("leaving"));
+                      || (rl.includes("reason") && rl.includes("leaving"))
+                      || (rl.includes("name") && rl.includes("surname"))
+                      || (rl.includes("residence") || (rl.includes("location") && !rl.includes("employer")))
+                      || rl.includes("employment status")
+                      || (rl.includes("employer") && rl.includes("position"))
+                      || (rl.includes("criminal") && rl.includes("history"));
+
+                    // Hide "employer & position" row when employment status is "unemployed"
+                    if (rl.includes("employer") && rl.includes("position")) {
+                      const empStatusRowIdx = table.row_labels.findIndex((l) => String(l).toLowerCase().includes("employment status"));
+                      const empStatus = empStatusRowIdx >= 0 ? (tableData[table.id]?.[entryIdx]?.[empStatusRowIdx]?.[0] || "").toLowerCase() : "";
+                      if (empStatus === "unemployed") return null;
+                    }
 
                     return (
                       <tr key={rowIdx} className="border-b border-zinc-800/50">
