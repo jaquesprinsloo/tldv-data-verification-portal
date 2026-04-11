@@ -1712,6 +1712,476 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    // Special rendering for FAMILY & FRIENDS LAW ENCOUNTERS table
+    const isFamilyFriendsLaw = (table.table_title.toLowerCase().includes("family") || table.table_title.toLowerCase().includes("friend"))
+      && (table.table_title.toLowerCase().includes("law") || table.table_title.toLowerCase().includes("criminal") || table.table_title.toLowerCase().includes("encounter"));
+
+    if (isFamilyFriendsLaw) {
+      const ffKey = `family_friends_law_${table.id}`;
+      
+      // Collect flagged people from contact trace tables
+      const getFlaggedPeople = (): { name: string; surname: string; relationship: string }[] => {
+        const flagged: { name: string; surname: string; relationship: string }[] = [];
+        const contactTraceTables = tables.filter(t => {
+          const tt = t.table_title.toLowerCase();
+          return (tt.includes("father") || tt.includes("mother") || tt.includes("next of kin") || tt.includes("close friend") || tt.includes("sibling") || tt.includes("brother") || tt.includes("sister"))
+            && !t.id.includes(table.id);
+        });
+        
+        for (const ct of contactTraceTables) {
+          const ctEntries = tableData[ct.id] || [];
+          for (const ctEntry of ctEntries) {
+            // Find criminal history row
+            const crimRowIdx = ct.row_labels.findIndex(l => {
+              const ll = String(l).toLowerCase();
+              return ll.includes("criminal") && ll.includes("history");
+            });
+            if (crimRowIdx < 0) continue;
+            const crimVal = (ctEntry[crimRowIdx]?.[0] || "").toLowerCase();
+            if (!crimVal.includes("has criminal history") || crimVal.includes("no criminal")) continue;
+            
+            // Find name row
+            const nameRowIdx = ct.row_labels.findIndex(l => {
+              const ll = String(l).toLowerCase();
+              return ll.includes("name") && ll.includes("surname");
+            });
+            const nameVal = nameRowIdx >= 0 ? (ctEntry[nameRowIdx]?.[0] || "") : "";
+            const surnameKey = `surname_${ct.id}_0_${nameRowIdx}_0`;
+            const surnameVal = nameRowIdx >= 0 ? (answers[surnameKey] || "") : "";
+            
+            if (nameVal || surnameVal) {
+              flagged.push({
+                name: nameVal,
+                surname: surnameVal,
+                relationship: ct.table_title
+              });
+            }
+          }
+        }
+        return flagged;
+      };
+
+      interface FFPerson {
+        name: string;
+        surname: string;
+        relationship: string;
+        source: 'flagged' | 'manual';
+        arrested: string;
+        frequency: string;
+        incidentCount: number;
+        incidents: { reason: string; date: string; charged: string }[];
+        courtAttendance: string;
+        convicted: string;
+        termStart: string;
+        termEnd: string;
+        criminalRecordCheck: string;
+        expungedStatus: string;
+        expungedReason: string;
+        expungedDate: string;
+        pendingCourt: string;
+        pendingCase: string;
+        pendingDate: string;
+      }
+
+      const ffPersons: FFPerson[] = answers[ffKey] || [];
+      
+      // Auto-sync flagged people (only add new ones not already present)
+      const flaggedPeople = getFlaggedPeople();
+      const needsSync = flaggedPeople.some(fp => 
+        !ffPersons.some(p => p.source === 'flagged' && p.name === fp.name && p.surname === fp.surname && p.relationship === fp.relationship)
+      );
+      if (needsSync && flaggedPeople.length > 0) {
+        const existingManual = ffPersons.filter(p => p.source === 'manual');
+        const existingFlagged = ffPersons.filter(p => p.source === 'flagged');
+        const newFlagged = flaggedPeople.map(fp => {
+          const existing = existingFlagged.find(ef => ef.name === fp.name && ef.surname === fp.surname && ef.relationship === fp.relationship);
+          if (existing) return existing;
+          return {
+            name: fp.name, surname: fp.surname, relationship: fp.relationship, source: 'flagged' as const,
+            arrested: '', frequency: '', incidentCount: 1, incidents: [{ reason: '', date: '', charged: '' }],
+            courtAttendance: '', convicted: '', termStart: '', termEnd: '',
+            criminalRecordCheck: '', expungedStatus: '', expungedReason: '', expungedDate: '',
+            pendingCourt: '', pendingCase: '', pendingDate: ''
+          };
+        });
+        const merged = [...newFlagged, ...existingManual];
+        setTimeout(() => setAnswer(ffKey, merged), 0);
+      }
+
+      const updatePerson = (idx: number, updates: Partial<FFPerson>) => {
+        const next = [...(answers[ffKey] || [])];
+        next[idx] = { ...next[idx], ...updates };
+        setAnswer(ffKey, next);
+      };
+
+      const addManualPerson = () => {
+        const next = [...(answers[ffKey] || []), {
+          name: '', surname: '', relationship: '', source: 'manual' as const,
+          arrested: '', frequency: '', incidentCount: 1, incidents: [{ reason: '', date: '', charged: '' }],
+          courtAttendance: '', convicted: '', termStart: '', termEnd: '',
+          criminalRecordCheck: '', expungedStatus: '', expungedReason: '', expungedDate: '',
+          pendingCourt: '', pendingCase: '', pendingDate: ''
+        }];
+        setAnswer(ffKey, next);
+      };
+
+      const removePerson = (idx: number) => {
+        const next = (answers[ffKey] || []).filter((_: any, i: number) => i !== idx);
+        setAnswer(ffKey, next);
+      };
+
+      const arrestReasonOptions = [
+        "Driving Under the Influence", "Assault", "Gender Based Violence", "Unpaid Fines",
+        "Murder", "Attempted Murder", "Rape", "Fraud/Corruption", "Theft",
+        "Possession of Stolen Goods", "Drug Dealing", "Drug Fabrication", "Drug Possession",
+        "Extortion", "Hijacking", "Armed Robbery", "Human Trafficking", "Other"
+      ];
+
+      const chargedOptions = [
+        "Formally charged and attended court",
+        "Charges dropped and let go on a warning",
+        "Charges withdrawn",
+        "Paid a bribe to not get charged"
+      ];
+
+      const renderFFPerson = (person: FFPerson, pIdx: number) => {
+        const isArrested = person.arrested.includes("Has been");
+        const isNeverArrested = person.arrested.includes("never");
+        const incidentCount = person.frequency === "multiple" ? person.incidentCount : 1;
+        const hasFormallyCharged = person.incidents.some(inc => inc.charged === "Formally charged and attended court");
+        const formalReasons = person.incidents.filter(inc => inc.charged === "Formally charged and attended court").map(inc => inc.reason).filter(Boolean);
+        const isNeverConvicted = person.convicted === "Has never been convicted of any criminal offence";
+
+        return (
+          <div key={pIdx} className="border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="flex justify-between items-center px-3 py-2 bg-zinc-900 border-b border-zinc-800">
+              <span className="text-xs font-medium text-zinc-300">
+                {person.source === 'flagged' ? (
+                  <>{person.name} {person.surname} <span className="text-zinc-500">({person.relationship})</span></>
+                ) : (
+                  `Additional Person ${pIdx + 1}`
+                )}
+              </span>
+              {person.source === 'manual' && (
+                <Button variant="ghost" size="sm" onClick={() => removePerson(pIdx)} className="h-6 text-xs text-red-400 hover:text-red-300">
+                  <Trash2 className="h-3 w-3 mr-1" /> Remove
+                </Button>
+              )}
+            </div>
+            <div className="p-3 space-y-3">
+              {/* Manual person: name/surname/relationship */}
+              {person.source === 'manual' && (
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label className="text-[10px] text-zinc-500 mb-0.5 block">Name</Label>
+                    <Input value={person.name} onChange={(e) => updatePerson(pIdx, { name: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white text-xs h-8" placeholder="First name" />
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-[10px] text-zinc-500 mb-0.5 block">Surname</Label>
+                    <Input value={person.surname} onChange={(e) => updatePerson(pIdx, { surname: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white text-xs h-8" placeholder="Surname" />
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-[10px] text-zinc-500 mb-0.5 block">Relationship</Label>
+                    <Input value={person.relationship} onChange={(e) => updatePerson(pIdx, { relationship: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white text-xs h-8" placeholder="e.g. Uncle, Cousin" />
+                  </div>
+                </div>
+              )}
+
+              {/* Arrested/Detained */}
+              <div className="space-y-1">
+                <Label className="text-[10px] text-zinc-500">Arrested / Detained</Label>
+                <Select value={person.arrested} onValueChange={(v) => {
+                  const updates: Partial<FFPerson> = { arrested: v };
+                  if (v.includes("never")) {
+                    updates.frequency = '';
+                    updates.incidentCount = 1;
+                    updates.incidents = [{ reason: '', date: '', charged: '' }];
+                    updates.courtAttendance = '';
+                    updates.convicted = '';
+                    updates.termStart = '';
+                    updates.termEnd = '';
+                  } else if (!person.frequency) {
+                    updates.frequency = 'single';
+                    updates.incidentCount = 1;
+                  }
+                  updatePerson(pIdx, updates);
+                }}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Has been arrested / detained by law enforcement">Has been arrested / detained by law enforcement</SelectItem>
+                    <SelectItem value="Has never been arrested or detained by law enforcement">Has never been arrested or detained by law enforcement</SelectItem>
+                  </SelectContent>
+                </Select>
+                {isArrested && (
+                  <div className="flex gap-2 items-end mt-1">
+                    <div>
+                      <Label className="text-[10px] text-zinc-500 mb-0.5 block">Frequency</Label>
+                      <Select value={person.frequency || "single"} onValueChange={(v) => {
+                        const newCount = v === "single" ? 1 : Math.max(person.incidentCount, 2);
+                        const incidents = [...person.incidents];
+                        while (incidents.length < newCount) incidents.push({ reason: '', date: '', charged: '' });
+                        if (v === "single") incidents.length = 1;
+                        updatePerson(pIdx, { frequency: v, incidentCount: newCount, incidents });
+                      }}>
+                        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[140px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="single">Single incident</SelectItem>
+                          <SelectItem value="multiple">Multiple incidents</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {person.frequency === "multiple" && (
+                      <div>
+                        <Label className="text-[10px] text-zinc-500 mb-0.5 block">Number</Label>
+                        <Select value={String(person.incidentCount)} onValueChange={(v) => {
+                          const n = parseInt(v, 10);
+                          const incidents = [...person.incidents];
+                          while (incidents.length < n) incidents.push({ reason: '', date: '', charged: '' });
+                          incidents.length = n;
+                          updatePerson(pIdx, { incidentCount: n, incidents });
+                        }}>
+                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[80px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {[2,3,4,5,6,7,8,9,10].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Reason & Date per incident */}
+              {isArrested && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-zinc-500">Reason & Date</Label>
+                  {Array.from({ length: incidentCount }, (_, idx) => {
+                    const inc = person.incidents[idx] || { reason: '', date: '', charged: '' };
+                    const dateVal = inc.date ? new Date(inc.date) : undefined;
+                    return (
+                      <div key={idx} className="flex gap-2 items-end">
+                        {incidentCount > 1 && <span className="text-[10px] text-zinc-500 mb-2 w-4">{idx + 1}.</span>}
+                        <div className="flex-shrink-0">
+                          {idx === 0 && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Date</Label>}
+                          <DateDropdowns value={dateVal} onChange={(d) => {
+                            const incidents = [...person.incidents];
+                            incidents[idx] = { ...incidents[idx], date: d.toISOString() };
+                            updatePerson(pIdx, { incidents });
+                          }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {idx === 0 && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>}
+                          <Select value={inc.reason} onValueChange={(v) => {
+                            const incidents = [...person.incidents];
+                            incidents[idx] = { ...incidents[idx], reason: v };
+                            updatePerson(pIdx, { incidents });
+                          }}>
+                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select reason..." /></SelectTrigger>
+                            <SelectContent className="max-h-[200px]">
+                              {arrestReasonOptions.map(opt => <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Charged per incident */}
+              {isArrested && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-zinc-500">Charged</Label>
+                  {Array.from({ length: incidentCount }, (_, idx) => {
+                    const inc = person.incidents[idx] || { reason: '', date: '', charged: '' };
+                    return (
+                      <div key={idx} className="flex gap-2 items-center">
+                        {incidentCount > 1 && <span className="text-[10px] text-zinc-500 w-4">{idx + 1}.</span>}
+                        {incidentCount > 1 && inc.reason && <span className="text-[10px] text-zinc-400 font-medium flex-shrink-0">{inc.reason}:</span>}
+                        <Select value={inc.charged} onValueChange={(v) => {
+                          const incidents = [...person.incidents];
+                          incidents[idx] = { ...incidents[idx], charged: v };
+                          // Auto-update court attendance
+                          const updatedIncidents = [...incidents];
+                          const courtReasons = updatedIncidents.filter(i => i.charged === "Formally charged and attended court" && i.reason).map(i => i.reason);
+                          const courtText = courtReasons.length > 0 ? `Has gone to court for: ${courtReasons.join(", ")}` : "";
+                          updatePerson(pIdx, { incidents: updatedIncidents, courtAttendance: courtText });
+                        }}>
+                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"><SelectValue placeholder="Select charge outcome" /></SelectTrigger>
+                          <SelectContent>
+                            {chargedOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Court Attendance - auto-populated */}
+              {isArrested && hasFormallyCharged && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-zinc-500">Court Attendance</Label>
+                  <div className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-xs text-zinc-300 min-h-[32px] flex items-center">
+                    {person.courtAttendance || "Auto-populated from charge selections"}
+                  </div>
+                </div>
+              )}
+
+              {/* Convicted */}
+              {isArrested && hasFormallyCharged && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-zinc-500">Convicted</Label>
+                  <Select value={person.convicted} onValueChange={(v) => {
+                    const updates: Partial<FFPerson> = { convicted: v };
+                    if (v === "Has never been convicted of any criminal offence") {
+                      updates.termStart = '';
+                      updates.termEnd = '';
+                    }
+                    updatePerson(pIdx, updates);
+                  }}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select conviction status" /></SelectTrigger>
+                    <SelectContent>
+                      {formalReasons.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                      <SelectItem value="Has never been convicted of any criminal offence">Has never been convicted of any criminal offence</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Term Served */}
+              {isArrested && hasFormallyCharged && person.convicted && !isNeverConvicted && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-zinc-500">Term Served</Label>
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Label className="text-[10px] text-zinc-500 mb-0.5 block">From</Label>
+                      <DateDropdowns value={person.termStart ? new Date(person.termStart) : undefined} onChange={(d) => updatePerson(pIdx, { termStart: d.toISOString() })} />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-[10px] text-zinc-500 mb-0.5 block">To</Label>
+                      <DateDropdowns value={person.termEnd ? new Date(person.termEnd) : undefined} onChange={(d) => updatePerson(pIdx, { termEnd: d.toISOString() })} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Criminal Record Check */}
+              {isArrested && !isNeverArrested && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-zinc-500">Criminal Record Check</Label>
+                  <Select value={person.criminalRecordCheck} onValueChange={(v) => updatePerson(pIdx, { criminalRecordCheck: v })}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Criminal Record Check Completed">Criminal Record Check Completed</SelectItem>
+                      <SelectItem value="Criminal Record Check Not Completed">Criminal Record Check Not Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Criminal Record Expunged */}
+              {isArrested && !isNeverArrested && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-zinc-500">Criminal Record Expunged</Label>
+                  <Select value={person.expungedStatus} onValueChange={(v) => {
+                    const updates: Partial<FFPerson> = { expungedStatus: v };
+                    if (v === "I have had no Criminal Records Expunged") {
+                      updates.expungedReason = '';
+                      updates.expungedDate = '';
+                    }
+                    updatePerson(pIdx, updates);
+                  }}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="I have had no Criminal Records Expunged">I have had no Criminal Records Expunged</SelectItem>
+                      <SelectItem value="I have had a Criminal Record Expunged">I have had a Criminal Record Expunged</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {person.expungedStatus === "I have had a Criminal Record Expunged" && (
+                    <div className="flex gap-2 items-end mt-1">
+                      <div className="flex-1">
+                        <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>
+                        <Select value={person.expungedReason} onValueChange={(v) => updatePerson(pIdx, { expungedReason: v })}>
+                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select reason..." /></SelectTrigger>
+                          <SelectContent className="max-h-[200px]">
+                            {arrestReasonOptions.map(opt => <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <Label className="text-[10px] text-zinc-500 mb-0.5 block">Date of Offence</Label>
+                        <DateDropdowns value={person.expungedDate ? new Date(person.expungedDate) : undefined} onChange={(d) => updatePerson(pIdx, { expungedDate: d.toISOString() })} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pending Court Cases */}
+              <div className="space-y-1">
+                <Label className="text-[10px] text-zinc-500">Pending Court Cases</Label>
+                <Select value={person.pendingCourt} onValueChange={(v) => {
+                  const updates: Partial<FFPerson> = { pendingCourt: v };
+                  if (v === "I am not aware of any pending court cases") {
+                    updates.pendingCase = '';
+                    updates.pendingDate = '';
+                  }
+                  updatePerson(pIdx, updates);
+                }}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="I am not aware of any pending court cases">I am not aware of any pending court cases</SelectItem>
+                    <SelectItem value="I have pending court cases">I have pending court cases</SelectItem>
+                  </SelectContent>
+                </Select>
+                {person.pendingCourt === "I have pending court cases" && (
+                  <div className="flex gap-2 items-end mt-1">
+                    <div className="flex-1 min-w-0">
+                      <Label className="text-[10px] text-zinc-500 mb-0.5 block">What is the case about?</Label>
+                      <Input value={person.pendingCase} onChange={(e) => updatePerson(pIdx, { pendingCase: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white text-xs h-8" placeholder="Describe the case..." />
+                    </div>
+                    <div className="flex-shrink-0">
+                      <Label className="text-[10px] text-zinc-500 mb-0.5 block">Court Date</Label>
+                      <DateDropdowns value={person.pendingDate ? new Date(person.pendingDate) : undefined} onChange={(d) => updatePerson(pIdx, { pendingDate: d.toISOString() })} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const persons: FFPerson[] = answers[ffKey] || [];
+
+      return (
+        <div key={table.id} className="space-y-3">
+          <div className="border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="bg-zinc-900 border-b border-zinc-800 p-2 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-semibold text-zinc-300">{table.table_title}</span>
+                {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
+              </div>
+            </div>
+            <div className="p-3 space-y-3">
+              {persons.length === 0 && (
+                <p className="text-xs text-zinc-500 italic text-center py-2">
+                  No family members or friends with criminal history flagged. You can add people manually below.
+                </p>
+              )}
+              {persons.map((p, i) => renderFFPerson(p, i))}
+              <Button variant="outline" size="sm" onClick={addManualPerson} className="border-zinc-700 text-zinc-400 hover:text-white w-full">
+                <Plus className="h-3 w-3 mr-1" /> Add Person
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={table.id} className="space-y-3">
         {entries.map((entry, entryIdx) => (
