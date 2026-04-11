@@ -1075,28 +1075,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       </div>
                       <div className="flex-1 space-y-0.5">
                         <Label className="text-[10px] text-zinc-500">Last Payment Date</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full justify-start">
-                              <CalendarIcon className="h-3 w-3 mr-1.5 opacity-50" />
-                              {dateVal ? format(dateVal, "dd/MM/yyyy") : <span className="text-zinc-500">Select date</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={dateVal}
-                              onSelect={(d) => {
-                                if (d) {
-                                  const next = { ...huSelections, [acc]: { ...entry, lastPayment: d.toISOString() } };
-                                  setAnswer(huKey, next);
-                                  syncHuCellValues(next);
-                                }
-                              }}
-                              captionLayout="dropdown-buttons"
-                              fromYear={2000}
-                              toYear={new Date().getFullYear()}
-                              className="p-3 pointer-events-auto" />
-                          </PopoverContent>
-                        </Popover>
+                        <DateDropdowns
+                          value={dateVal}
+                          fromYear={2000}
+                          onChange={(d) => {
+                            const next = { ...huSelections, [acc]: { ...entry, lastPayment: d.toISOString() } };
+                            setAnswer(huKey, next);
+                            syncHuCellValues(next);
+                          }}
+                        />
                       </div>
                     </div>
                   </div>
