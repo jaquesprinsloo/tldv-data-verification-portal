@@ -1035,8 +1035,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               {selectedAccounts.map((acc) => {
                 const entry = huSelections[acc] || { amount: "", lastPayment: "" };
                 const dateVal = entry.lastPayment ? new Date(entry.lastPayment) : undefined;
-                const datePopKey = `${huKey}_${acc}_date_pop`;
-                const datePopOpen = !!answers[datePopKey];
+                const dateVal = entry.lastPayment ? new Date(entry.lastPayment) : undefined;
                 return (
                   <div key={acc} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
                     <span className="text-xs font-medium text-zinc-300">{acc}</span>
@@ -1056,7 +1055,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       </div>
                       <div className="flex-1 space-y-0.5">
                         <Label className="text-[10px] text-zinc-500">Last Payment Date</Label>
-                        <Popover open={datePopOpen} onOpenChange={(v) => setAnswer(datePopKey, v)}>
+                        <Popover>
                           <PopoverTrigger asChild>
                             <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full justify-start">
                               <CalendarIcon className="h-3 w-3 mr-1.5 opacity-50" />
@@ -1070,7 +1069,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                   const next = { ...huSelections, [acc]: { ...entry, lastPayment: d.toISOString() } };
                                   setAnswer(huKey, next);
                                   syncHuCellValues(next);
-                                  setAnswer(datePopKey, false);
                                 }
                               }}
                               className="p-3 pointer-events-auto" />
