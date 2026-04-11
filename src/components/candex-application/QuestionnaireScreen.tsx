@@ -1328,6 +1328,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     });
 
     const isDisciplinaryTable = table.table_title.toLowerCase().includes("disciplinary");
+    const isEducationTable = table.table_title.toLowerCase().includes("education") || table.table_title.toLowerCase().includes("school");
     const isBankServiceProvider = table.table_title.toLowerCase().includes("bank") && table.table_title.toLowerCase().includes("service provider");
 
     // Special rendering for BANK SERVICE PROVIDER table
@@ -3253,9 +3254,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                   {label as string}
                                 </div>
                               </td>
-                              <td className="p-2">
+                              <td className="p-2 w-1/2">
                                 {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
                               </td>
+                              <td className="w-1/2"></td>
                             </tr>
                           ))}
                         </tbody>
@@ -3293,7 +3295,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               </div>
             )}
             <div className="overflow-x-auto">
-              <table className={`w-full text-sm ${isDisciplinaryTable ? "table-fixed" : ""}`}>
+              <table className={`w-full text-sm ${isDisciplinaryTable ? "table-fixed" : ""}`} data-table-title={table.table_title}>
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
                     <th colSpan={visibleColHeaders.length + 1} className="p-2 text-center">
@@ -3369,42 +3371,48 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           </div>
                         </td>
                         {isFullWidthRow ? (
-                          <td className="p-2" colSpan={visibleColHeaders.length}>
-                            {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
-                          </td>
+                          <>
+                            <td className={`p-2 ${isEducationTable ? "w-1/2" : ""}`} colSpan={isEducationTable ? 1 : visibleColHeaders.length}>
+                              {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
+                            </td>
+                            {isEducationTable && <td className="w-1/2"></td>}
+                          </>
                         ) : (
-                          visibleColIndices.map((colIdx, vi) => {
-                            const colHeader = String(table.column_headers[colIdx] || "").toLowerCase().trim();
-                            if (colHeader === "details") {
+                          <>
+                            {visibleColIndices.map((colIdx, vi) => {
+                              const colHeader = String(table.column_headers[colIdx] || "").toLowerCase().trim();
+                              if (colHeader === "details") {
+                                return (
+                                  <td key={vi} className="p-2">
+                                    {needsDetails ? (
+                                      <Input
+                                        value={answers[detailKey] || ""}
+                                        onChange={(e) => setAnswer(detailKey, e.target.value)}
+                                        className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
+                                        placeholder="Please provide details..."
+                                      />
+                                    ) : null}
+                                  </td>
+                                );
+                              }
                               return (
-                                <td key={vi} className="p-2">
-                                  {needsDetails ? (
-                                    <Input
-                                      value={answers[detailKey] || ""}
-                                      onChange={(e) => setAnswer(detailKey, e.target.value)}
-                                      className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
-                                      placeholder="Please provide details..."
-                                    />
-                                  ) : null}
+                                <td key={vi} className={`p-2 ${isEducationTable ? "w-1/2" : ""}`}>
+                                  <div className="space-y-1">
+                                    {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
+                                    {showSeparateDetails && vi === 0 && !visibleColHeaders.some(h => h.toLowerCase().trim() === "details") && (
+                                      <Input
+                                        value={answers[detailKey] || ""}
+                                        onChange={(e) => setAnswer(detailKey, e.target.value)}
+                                        className="bg-zinc-900 border-zinc-700 text-white text-xs h-7"
+                                        placeholder="Please provide details..."
+                                      />
+                                    )}
+                                  </div>
                                 </td>
                               );
-                            }
-                            return (
-                              <td key={vi} className="p-2">
-                                <div className="space-y-1">
-                                  {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
-                                  {showSeparateDetails && vi === 0 && !visibleColHeaders.some(h => h.toLowerCase().trim() === "details") && (
-                                    <Input
-                                      value={answers[detailKey] || ""}
-                                      onChange={(e) => setAnswer(detailKey, e.target.value)}
-                                      className="bg-zinc-900 border-zinc-700 text-white text-xs h-7"
-                                      placeholder="Please provide details..."
-                                    />
-                                  )}
-                                </div>
-                              </td>
-                            );
-                          })
+                            })}
+                            {isEducationTable && visibleColIndices.length === 1 && <td className="w-1/2"></td>}
+                          </>
                         )}
                       </tr>
                     );
