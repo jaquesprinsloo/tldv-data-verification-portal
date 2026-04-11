@@ -763,6 +763,87 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    // Helper: get all charged values across incidents
+    const getAllChargedValues = () => {
+      const frequencyKey = `arrest_frequency_${tableId}_${entryIdx}`;
+      const incidentCountKey = `arrest_incident_count_${tableId}_${entryIdx}`;
+      const frequency = answers[frequencyKey] || "single";
+      const ic = frequency === "multiple" ? parseInt(answers[incidentCountKey] || "2", 10) : 1;
+      const vals: { idx: number; value: string; reason: string }[] = [];
+      const reasonRowIdx = table.row_labels.findIndex((l) => {
+        const ll = String(l).toLowerCase().trim();
+        return ll.includes("reason") && ll.includes("date") && !ll.includes("leaving");
+      });
+      for (let i = 0; i < ic; i++) {
+        const ck = i === 0
+          ? `charged_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`
+          : `charged_incident_${tableId}_${entryIdx}_${i}`;
+        const rk = i === 0
+          ? `arrest_reason_${tableId}_${entryIdx}_${reasonRowIdx >= 0 ? reasonRowIdx : rowIdx}_0`
+          : `arrest_reason_incident_${tableId}_${entryIdx}_${i}`;
+        const cv = i === 0 ? (tableData[tableId]?.[entryIdx]?.[rowIdx]?.[colIdx] || "") : (answers[ck] || "");
+        vals.push({ idx: i, value: cv, reason: answers[rk] || "" });
+      }
+      return vals;
+    };
+
+    // Helper: check if any incident has "formally charged"
+    const hasAnyFormallyCharged = () => {
+      // Find the charged row index
+      const chargedRowIdx = table.row_labels.findIndex((l) => {
+        const ll = String(l).toLowerCase().trim();
+        return ll.includes("charged") && !ll.includes("court");
+      });
+      if (chargedRowIdx < 0) return false;
+      const frequencyKey = `arrest_frequency_${tableId}_${entryIdx}`;
+      const incidentCountKey = `arrest_incident_count_${tableId}_${entryIdx}`;
+      const frequency = answers[frequencyKey] || "single";
+      const ic = frequency === "multiple" ? parseInt(answers[incidentCountKey] || "2", 10) : 1;
+      const reasonRowIdx = table.row_labels.findIndex((l) => {
+        const ll = String(l).toLowerCase().trim();
+        return ll.includes("reason") && ll.includes("date") && !ll.includes("leaving");
+      });
+      for (let i = 0; i < ic; i++) {
+        const ck = i === 0
+          ? `charged_${tableId}_${entryIdx}_${chargedRowIdx}_0`
+          : `charged_incident_${tableId}_${entryIdx}_${i}`;
+        const cv = i === 0 ? (tableData[tableId]?.[entryIdx]?.[chargedRowIdx]?.[0] || "") : (answers[ck] || "");
+        if (cv === "Formally charged and attended court") return true;
+      }
+      return false;
+    };
+
+    // Helper: get reasons where formally charged
+    const getFormallyChargedReasons = () => {
+      const chargedRowIdx = table.row_labels.findIndex((l) => {
+        const ll = String(l).toLowerCase().trim();
+        return ll.includes("charged") && !ll.includes("court");
+      });
+      if (chargedRowIdx < 0) return [];
+      const frequencyKey = `arrest_frequency_${tableId}_${entryIdx}`;
+      const incidentCountKey = `arrest_incident_count_${tableId}_${entryIdx}`;
+      const frequency = answers[frequencyKey] || "single";
+      const ic = frequency === "multiple" ? parseInt(answers[incidentCountKey] || "2", 10) : 1;
+      const reasonRowIdx = table.row_labels.findIndex((l) => {
+        const ll = String(l).toLowerCase().trim();
+        return ll.includes("reason") && ll.includes("date") && !ll.includes("leaving");
+      });
+      const reasons: string[] = [];
+      for (let i = 0; i < ic; i++) {
+        const ck = i === 0
+          ? `charged_${tableId}_${entryIdx}_${chargedRowIdx}_0`
+          : `charged_incident_${tableId}_${entryIdx}_${i}`;
+        const cv = i === 0 ? (tableData[tableId]?.[entryIdx]?.[chargedRowIdx]?.[0] || "") : (answers[ck] || "");
+        const rk = i === 0
+          ? `arrest_reason_${tableId}_${entryIdx}_${reasonRowIdx >= 0 ? reasonRowIdx : 0}_0`
+          : `arrest_reason_incident_${tableId}_${entryIdx}_${i}`;
+        if (cv === "Formally charged and attended court" && answers[rk]) {
+          reasons.push(answers[rk]);
+        }
+      }
+      return reasons;
+    };
+
     // "charged" → hidden if never arrested, else dropdown with charge options (supports multiple incidents)
     if (rowLabel.includes("charged") && !rowLabel.includes("court")) {
       const arrestedStatus = getArrestedStatus();
@@ -812,14 +893,37 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               } else {
                 setAnswer(chargedKey, v);
               }
-              // Auto-set court attendance if formally charged (only for first incident to main cell)
-              if (v === "Formally charged and attended court" && idx === 0) {
+              // Auto-set court attendance with the reason if formally charged
+              if (v === "Formally charged and attended court") {
                 const courtRowIdx = table.row_labels.findIndex((l) => {
                   const ll = String(l).toLowerCase().trim();
                   return ll.includes("court");
                 });
                 if (courtRowIdx >= 0) {
-                  setCellValue(tableId, entryIdx, courtRowIdx, 0, "Has gone to court for being charged");
+                  // Build court attendance summary from all formally charged incidents
+                  setTimeout(() => {
+                    const chargedRowIdx2 = table.row_labels.findIndex((l) => {
+                      const ll2 = String(l).toLowerCase().trim();
+                      return ll2.includes("charged") && !ll2.includes("court");
+                    });
+                    const reasons: string[] = [];
+                    for (let i = 0; i < incidentCount; i++) {
+                      const ck2 = i === 0
+                        ? `charged_${tableId}_${entryIdx}_${chargedRowIdx2}_${colIdx}`
+                        : `charged_incident_${tableId}_${entryIdx}_${i}`;
+                      const cv2 = i === idx ? v : (i === 0 ? (tableData[tableId]?.[entryIdx]?.[chargedRowIdx2]?.[0] || "") : (answers[ck2] || ""));
+                      const rk2 = i === 0
+                        ? `arrest_reason_${tableId}_${entryIdx}_${reasonRowIdx >= 0 ? reasonRowIdx : 0}_0`
+                        : `arrest_reason_incident_${tableId}_${entryIdx}_${i}`;
+                      if (cv2 === "Formally charged and attended court" && answers[rk2]) {
+                        reasons.push(answers[rk2]);
+                      }
+                    }
+                    const courtText = reasons.length > 0
+                      ? `Has gone to court for: ${reasons.join(", ")}`
+                      : "Has gone to court for being charged";
+                    setCellValue(tableId, entryIdx, courtRowIdx, 0, courtText);
+                  }, 0);
                 }
               }
             }}>
@@ -843,22 +947,173 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
-    // "convicted" → hidden if never arrested
+    // "convicted" → only show if at least one incident is "formally charged"
     if (rowLabel.includes("convicted")) {
       const arrestedStatus = getArrestedStatus();
       if (arrestedStatus === "never") return null;
+      if (!hasAnyFormallyCharged()) return null;
+
+      const convictedKey = `convicted_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const convictedVal = value || answers[convictedKey] || "";
+      const formalReasons = getFormallyChargedReasons();
+      const convictedOptions = [
+        ...formalReasons,
+        "Has never been convicted of any criminal offence"
+      ];
+
+      return (
+        <Select value={convictedVal} onValueChange={(v) => {
+          setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
+          setAnswer(convictedKey, v);
+          // Clear term served if "never convicted"
+          if (v === "Has never been convicted of any criminal offence") {
+            const termRowIdx = table.row_labels.findIndex((l) => {
+              const ll = String(l).toLowerCase().trim();
+              return ll.includes("term") && ll.includes("served");
+            });
+            if (termRowIdx >= 0) {
+              setCellValue(tableId, entryIdx, termRowIdx, 0, "");
+              setAnswer(`term_start_${tableId}_${entryIdx}`, "");
+              setAnswer(`term_end_${tableId}_${entryIdx}`, "");
+            }
+          }
+        }}>
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
+            <SelectValue placeholder="Select conviction status" />
+          </SelectTrigger>
+          <SelectContent>
+            {convictedOptions.map((opt) => (
+              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
     }
 
-    // "term served" → hidden if never arrested
+    // "term served" → only show if convicted with an actual offence (not "never convicted")
     if (rowLabel.includes("term") && rowLabel.includes("served")) {
       const arrestedStatus = getArrestedStatus();
       if (arrestedStatus === "never") return null;
+      if (!hasAnyFormallyCharged()) return null;
+
+      const convictedRowIdx = table.row_labels.findIndex((l) => String(l).toLowerCase().includes("convicted"));
+      const convictedVal = convictedRowIdx >= 0 ? (tableData[tableId]?.[entryIdx]?.[convictedRowIdx]?.[0] || "") : "";
+      if (!convictedVal || convictedVal === "Has never been convicted of any criminal offence") return null;
+
+      const termStartKey = `term_start_${tableId}_${entryIdx}`;
+      const termEndKey = `term_end_${tableId}_${entryIdx}`;
+      const startVal = answers[termStartKey] ? new Date(answers[termStartKey]) : undefined;
+      const endVal = answers[termEndKey] ? new Date(answers[termEndKey]) : undefined;
+
+      return (
+        <div className="flex flex-col gap-2 w-full">
+          <div className="flex gap-2 items-end">
+            <div className="flex-1">
+              <Label className="text-[10px] text-zinc-500 mb-0.5 block">From</Label>
+              <DateDropdowns value={startVal} onChange={(d) => {
+                setAnswer(termStartKey, d.toISOString());
+                const endStr = endVal ? format(endVal, "dd/MM/yyyy") : "";
+                setCellValue(tableId, entryIdx, rowIdx, colIdx, `${format(d, "dd/MM/yyyy")} - ${endStr}`);
+              }} />
+            </div>
+            <div className="flex-1">
+              <Label className="text-[10px] text-zinc-500 mb-0.5 block">To</Label>
+              <DateDropdowns value={endVal} onChange={(d) => {
+                setAnswer(termEndKey, d.toISOString());
+                const startStr = startVal ? format(startVal, "dd/MM/yyyy") : "";
+                setCellValue(tableId, entryIdx, rowIdx, colIdx, `${startStr} - ${format(d, "dd/MM/yyyy")}`);
+              }} />
+            </div>
+          </div>
+        </div>
+      );
     }
 
-    // "court attendance" or "court" → hidden if never arrested
+    // "court attendance" or "court" → auto-populated from charged selections
     if (rowLabel.includes("court")) {
       const arrestedStatus = getArrestedStatus();
       if (arrestedStatus === "never") return null;
+      if (!hasAnyFormallyCharged()) return null;
+      // Display the auto-populated value (read-only)
+      return (
+        <div className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-xs text-zinc-300 min-h-[32px] flex items-center">
+          {value || "Auto-populated from charge selections"}
+        </div>
+      );
+    }
+
+    // "criminal record check" → dropdown
+    if (rowLabel.includes("criminal") && rowLabel.includes("record") && rowLabel.includes("check")) {
+      return (
+        <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
+            <SelectValue placeholder="Select..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Criminal Record Check Completed">Criminal Record Check Completed</SelectItem>
+            <SelectItem value="Criminal Record Check Not Completed">Criminal Record Check Not Completed</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    // "criminal record expunged" → dropdown with conditional reason + date
+    if (rowLabel.includes("criminal") && rowLabel.includes("expung")) {
+      const expungedKey = `expunged_status_${tableId}_${entryIdx}_${rowIdx}`;
+      const expungedVal = value || answers[expungedKey] || "";
+      const expungedReasonKey = `expunged_reason_${tableId}_${entryIdx}_${rowIdx}`;
+      const expungedDateKey = `expunged_date_${tableId}_${entryIdx}_${rowIdx}`;
+      const expungedReason = answers[expungedReasonKey] || "";
+      const expungedDate = answers[expungedDateKey] ? new Date(answers[expungedDateKey]) : undefined;
+
+      const arrestReasonOptions = [
+        "Driving Under the Influence", "Assault", "Gender Based Violence", "Unpaid Fines",
+        "Murder", "Attempted Murder", "Rape", "Fraud/Corruption", "Theft",
+        "Possession of Stolen Goods", "Drug Dealing", "Drug Fabrication", "Drug Possession",
+        "Extortion", "Hijacking", "Armed Robbery", "Human Trafficking", "Other"
+      ];
+
+      return (
+        <div className="flex flex-col gap-2 w-full">
+          <Select value={expungedVal} onValueChange={(v) => {
+            setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
+            setAnswer(expungedKey, v);
+            if (v === "I have had no Criminal Records Expunged") {
+              setAnswer(expungedReasonKey, "");
+              setAnswer(expungedDateKey, "");
+            }
+          }}>
+            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="I have had no Criminal Records Expunged">I have had no Criminal Records Expunged</SelectItem>
+              <SelectItem value="I have had a Criminal Record Expunged">I have had a Criminal Record Expunged</SelectItem>
+            </SelectContent>
+          </Select>
+          {expungedVal === "I have had a Criminal Record Expunged" && (
+            <div className="flex gap-2 items-end">
+              <div className="flex-1 min-w-0">
+                <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>
+                <Select value={expungedReason} onValueChange={(v) => setAnswer(expungedReasonKey, v)}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
+                    <SelectValue placeholder="Select reason..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[200px]">
+                    {arrestReasonOptions.map(opt => (
+                      <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-shrink-0">
+                <Label className="text-[10px] text-zinc-500 mb-0.5 block">Date of Offence</Label>
+                <DateDropdowns value={expungedDate} onChange={(d) => setAnswer(expungedDateKey, d.toISOString())} />
+              </div>
+            </div>
+          )}
+        </div>
+      );
     }
 
     // === GENERIC INPUT TYPE HANDLERS ===
@@ -1464,7 +1719,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       || (rl.includes("charged") && !rl.includes("court"))
                       || rl.includes("convicted")
                       || (rl.includes("term") && rl.includes("served"))
-                      || rl.includes("court");
+                      || rl.includes("court")
+                      || (rl.includes("criminal") && rl.includes("record") && rl.includes("check"))
+                      || (rl.includes("criminal") && rl.includes("expung"));
 
                     // Hide "employer & position" row when employment status is "unemployed"
                     if (rl.includes("employer") && rl.includes("position")) {
