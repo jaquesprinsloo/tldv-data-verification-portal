@@ -3349,6 +3349,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.row_labels.map((label, rowIdx) => {
                   const rowKey = String(label);
                   const isSelected = selectedDisciplinaryRows.includes(rowKey);
+                  const rowMediaUrl = table.row_video_urls?.[rowIdx];
                   return (
                     <div key={rowIdx} className="flex items-center gap-2">
                       <Checkbox
@@ -3362,6 +3363,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                         }}
                         className="border-zinc-600 data-[state=checked]:bg-red-600"
                       />
+                      {rowMediaUrl && (
+                        <VideoPlayButton videoUrl={rowMediaUrl} label={rowKey} />
+                      )}
                       <label htmlFor={`disc_row_${table.id}_${rowIdx}`} className="text-xs text-zinc-300 cursor-pointer">
                         {rowKey}
                       </label>
