@@ -3003,6 +3003,205 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    // Special rendering for GENERAL OVERVIEW table
+    const isGeneralOverview = ttLower.includes("general");
+    if (isGeneralOverview) {
+      const genKey = `general_overview_${table.id}`;
+      const genData: Record<string, any> = answers[genKey] || {};
+      const updateGen = (updates: Record<string, any>) => {
+        setAnswer(genKey, { ...genData, ...updates });
+      };
+
+      // Pull account options from Monthly Accounts table for gambling missing payment
+      const allAccountOptions: string[] = (() => {
+        const maTable = tables.find(t => {
+          const tl = t.table_title.toLowerCase();
+          return tl.includes("monthly account") && tl.includes("paid");
+        });
+        if (maTable) {
+          const maKey = `monthly_accounts_${maTable.id}`;
+          const maSelections: Record<string, any> = answers[maKey] || {};
+          return Object.keys(maSelections);
+        }
+        return [];
+      })();
+
+      const rehabOptions = ["Drug use", "Alcohol use", "Gambling", "Other"];
+      const gamblingOptions = [
+        "I do not gamble at all",
+        "I gamble occasionally for entertainment",
+        "I gamble to support my living expenses & lifestyle",
+      ];
+
+      const rehabAnswer = genData.rehabilitation || "";
+      const rehabTypes: string[] = genData.rehabilitation_types || [];
+      const liedOnCv = genData.lied_on_cv || "";
+      const liedDetails = genData.lied_on_cv_details || "";
+      const gamblingAnswer = genData.gambling || "";
+      const gamblingMissedPayment = genData.gambling_missed_payment || "";
+      const gamblingAccounts: string[] = genData.gambling_missed_accounts || [];
+
+      const generalRows = [
+        {
+          key: "rehabilitation",
+          label: "Attended a rehabilitation program",
+          render: () => (
+            <div className="space-y-2">
+              <Select value={rehabAnswer} onValueChange={(v) => {
+                const updates: Record<string, any> = { rehabilitation: v };
+                if (v === "No") { updates.rehabilitation_types = []; }
+                updateGen(updates);
+              }}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px]">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="No">No</SelectItem>
+                  <SelectItem value="Yes">Yes</SelectItem>
+                </SelectContent>
+              </Select>
+              {rehabAnswer === "Yes" && (
+                <div className="space-y-1.5 mt-2 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
+                  <Label className="text-[10px] text-zinc-500">Select type(s) of rehabilitation</Label>
+                  {rehabOptions.map((opt) => (
+                    <div key={opt} className="flex items-center gap-2">
+                      <Checkbox
+                        checked={rehabTypes.includes(opt)}
+                        onCheckedChange={(checked) => {
+                          const next = checked ? [...rehabTypes, opt] : rehabTypes.filter(t => t !== opt);
+                          updateGen({ rehabilitation_types: next });
+                        }}
+                        className="border-zinc-600 data-[state=checked]:bg-red-600 h-3.5 w-3.5"
+                      />
+                      <span className="text-xs text-zinc-300">{opt}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ),
+        },
+        {
+          key: "lied_on_cv",
+          label: "Lied on CV",
+          render: () => (
+            <div className="space-y-2">
+              <Select value={liedOnCv} onValueChange={(v) => {
+                const updates: Record<string, any> = { lied_on_cv: v };
+                if (v === "No") updates.lied_on_cv_details = "";
+                updateGen(updates);
+              }}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px]">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="No">No</SelectItem>
+                  <SelectItem value="Yes">Yes</SelectItem>
+                </SelectContent>
+              </Select>
+              {liedOnCv === "Yes" && (
+                <Input
+                  value={liedDetails}
+                  onChange={(e) => updateGen({ lied_on_cv_details: e.target.value })}
+                  className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 mt-1"
+                  placeholder="What did you lie about on your CV?"
+                />
+              )}
+            </div>
+          ),
+        },
+        {
+          key: "gambling",
+          label: "Gambling",
+          render: () => (
+            <Select value={gamblingAnswer} onValueChange={(v) => updateGen({ gambling: v })}>
+              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-full">
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {gamblingOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ),
+        },
+        {
+          key: "gambling_missed_payment",
+          label: "Missing payment on account due to money spent on gambling",
+          render: () => (
+            <div className="space-y-2">
+              <Select value={gamblingMissedPayment} onValueChange={(v) => {
+                const updates: Record<string, any> = { gambling_missed_payment: v };
+                if (v === "No") updates.gambling_missed_accounts = [];
+                updateGen(updates);
+              }}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px]">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="No">No</SelectItem>
+                  <SelectItem value="Yes">Yes</SelectItem>
+                </SelectContent>
+              </Select>
+              {gamblingMissedPayment === "Yes" && allAccountOptions.length > 0 && (
+                <div className="space-y-1.5 mt-2 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
+                  <Label className="text-[10px] text-zinc-500">Select affected account(s)</Label>
+                  {allAccountOptions.map((acc) => (
+                    <div key={acc} className="flex items-center gap-2">
+                      <Checkbox
+                        checked={gamblingAccounts.includes(acc)}
+                        onCheckedChange={(checked) => {
+                          const next = checked ? [...gamblingAccounts, acc] : gamblingAccounts.filter(a => a !== acc);
+                          updateGen({ gambling_missed_accounts: next });
+                        }}
+                        className="border-zinc-600 data-[state=checked]:bg-red-600 h-3.5 w-3.5"
+                      />
+                      <span className="text-xs text-zinc-300">{acc}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {gamblingMissedPayment === "Yes" && allAccountOptions.length === 0 && (
+                <p className="text-[10px] text-zinc-500 italic mt-1">No accounts listed. Please complete the Monthly Accounts section first.</p>
+              )}
+            </div>
+          ),
+        },
+      ];
+
+      return (
+        <div key={table.id} className="space-y-3">
+          <div className="border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="bg-zinc-900 border-b border-zinc-800 p-2 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-semibold text-primary">{table.table_title}</span>
+                {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
+              </div>
+            </div>
+            <div className="p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-zinc-900 border-b border-zinc-800">
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[200px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400">Answer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {generalRows.map((row) => (
+                    <tr key={row.key} className="border-b border-zinc-800/50">
+                      <td className="p-2 text-xs text-zinc-300 font-medium align-top">{row.label}</td>
+                      <td className="p-2">{row.render()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={table.id} className="space-y-3">
         {entries.map((entry, entryIdx) => (
