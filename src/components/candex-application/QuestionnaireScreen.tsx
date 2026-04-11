@@ -2460,9 +2460,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
                     <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2568,9 +2568,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
                     <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2686,9 +2686,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
                     <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2819,9 +2819,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
                     <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2947,9 +2947,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
                     <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
                   </tr>
                 </thead>
                 <tbody>
