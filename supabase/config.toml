@@ -69,4 +69,6 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.resend-admin-credentials]
-verify_jwt = true
+
+[functions.generate-pre-risk-profile]
+verify_jwt = false
