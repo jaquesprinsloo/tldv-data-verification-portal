@@ -3265,9 +3265,16 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     </div>
                   ))}
                   {table.is_repeatable && (
-                    <Button variant="outline" size="sm" onClick={() => addRepeatEntry(table.id, table)} className="border-zinc-700 text-zinc-400 hover:text-white">
-                      <Plus className="h-3 w-3 mr-1" /> Add Qualification
-                    </Button>
+                    <div className="space-y-1">
+                      <Button variant="outline" size="sm" onClick={() => addRepeatEntry(table.id, table)} className="border-zinc-700 text-zinc-400 hover:text-white">
+                        <Plus className="h-3 w-3 mr-1" /> Add Qualification
+                      </Button>
+                      {entries.length === 1 && entries[0]?.some((row) => row.some((cell) => cell.trim() !== "")) && (
+                        <p className="text-[11px] text-amber-400/80 pl-1 animate-pulse">
+                          ☝ Click "Add Qualification" above to add another qualification
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
