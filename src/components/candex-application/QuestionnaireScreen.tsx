@@ -244,6 +244,132 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     const inputType = rowConfig.type;
     const rowLabel = String(table.row_labels[rowIdx] || "").toLowerCase().trim();
 
+    // === SPECIAL ROW LABEL HANDLERS (must come before generic type handlers) ===
+
+    // "employer & location" → two equal fields
+    if (rowLabel.includes("employer") && rowLabel.includes("location")) {
+      const splitKey = `split_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const splitVal = answers[splitKey] || "";
+      return (
+        <div className="flex gap-2 w-full">
+          <div className="flex-1 min-w-0">
+            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Employer Name</Label>
+            <Input
+              value={value}
+              onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
+              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+              placeholder="Employer name"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Location</Label>
+            <Input
+              value={splitVal}
+              onChange={(e) => setAnswer(splitKey, e.target.value)}
+              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+              placeholder="Location"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // "estimated duration" → start/end date pickers + calculated duration
+    if (rowLabel.includes("duration")) {
+      const startKey = `duration_start_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const endKey = `duration_end_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const startDate = answers[startKey] ? new Date(answers[startKey]) : undefined;
+      const endDate = answers[endKey] ? new Date(answers[endKey]) : undefined;
+
+      let durationText = "";
+      if (startDate && endDate && endDate >= startDate) {
+        const totalMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
+        const years = Math.floor(totalMonths / 12);
+        const months = totalMonths % 12;
+        durationText = years > 0 ? `${years}yr ${months}mo` : `${months}mo`;
+        if (value !== durationText) setCellValue(tableId, entryIdx, rowIdx, colIdx, durationText);
+      }
+
+      return (
+        <div className="flex items-center gap-1.5 w-full">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[130px] justify-start flex-shrink-0">
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {startDate ? format(startDate, "dd/MM/yyyy") : "Start"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={startDate} onSelect={(d) => d && setAnswer(startKey, d.toISOString())} className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+          <span className="text-zinc-500 text-xs">–</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[130px] justify-start flex-shrink-0">
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {endDate ? format(endDate, "dd/MM/yyyy") : "End"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={endDate} onSelect={(d) => d && setAnswer(endKey, d.toISOString())} className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+          <div className="flex-1 min-w-[80px] bg-zinc-900 border border-zinc-700 rounded-md h-8 flex items-center justify-center">
+            <span className="text-xs text-emerald-400 font-medium">{durationText || "—"}</span>
+          </div>
+        </div>
+      );
+    }
+
+    // "job description" → full-width textarea
+    if (rowLabel.includes("job") && rowLabel.includes("description") || rowLabel.includes("job description")) {
+      return (
+        <Textarea
+          value={value}
+          onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
+          className="bg-zinc-900 border-zinc-700 text-white text-xs min-h-[72px] resize-none w-full"
+          rows={3}
+          placeholder="Describe your role and responsibilities..."
+        />
+      );
+    }
+
+    // "reason for leaving" → compact dropdown + details field
+    if (rowLabel.includes("reason") && rowLabel.includes("leaving")) {
+      const detailReasonKey = `reason_details_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const reasonDetails = answers[detailReasonKey] || "";
+      const options = (rowConfig.options && rowConfig.options.length > 0)
+        ? rowConfig.options
+        : ["Contract term completed", "Resigned", "Retrenched", "Dismissed", "Still employed", "Other"];
+      return (
+        <div className="flex gap-2 w-full">
+          <div className="w-[190px] flex-shrink-0">
+            <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
+              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
+                <SelectValue placeholder="Select reason" />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((opt) => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1 min-w-0">
+            <Input
+              value={reasonDetails}
+              onChange={(e) => setAnswer(detailReasonKey, e.target.value)}
+              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+              placeholder="Please provide details..."
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // === GENERIC INPUT TYPE HANDLERS ===
+
     if (inputType === "yes_no") {
       return (
         <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
