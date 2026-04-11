@@ -926,7 +926,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       </div>
                       <div className="flex-1 space-y-0.5">
                         <Label className="text-[10px] text-zinc-500">Last Payment Date</Label>
-                        <Popover open={datePopOpen} onOpenChange={(v) => setAnswer(datePopKey, v)}>
+                        <Popover>
                           <PopoverTrigger asChild>
                             <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full justify-start">
                               <CalendarIcon className="h-3 w-3 mr-1.5 opacity-50" />
@@ -942,7 +942,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                   const next = { ...maSelections, [acc]: { ...entry, lastPayment: d.toISOString() } };
                                   setAnswer(maKey, next);
                                   syncMaCellValues(next);
-                                  setAnswer(datePopKey, false);
                                 }
                               }}
                               className="p-3 pointer-events-auto"
