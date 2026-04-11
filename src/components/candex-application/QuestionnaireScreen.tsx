@@ -1328,6 +1328,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     });
 
     const isDisciplinaryTable = table.table_title.toLowerCase().includes("disciplinary");
+    const isEducationTable = ttLower.includes("education") || ttLower.includes("school") || ttLower.includes("high school");
     const isBankServiceProvider = table.table_title.toLowerCase().includes("bank") && table.table_title.toLowerCase().includes("service provider");
 
     // Special rendering for BANK SERVICE PROVIDER table
