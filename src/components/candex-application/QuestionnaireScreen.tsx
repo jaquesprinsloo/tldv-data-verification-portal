@@ -701,6 +701,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       const frequency = answers[frequencyKey] || "single";
       const incidentCount = frequency === "multiple" ? parseInt(answers[incidentCountKey] || "2", 10) : 1;
 
+      const arrestReasonOptions = [
+        "Driving Under the Influence", "Assault", "Gender Based Violence", "Unpaid Fines",
+        "Murder", "Attempted Murder", "Rape", "Fraud/Corruption", "Theft",
+        "Possession of Stolen Goods", "Drug Dealing", "Drug Fabrication", "Drug Possession",
+        "Extortion", "Hijacking", "Armed Robbery", "Human Trafficking", "Other"
+      ];
+
       const renderIncidentLine = (idx: number) => {
         const reasonKey = idx === 0 
           ? `arrest_reason_${tableId}_${entryIdx}_${rowIdx}_${colIdx}` 
@@ -729,17 +736,21 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             </div>
             <div className="flex-1 min-w-0">
               {idx === 0 && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>}
-              <Input
-                value={reasonVal}
-                onChange={(e) => {
-                  setAnswer(reasonKey, e.target.value);
-                  const dateStr = dateVal ? format(dateVal, "dd/MM/yyyy") : "";
-                  const combined = `${dateStr} - ${e.target.value}`;
-                  if (idx === 0) setCellValue(tableId, entryIdx, rowIdx, colIdx, combined);
-                }}
-                className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
-                placeholder="Reason for arrest/detention..."
-              />
+              <Select value={reasonVal} onValueChange={(v) => {
+                setAnswer(reasonKey, v);
+                const dateStr = dateVal ? format(dateVal, "dd/MM/yyyy") : "";
+                const combined = `${dateStr} - ${v}`;
+                if (idx === 0) setCellValue(tableId, entryIdx, rowIdx, colIdx, combined);
+              }}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full">
+                  <SelectValue placeholder="Select reason..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[200px]">
+                  {arrestReasonOptions.map(opt => (
+                    <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         );
