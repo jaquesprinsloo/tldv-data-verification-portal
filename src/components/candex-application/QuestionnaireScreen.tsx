@@ -2474,7 +2474,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       return (
                         <tr key={itemKey} className="border-b border-zinc-800/50">
                           {idx === 0 ? (
-                            <td className="p-2 text-xs font-semibold text-amber-400 align-middle text-center border-r border-zinc-800/50" rowSpan={cat.items.length}>
+                            <td className="p-2 text-xs font-semibold text-primary align-middle text-center border-r border-zinc-800/50" rowSpan={cat.items.length}>
                               {cat.title}
                             </td>
                           ) : null}
