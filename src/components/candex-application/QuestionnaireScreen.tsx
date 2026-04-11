@@ -2456,7 +2456,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
@@ -2564,7 +2564,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
@@ -2682,7 +2682,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
@@ -2815,7 +2815,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
@@ -2943,7 +2943,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
@@ -3180,7 +3180,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
