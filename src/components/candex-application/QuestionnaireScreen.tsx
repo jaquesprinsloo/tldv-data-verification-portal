@@ -3682,6 +3682,38 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         }
         continue;
       }
+
+      // Disciplinary: skip if "never worked" on employment table in same section, or "no disciplinary" checked
+      const isDisciplinaryVal = ttLower.includes("disciplinary");
+      if (isDisciplinaryVal) {
+        const sectionEmpTables = tables.filter((t) => {
+          const tl = t.table_title.toLowerCase();
+          return t.section_id === table.section_id && tl.includes("employment") && (tl.includes("history") || tl.includes("record"));
+        });
+        const anyNeverWorkedVal = sectionEmpTables.some((t) => answers[`never_worked_${t.id}`] === "yes");
+        if (anyNeverWorkedVal) continue;
+
+        const noDisciplinaryKey = `no_disciplinary_${table.id}`;
+        if (answers[noDisciplinaryKey] === "yes") continue;
+
+        // Validate only selected rows
+        const selectedRows: string[] = answers[`disciplinary_rows_${table.id}`] || [];
+        if (selectedRows.length === 0) {
+          toast.error("Please select the disciplinary actions that apply to you, or indicate you have never had any.");
+          return false;
+        }
+        for (let eIdx = 0; eIdx < entries.length; eIdx++) {
+          for (let rIdx = 0; rIdx < table.row_labels.length; rIdx++) {
+            if (!selectedRows.includes(String(table.row_labels[rIdx]))) continue;
+            const cellVal = entries[eIdx]?.[rIdx]?.[0] || "";
+            if (!cellVal.trim()) {
+              toast.error(`Please fill in "${table.row_labels[rIdx]}" in ${table.table_title}${entries.length > 1 ? ` (Entry ${eIdx + 1})` : ""}`);
+              return false;
+            }
+          }
+        }
+        continue;
+      }
     }
 
     // Also validate required questions
