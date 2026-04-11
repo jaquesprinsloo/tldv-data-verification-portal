@@ -499,7 +499,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                         );
                         setAnswer(dynamicKey, next);
                       }}
-                      className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 ml-5"
+                      className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-full"
                       placeholder={`Details for ${opt}...`}
                     />
                   )}
