@@ -739,7 +739,12 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       || (rl.includes("job") && rl.includes("description"))
                       || rl.includes("job description")
                       || rl.includes("duration")
-                      || (rl.includes("reason") && rl.includes("leaving"));
+                      || (rl.includes("reason") && rl.includes("leaving"))
+                      || (rl.includes("name") && rl.includes("surname"))
+                      || (rl.includes("residence") || (rl.includes("location") && !rl.includes("employer")))
+                      || rl.includes("employment status")
+                      || (rl.includes("employer") && rl.includes("position"))
+                      || (rl.includes("criminal") && rl.includes("history"));
 
                     return (
                       <tr key={rowIdx} className="border-b border-zinc-800/50">
