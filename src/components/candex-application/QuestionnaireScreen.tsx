@@ -1317,13 +1317,36 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       || (rl.includes("residence") || (rl.includes("location") && !rl.includes("employer")))
                       || rl.includes("employment status")
                       || (rl.includes("employer") && rl.includes("position"))
-                      || (rl.includes("criminal") && rl.includes("history"));
+                      || (rl.includes("criminal") && rl.includes("history"))
+                      || rl.includes("arrested") || rl.includes("detained")
+                      || (rl.includes("reason") && rl.includes("date") && !rl.includes("leaving"))
+                      || (rl.includes("charged") && !rl.includes("court"))
+                      || rl.includes("convicted")
+                      || (rl.includes("term") && rl.includes("served"))
+                      || rl.includes("court");
 
                     // Hide "employer & position" row when employment status is "unemployed"
                     if (rl.includes("employer") && rl.includes("position")) {
                       const empStatusRowIdx = table.row_labels.findIndex((l) => String(l).toLowerCase().includes("employment status"));
                       const empStatus = empStatusRowIdx >= 0 ? (tableData[table.id]?.[entryIdx]?.[empStatusRowIdx]?.[0] || "").toLowerCase() : "";
                       if (empStatus === "unemployed") return null;
+                    }
+
+                    // Hide arrested-dependent rows when "never arrested" is selected
+                    const isArrestDependentRow = (rl.includes("reason") && rl.includes("date") && !rl.includes("leaving"))
+                      || (rl.includes("charged") && !rl.includes("court"))
+                      || rl.includes("convicted")
+                      || (rl.includes("term") && rl.includes("served"))
+                      || rl.includes("court");
+                    if (isArrestDependentRow) {
+                      const arrestedRowIdx = table.row_labels.findIndex((l) => {
+                        const ll = String(l).toLowerCase().trim();
+                        return ll.includes("arrested") || ll.includes("detained");
+                      });
+                      if (arrestedRowIdx >= 0) {
+                        const arrestedVal = (tableData[table.id]?.[entryIdx]?.[arrestedRowIdx]?.[0] || "").toLowerCase();
+                        if (arrestedVal.includes("never") || !arrestedVal.includes("has been")) return null;
+                      }
                     }
 
                     return (
