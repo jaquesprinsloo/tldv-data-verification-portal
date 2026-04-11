@@ -1029,12 +1029,59 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
-    // "court attendance" or "court" → auto-populated from charged selections
-    if (rowLabel.includes("court")) {
+    // "pending court cases" → dropdown with conditional case details + date
+    if (rowLabel.includes("pending") && rowLabel.includes("court")) {
+      const pendingKey = `pending_court_${tableId}_${entryIdx}_${rowIdx}`;
+      const pendingVal = value || answers[pendingKey] || "";
+      const pendingCaseKey = `pending_court_case_${tableId}_${entryIdx}_${rowIdx}`;
+      const pendingDateKey = `pending_court_date_${tableId}_${entryIdx}_${rowIdx}`;
+      const pendingCase = answers[pendingCaseKey] || "";
+      const pendingDate = answers[pendingDateKey] ? new Date(answers[pendingDateKey]) : undefined;
+
+      return (
+        <div className="flex flex-col gap-2 w-full">
+          <Select value={pendingVal} onValueChange={(v) => {
+            setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
+            setAnswer(pendingKey, v);
+            if (v === "I am not aware of any pending court cases") {
+              setAnswer(pendingCaseKey, "");
+              setAnswer(pendingDateKey, "");
+            }
+          }}>
+            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
+              <SelectValue placeholder="Select..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="I am not aware of any pending court cases">I am not aware of any pending court cases</SelectItem>
+              <SelectItem value="I have pending court cases">I have pending court cases</SelectItem>
+            </SelectContent>
+          </Select>
+          {pendingVal === "I have pending court cases" && (
+            <div className="flex gap-2 items-end">
+              <div className="flex-1 min-w-0">
+                <Label className="text-[10px] text-zinc-500 mb-0.5 block">What is the case about?</Label>
+                <Input
+                  value={pendingCase}
+                  onChange={(e) => setAnswer(pendingCaseKey, e.target.value)}
+                  className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
+                  placeholder="Describe the case..."
+                />
+              </div>
+              <div className="flex-shrink-0">
+                <Label className="text-[10px] text-zinc-500 mb-0.5 block">Court Date</Label>
+                <DateDropdowns value={pendingDate} onChange={(d) => setAnswer(pendingDateKey, d.toISOString())} />
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // "court attendance" or "court" → auto-populated from charged selections (exclude "pending court")
+    if (rowLabel.includes("court") && !rowLabel.includes("pending")) {
       const arrestedStatus = getArrestedStatus();
       if (arrestedStatus === "never") return null;
       if (!hasAnyFormallyCharged()) return null;
-      // Display the auto-populated value (read-only)
       return (
         <div className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-xs text-zinc-300 min-h-[32px] flex items-center">
           {value || "Auto-populated from charge selections"}
@@ -1721,7 +1768,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       || (rl.includes("term") && rl.includes("served"))
                       || rl.includes("court")
                       || (rl.includes("criminal") && rl.includes("record") && rl.includes("check"))
-                      || (rl.includes("criminal") && rl.includes("expung"));
+                      || (rl.includes("criminal") && rl.includes("expung"))
+                      || (rl.includes("pending") && rl.includes("court"));
 
                     // Hide "employer & position" row when employment status is "unemployed"
                     if (rl.includes("employer") && rl.includes("position")) {
