@@ -3243,6 +3243,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       )}
                       <table className="w-full text-sm">
                         <tbody>
+                          {table.row_labels.map((label, rowIdx) => (
                             <tr key={rowIdx} className="border-b border-zinc-800/50">
                               <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap w-[180px]">
                                 <div className="flex items-center gap-1.5">
