@@ -752,10 +752,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
-    // "charged" → hidden if never arrested, else dropdown with charge options
+    // "charged" → hidden if never arrested, else dropdown with charge options (supports multiple incidents)
     if (rowLabel.includes("charged") && !rowLabel.includes("court")) {
       const arrestedStatus = getArrestedStatus();
       if (arrestedStatus === "never") return null;
+
+      const frequencyKey = `arrest_frequency_${tableId}_${entryIdx}`;
+      const incidentCountKey = `arrest_incident_count_${tableId}_${entryIdx}`;
+      const frequency = answers[frequencyKey] || "single";
+      const incidentCount = frequency === "multiple" ? parseInt(answers[incidentCountKey] || "2", 10) : 1;
 
       const chargedOptions = [
         "Formally charged and attended court",
@@ -764,29 +769,51 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         "Paid a bribe to not get charged"
       ];
 
+      const renderChargedLine = (idx: number) => {
+        const chargedKey = idx === 0
+          ? `charged_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`
+          : `charged_incident_${tableId}_${entryIdx}_${idx}`;
+        const chargedVal = idx === 0 ? (value || "") : (answers[chargedKey] || "");
+
+        return (
+          <div key={idx} className="flex gap-2 w-full items-center">
+            {incidentCount > 1 && (
+              <span className="text-[10px] text-zinc-500 flex-shrink-0 w-4">{idx + 1}.</span>
+            )}
+            <Select value={chargedVal} onValueChange={(v) => {
+              if (idx === 0) {
+                setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
+              } else {
+                setAnswer(chargedKey, v);
+              }
+              // Auto-set court attendance if formally charged (only for first incident to main cell)
+              if (v === "Formally charged and attended court" && idx === 0) {
+                const courtRowIdx = table.row_labels.findIndex((l) => {
+                  const ll = String(l).toLowerCase().trim();
+                  return ll.includes("court");
+                });
+                if (courtRowIdx >= 0) {
+                  setCellValue(tableId, entryIdx, courtRowIdx, 0, "Has gone to court for being charged");
+                }
+              }
+            }}>
+              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full">
+                <SelectValue placeholder="Select charge outcome" />
+              </SelectTrigger>
+              <SelectContent>
+                {chargedOptions.map((opt) => (
+                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
+      };
+
       return (
-        <Select value={value || ""} onValueChange={(v) => {
-          setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
-          // Auto-set court attendance if formally charged
-          if (v === "Formally charged and attended court") {
-            const courtRowIdx = table.row_labels.findIndex((l) => {
-              const ll = String(l).toLowerCase().trim();
-              return ll.includes("court");
-            });
-            if (courtRowIdx >= 0) {
-              setCellValue(tableId, entryIdx, courtRowIdx, 0, "Has gone to court for being charged");
-            }
-          }
-        }}>
-          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full">
-            <SelectValue placeholder="Select charge outcome" />
-          </SelectTrigger>
-          <SelectContent>
-            {chargedOptions.map((opt) => (
-              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-2 w-full">
+          {Array.from({ length: incidentCount }, (_, i) => renderChargedLine(i))}
+        </div>
       );
     }
 
