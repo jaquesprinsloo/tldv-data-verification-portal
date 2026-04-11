@@ -3738,7 +3738,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <div className="flex-1" />
               {currentSection < sections.length - 1 ? (
                 <Button
-                  onClick={() => setCurrentSection((p) => p + 1)}
+                  onClick={handleNext}
                   className="bg-red-600 hover:bg-red-700 text-white"
                 >
                   Next Section
