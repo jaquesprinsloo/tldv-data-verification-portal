@@ -3814,7 +3814,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         />
       </div>
 
-      <main className="container mx-auto px-4 py-6 max-w-3xl">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-3xl">
         <Card className="bg-zinc-950 border-zinc-800 text-white">
           <CardHeader className="space-y-2">
             <CardTitle className="text-white text-center">{currentSec.title}</CardTitle>
