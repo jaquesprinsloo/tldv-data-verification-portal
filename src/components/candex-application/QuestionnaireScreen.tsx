@@ -2516,6 +2516,114 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    // Special rendering for BRIBERY table
+    const isBriberyTable = ttLower.includes("bribery");
+    if (isBriberyTable) {
+      const briberyKey = `bribery_${table.id}`;
+      const briberyData = answers[briberyKey] || {};
+      const updateBribery = (updates: Record<string, any>) => {
+        setAnswer(briberyKey, { ...briberyData, ...updates });
+      };
+
+      const briberyCategories = [
+        {
+          key: "law_enforcement",
+          title: "Law Enforcement",
+          items: [
+            { key: "paid_drivers_license", label: "Paid – Drivers License" },
+            { key: "paid_traffic_violations", label: "Paid – Traffic Violations" },
+            { key: "paid_not_report_crimes", label: "Paid – To not report crimes (theft, fraud, rape etc.)" },
+          ]
+        },
+        {
+          key: "work_colleagues",
+          title: "Work Colleagues",
+          items: [
+            { key: "paid_not_report_illegal", label: "Paid – to not report illegal activity" },
+            { key: "received_not_report_illegal", label: "Received – to not report illegal activity" },
+            { key: "witnessed_cover_up", label: "Witnessed – to cover up illegal activity" },
+          ]
+        },
+        {
+          key: "employment",
+          title: "Employment",
+          items: [
+            { key: "paid_secure_position", label: "Paid – to secure a position at a company" },
+            { key: "received_secure_position", label: "Received – to secure a position at a company" },
+          ]
+        },
+      ];
+
+      return (
+        <div key={table.id} className="space-y-3">
+          <div className="border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="bg-zinc-900 border-b border-zinc-800 p-2 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-semibold text-primary">{table.table_title}</span>
+                {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
+              </div>
+            </div>
+            <div className="p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-zinc-900 border-b border-zinc-800">
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {briberyCategories.map((cat) => 
+                    cat.items.map((item, idx) => {
+                      const itemKey = `${cat.key}_${item.key}`;
+                      const val = briberyData[itemKey] || '';
+                      const details = briberyData[`${itemKey}_details`] || '';
+                      const isYes = val === 'Yes';
+                      return (
+                        <tr key={itemKey} className="border-b border-zinc-800/50">
+                          {idx === 0 ? (
+                            <td className="p-2 text-xs font-semibold align-middle text-center border-r border-zinc-800/50 text-zinc-300" rowSpan={cat.items.length}>
+                              {cat.title}
+                            </td>
+                          ) : null}
+                          <td className="p-2">
+                            <span className="text-xs text-zinc-300">{item.label}</span>
+                            {isYes && (
+                              <Input
+                                value={details}
+                                onChange={(e) => updateBribery({ [`${itemKey}_details`]: e.target.value })}
+                                className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 mt-1"
+                                placeholder="Provide details..."
+                              />
+                            )}
+                          </td>
+                          <td className="p-2">
+                            <Select value={val} onValueChange={(v) => {
+                              const updates: Record<string, any> = { [itemKey]: v };
+                              if (v === 'No') updates[`${itemKey}_details`] = '';
+                              updateBribery(updates);
+                            }}>
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                                <SelectValue placeholder="Select" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="No">No</SelectItem>
+                                <SelectItem value="Yes">Yes</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={table.id} className="space-y-3">
         {entries.map((entry, entryIdx) => (
