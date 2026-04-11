@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -65,6 +64,55 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
         </Dialog>
       )}
     </>
+  );
+};
+
+
+const DateDropdowns = ({ value, onChange, fromYear = 1950 }: { value?: Date; fromYear?: number; onChange: (d: Date) => void }) => {
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: currentYear - fromYear + 1 }, (_, i) => currentYear - i);
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  const selYear = value ? String(value.getFullYear()) : "";
+  const selMonth = value ? String(value.getMonth()) : "";
+  const selDay = value ? String(value.getDate()) : "";
+
+  const daysInMonth = selYear && selMonth !== "" ? new Date(Number(selYear), Number(selMonth) + 1, 0).getDate() : 31;
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  const buildDate = (y: string, m: string, d: string) => {
+    if (y && m !== "" && d) {
+      onChange(new Date(Number(y), Number(m), Number(d)));
+    }
+  };
+
+  return (
+    <div className="flex gap-1.5 w-full">
+      <Select value={selYear} onValueChange={(v) => buildDate(v, selMonth || "0", selDay || "1")}>
+        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 flex-1 min-w-0">
+          <SelectValue placeholder="Year" />
+        </SelectTrigger>
+        <SelectContent className="max-h-[200px]">
+          {years.map(y => <SelectItem key={y} value={String(y)} className="text-xs">{y}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={selMonth} onValueChange={(v) => buildDate(selYear || String(currentYear), v, selDay || "1")}>
+        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 flex-1 min-w-0">
+          <SelectValue placeholder="Month" />
+        </SelectTrigger>
+        <SelectContent className="max-h-[200px]">
+          {months.map((m, i) => <SelectItem key={i} value={String(i)} className="text-xs">{m}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={selDay} onValueChange={(v) => buildDate(selYear || String(currentYear), selMonth || "0", v)}>
+        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[70px] flex-shrink-0">
+          <SelectValue placeholder="Day" />
+        </SelectTrigger>
+        <SelectContent className="max-h-[200px]">
+          {days.map(d => <SelectItem key={d} value={String(d)} className="text-xs">{d}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
   );
 };
 
@@ -278,25 +326,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if (rowLabel.includes("first issue") || rowLabel.includes("date of issue") || rowLabel.includes("issue date") || rowLabel.includes("date issued")) {
       const dateVal = value ? new Date(value) : undefined;
       return (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full justify-start">
-              <CalendarIcon className="mr-1 h-3 w-3" />
-              {dateVal ? format(dateVal, "dd/MM/yyyy") : "Select date"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={dateVal}
-              onSelect={(d) => d && setCellValue(tableId, entryIdx, rowIdx, colIdx, d.toISOString())}
-              captionLayout="dropdown-buttons"
-              fromYear={1950}
-              toYear={new Date().getFullYear()}
-              className="p-3 pointer-events-auto"
-            />
-          </PopoverContent>
-        </Popover>
+        <DateDropdowns
+          value={dateVal}
+          onChange={(d) => setCellValue(tableId, entryIdx, rowIdx, colIdx, d.toISOString())}
+        />
       );
     }
 
@@ -318,30 +351,16 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
       return (
         <div className="flex items-center gap-1.5 w-full">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[130px] justify-start flex-shrink-0">
-                <CalendarIcon className="mr-1 h-3 w-3" />
-                {startDate ? format(startDate, "dd/MM/yyyy") : "Start"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={startDate} onSelect={(d) => d && setAnswer(startKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
-          <span className="text-zinc-500 text-xs">–</span>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[130px] justify-start flex-shrink-0">
-                <CalendarIcon className="mr-1 h-3 w-3" />
-                {endDate ? format(endDate, "dd/MM/yyyy") : "End"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={endDate} onSelect={(d) => d && setAnswer(endKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
-          <div className="flex-1 min-w-[80px] bg-zinc-900 border border-zinc-700 rounded-md h-8 flex items-center justify-center">
+          <div className="flex-[2] min-w-0">
+            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Start</Label>
+            <DateDropdowns value={startDate} onChange={(d) => setAnswer(startKey, d.toISOString())} />
+          </div>
+          <span className="text-zinc-500 text-xs mt-4">–</span>
+          <div className="flex-[2] min-w-0">
+            <Label className="text-[10px] text-zinc-500 mb-0.5 block">End</Label>
+            <DateDropdowns value={endDate} onChange={(d) => setAnswer(endKey, d.toISOString())} />
+          </div>
+          <div className="min-w-[60px] mt-4 bg-zinc-900 border border-zinc-700 rounded-md h-8 flex items-center justify-center">
             <span className="text-xs text-emerald-400 font-medium">{durationText || "—"}</span>
           </div>
         </div>
@@ -568,25 +587,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if (inputType === "date" || inputType === "date_picker") {
       const dateVal = value ? new Date(value) : undefined;
       return (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full justify-start">
-              <CalendarIcon className="mr-1 h-3 w-3" />
-              {dateVal ? format(dateVal, "dd/MM/yyyy") : "Select date"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
-            <Calendar
-              mode="single"
-              selected={dateVal}
-              onSelect={(d) => d && setCellValue(tableId, entryIdx, rowIdx, colIdx, d.toISOString())}
-              captionLayout="dropdown-buttons"
-              fromYear={1950}
-              toYear={new Date().getFullYear()}
-              className="p-3 pointer-events-auto"
-            />
-          </PopoverContent>
-        </Popover>
+        <DateDropdowns
+          value={dateVal}
+          onChange={(d) => setCellValue(tableId, entryIdx, rowIdx, colIdx, d.toISOString())}
+        />
       );
     }
 
@@ -956,31 +960,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       </div>
                       <div className="flex-1 space-y-0.5">
                         <Label className="text-[10px] text-zinc-500">Last Payment Date</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full justify-start">
-                              <CalendarIcon className="h-3 w-3 mr-1.5 opacity-50" />
-                              {dateVal ? format(dateVal, "dd/MM/yyyy") : <span className="text-zinc-500">Select date</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={dateVal}
-                              onSelect={(d) => {
-                                if (d) {
-                                  const next = { ...maSelections, [acc]: { ...entry, lastPayment: d.toISOString() } };
-                                  setAnswer(maKey, next);
-                                  syncMaCellValues(next);
-                                }
-                              }}
-                              captionLayout="dropdown-buttons"
-                              fromYear={2000}
-                              toYear={new Date().getFullYear()}
-                              className="p-3 pointer-events-auto"
-                            />
-                          </PopoverContent>
-                        </Popover>
+                        <DateDropdowns
+                          value={dateVal}
+                          fromYear={2000}
+                          onChange={(d) => {
+                            const next = { ...maSelections, [acc]: { ...entry, lastPayment: d.toISOString() } };
+                            setAnswer(maKey, next);
+                            syncMaCellValues(next);
+                          }}
+                        />
                       </div>
                     </div>
                   </div>
@@ -1087,28 +1075,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       </div>
                       <div className="flex-1 space-y-0.5">
                         <Label className="text-[10px] text-zinc-500">Last Payment Date</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full justify-start">
-                              <CalendarIcon className="h-3 w-3 mr-1.5 opacity-50" />
-                              {dateVal ? format(dateVal, "dd/MM/yyyy") : <span className="text-zinc-500">Select date</span>}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={dateVal}
-                              onSelect={(d) => {
-                                if (d) {
-                                  const next = { ...huSelections, [acc]: { ...entry, lastPayment: d.toISOString() } };
-                                  setAnswer(huKey, next);
-                                  syncHuCellValues(next);
-                                }
-                              }}
-                              captionLayout="dropdown-buttons"
-                              fromYear={2000}
-                              toYear={new Date().getFullYear()}
-                              className="p-3 pointer-events-auto" />
-                          </PopoverContent>
-                        </Popover>
+                        <DateDropdowns
+                          value={dateVal}
+                          fromYear={2000}
+                          onChange={(d) => {
+                            const next = { ...huSelections, [acc]: { ...entry, lastPayment: d.toISOString() } };
+                            setAnswer(huKey, next);
+                            syncHuCellValues(next);
+                          }}
+                        />
                       </div>
                     </div>
                   </div>
