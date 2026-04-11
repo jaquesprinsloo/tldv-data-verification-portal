@@ -190,7 +190,7 @@ const VideoUploadButton = ({
           e.target.value = "";
         }}
       />
-      {confirmDelete && (
+      {confirmDelete ? (
         <div className="flex items-center gap-1 bg-destructive/10 border border-destructive/30 rounded-md px-2 py-1">
           <span className="text-[10px] text-destructive font-medium">Delete {label} media?</span>
           <Button size="sm" variant="destructive" className="h-5 px-2 text-[10px]" onClick={handleDelete} disabled={deleting}>
@@ -200,8 +200,7 @@ const VideoUploadButton = ({
             No
           </Button>
         </div>
-      )}
-      {currentUrl && !confirmDelete ? (
+      ) : currentUrl ? (
         <div className="flex items-center gap-1.5">
           <Badge variant="secondary" className="gap-1 text-xs">
             <Video className="h-3 w-3" /> {label} media
@@ -213,7 +212,7 @@ const VideoUploadButton = ({
             <X className="h-3 w-3 text-destructive" />
           </Button>
         </div>
-      ) : !confirmDelete ? (
+      ) : (
         <Button
           size="sm"
           variant="outline"
