@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { extractStoragePath } from "@/lib/storageUtils";
 import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
