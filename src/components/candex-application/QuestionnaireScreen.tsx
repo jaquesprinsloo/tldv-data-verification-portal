@@ -820,6 +820,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
     // Special rendering for MONTHLY ACCOUNTS – PAID UP TO DATE table
     const isMonthlyAccounts = table.table_title.toLowerCase().includes("monthly account") && table.table_title.toLowerCase().includes("paid");
+    const isHistoricalUnpaid = !isMonthlyAccounts && table.table_title.toLowerCase().includes("historical") && table.table_title.toLowerCase().includes("unpaid");
     if (isMonthlyAccounts) {
       const maKey = `monthly_accounts_${table.id}`;
       const maSelections: Record<string, { amount: string; lastPayment: string }> = answers[maKey] || {};
