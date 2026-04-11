@@ -767,7 +767,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               {/* Account type selectors per selected bank */}
               {selectedBanks.map((bank) => {
                 const selectedTypes = bankSelections[bank] || [];
-                const [accDropdownOpen, setAccDropdownOpen] = useState(false);
+                const accDropdownKey = `${bankKey}_${bank}_acc_dropdown`;
+                const accDropdownOpen = !!answers[accDropdownKey];
+                const setAccDropdownOpen = (v: boolean) => setAnswer(accDropdownKey, v);
                 const accSummary = selectedTypes.length > 0 ? selectedTypes.join(", ") : "";
                 return (
                   <div key={bank} className="space-y-1">
