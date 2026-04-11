@@ -746,6 +746,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       || (rl.includes("employer") && rl.includes("position"))
                       || (rl.includes("criminal") && rl.includes("history"));
 
+                    // Hide "employer & position" row when employment status is "unemployed"
+                    if (rl.includes("employer") && rl.includes("position")) {
+                      const empStatusRowIdx = table.row_labels.findIndex((l) => String(l).toLowerCase().includes("employment status"));
+                      const empStatus = empStatusRowIdx >= 0 ? (tableData[table.id]?.[entryIdx]?.[empStatusRowIdx]?.[0] || "").toLowerCase() : "";
+                      if (empStatus === "unemployed") return null;
+                    }
+
                     return (
                       <tr key={rowIdx} className="border-b border-zinc-800/50">
                         <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap">
