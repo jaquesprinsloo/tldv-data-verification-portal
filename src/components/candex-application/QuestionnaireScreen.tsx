@@ -687,13 +687,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
     return (
       <div key={table.id} className="space-y-3">
-        <div className="flex items-center gap-2">
-          <h4 className="text-sm font-semibold text-zinc-300">{table.table_title}</h4>
-          {table.video_url && (
-            <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />
-          )}
-        </div>
-
         {entries.map((entry, entryIdx) => (
           <div key={entryIdx} className="border border-zinc-800 rounded-lg overflow-hidden">
             {table.is_repeatable && entries.length > 1 && (
@@ -712,19 +705,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             <div className="overflow-x-auto">
               <table className={`w-full text-sm ${isDisciplinaryTable ? "table-fixed" : ""}`}>
                 <thead>
-                  <tr className="bg-zinc-900">
-                    <th className={`text-left p-2 text-xs text-zinc-500 font-medium border-b border-zinc-800 ${isDisciplinaryTable ? "w-[180px]" : "min-w-[120px]"}`} />
-                    {visibleColHeaders.map((h, i) => {
-                      const origColIdx = visibleColIndices[i];
-                      const widthStyle = isDisciplinaryTable
-                        ? undefined
-                        : table.column_widths?.[origColIdx] ? { width: `${table.column_widths[origColIdx]}%` } : undefined;
-                      return (
-                        <th key={i} className={`text-left p-2 text-xs text-zinc-400 font-medium border-b border-zinc-800 ${isDisciplinaryTable ? "" : "min-w-[80px]"}`} style={widthStyle}>
-                          {h}
-                        </th>
-                      );
-                    })}
+                  <tr className="bg-zinc-900 border-b border-zinc-800">
+                    <th colSpan={visibleColHeaders.length + 1} className="p-2 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-xs font-semibold text-zinc-300">{table.table_title}</span>
+                        {table.video_url && (
+                          <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />
+                        )}
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
