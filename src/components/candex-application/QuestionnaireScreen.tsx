@@ -1719,7 +1719,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       || (rl.includes("charged") && !rl.includes("court"))
                       || rl.includes("convicted")
                       || (rl.includes("term") && rl.includes("served"))
-                      || rl.includes("court");
+                      || rl.includes("court")
+                      || (rl.includes("criminal") && rl.includes("record") && rl.includes("check"))
+                      || (rl.includes("criminal") && rl.includes("expung"));
 
                     // Hide "employer & position" row when employment status is "unemployed"
                     if (rl.includes("employer") && rl.includes("position")) {
