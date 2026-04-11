@@ -326,25 +326,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if (rowLabel.includes("first issue") || rowLabel.includes("date of issue") || rowLabel.includes("issue date") || rowLabel.includes("date issued")) {
       const dateVal = value ? new Date(value) : undefined;
       return (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full justify-start">
-              <CalendarIcon className="mr-1 h-3 w-3" />
-              {dateVal ? format(dateVal, "dd/MM/yyyy") : "Select date"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={dateVal}
-              onSelect={(d) => d && setCellValue(tableId, entryIdx, rowIdx, colIdx, d.toISOString())}
-              captionLayout="dropdown-buttons"
-              fromYear={1950}
-              toYear={new Date().getFullYear()}
-              className="p-3 pointer-events-auto"
-            />
-          </PopoverContent>
-        </Popover>
+        <DateDropdowns
+          value={dateVal}
+          onChange={(d) => setCellValue(tableId, entryIdx, rowIdx, colIdx, d.toISOString())}
+        />
       );
     }
 
