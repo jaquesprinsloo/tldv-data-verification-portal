@@ -1258,7 +1258,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               const isChecked = !!existing;
               return (
                 <div key={opt} className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                     <Checkbox
                       checked={isChecked}
                       onCheckedChange={(checked) => {
@@ -2171,8 +2171,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 1. Stolen from work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Stolen from work before</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300">Stolen from work before</Label>
                   <Select value={theftData.stolen || ''} onValueChange={(v) => {
                     const updates: any = { stolen: v };
                     if (v.includes("never")) {
@@ -2230,8 +2230,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 2. Witnessed theft at work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Witnessed theft at work</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300">Witnessed theft at work</Label>
                   <Select value={theftData.witnessed || ''} onValueChange={(v) => {
                     const updates: any = { witnessed: v };
                     if (v.includes("never")) updates.witnessedEmployers = {};
@@ -2292,8 +2292,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 3. Benefited from theft at work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Benefited from theft at work</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300">Benefited from theft at work</Label>
                   <Select value={theftData.benefited || ''} onValueChange={(v) => updateTheft({ benefited: v })}>
                     <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
@@ -2309,8 +2309,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 4. Helped someone to steal from work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Helped someone to steal from work</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300">Helped someone to steal from work</Label>
                   <Select value={theftData.helped || ''} onValueChange={(v) => {
                     const updates: any = { helped: v };
                     if (v.includes("never")) updates.helpedEmployers = {};
@@ -2363,8 +2363,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 5. Approached to steal from work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Approached to steal from work</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300">Approached to steal from work</Label>
                   <Select value={theftData.approached || ''} onValueChange={(v) => updateTheft({ approached: v })}>
                     <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
