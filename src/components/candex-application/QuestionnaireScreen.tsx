@@ -476,13 +476,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       const crimOptions = (rowConfig.options && rowConfig.options.length > 0)
         ? rowConfig.options
         : ["Has no criminal history", "Has criminal history"];
-      const showDetails = value === "Has criminal history";
+      const showDetails = (value || "").toLowerCase().includes("has criminal history") && !(value || "").toLowerCase().includes("no criminal");
       return (
         <div className="flex gap-2 w-full">
           <div className="w-[200px] flex-shrink-0">
             <Select value={value || ""} onValueChange={(v) => {
               setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
-              if (v === "Has no criminal history") setAnswer(crimDetailKey, "");
+              if (v.toLowerCase().includes("no criminal")) setAnswer(crimDetailKey, "");
             }}>
               <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
                 <SelectValue placeholder="Select" />
