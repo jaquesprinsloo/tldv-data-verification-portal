@@ -596,11 +596,17 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     const needsDetails = rowConfig.require_explanation === true;
                     const inputType = rowConfig.type;
                     const detailKey = `detail_${table.id}_${entryIdx}_${rowIdx}`;
-                    // For dynamic_select, details are handled inline — skip the separate details field
                     const showSeparateDetails = needsDetails && inputType !== "dynamic_select";
+                    const rl = String(label).toLowerCase().trim();
+                    const isFullWidthRow = (rl.includes("employer") && rl.includes("location"))
+                      || (rl.includes("job") && rl.includes("description"))
+                      || rl.includes("job description")
+                      || rl.includes("duration")
+                      || (rl.includes("reason") && rl.includes("leaving"));
+
                     return (
                       <tr key={rowIdx} className="border-b border-zinc-800/50">
-                        <td className="p-2 text-xs text-zinc-400 font-medium">
+                        <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
                             {label as string}
                             {table.row_video_urls?.[rowIdx] && (
@@ -608,39 +614,44 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                             )}
                           </div>
                         </td>
-                        {visibleColIndices.map((colIdx, vi) => {
-                          const colHeader = String(table.column_headers[colIdx] || "").toLowerCase().trim();
-                          // If this is a "details" column, render a details input only if this row needs it
-                          if (colHeader === "details") {
+                        {isFullWidthRow ? (
+                          <td className="p-2" colSpan={visibleColHeaders.length}>
+                            {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
+                          </td>
+                        ) : (
+                          visibleColIndices.map((colIdx, vi) => {
+                            const colHeader = String(table.column_headers[colIdx] || "").toLowerCase().trim();
+                            if (colHeader === "details") {
+                              return (
+                                <td key={vi} className="p-2">
+                                  {needsDetails ? (
+                                    <Input
+                                      value={answers[detailKey] || ""}
+                                      onChange={(e) => setAnswer(detailKey, e.target.value)}
+                                      className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
+                                      placeholder="Please provide details..."
+                                    />
+                                  ) : null}
+                                </td>
+                              );
+                            }
                             return (
                               <td key={vi} className="p-2">
-                                {needsDetails ? (
-                                  <Input
-                                    value={answers[detailKey] || ""}
-                                    onChange={(e) => setAnswer(detailKey, e.target.value)}
-                                    className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
-                                    placeholder="Please provide details..."
-                                  />
-                                ) : null}
+                                <div className="space-y-1">
+                                  {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
+                                  {showSeparateDetails && vi === 0 && !visibleColHeaders.some(h => h.toLowerCase().trim() === "details") && (
+                                    <Input
+                                      value={answers[detailKey] || ""}
+                                      onChange={(e) => setAnswer(detailKey, e.target.value)}
+                                      className="bg-zinc-900 border-zinc-700 text-white text-xs h-7"
+                                      placeholder="Please provide details..."
+                                    />
+                                  )}
+                                </div>
                               </td>
                             );
-                          }
-                          return (
-                            <td key={vi} className="p-2">
-                              <div className="space-y-1">
-                                {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
-                                {showSeparateDetails && vi === 0 && !visibleColHeaders.some(h => h.toLowerCase().trim() === "details") && (
-                                  <Input
-                                    value={answers[detailKey] || ""}
-                                    onChange={(e) => setAnswer(detailKey, e.target.value)}
-                                    className="bg-zinc-900 border-zinc-700 text-white text-xs h-7"
-                                    placeholder="Please provide details..."
-                                  />
-                                )}
-                              </div>
-                            </td>
-                          );
-                        })}
+                          })
+                        )}
                       </tr>
                     );
                   })}
