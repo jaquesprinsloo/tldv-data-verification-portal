@@ -3243,14 +3243,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       )}
                       <table className="w-full text-sm">
                         <tbody>
-                          {table.row_labels.map((label, rowIdx) => (
                             <tr key={rowIdx} className="border-b border-zinc-800/50">
                               <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap w-[180px]">
                                 <div className="flex items-center gap-1.5">
-                                  {label as string}
                                   {table.row_video_urls?.[rowIdx] && (
                                     <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
                                   )}
+                                  {label as string}
                                 </div>
                               </td>
                               <td className="p-2">
@@ -3362,10 +3361,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       <tr key={rowIdx} className="border-b border-zinc-800/50">
                         <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
-                            {label as string}
                             {table.row_video_urls?.[rowIdx] && (
                               <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
                             )}
+                            {label as string}
                           </div>
                         </td>
                         {isFullWidthRow ? (
