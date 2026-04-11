@@ -3247,10 +3247,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                             <tr key={rowIdx} className="border-b border-zinc-800/50">
                               <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap w-[180px]">
                                 <div className="flex items-center gap-1.5">
-                                  {label as string}
                                   {table.row_video_urls?.[rowIdx] && (
                                     <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
                                   )}
+                                  {label as string}
                                 </div>
                               </td>
                               <td className="p-2">
@@ -3362,10 +3362,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       <tr key={rowIdx} className="border-b border-zinc-800/50">
                         <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
-                            {label as string}
                             {table.row_video_urls?.[rowIdx] && (
                               <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
                             )}
+                            {label as string}
                           </div>
                         </td>
                         {isFullWidthRow ? (
@@ -3596,38 +3596,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
       <main className="container mx-auto px-4 py-6 max-w-3xl">
         <Card className="bg-zinc-950 border-zinc-800 text-white">
-          <CardHeader className="space-y-3">
-            <CardTitle className="text-white">{currentSec.title}</CardTitle>
-            {/* Dedicated Section Explainer Bar - consolidates all media buttons */}
-            {(() => {
-              const mediaItems: { url: string; label: string; type: 'section' | 'table' | 'field' }[] = [];
-              if (currentSec.video_url) {
-                mediaItems.push({ url: currentSec.video_url, label: `Section Overview: ${currentSec.title}`, type: 'section' });
-              }
-              sectionTables.forEach((tbl) => {
-                if (tbl.video_url) {
-                  mediaItems.push({ url: tbl.video_url, label: `How to complete: ${tbl.table_title}`, type: 'table' });
-                }
-                tbl.row_video_urls?.forEach((rowUrl, rowIdx) => {
-                  if (rowUrl) {
-                    mediaItems.push({ url: rowUrl, label: `${tbl.table_title} → ${tbl.row_labels[rowIdx]}`, type: 'field' });
-                  }
-                });
-              });
-              if (mediaItems.length === 0) return null;
-              return (
-                <div className="rounded-lg border border-red-900/40 bg-red-950/20 p-3 space-y-2">
-                  <p className="text-[11px] font-medium text-red-400 uppercase tracking-wider">
-                    🎧 Audio & Video Explainers — Listen before completing this section
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {mediaItems.map((item, idx) => (
-                      <VideoPlayButton key={idx} videoUrl={item.url} label={item.label} />
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-white text-center">{currentSec.title}</CardTitle>
+            {/* Section-level audio explainer inline under heading */}
+            {currentSec.video_url && (
+              <div className="flex items-center justify-center gap-2 pt-1">
+                <span className="text-[11px] text-red-400 font-medium">🎧 Audio Explainer — Listen before completing this section</span>
+                <VideoPlayButton videoUrl={currentSec.video_url} label={`Section Overview: ${currentSec.title}`} />
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Tables */}
