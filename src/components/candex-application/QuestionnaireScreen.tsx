@@ -719,11 +719,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         const dateVal = answers[dateKey] ? new Date(answers[dateKey]) : undefined;
 
         return (
-          <div key={idx} className="flex gap-2 w-full items-end">
+          <div key={idx} className="flex flex-col sm:flex-row gap-2 w-full sm:items-end">
             {incidentCount > 1 && (
-              <span className="text-[10px] text-zinc-500 mb-2 flex-shrink-0 w-4">{idx + 1}.</span>
+              <span className="text-[10px] text-zinc-500 mb-0 sm:mb-2 flex-shrink-0 w-4">{idx + 1}.</span>
             )}
-            <div className="flex-shrink-0">
+            <div className="w-full sm:w-auto sm:flex-shrink-0">
               {idx === 0 && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Date</Label>}
               <DateDropdowns
                 value={dateVal}
@@ -3470,12 +3470,12 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
                         return (
                           <tr key={rowIdx} className="border-b border-zinc-800/50">
-                            <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap">
-                              <div className="flex items-center gap-1.5">
+                            <td className="p-2 text-xs text-zinc-400 font-medium align-top" style={{ minWidth: '80px', maxWidth: '140px' }}>
+                              <div className="flex items-start gap-1.5 flex-wrap">
                                 {!isDisciplinaryTable && table.row_video_urls?.[rowIdx] && (
                                   <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
                                 )}
-                                {label as string}
+                                <span className="break-words">{label as string}</span>
                               </div>
                             </td>
                             {isFullWidthRow ? (
