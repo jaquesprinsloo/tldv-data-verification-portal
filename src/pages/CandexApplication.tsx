@@ -94,7 +94,7 @@ const CandexApplication = () => {
         ? `${personalDetails.firstName} ${personalDetails.secondName ? personalDetails.secondName + " " : ""}${personalDetails.surname}`.trim()
         : invitation.candidate_name;
 
-      await supabase.from("candex_applications").insert([{
+      const { data: insertedApp } = await supabase.from("candex_applications").insert([{
         invitation_id: invitation.id,
         client_id: invitation.client_id,
         candidate_name: candidateName,
@@ -111,7 +111,14 @@ const CandexApplication = () => {
           popiaAccepted: true,
           indemnityAccepted: true,
         } as any,
-      }]);
+      }]).select("id").single();
+
+      // Trigger pre-risk profile generation in background (fire-and-forget)
+      if (insertedApp?.id) {
+        supabase.functions.invoke("generate-pre-risk-profile", {
+          body: { application_id: insertedApp.id },
+        }).catch((err) => console.error("Pre-risk profile generation error:", err));
+      }
 
       setStep("completed");
       toast.success("PreAppliCheck completed successfully!");
