@@ -1768,7 +1768,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       || (rl.includes("term") && rl.includes("served"))
                       || rl.includes("court")
                       || (rl.includes("criminal") && rl.includes("record") && rl.includes("check"))
-                      || (rl.includes("criminal") && rl.includes("expung"));
+                      || (rl.includes("criminal") && rl.includes("expung"))
+                      || (rl.includes("pending") && rl.includes("court"));
 
                     // Hide "employer & position" row when employment status is "unemployed"
                     if (rl.includes("employer") && rl.includes("position")) {
