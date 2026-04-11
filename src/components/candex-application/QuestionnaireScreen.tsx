@@ -2381,6 +2381,128 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    // Special rendering for FRAUD table
+    const isFraudTable = ttLower.includes("fraud");
+    if (isFraudTable) {
+      const fraudKey = `fraud_${table.id}`;
+      const fraudData = answers[fraudKey] || {};
+      const updateFraud = (updates: Record<string, any>) => {
+        setAnswer(fraudKey, { ...fraudData, ...updates });
+      };
+
+      const fraudCategories = [
+        {
+          key: "refund_return",
+          title: "Refund & Return",
+          items: [
+            { key: "fake_refunds", label: "Process fake refunds" },
+            { key: "manipulate_returns", label: "Manipulate return transactions" },
+            { key: "duplicate_receipts", label: "Duplicate receipts" },
+          ]
+        },
+        {
+          key: "cash_skimming",
+          title: "Cash Skimming",
+          items: [
+            { key: "not_ringing_sales", label: "Not ringing up sales" },
+            { key: "pocketing_cash", label: "Pocketing cash payments" },
+            { key: "force_balancing", label: "Force balancing tills & saves" },
+          ]
+        },
+        {
+          key: "asset_misappropriation",
+          title: "Asset Misappropriation",
+          items: [
+            { key: "under_scan", label: "Under-scan or fail to scan items" },
+            { key: "inflate_stock", label: "Inflate stock counts" },
+          ]
+        },
+        {
+          key: "supplier_delivery",
+          title: "Supplier & Delivery Fraud",
+          items: [
+            { key: "collusion_drivers", label: "Collusion with drivers or suppliers" },
+            { key: "falsifying_grn", label: "Falsifying goods received notes" },
+            { key: "kickbacks", label: "Kickbacks from suppliers" },
+            { key: "fake_vendors", label: "Creating fake vendors" },
+            { key: "favouring_supplier", label: "Favouring a supplier for personal gain" },
+          ]
+        },
+        {
+          key: "information_misuse",
+          title: "Information/Data Misuse",
+          items: [
+            { key: "selling_info", label: "Selling confidential information" },
+            { key: "manipulating_docs", label: "Manipulating documents" },
+          ]
+        },
+        {
+          key: "personal_information",
+          title: "Personal Information",
+          items: [
+            { key: "fraudulent_qualifications", label: "Fraudulent Qualifications" },
+            { key: "fabricated_cv", label: "Fabricated information on CV" },
+          ]
+        },
+      ];
+
+      return (
+        <div key={table.id} className="space-y-3">
+          <div className="border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="bg-zinc-900 border-b border-zinc-800 p-2 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-semibold text-zinc-300">{table.table_title}</span>
+                {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
+              </div>
+            </div>
+            <div className="p-3 space-y-4">
+              {fraudCategories.map((cat) => (
+                <div key={cat.key} className="space-y-2 border border-zinc-800 rounded-lg p-3">
+                  <Label className="text-xs font-semibold text-amber-400">{cat.title}</Label>
+                  <div className="space-y-2">
+                    {cat.items.map((item) => {
+                      const itemKey = `${cat.key}_${item.key}`;
+                      const val = fraudData[itemKey] || '';
+                      const details = fraudData[`${itemKey}_details`] || '';
+                      const isYes = val === 'Yes';
+                      return (
+                        <div key={item.key} className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-zinc-300 flex-1">{item.label}</span>
+                            <Select value={val} onValueChange={(v) => {
+                              const updates: Record<string, any> = { [itemKey]: v };
+                              if (v === 'No') updates[`${itemKey}_details`] = '';
+                              updateFraud(updates);
+                            }}>
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[100px]">
+                                <SelectValue placeholder="Select" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="No">No</SelectItem>
+                                <SelectItem value="Yes">Yes</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {isYes && (
+                            <Input
+                              value={details}
+                              onChange={(e) => updateFraud({ [`${itemKey}_details`]: e.target.value })}
+                              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
+                              placeholder="Please provide details..."
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={table.id} className="space-y-3">
         {entries.map((entry, entryIdx) => (
