@@ -818,6 +818,21 @@ const CandexBuilder = () => {
     },
   });
 
+  const updateRowVideoUrl = useMutation({
+    mutationFn: async ({ tableId, rowIndex, url, currentUrls }: { tableId: string; rowIndex: number; url: string | null; currentUrls: (string | null)[] }) => {
+      const updated = [...currentUrls];
+      updated[rowIndex] = url;
+      const { error } = await supabase
+        .from("candex_section_tables")
+        .update({ row_video_urls: updated as any })
+        .eq("id", tableId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
+    },
+  });
+
   const toggleSection = (id: string) => {
     setExpandedSections((prev) => {
       const next = new Set(prev);
