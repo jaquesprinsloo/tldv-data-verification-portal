@@ -3406,6 +3406,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     </thead>
                     <tbody>
                       {table.row_labels.map((label, rowIdx) => {
+                        // For disciplinary tables, only show selected rows
+                        if (isDisciplinaryTable && selectedDisciplinaryRows.length > 0 && !selectedDisciplinaryRows.includes(String(label))) {
+                          return null;
+                        }
                         const rowConfig = getRowInputConfig(table, rowIdx);
                         const needsDetails = rowConfig.require_explanation === true;
                         const inputType = rowConfig.type;
