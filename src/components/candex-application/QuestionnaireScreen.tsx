@@ -511,36 +511,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
-    // Special handling: "employer" rows get split into two equal fields spanning full width
-    if (rowLabel.includes("employer") && rowLabel.includes("location")) {
-      const splitKey = `split_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
-      const splitVal = answers[splitKey] || "";
-      return (
-        <div className="flex gap-2 w-full">
-          <div className="flex-1 min-w-0">
-            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Employer Name</Label>
-            <Input
-              value={value}
-              onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
-              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
-              placeholder="Employer name"
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Location</Label>
-            <Input
-              value={splitVal}
-              onChange={(e) => setAnswer(splitKey, e.target.value)}
-              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
-              placeholder="Location"
-            />
-          </div>
-        </div>
-      );
-    }
 
-    // Special handling: "estimated duration" → date range picker with auto-calculated duration
-    if (rowLabel.includes("estimated duration") || rowLabel.includes("duration")) {
+
       const startKey = `duration_start_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
       const endKey = `duration_end_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
       const startDate = answers[startKey] ? new Date(answers[startKey]) : undefined;
