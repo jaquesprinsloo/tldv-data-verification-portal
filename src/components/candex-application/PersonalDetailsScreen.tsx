@@ -130,7 +130,7 @@ export default function PersonalDetailsScreen({ prefilled, onComplete }: Persona
         </div>
       </div>
 
-      <main className="container mx-auto px-4 py-6 max-w-2xl">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-2xl">
         <Card className="bg-zinc-950 border-zinc-800 text-white">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">

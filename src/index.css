@@ -137,3 +137,69 @@ All colors MUST be HSL.
     max-width: 100%;
   }
 }
+
+/* ===== Mobile form element sizing ===== */
+@media (max-width: 640px) {
+  /* Make all inputs, selects, textareas, and buttons touch-friendly */
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select,
+  [role="combobox"],
+  .flex.h-10,
+  .flex.h-8 {
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
+
+  /* SelectTrigger buttons */
+  button[role="combobox"] {
+    min-height: 44px !important;
+    font-size: 14px !important;
+  }
+
+  /* General buttons in forms */
+  button.bg-zinc-900,
+  button.bg-red-600,
+  button.bg-red-600\/20 {
+    min-height: 44px !important;
+    font-size: 14px !important;
+  }
+
+  /* Make labels readable */
+  label,
+  .text-\[10px\] {
+    font-size: 12px !important;
+  }
+
+  /* Ensure text-xs is at least 13px on mobile */
+  .text-xs {
+    font-size: 13px !important;
+  }
+
+  /* Cards need more padding on mobile */
+  .space-y-1\.5 > * + * {
+    margin-top: 0.5rem;
+  }
+
+  /* Prevent iOS zoom on input focus (needs 16px minimum) */
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  input[type="password"],
+  input[type="url"],
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Table cells need more breathing room */
+  td {
+    padding: 8px 6px !important;
+  }
+
+  /* Checkbox sizing */
+  button[role="checkbox"] {
+    min-width: 20px !important;
+    min-height: 20px !important;
+  }
+}
