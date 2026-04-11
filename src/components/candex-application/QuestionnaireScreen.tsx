@@ -690,7 +690,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if (isBankServiceProvider) {
       const bankKey = `bank_selections_${table.id}`;
       const bankSelections: Record<string, string[]> = answers[bankKey] || {};
-      const [bankDropdownOpen, setBankDropdownOpen] = useState(false);
+      const bankDropdownOpen = !!answers[`${bankKey}_dropdown`];
+      const setBankDropdownOpen = (v: boolean) => setAnswer(`${bankKey}_dropdown`, v);
       
       const bankRowConfig = getRowInputConfig(table, 0);
       const bankOptions = (bankRowConfig.options && bankRowConfig.options.length > 0)
