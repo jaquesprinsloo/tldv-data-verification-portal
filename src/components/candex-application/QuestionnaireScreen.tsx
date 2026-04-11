@@ -3570,7 +3570,70 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     );
   };
 
+  const validateCurrentSection = (): boolean => {
+    const currentSec = sections[currentSection];
+    const sectionTbls = tables.filter((t) => t.section_id === currentSec.id);
+
+    for (const table of sectionTbls) {
+      const ttLower = table.table_title.toLowerCase();
+      const entries = tableData[table.id] || [];
+
+      // Tertiary Education: skip validation if "no tertiary education" is checked
+      const isTertiaryEducation = ttLower.includes("tertiary") && ttLower.includes("education");
+      if (isTertiaryEducation) {
+        const tertiaryKey = `tertiary_no_education_${table.id}`;
+        if (answers[tertiaryKey] === "yes") continue;
+        // Validate all entries have all fields filled
+        for (let eIdx = 0; eIdx < entries.length; eIdx++) {
+          for (let rIdx = 0; rIdx < table.row_labels.length; rIdx++) {
+            const cellVal = entries[eIdx]?.[rIdx]?.[0] || "";
+            if (!cellVal.trim()) {
+              toast.error(`Please fill in "${table.row_labels[rIdx]}" in ${table.table_title}${entries.length > 1 ? ` (Entry ${eIdx + 1})` : ""}`);
+              return false;
+            }
+          }
+        }
+        continue;
+      }
+
+      // Employment History: skip validation if "never worked" is checked
+      const isEmploymentHistory = ttLower.includes("employment") && (ttLower.includes("history") || ttLower.includes("record"));
+      if (isEmploymentHistory) {
+        const neverWorkedKey = `never_worked_${table.id}`;
+        if (answers[neverWorkedKey] === "yes") continue;
+        // Validate all entries have all fields filled
+        for (let eIdx = 0; eIdx < entries.length; eIdx++) {
+          for (let rIdx = 0; rIdx < table.row_labels.length; rIdx++) {
+            const cellVal = entries[eIdx]?.[rIdx]?.[0] || "";
+            if (!cellVal.trim()) {
+              toast.error(`Please fill in "${table.row_labels[rIdx]}" in ${table.table_title}${entries.length > 1 ? ` (Entry ${eIdx + 1})` : ""}`);
+              return false;
+            }
+          }
+        }
+        continue;
+      }
+    }
+
+    // Also validate required questions
+    const sectionQs = questions.filter((q) => q.section_id === currentSec.id);
+    for (const q of sectionQs) {
+      if (q.is_required && (!answers[q.id] || !String(answers[q.id]).trim())) {
+        toast.error(`Please answer: "${q.question_text}"`);
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const handleNext = () => {
+    if (!validateCurrentSection()) return;
+    setCurrentSection((p) => p + 1);
+  };
+
   const handleSubmit = () => {
+    if (!validateCurrentSection()) return;
     setSubmitting(true);
     const allAnswers = { questions: answers, tables: tableData };
     onComplete(allAnswers);
@@ -3675,7 +3738,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <div className="flex-1" />
               {currentSection < sections.length - 1 ? (
                 <Button
-                  onClick={() => setCurrentSection((p) => p + 1)}
+                  onClick={handleNext}
                   className="bg-red-600 hover:bg-red-700 text-white"
                 >
                   Next Section
