@@ -114,6 +114,7 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
     font-family: Arial, sans-serif;
+    overflow-x: hidden;
   }
 
   h1, h2, h3 {
@@ -124,5 +125,15 @@ All colors MUST be HSL.
   h4, h5, h6 {
     font-family: 'Poppins', sans-serif;
     font-weight: 400;
+  }
+
+  /* Ensure tables don't break mobile layouts */
+  table {
+    table-layout: auto;
+  }
+
+  /* Prevent horizontal overflow on mobile */
+  .container {
+    max-width: 100%;
   }
 }
