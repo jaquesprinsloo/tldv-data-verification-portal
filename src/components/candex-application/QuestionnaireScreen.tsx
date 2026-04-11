@@ -351,10 +351,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       }
 
       return (
-        <div className="flex items-center gap-1.5 w-full">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[130px] justify-start flex-shrink-0">
+              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full sm:w-[130px] justify-start flex-shrink-0">
                 <CalendarIcon className="mr-1 h-3 w-3" />
                 {startDate ? format(startDate, "dd/MM/yyyy") : "Start"}
               </Button>
@@ -363,10 +363,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <Calendar mode="single" selected={startDate} onSelect={(d) => d && setAnswer(startKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
             </PopoverContent>
           </Popover>
-          <span className="text-zinc-500 text-xs">–</span>
+          <span className="text-zinc-500 text-xs text-center hidden sm:block">–</span>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[130px] justify-start flex-shrink-0">
+              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full sm:w-[130px] justify-start flex-shrink-0">
                 <CalendarIcon className="mr-1 h-3 w-3" />
                 {endDate ? format(endDate, "dd/MM/yyyy") : "End"}
               </Button>
@@ -404,7 +404,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         : ["Contract term completed", "Resigned", "Retrenched", "Dismissed", "Still employed", "Other"];
       return (
         <div className="flex gap-2 w-full">
-          <div className="w-[190px] flex-shrink-0">
+          <div className="w-full sm:w-[190px] flex-shrink-0">
             <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
               <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
                 <SelectValue placeholder="Select reason" />
@@ -539,7 +539,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       const showDetails = (value || "").toLowerCase().includes("has criminal history") && !(value || "").toLowerCase().includes("no criminal");
       return (
         <div className="flex gap-2 w-full">
-          <div className="w-[200px] flex-shrink-0">
+          <div className="w-full sm:w-[200px] flex-shrink-0">
             <Select value={value || ""} onValueChange={(v) => {
               setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
               if (v.toLowerCase().includes("no criminal")) setAnswer(crimDetailKey, "");
@@ -719,11 +719,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         const dateVal = answers[dateKey] ? new Date(answers[dateKey]) : undefined;
 
         return (
-          <div key={idx} className="flex gap-2 w-full items-end">
+          <div key={idx} className="flex flex-col sm:flex-row gap-2 w-full sm:items-end">
             {incidentCount > 1 && (
-              <span className="text-[10px] text-zinc-500 mb-2 flex-shrink-0 w-4">{idx + 1}.</span>
+              <span className="text-[10px] text-zinc-500 mb-0 sm:mb-2 flex-shrink-0 w-4">{idx + 1}.</span>
             )}
-            <div className="flex-shrink-0">
+            <div className="w-full sm:w-auto sm:flex-shrink-0">
               {idx === 0 && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Date</Label>}
               <DateDropdowns
                 value={dateVal}
@@ -1258,7 +1258,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               const isChecked = !!existing;
               return (
                 <div key={opt} className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                     <Checkbox
                       checked={isChecked}
                       onCheckedChange={(checked) => {
@@ -2171,8 +2171,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 1. Stolen from work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Stolen from work before</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300">Stolen from work before</Label>
                   <Select value={theftData.stolen || ''} onValueChange={(v) => {
                     const updates: any = { stolen: v };
                     if (v.includes("never")) {
@@ -2182,7 +2182,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     }
                     updateTheft(updates);
                   }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never stolen from work before">Has never stolen from work before</SelectItem>
                       <SelectItem value="Has stolen from work before">Has stolen from work before</SelectItem>
@@ -2230,14 +2230,14 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 2. Witnessed theft at work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Witnessed theft at work</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300">Witnessed theft at work</Label>
                   <Select value={theftData.witnessed || ''} onValueChange={(v) => {
                     const updates: any = { witnessed: v };
                     if (v.includes("never")) updates.witnessedEmployers = {};
                     updateTheft(updates);
                   }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never witnessed anyone stealing at work">Has never witnessed anyone stealing at work</SelectItem>
                       <SelectItem value="Has witnessed someone stealing from work but did not report them">Has witnessed someone stealing from work but did not report them</SelectItem>
@@ -2292,10 +2292,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 3. Benefited from theft at work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Benefited from theft at work</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300">Benefited from theft at work</Label>
                   <Select value={theftData.benefited || ''} onValueChange={(v) => updateTheft({ benefited: v })}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never benefited from any theft at work">Has never benefited from any theft at work</SelectItem>
                       <SelectItem value="Has benefited from theft at work">Has benefited from theft at work</SelectItem>
@@ -2309,14 +2309,14 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 4. Helped someone to steal from work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Helped someone to steal from work</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300">Helped someone to steal from work</Label>
                   <Select value={theftData.helped || ''} onValueChange={(v) => {
                     const updates: any = { helped: v };
                     if (v.includes("never")) updates.helpedEmployers = {};
                     updateTheft(updates);
                   }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never helped anyone to steal from work">Has never helped anyone to steal from work</SelectItem>
                       <SelectItem value="Has helped someone steal from work">Has helped someone steal from work</SelectItem>
@@ -2363,10 +2363,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 5. Approached to steal from work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Approached to steal from work</Label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300">Approached to steal from work</Label>
                   <Select value={theftData.approached || ''} onValueChange={(v) => updateTheft({ approached: v })}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never been approached to get involved with theft at work">Has never been approached to get involved with theft at work</SelectItem>
                       <SelectItem value="Has been approached to steal at work but declined to get involved">Has been approached to steal at work but declined to get involved</SelectItem>
@@ -2456,13 +2456,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
                     <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2496,7 +2496,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateFraud(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2564,13 +2564,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
                     <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2604,7 +2604,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateBribery(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2682,13 +2682,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
                     <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2722,7 +2722,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateOC(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2815,13 +2815,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
                     <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2855,7 +2855,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateUC(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2943,13 +2943,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
                     <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2983,7 +2983,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateDrug(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -3180,7 +3180,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
@@ -3246,7 +3246,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                         <tbody>
                           {table.row_labels.map((label, rowIdx) => (
                             <tr key={rowIdx} className="border-b border-zinc-800/50">
-                              <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap w-[180px]">
+                              <td className="p-2 text-xs text-zinc-400 font-medium w-[100px] sm:w-[180px]">
                                 <div className="flex items-center gap-1.5">
                                   {table.row_video_urls?.[rowIdx] && (
                                     <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
@@ -3470,12 +3470,12 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
                         return (
                           <tr key={rowIdx} className="border-b border-zinc-800/50">
-                            <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap">
-                              <div className="flex items-center gap-1.5">
+                            <td className="p-2 text-xs text-zinc-400 font-medium align-top" style={{ minWidth: '80px', maxWidth: '140px' }}>
+                              <div className="flex items-start gap-1.5 flex-wrap">
                                 {!isDisciplinaryTable && table.row_video_urls?.[rowIdx] && (
                                   <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
                                 )}
-                                {label as string}
+                                <span className="break-words">{label as string}</span>
                               </div>
                             </td>
                             {isFullWidthRow ? (
