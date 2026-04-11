@@ -568,6 +568,158 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    // "arrested/detained" → dropdown with conditional hide of subsequent rows
+    if (rowLabel.includes("arrested") || rowLabel.includes("detained")) {
+      const arrestedOptions = [
+        "Has been arrested / detained by law enforcement",
+        "Has never been arrested or detained by law enforcement"
+      ];
+      return (
+        <Select value={value || ""} onValueChange={(v) => {
+          setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
+          // Clear dependent rows when "never arrested" is selected
+          if (v.includes("never")) {
+            // Find and clear reason & date, charged, convicted, term served, court rows
+            table.row_labels.forEach((label, rIdx) => {
+              const rl = String(label).toLowerCase().trim();
+              if (rl.includes("reason") || rl.includes("charged") || rl.includes("convicted") || rl.includes("term") || rl.includes("court")) {
+                setCellValue(tableId, entryIdx, rIdx, 0, "");
+                // Clear associated answer keys
+                setAnswer(`arrest_reason_${tableId}_${entryIdx}_${rIdx}_0`, "");
+                setAnswer(`arrest_date_${tableId}_${entryIdx}_${rIdx}_0`, "");
+              }
+            });
+          }
+        }}>
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full">
+            <SelectValue placeholder="Select" />
+          </SelectTrigger>
+          <SelectContent>
+            {arrestedOptions.map((opt) => (
+              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    // Helper: check if arrested/detained row has "has been arrested" selected
+    const getArrestedStatus = () => {
+      const arrestedRowIdx = table.row_labels.findIndex((l) => {
+        const ll = String(l).toLowerCase().trim();
+        return ll.includes("arrested") || ll.includes("detained");
+      });
+      if (arrestedRowIdx < 0) return "unknown";
+      const arrestedVal = (tableData[tableId]?.[entryIdx]?.[arrestedRowIdx]?.[0] || "").toLowerCase();
+      if (arrestedVal.includes("never")) return "never";
+      if (arrestedVal.includes("has been")) return "arrested";
+      return "unknown";
+    };
+
+    // "reason & date" or "reason" with "date" → hidden if never arrested, else calendar + reason input
+    if ((rowLabel.includes("reason") && rowLabel.includes("date")) && !rowLabel.includes("leaving")) {
+      const arrestedStatus = getArrestedStatus();
+      if (arrestedStatus === "never") return null;
+
+      const reasonKey = `arrest_reason_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const dateKey = `arrest_date_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const reasonVal = answers[reasonKey] || "";
+      const dateVal = answers[dateKey] ? new Date(answers[dateKey]) : undefined;
+
+      return (
+        <div className="flex gap-2 w-full">
+          <div className="w-[160px] flex-shrink-0">
+            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full justify-start">
+                  <CalendarIcon className="mr-1 h-3 w-3" />
+                  {dateVal ? format(dateVal, "dd/MM/yyyy") : "Select date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateVal} onSelect={(d) => {
+                  if (d) {
+                    setAnswer(dateKey, d.toISOString());
+                    setCellValue(tableId, entryIdx, rowIdx, colIdx, `${format(d, "dd/MM/yyyy")} - ${reasonVal}`);
+                  }
+                }} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="flex-1 min-w-0">
+            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>
+            <Input
+              value={reasonVal}
+              onChange={(e) => {
+                setAnswer(reasonKey, e.target.value);
+                const dateStr = dateVal ? format(dateVal, "dd/MM/yyyy") : "";
+                setCellValue(tableId, entryIdx, rowIdx, colIdx, `${dateStr} - ${e.target.value}`);
+              }}
+              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+              placeholder="Reason for arrest/detention..."
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // "charged" → hidden if never arrested, else dropdown with charge options
+    if (rowLabel.includes("charged") && !rowLabel.includes("court")) {
+      const arrestedStatus = getArrestedStatus();
+      if (arrestedStatus === "never") return null;
+
+      const chargedOptions = [
+        "Formally charged and attended court",
+        "Charges dropped and let go on a warning",
+        "Charges withdrawn",
+        "Paid a bribe to not get charged"
+      ];
+
+      return (
+        <Select value={value || ""} onValueChange={(v) => {
+          setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
+          // Auto-set court attendance if formally charged
+          if (v === "Formally charged and attended court") {
+            const courtRowIdx = table.row_labels.findIndex((l) => {
+              const ll = String(l).toLowerCase().trim();
+              return ll.includes("court");
+            });
+            if (courtRowIdx >= 0) {
+              setCellValue(tableId, entryIdx, courtRowIdx, 0, "Has gone to court for being charged");
+            }
+          }
+        }}>
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full">
+            <SelectValue placeholder="Select charge outcome" />
+          </SelectTrigger>
+          <SelectContent>
+            {chargedOptions.map((opt) => (
+              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    // "convicted" → hidden if never arrested
+    if (rowLabel.includes("convicted")) {
+      const arrestedStatus = getArrestedStatus();
+      if (arrestedStatus === "never") return null;
+    }
+
+    // "term served" → hidden if never arrested
+    if (rowLabel.includes("term") && rowLabel.includes("served")) {
+      const arrestedStatus = getArrestedStatus();
+      if (arrestedStatus === "never") return null;
+    }
+
+    // "court attendance" or "court" → hidden if never arrested
+    if (rowLabel.includes("court")) {
+      const arrestedStatus = getArrestedStatus();
+      if (arrestedStatus === "never") return null;
+    }
+
     // === GENERIC INPUT TYPE HANDLERS ===
 
     if (inputType === "yes_no") {
@@ -1165,13 +1317,36 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       || (rl.includes("residence") || (rl.includes("location") && !rl.includes("employer")))
                       || rl.includes("employment status")
                       || (rl.includes("employer") && rl.includes("position"))
-                      || (rl.includes("criminal") && rl.includes("history"));
+                      || (rl.includes("criminal") && rl.includes("history"))
+                      || rl.includes("arrested") || rl.includes("detained")
+                      || (rl.includes("reason") && rl.includes("date") && !rl.includes("leaving"))
+                      || (rl.includes("charged") && !rl.includes("court"))
+                      || rl.includes("convicted")
+                      || (rl.includes("term") && rl.includes("served"))
+                      || rl.includes("court");
 
                     // Hide "employer & position" row when employment status is "unemployed"
                     if (rl.includes("employer") && rl.includes("position")) {
                       const empStatusRowIdx = table.row_labels.findIndex((l) => String(l).toLowerCase().includes("employment status"));
                       const empStatus = empStatusRowIdx >= 0 ? (tableData[table.id]?.[entryIdx]?.[empStatusRowIdx]?.[0] || "").toLowerCase() : "";
                       if (empStatus === "unemployed") return null;
+                    }
+
+                    // Hide arrested-dependent rows when "never arrested" is selected
+                    const isArrestDependentRow = (rl.includes("reason") && rl.includes("date") && !rl.includes("leaving"))
+                      || (rl.includes("charged") && !rl.includes("court"))
+                      || rl.includes("convicted")
+                      || (rl.includes("term") && rl.includes("served"))
+                      || rl.includes("court");
+                    if (isArrestDependentRow) {
+                      const arrestedRowIdx = table.row_labels.findIndex((l) => {
+                        const ll = String(l).toLowerCase().trim();
+                        return ll.includes("arrested") || ll.includes("detained");
+                      });
+                      if (arrestedRowIdx >= 0) {
+                        const arrestedVal = (tableData[table.id]?.[entryIdx]?.[arrestedRowIdx]?.[0] || "").toLowerCase();
+                        if (arrestedVal.includes("never") || !arrestedVal.includes("has been")) return null;
+                      }
                     }
 
                     return (
