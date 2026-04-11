@@ -701,6 +701,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       const frequency = answers[frequencyKey] || "single";
       const incidentCount = frequency === "multiple" ? parseInt(answers[incidentCountKey] || "2", 10) : 1;
 
+      const arrestReasonOptions = [
+        "Driving Under the Influence", "Assault", "Gender Based Violence", "Unpaid Fines",
+        "Murder", "Attempted Murder", "Rape", "Fraud/Corruption", "Theft",
+        "Possession of Stolen Goods", "Drug Dealing", "Drug Fabrication", "Drug Possession",
+        "Extortion", "Hijacking", "Armed Robbery", "Human Trafficking", "Other"
+      ];
+
       const renderIncidentLine = (idx: number) => {
         const reasonKey = idx === 0 
           ? `arrest_reason_${tableId}_${entryIdx}_${rowIdx}_${colIdx}` 
@@ -729,17 +736,21 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             </div>
             <div className="flex-1 min-w-0">
               {idx === 0 && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>}
-              <Input
-                value={reasonVal}
-                onChange={(e) => {
-                  setAnswer(reasonKey, e.target.value);
-                  const dateStr = dateVal ? format(dateVal, "dd/MM/yyyy") : "";
-                  const combined = `${dateStr} - ${e.target.value}`;
-                  if (idx === 0) setCellValue(tableId, entryIdx, rowIdx, colIdx, combined);
-                }}
-                className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
-                placeholder="Reason for arrest/detention..."
-              />
+              <Select value={reasonVal} onValueChange={(v) => {
+                setAnswer(reasonKey, v);
+                const dateStr = dateVal ? format(dateVal, "dd/MM/yyyy") : "";
+                const combined = `${dateStr} - ${v}`;
+                if (idx === 0) setCellValue(tableId, entryIdx, rowIdx, colIdx, combined);
+              }}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full">
+                  <SelectValue placeholder="Select reason..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[200px]">
+                  {arrestReasonOptions.map(opt => (
+                    <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         );
@@ -769,16 +780,31 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         "Paid a bribe to not get charged"
       ];
 
+      // Find the reason row index to look up each incident's selected reason
+      const reasonRowIdx = table.row_labels.findIndex((l) => {
+        const ll = String(l).toLowerCase().trim();
+        return ll.includes("reason") && ll.includes("date") && !ll.includes("leaving");
+      });
+
       const renderChargedLine = (idx: number) => {
         const chargedKey = idx === 0
           ? `charged_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`
           : `charged_incident_${tableId}_${entryIdx}_${idx}`;
         const chargedVal = idx === 0 ? (value || "") : (answers[chargedKey] || "");
 
+        // Get the reason selected for this incident
+        const reasonKey = idx === 0
+          ? `arrest_reason_${tableId}_${entryIdx}_${reasonRowIdx >= 0 ? reasonRowIdx : rowIdx}_0`
+          : `arrest_reason_incident_${tableId}_${entryIdx}_${idx}`;
+        const incidentReason = answers[reasonKey] || "";
+
         return (
           <div key={idx} className="flex gap-2 w-full items-center">
             {incidentCount > 1 && (
               <span className="text-[10px] text-zinc-500 flex-shrink-0 w-4">{idx + 1}.</span>
+            )}
+            {incidentCount > 1 && incidentReason && (
+              <span className="text-[10px] text-zinc-400 flex-shrink-0 font-medium">{incidentReason}:</span>
             )}
             <Select value={chargedVal} onValueChange={(v) => {
               if (idx === 0) {
