@@ -11,7 +11,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, CheckCircle, Plus, Trash2, CalendarIcon, PlayCircle, Video, X } from "lucide-react";
+import { Loader2, CheckCircle, Plus, Trash2, CalendarIcon, PlayCircle, Video, X, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
