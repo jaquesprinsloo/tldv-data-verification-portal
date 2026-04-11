@@ -1713,8 +1713,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     }
 
     // Special rendering for FAMILY & FRIENDS LAW ENCOUNTERS table
-    const isFamilyFriendsLaw = (table.table_title.toLowerCase().includes("family") || table.table_title.toLowerCase().includes("friend"))
-      && (table.table_title.toLowerCase().includes("law") || table.table_title.toLowerCase().includes("criminal") || table.table_title.toLowerCase().includes("encounter"));
+    const ttLower = table.table_title.toLowerCase();
+    const isFamilyFriendsLaw = (ttLower.includes("family") || ttLower.includes("friend"))
+      && (ttLower.includes("law") || ttLower.includes("criminal") || ttLower.includes("encounter")
+        || (ttLower === "family / friends") || (ttLower === "family/friends") || (ttLower === "family & friends"))
+      && !ttLower.includes("contact trace");
 
     if (isFamilyFriendsLaw) {
       const ffKey = `family_friends_law_${table.id}`;
