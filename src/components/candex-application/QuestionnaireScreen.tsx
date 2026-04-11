@@ -3352,6 +3352,12 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   const rowMediaUrl = table.row_video_urls?.[rowIdx];
                   return (
                     <div key={rowIdx} className="flex items-center gap-2">
+                      {rowMediaUrl && (
+                        <VideoPlayButton videoUrl={rowMediaUrl} label={rowKey} />
+                      )}
+                      <label htmlFor={`disc_row_${table.id}_${rowIdx}`} className="text-xs text-zinc-300 cursor-pointer">
+                        {rowKey}
+                      </label>
                       <Checkbox
                         id={`disc_row_${table.id}_${rowIdx}`}
                         checked={isSelected}
@@ -3363,12 +3369,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                         }}
                         className="border-zinc-600 data-[state=checked]:bg-red-600"
                       />
-                      {rowMediaUrl && (
-                        <VideoPlayButton videoUrl={rowMediaUrl} label={rowKey} />
-                      )}
-                      <label htmlFor={`disc_row_${table.id}_${rowIdx}`} className="text-xs text-zinc-300 cursor-pointer">
-                        {rowKey}
-                      </label>
                     </div>
                   );
                 })}
@@ -3468,7 +3468,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           <tr key={rowIdx} className="border-b border-zinc-800/50">
                             <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
-                                {table.row_video_urls?.[rowIdx] && (
+                                {!isDisciplinaryTable && table.row_video_urls?.[rowIdx] && (
                                   <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
                                 )}
                                 {label as string}
