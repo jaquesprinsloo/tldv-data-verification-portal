@@ -820,6 +820,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
     // Special rendering for MONTHLY ACCOUNTS – PAID UP TO DATE table
     const isMonthlyAccounts = table.table_title.toLowerCase().includes("monthly account") && table.table_title.toLowerCase().includes("paid");
+    const isHistoricalUnpaid = !isMonthlyAccounts && table.table_title.toLowerCase().includes("historical") && table.table_title.toLowerCase().includes("unpaid");
     if (isMonthlyAccounts) {
       const maKey = `monthly_accounts_${table.id}`;
       const maSelections: Record<string, { amount: string; lastPayment: string }> = answers[maKey] || {};
@@ -961,6 +962,133 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <div className="flex justify-between items-center px-2 py-1.5 bg-zinc-800/50 rounded-md border border-zinc-700">
                   <span className="text-xs font-medium text-zinc-400">Total Monthly Payments</span>
                   <span className="text-sm font-bold text-white">R {totalMonthly.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Special rendering for HISTORICAL UNPAID ACCOUNTS table
+    if (isHistoricalUnpaid) {
+      const huKey = `historical_unpaid_${table.id}`;
+      const huSelections: Record<string, { amount: string; lastPayment: string }> = answers[huKey] || {};
+      const huDropdownOpen = !!answers[`${huKey}_dropdown`];
+      const setHuDropdownOpen = (v: boolean) => setAnswer(`${huKey}_dropdown`, v);
+
+      const huRowConfig = getRowInputConfig(table, 0);
+      const accountOptions = (huRowConfig.options && huRowConfig.options.length > 0)
+        ? huRowConfig.options.map(o => o.replace(/\.\s*$/, '').trim())
+        : ["Rent / Bond", "Vehicle Finance", "Clothing Account", "Furniture Account", "Cell Phone Contract", "Insurance", "Medical Aid", "Gym Membership", "DSTV / Streaming", "Student Loan", "Personal Loan", "Credit Card", "Store Card", "Other"];
+
+      const syncHuCellValues = (selections: Record<string, { amount: string; lastPayment: string }>) => {
+        const parts = Object.entries(selections)
+          .filter(([_, v]) => v.amount || v.lastPayment)
+          .map(([acc, v]) => {
+            const datePart = v.lastPayment ? format(new Date(v.lastPayment), "dd/MM/yyyy") : "";
+            return `${acc}: R${v.amount || "0"}${datePart ? ` (${datePart})` : ""}`;
+          });
+        setCellValue(table.id, 0, 0, 0, parts.join(" | "));
+      };
+
+      const selectedAccounts = Object.keys(huSelections);
+      const huSummary = selectedAccounts.length > 0 ? `${selectedAccounts.length} account(s) selected` : "";
+      const totalUnpaid = selectedAccounts.reduce((sum, acc) => sum + (parseFloat(huSelections[acc]?.amount || "0") || 0), 0);
+
+      return (
+        <div key={table.id} className="space-y-3">
+          <div className="border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="bg-zinc-900 border-b border-zinc-800 p-2 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-semibold text-zinc-300">{table.table_title}</span>
+                {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
+              </div>
+            </div>
+            <div className="p-3 space-y-3">
+              <div className="space-y-1">
+                <Label className="text-[10px] text-zinc-500">Select unpaid account(s)</Label>
+                <Popover open={huDropdownOpen} onOpenChange={setHuDropdownOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-9 w-full justify-between">
+                      <span className="truncate text-left">{huSummary || "Select accounts..."}</span>
+                      <ChevronDown className="h-3.5 w-3.5 opacity-50 ml-2 flex-shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2 max-h-[250px] overflow-y-auto" align="start">
+                    {accountOptions.map((acc) => {
+                      const isSelected = !!huSelections[acc];
+                      return (
+                        <div key={acc} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-zinc-800 cursor-pointer"
+                          onClick={() => {
+                            const next = { ...huSelections };
+                            if (isSelected) delete next[acc]; else next[acc] = { amount: "", lastPayment: "" };
+                            setAnswer(huKey, next);
+                            syncHuCellValues(next);
+                          }}>
+                          <Checkbox checked={isSelected} className="border-zinc-600 data-[state=checked]:bg-red-600 h-3.5 w-3.5 pointer-events-none" />
+                          <span className="text-xs text-zinc-300">{acc}</span>
+                        </div>
+                      );
+                    })}
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {selectedAccounts.map((acc) => {
+                const entry = huSelections[acc] || { amount: "", lastPayment: "" };
+                const dateVal = entry.lastPayment ? new Date(entry.lastPayment) : undefined;
+                const datePopKey = `${huKey}_${acc}_date_pop`;
+                const datePopOpen = !!answers[datePopKey];
+                return (
+                  <div key={acc} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
+                    <span className="text-xs font-medium text-zinc-300">{acc}</span>
+                    <div className="flex gap-2">
+                      <div className="flex-1 space-y-0.5">
+                        <Label className="text-[10px] text-zinc-500">Outstanding Amount (R)</Label>
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">R</span>
+                          <Input type="number" value={entry.amount}
+                            onChange={(e) => {
+                              const next = { ...huSelections, [acc]: { ...entry, amount: e.target.value } };
+                              setAnswer(huKey, next);
+                              syncHuCellValues(next);
+                            }}
+                            className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 pl-6" placeholder="0.00" step="0.01" />
+                        </div>
+                      </div>
+                      <div className="flex-1 space-y-0.5">
+                        <Label className="text-[10px] text-zinc-500">Last Payment Date</Label>
+                        <Popover open={datePopOpen} onOpenChange={(v) => setAnswer(datePopKey, v)}>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full justify-start">
+                              <CalendarIcon className="h-3 w-3 mr-1.5 opacity-50" />
+                              {dateVal ? format(dateVal, "dd/MM/yyyy") : <span className="text-zinc-500">Select date</span>}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={dateVal}
+                              onSelect={(d) => {
+                                if (d) {
+                                  const next = { ...huSelections, [acc]: { ...entry, lastPayment: d.toISOString() } };
+                                  setAnswer(huKey, next);
+                                  syncHuCellValues(next);
+                                  setAnswer(datePopKey, false);
+                                }
+                              }}
+                              className="p-3 pointer-events-auto" />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {selectedAccounts.length > 0 && (
+                <div className="flex justify-between items-center px-2 py-1.5 bg-zinc-800/50 rounded-md border border-zinc-700">
+                  <span className="text-xs font-medium text-zinc-400">Total Outstanding Debt</span>
+                  <span className="text-sm font-bold text-white">R {totalUnpaid.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</span>
                 </div>
               )}
             </div>
