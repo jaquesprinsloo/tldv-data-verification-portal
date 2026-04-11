@@ -2083,6 +2083,295 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    // Special rendering for THEFT AT WORK table
+    const isTheftAtWork = ttLower.includes("theft") && ttLower.includes("work");
+    if (isTheftAtWork) {
+      const theftKey = `theft_at_work_${table.id}`;
+      const theftData = answers[theftKey] || {
+        stolen: '',
+        stolenEmployers: {} as Record<string, { description: string; value: string }>,
+        witnessed: '',
+        witnessedEmployers: {} as Record<string, { reason: string; personType: string }>,
+        benefited: '',
+        helped: '',
+        helpedEmployers: {} as Record<string, { helpedWho: string }>,
+        approached: '',
+      };
+
+      const updateTheft = (updates: Partial<typeof theftData>) => {
+        setAnswer(theftKey, { ...theftData, ...updates });
+      };
+
+      // Get employer names from employment history tables
+      const getEmployerNames = (): string[] => {
+        const employers: string[] = [];
+        for (const t of tables) {
+          const tt = t.table_title.toLowerCase();
+          if (!tt.includes("employ") || tt.includes("status")) continue;
+          const empRowIdx = t.row_labels.findIndex(l => {
+            const ll = String(l).toLowerCase();
+            return (ll.includes("employer") && ll.includes("location")) || (ll.includes("employer") && !ll.includes("position"));
+          });
+          if (empRowIdx < 0) continue;
+          const tEntries = tableData[t.id] || [];
+          for (const entry of tEntries) {
+            const val = entry[empRowIdx]?.[0]?.trim();
+            if (val && !employers.includes(val)) employers.push(val);
+          }
+        }
+        return employers;
+      };
+
+      const employerNames = getEmployerNames();
+
+      // Helper for multi-employer select with checkbox popover
+      const EmployerMultiSelect = ({ selectedEmployers, onToggle, label }: { selectedEmployers: string[]; onToggle: (emp: string) => void; label: string }) => {
+        const dropKey = `${theftKey}_${label}_dropdown`;
+        const isOpen = !!answers[dropKey];
+        const summary = selectedEmployers.length > 0 ? selectedEmployers.join(", ") : "";
+        return (
+          <div className="space-y-1">
+            <Label className="text-[10px] text-zinc-500">Select employer(s)</Label>
+            <Popover open={isOpen} onOpenChange={(v) => setAnswer(dropKey, v)}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-9 w-full justify-between">
+                  <span className="truncate text-left">{summary || "Select employers..."}</span>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-50 ml-2 flex-shrink-0" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2 max-h-[250px] overflow-y-auto" align="start">
+                {employerNames.length === 0 && <p className="text-xs text-zinc-500 p-2">No employers found. Please complete Employment History first.</p>}
+                {employerNames.map((emp) => (
+                  <div key={emp} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-zinc-800 cursor-pointer" onClick={() => onToggle(emp)}>
+                    <Checkbox checked={selectedEmployers.includes(emp)} className="border-zinc-600 data-[state=checked]:bg-red-600 h-3.5 w-3.5 pointer-events-none" />
+                    <span className="text-xs text-zinc-300">{emp}</span>
+                  </div>
+                ))}
+              </PopoverContent>
+            </Popover>
+          </div>
+        );
+      };
+
+      const stolenEmployers: Record<string, { description: string; value: string }> = theftData.stolenEmployers || {};
+      const witnessedEmployers: Record<string, { reason: string; personType: string }> = theftData.witnessedEmployers || {};
+      const helpedEmployers: Record<string, { helpedWho: string }> = theftData.helpedEmployers || {};
+
+      return (
+        <div key={table.id} className="space-y-3">
+          <div className="border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="bg-zinc-900 border-b border-zinc-800 p-2 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-semibold text-zinc-300">{table.table_title}</span>
+                {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
+              </div>
+            </div>
+            <div className="p-3 space-y-4">
+
+              {/* 1. Stolen from work */}
+              <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
+                <Label className="text-xs font-semibold text-zinc-300">Stolen from work before</Label>
+                <Select value={theftData.stolen || ''} onValueChange={(v) => {
+                  const updates: any = { stolen: v };
+                  if (v.includes("never")) updates.stolenEmployers = {};
+                  updateTheft(updates);
+                }}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Has never stolen from work before">Has never stolen from work before</SelectItem>
+                    <SelectItem value="Has stolen from work before">Has stolen from work before</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {theftData.stolen === "Has stolen from work before" && (
+                  <>
+                    <EmployerMultiSelect
+                      selectedEmployers={Object.keys(stolenEmployers)}
+                      onToggle={(emp) => {
+                        const next = { ...stolenEmployers };
+                        if (next[emp]) delete next[emp]; else next[emp] = { description: '', value: '' };
+                        updateTheft({ stolenEmployers: next });
+                      }}
+                      label="stolen"
+                    />
+                    {Object.keys(stolenEmployers).map((emp) => {
+                      const entry = stolenEmployers[emp] || { description: '', value: '' };
+                      return (
+                        <div key={emp} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
+                          <span className="text-xs font-medium text-zinc-300">{emp}</span>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-zinc-500">What was taken</Label>
+                            <Textarea value={entry.description} onChange={(e) => {
+                              const next = { ...stolenEmployers, [emp]: { ...entry, description: e.target.value } };
+                              updateTheft({ stolenEmployers: next });
+                            }} className="bg-zinc-900 border-zinc-700 text-white text-xs min-h-[48px] resize-none" placeholder="Describe what was taken..." />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-zinc-500">Estimated Value (R)</Label>
+                            <div className="relative">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">R</span>
+                              <Input type="number" value={entry.value} onChange={(e) => {
+                                const next = { ...stolenEmployers, [emp]: { ...entry, value: e.target.value } };
+                                updateTheft({ stolenEmployers: next, benefited: "Has benefited from theft at work" });
+                              }} className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 pl-6" placeholder="0.00" step="0.01" />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+
+              {/* 2. Witnessed theft at work */}
+              <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
+                <Label className="text-xs font-semibold text-zinc-300">Witnessed theft at work</Label>
+                <Select value={theftData.witnessed || ''} onValueChange={(v) => {
+                  const updates: any = { witnessed: v };
+                  if (v.includes("never")) updates.witnessedEmployers = {};
+                  updateTheft(updates);
+                }}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Has never witnessed anyone stealing at work">Has never witnessed anyone stealing at work</SelectItem>
+                    <SelectItem value="Has witnessed someone stealing from work but did not report them">Has witnessed someone stealing from work but did not report them</SelectItem>
+                    <SelectItem value="Has witnessed someone stealing from work and reported them">Has witnessed someone stealing from work and reported them</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {(theftData.witnessed === "Has witnessed someone stealing from work but did not report them" || theftData.witnessed === "Has witnessed someone stealing from work and reported them") && (
+                  <>
+                    <EmployerMultiSelect
+                      selectedEmployers={Object.keys(witnessedEmployers)}
+                      onToggle={(emp) => {
+                        const next = { ...witnessedEmployers };
+                        if (next[emp]) delete next[emp]; else next[emp] = { reason: '', personType: '' };
+                        updateTheft({ witnessedEmployers: next });
+                      }}
+                      label="witnessed"
+                    />
+                    {Object.keys(witnessedEmployers).map((emp) => {
+                      const entry = witnessedEmployers[emp] || { reason: '', personType: '' };
+                      const didNotReport = theftData.witnessed?.includes("did not report");
+                      return (
+                        <div key={emp} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
+                          <span className="text-xs font-medium text-zinc-300">{emp}</span>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-zinc-500">Was it a staff member or a customer?</Label>
+                            <Select value={entry.personType} onValueChange={(v) => {
+                              const next = { ...witnessedEmployers, [emp]: { ...entry, personType: v } };
+                              updateTheft({ witnessedEmployers: next });
+                            }}>
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Staff member">Staff member</SelectItem>
+                                <SelectItem value="Customer">Customer</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {didNotReport && (
+                            <div className="space-y-1">
+                              <Label className="text-[10px] text-zinc-500">Why was it not reported?</Label>
+                              <Textarea value={entry.reason} onChange={(e) => {
+                                const next = { ...witnessedEmployers, [emp]: { ...entry, reason: e.target.value } };
+                                updateTheft({ witnessedEmployers: next });
+                              }} className="bg-zinc-900 border-zinc-700 text-white text-xs min-h-[48px] resize-none" placeholder="Reason it was not reported..." />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+
+              {/* 3. Benefited from theft at work */}
+              <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
+                <Label className="text-xs font-semibold text-zinc-300">Benefited from theft at work</Label>
+                <Select value={theftData.benefited || ''} onValueChange={(v) => updateTheft({ benefited: v })}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Has never benefited from any theft at work">Has never benefited from any theft at work</SelectItem>
+                    <SelectItem value="Has benefited from theft at work">Has benefited from theft at work</SelectItem>
+                  </SelectContent>
+                </Select>
+                {theftData.stolen === "Has stolen from work before" && theftData.benefited === "Has benefited from theft at work" && (
+                  <p className="text-[10px] text-amber-400 italic">Auto-populated: You indicated you have stolen from work, which means you benefited from theft.</p>
+                )}
+              </div>
+
+              {/* 4. Helped someone to steal from work */}
+              <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
+                <Label className="text-xs font-semibold text-zinc-300">Helped someone to steal from work</Label>
+                <Select value={theftData.helped || ''} onValueChange={(v) => {
+                  const updates: any = { helped: v };
+                  if (v.includes("never")) updates.helpedEmployers = {};
+                  updateTheft(updates);
+                }}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Has never helped anyone to steal from work">Has never helped anyone to steal from work</SelectItem>
+                    <SelectItem value="Has helped someone steal from work">Has helped someone steal from work</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {theftData.helped === "Has helped someone steal from work" && (
+                  <>
+                    <EmployerMultiSelect
+                      selectedEmployers={Object.keys(helpedEmployers)}
+                      onToggle={(emp) => {
+                        const next = { ...helpedEmployers };
+                        if (next[emp]) delete next[emp]; else next[emp] = { helpedWho: '' };
+                        updateTheft({ helpedEmployers: next });
+                      }}
+                      label="helped"
+                    />
+                    {Object.keys(helpedEmployers).map((emp) => {
+                      const entry = helpedEmployers[emp] || { helpedWho: '' };
+                      return (
+                        <div key={emp} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
+                          <span className="text-xs font-medium text-zinc-300">{emp}</span>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-zinc-500">Who did you help steal?</Label>
+                            <Select value={entry.helpedWho} onValueChange={(v) => {
+                              const next = { ...helpedEmployers, [emp]: { ...entry, helpedWho: v } };
+                              updateTheft({ helpedEmployers: next });
+                            }}>
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Customer">Customer</SelectItem>
+                                <SelectItem value="Colleague">Colleague</SelectItem>
+                                <SelectItem value="Friend">Friend</SelectItem>
+                                <SelectItem value="Family member">Family member</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+
+              {/* 5. Approached to steal from work */}
+              <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
+                <Label className="text-xs font-semibold text-zinc-300">Approached to steal from work</Label>
+                <Select value={theftData.approached || ''} onValueChange={(v) => updateTheft({ approached: v })}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Has never been approached to get involved with theft at work">Has never been approached to get involved with theft at work</SelectItem>
+                    <SelectItem value="Has been approached to steal at work but declined to get involved">Has been approached to steal at work but declined to get involved</SelectItem>
+                    <SelectItem value="Has been approached to get involved with stealing at work and accepted to get involved">Has been approached to get involved with stealing at work and accepted to get involved</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={table.id} className="space-y-3">
         {entries.map((entry, entryIdx) => (
