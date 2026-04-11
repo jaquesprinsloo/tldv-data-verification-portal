@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { extractStoragePath } from "@/lib/storageUtils";
 import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -125,6 +126,8 @@ const VideoUploadButton = ({
 }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleUpload = async (file: File) => {
     if (!file.type.startsWith("video/") && !file.type.startsWith("audio/")) {
@@ -155,6 +158,25 @@ const VideoUploadButton = ({
     }
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      if (currentUrl) {
+        const storagePath = extractStoragePath(currentUrl, "candex-videos");
+        if (storagePath) {
+          await supabase.storage.from("candex-videos").remove([storagePath]);
+        }
+      }
+      onRemoved();
+      toast.success("Media deleted");
+    } catch (e: any) {
+      toast.error(e.message || "Delete failed");
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-2">
       <input
@@ -168,16 +190,30 @@ const VideoUploadButton = ({
           e.target.value = "";
         }}
       />
-      {currentUrl ? (
+      {confirmDelete && (
+        <div className="flex items-center gap-1 bg-destructive/10 border border-destructive/30 rounded-md px-2 py-1">
+          <span className="text-[10px] text-destructive font-medium">Delete {label} media?</span>
+          <Button size="sm" variant="destructive" className="h-5 px-2 text-[10px]" onClick={handleDelete} disabled={deleting}>
+            {deleting ? "..." : "Yes"}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-5 px-2 text-[10px]" onClick={() => setConfirmDelete(false)}>
+            No
+          </Button>
+        </div>
+      )}
+      {currentUrl && !confirmDelete ? (
         <div className="flex items-center gap-1.5">
           <Badge variant="secondary" className="gap-1 text-xs">
             <Video className="h-3 w-3" /> {label} media
           </Badge>
-          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={onRemoved}>
+          <Button size="sm" variant="outline" className="h-6 px-1.5 gap-1 text-[10px]" onClick={() => fileRef.current?.click()} disabled={uploading}>
+            <Upload className="h-3 w-3" /> {uploading ? "..." : "Replace"}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setConfirmDelete(true)}>
             <X className="h-3 w-3 text-destructive" />
           </Button>
         </div>
-      ) : (
+      ) : !confirmDelete ? (
         <Button
           size="sm"
           variant="outline"
