@@ -2174,7 +2174,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Stolen from work before</Label>
                   <Select value={theftData.stolen || ''} onValueChange={(v) => {
                     const updates: any = { stolen: v };
-                    if (v.includes("never")) updates.stolenEmployers = {};
+                    if (v.includes("never")) {
+                      updates.stolenEmployers = {};
+                    } else if (v === "Has stolen from work before") {
+                      updates.benefited = "Has benefited from theft at work";
+                    }
                     updateTheft(updates);
                   }}>
                     <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
