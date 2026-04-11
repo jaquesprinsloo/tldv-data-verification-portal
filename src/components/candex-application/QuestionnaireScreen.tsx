@@ -385,38 +385,136 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
-    // Special handling: "employer" rows get split into two fields (name + location)
+    // Special handling: "employer" rows get split into two equal fields spanning full width
     if (rowLabel.includes("employer") && rowLabel.includes("location")) {
       const splitKey = `split_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
       const splitVal = answers[splitKey] || "";
       return (
-        <div className="grid grid-cols-2 gap-2">
-          <Input
-            value={value}
-            onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
-            className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
-            placeholder="Employer name"
-          />
-          <Input
-            value={splitVal}
-            onChange={(e) => setAnswer(splitKey, e.target.value)}
-            className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
-            placeholder="Location"
-          />
+        <div className="flex gap-2 w-full">
+          <div className="flex-1 min-w-0">
+            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Employer Name</Label>
+            <Input
+              value={value}
+              onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
+              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+              placeholder="Employer name"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Location</Label>
+            <Input
+              value={splitVal}
+              onChange={(e) => setAnswer(splitKey, e.target.value)}
+              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+              placeholder="Location"
+            />
+          </div>
         </div>
       );
     }
 
-    // Special handling: "job description" rows get a larger textarea
+    // Special handling: "estimated duration" → date range picker with auto-calculated duration
+    if (rowLabel.includes("estimated duration") || rowLabel.includes("duration")) {
+      const startKey = `duration_start_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const endKey = `duration_end_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const startDate = answers[startKey] ? new Date(answers[startKey]) : undefined;
+      const endDate = answers[endKey] ? new Date(answers[endKey]) : undefined;
+
+      let durationText = "";
+      if (startDate && endDate && endDate >= startDate) {
+        const totalMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
+        const years = Math.floor(totalMonths / 12);
+        const months = totalMonths % 12;
+        durationText = years > 0 ? `${years} yr${years !== 1 ? "s" : ""} ${months} mo${months !== 1 ? "s" : ""}` : `${months} mo${months !== 1 ? "s" : ""}`;
+        // Store computed value in the cell
+        if (value !== durationText) setCellValue(tableId, entryIdx, rowIdx, colIdx, durationText);
+      }
+
+      return (
+        <div className="flex items-center gap-2 w-full">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 flex-1 justify-start">
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {startDate ? format(startDate, "dd/MM/yyyy") : "Start date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={startDate}
+                onSelect={(d) => d && setAnswer(startKey, d.toISOString())}
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+          <span className="text-zinc-500 text-xs">to</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 flex-1 justify-start">
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {endDate ? format(endDate, "dd/MM/yyyy") : "End date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={endDate}
+                onSelect={(d) => d && setAnswer(endKey, d.toISOString())}
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+          {durationText && (
+            <span className="text-xs text-emerald-400 font-medium whitespace-nowrap">{durationText}</span>
+          )}
+        </div>
+      );
+    }
+
+    // Special handling: "job description" rows get a full-width textarea
     if (rowLabel.includes("job") && rowLabel.includes("description") || rowLabel.includes("job description")) {
       return (
         <Textarea
           value={value}
           onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
-          className="bg-zinc-900 border-zinc-700 text-white text-xs min-h-[72px] resize-none"
+          className="bg-zinc-900 border-zinc-700 text-white text-xs min-h-[72px] resize-none w-full"
           rows={3}
           placeholder="Describe your role and responsibilities..."
         />
+      );
+    }
+
+    // Special handling: "reason for leaving" → dropdown + details
+    if (rowLabel.includes("reason") && rowLabel.includes("leaving")) {
+      const detailReasonKey = `reason_details_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
+      const reasonDetails = answers[detailReasonKey] || "";
+      return (
+        <div className="flex gap-2 w-full">
+          <div className="w-[220px] flex-shrink-0">
+            <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
+              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
+                <SelectValue placeholder="Select reason" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Contract term completed">Contract term completed</SelectItem>
+                <SelectItem value="Resigned">Resigned</SelectItem>
+                <SelectItem value="Retrenched">Retrenched</SelectItem>
+                <SelectItem value="Dismissed">Dismissed</SelectItem>
+                <SelectItem value="Still employed">Still employed</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1 min-w-0">
+            <Input
+              value={reasonDetails}
+              onChange={(e) => setAnswer(detailReasonKey, e.target.value)}
+              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+              placeholder="Please provide details..."
+            />
+          </div>
+        </div>
       );
     }
 
