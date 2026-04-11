@@ -326,7 +326,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={startDate} onSelect={(d) => d && setAnswer(startKey, d.toISOString())} className="p-3 pointer-events-auto" />
+              <Calendar mode="single" selected={startDate} onSelect={(d) => d && setAnswer(startKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
             </PopoverContent>
           </Popover>
           <span className="text-zinc-500 text-xs">–</span>
@@ -338,7 +338,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={endDate} onSelect={(d) => d && setAnswer(endKey, d.toISOString())} className="p-3 pointer-events-auto" />
+              <Calendar mode="single" selected={endDate} onSelect={(d) => d && setAnswer(endKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
             </PopoverContent>
           </Popover>
           <div className="flex-1 min-w-[80px] bg-zinc-900 border border-zinc-700 rounded-md h-8 flex items-center justify-center">
@@ -580,6 +580,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               mode="single"
               selected={dateVal}
               onSelect={(d) => d && setCellValue(tableId, entryIdx, rowIdx, colIdx, d.toISOString())}
+              captionLayout="dropdown-buttons"
+              fromYear={1950}
+              toYear={new Date().getFullYear()}
+              className="p-3 pointer-events-auto"
             />
           </PopoverContent>
         </Popover>
@@ -970,6 +974,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                   syncMaCellValues(next);
                                 }
                               }}
+                              captionLayout="dropdown-buttons"
+                              fromYear={2000}
+                              toYear={new Date().getFullYear()}
                               className="p-3 pointer-events-auto"
                             />
                           </PopoverContent>
@@ -1096,6 +1103,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                   syncHuCellValues(next);
                                 }
                               }}
+                              captionLayout="dropdown-buttons"
+                              fromYear={2000}
+                              toYear={new Date().getFullYear()}
                               className="p-3 pointer-events-auto" />
                           </PopoverContent>
                         </Popover>
