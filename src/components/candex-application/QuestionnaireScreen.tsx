@@ -2455,26 +2455,47 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-3 space-y-4">
-              {fraudCategories.map((cat) => (
-                <div key={cat.key} className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                  <Label className="text-xs font-semibold text-amber-400">{cat.title}</Label>
-                  <div className="space-y-2">
-                    {cat.items.map((item) => {
+            <div className="p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-zinc-900 border-b border-zinc-800">
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fraudCategories.map((cat) => 
+                    cat.items.map((item, idx) => {
                       const itemKey = `${cat.key}_${item.key}`;
                       const val = fraudData[itemKey] || '';
                       const details = fraudData[`${itemKey}_details`] || '';
                       const isYes = val === 'Yes';
                       return (
-                        <div key={item.key} className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-zinc-300 flex-1">{item.label}</span>
+                        <tr key={itemKey} className="border-b border-zinc-800/50">
+                          {idx === 0 ? (
+                            <td className="p-2 text-xs font-semibold text-amber-400 align-top border-r border-zinc-800/50" rowSpan={cat.items.length}>
+                              {cat.title}
+                            </td>
+                          ) : null}
+                          <td className="p-2">
+                            <span className="text-xs text-zinc-300">{item.label}</span>
+                            {isYes && (
+                              <Input
+                                value={details}
+                                onChange={(e) => updateFraud({ [`${itemKey}_details`]: e.target.value })}
+                                className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 mt-1"
+                                placeholder="Provide details..."
+                              />
+                            )}
+                          </td>
+                          <td className="p-2">
                             <Select value={val} onValueChange={(v) => {
                               const updates: Record<string, any> = { [itemKey]: v };
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateFraud(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[100px]">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2482,21 +2503,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                 <SelectItem value="Yes">Yes</SelectItem>
                               </SelectContent>
                             </Select>
-                          </div>
-                          {isYes && (
-                            <Input
-                              value={details}
-                              onChange={(e) => updateFraud({ [`${itemKey}_details`]: e.target.value })}
-                              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
-                              placeholder="Please provide details..."
-                            />
-                          )}
-                        </div>
+                          </td>
+                        </tr>
                       );
-                    })}
-                  </div>
-                </div>
-              ))}
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
