@@ -352,16 +352,30 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
       return (
         <div className="flex items-center gap-1.5 w-full">
-          <div className="flex-[2] min-w-0">
-            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Start</Label>
-            <DateDropdowns value={startDate} onChange={(d) => setAnswer(startKey, d.toISOString())} />
-          </div>
-          <span className="text-zinc-500 text-xs mt-4">–</span>
-          <div className="flex-[2] min-w-0">
-            <Label className="text-[10px] text-zinc-500 mb-0.5 block">End</Label>
-            <DateDropdowns value={endDate} onChange={(d) => setAnswer(endKey, d.toISOString())} />
-          </div>
-          <div className="min-w-[60px] mt-4 bg-zinc-900 border border-zinc-700 rounded-md h-8 flex items-center justify-center">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[130px] justify-start flex-shrink-0">
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {startDate ? format(startDate, "dd/MM/yyyy") : "Start"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={startDate} onSelect={(d) => d && setAnswer(startKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+          <span className="text-zinc-500 text-xs">–</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[130px] justify-start flex-shrink-0">
+                <CalendarIcon className="mr-1 h-3 w-3" />
+                {endDate ? format(endDate, "dd/MM/yyyy") : "End"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={endDate} onSelect={(d) => d && setAnswer(endKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+          <div className="flex-1 min-w-[80px] bg-zinc-900 border border-zinc-700 rounded-md h-8 flex items-center justify-center">
             <span className="text-xs text-emerald-400 font-medium">{durationText || "—"}</span>
           </div>
         </div>
