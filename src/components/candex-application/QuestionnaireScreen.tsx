@@ -351,10 +351,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       }
 
       return (
-        <div className="flex items-center gap-1.5 w-full">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[130px] justify-start flex-shrink-0">
+              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full sm:w-[130px] justify-start flex-shrink-0">
                 <CalendarIcon className="mr-1 h-3 w-3" />
                 {startDate ? format(startDate, "dd/MM/yyyy") : "Start"}
               </Button>
@@ -363,10 +363,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <Calendar mode="single" selected={startDate} onSelect={(d) => d && setAnswer(startKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
             </PopoverContent>
           </Popover>
-          <span className="text-zinc-500 text-xs">–</span>
+          <span className="text-zinc-500 text-xs text-center hidden sm:block">–</span>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[130px] justify-start flex-shrink-0">
+              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full sm:w-[130px] justify-start flex-shrink-0">
                 <CalendarIcon className="mr-1 h-3 w-3" />
                 {endDate ? format(endDate, "dd/MM/yyyy") : "End"}
               </Button>
