@@ -574,32 +574,107 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         "Has been arrested / detained by law enforcement",
         "Has never been arrested or detained by law enforcement"
       ];
-      return (
-        <Select value={value || ""} onValueChange={(v) => {
-          setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
-          // Clear dependent rows when "never arrested" is selected
-          if (v.includes("never")) {
-            // Find and clear reason & date, charged, convicted, term served, court rows
-            table.row_labels.forEach((label, rIdx) => {
-              const rl = String(label).toLowerCase().trim();
-              if (rl.includes("reason") || rl.includes("charged") || rl.includes("convicted") || rl.includes("term") || rl.includes("court")) {
-                setCellValue(tableId, entryIdx, rIdx, 0, "");
-                // Clear associated answer keys
-                setAnswer(`arrest_reason_${tableId}_${entryIdx}_${rIdx}_0`, "");
-                setAnswer(`arrest_date_${tableId}_${entryIdx}_${rIdx}_0`, "");
-              }
-            });
+      const frequencyKey = `arrest_frequency_${tableId}_${entryIdx}`;
+      const incidentCountKey = `arrest_incident_count_${tableId}_${entryIdx}`;
+      const currentFrequency = answers[frequencyKey] || "";
+      const currentIncidentCount = parseInt(answers[incidentCountKey] || "1", 10);
+
+      const clearDependentRows = () => {
+        table.row_labels.forEach((label, rIdx) => {
+          const rl = String(label).toLowerCase().trim();
+          if (rl.includes("reason") || rl.includes("charged") || rl.includes("convicted") || rl.includes("term") || rl.includes("court")) {
+            setCellValue(tableId, entryIdx, rIdx, 0, "");
+            setAnswer(`arrest_reason_${tableId}_${entryIdx}_${rIdx}_0`, "");
+            setAnswer(`arrest_date_${tableId}_${entryIdx}_${rIdx}_0`, "");
           }
-        }}>
-          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full">
-            <SelectValue placeholder="Select" />
-          </SelectTrigger>
-          <SelectContent>
-            {arrestedOptions.map((opt) => (
-              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        });
+        // Clear multi-incident data
+        for (let i = 0; i < 10; i++) {
+          setAnswer(`arrest_reason_incident_${tableId}_${entryIdx}_${i}`, "");
+          setAnswer(`arrest_date_incident_${tableId}_${entryIdx}_${i}`, "");
+        }
+        setAnswer(frequencyKey, "");
+        setAnswer(incidentCountKey, "");
+      };
+
+      return (
+        <div className="flex flex-col gap-2 w-full">
+          <Select value={value || ""} onValueChange={(v) => {
+            setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
+            if (v.includes("never")) {
+              clearDependentRows();
+            } else {
+              // Default to single
+              if (!answers[frequencyKey]) {
+                setAnswer(frequencyKey, "single");
+                setAnswer(incidentCountKey, "1");
+              }
+            }
+          }}>
+            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full">
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              {arrestedOptions.map((opt) => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {value && value.includes("Has been") && (
+            <div className="flex gap-2 items-end">
+              <div>
+                <Label className="text-[10px] text-zinc-500 mb-0.5 block">Frequency</Label>
+                <Select value={currentFrequency || "single"} onValueChange={(v) => {
+                  setAnswer(frequencyKey, v);
+                  if (v === "single") {
+                    setAnswer(incidentCountKey, "1");
+                    // Clear extra incident data
+                    for (let i = 1; i < 10; i++) {
+                      setAnswer(`arrest_reason_incident_${tableId}_${entryIdx}_${i}`, "");
+                      setAnswer(`arrest_date_incident_${tableId}_${entryIdx}_${i}`, "");
+                    }
+                  } else {
+                    if (!answers[incidentCountKey] || answers[incidentCountKey] === "1") {
+                      setAnswer(incidentCountKey, "2");
+                    }
+                  }
+                }}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">Single incident</SelectItem>
+                    <SelectItem value="multiple">Multiple incidents</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {(currentFrequency === "multiple") && (
+                <div>
+                  <Label className="text-[10px] text-zinc-500 mb-0.5 block">Number of incidents</Label>
+                  <Select value={String(currentIncidentCount)} onValueChange={(v) => {
+                    setAnswer(incidentCountKey, v);
+                    // Clear data beyond new count
+                    const newCount = parseInt(v, 10);
+                    for (let i = newCount; i < 10; i++) {
+                      setAnswer(`arrest_reason_incident_${tableId}_${entryIdx}_${i}`, "");
+                      setAnswer(`arrest_date_incident_${tableId}_${entryIdx}_${i}`, "");
+                    }
+                  }}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-[80px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       );
     }
 
@@ -621,36 +696,58 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       const arrestedStatus = getArrestedStatus();
       if (arrestedStatus === "never") return null;
 
-      const reasonKey = `arrest_reason_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
-      const dateKey = `arrest_date_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
-      const reasonVal = answers[reasonKey] || "";
-      const dateVal = answers[dateKey] ? new Date(answers[dateKey]) : undefined;
+      const frequencyKey = `arrest_frequency_${tableId}_${entryIdx}`;
+      const incidentCountKey = `arrest_incident_count_${tableId}_${entryIdx}`;
+      const frequency = answers[frequencyKey] || "single";
+      const incidentCount = frequency === "multiple" ? parseInt(answers[incidentCountKey] || "2", 10) : 1;
+
+      const renderIncidentLine = (idx: number) => {
+        const reasonKey = idx === 0 
+          ? `arrest_reason_${tableId}_${entryIdx}_${rowIdx}_${colIdx}` 
+          : `arrest_reason_incident_${tableId}_${entryIdx}_${idx}`;
+        const dateKey = idx === 0 
+          ? `arrest_date_${tableId}_${entryIdx}_${rowIdx}_${colIdx}` 
+          : `arrest_date_incident_${tableId}_${entryIdx}_${idx}`;
+        const reasonVal = answers[reasonKey] || "";
+        const dateVal = answers[dateKey] ? new Date(answers[dateKey]) : undefined;
+
+        return (
+          <div key={idx} className="flex gap-2 w-full items-end">
+            {incidentCount > 1 && (
+              <span className="text-[10px] text-zinc-500 mb-2 flex-shrink-0 w-4">{idx + 1}.</span>
+            )}
+            <div className="flex-shrink-0">
+              {idx === 0 && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Date</Label>}
+              <DateDropdowns
+                value={dateVal}
+                onChange={(d) => {
+                  setAnswer(dateKey, d.toISOString());
+                  const combined = `${format(d, "dd/MM/yyyy")} - ${reasonVal}`;
+                  if (idx === 0) setCellValue(tableId, entryIdx, rowIdx, colIdx, combined);
+                }}
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              {idx === 0 && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>}
+              <Input
+                value={reasonVal}
+                onChange={(e) => {
+                  setAnswer(reasonKey, e.target.value);
+                  const dateStr = dateVal ? format(dateVal, "dd/MM/yyyy") : "";
+                  const combined = `${dateStr} - ${e.target.value}`;
+                  if (idx === 0) setCellValue(tableId, entryIdx, rowIdx, colIdx, combined);
+                }}
+                className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+                placeholder="Reason for arrest/detention..."
+              />
+            </div>
+          </div>
+        );
+      };
 
       return (
-        <div className="flex gap-2 w-full">
-          <div className="flex-shrink-0">
-            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Date</Label>
-            <DateDropdowns
-              value={dateVal}
-              onChange={(d) => {
-                setAnswer(dateKey, d.toISOString());
-                setCellValue(tableId, entryIdx, rowIdx, colIdx, `${format(d, "dd/MM/yyyy")} - ${reasonVal}`);
-              }}
-            />
-          </div>
-          <div className="flex-1 min-w-0">
-            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>
-            <Input
-              value={reasonVal}
-              onChange={(e) => {
-                setAnswer(reasonKey, e.target.value);
-                const dateStr = dateVal ? format(dateVal, "dd/MM/yyyy") : "";
-                setCellValue(tableId, entryIdx, rowIdx, colIdx, `${dateStr} - ${e.target.value}`);
-              }}
-              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
-              placeholder="Reason for arrest/detention..."
-            />
-          </div>
+        <div className="flex flex-col gap-2 w-full">
+          {Array.from({ length: incidentCount }, (_, i) => renderIncidentLine(i))}
         </div>
       );
     }
