@@ -2225,19 +2225,21 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 2. Witnessed theft at work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <Label className="text-xs font-semibold text-zinc-300">Witnessed theft at work</Label>
-                <Select value={theftData.witnessed || ''} onValueChange={(v) => {
-                  const updates: any = { witnessed: v };
-                  if (v.includes("never")) updates.witnessedEmployers = {};
-                  updateTheft(updates);
-                }}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Has never witnessed anyone stealing at work">Has never witnessed anyone stealing at work</SelectItem>
-                    <SelectItem value="Has witnessed someone stealing from work but did not report them">Has witnessed someone stealing from work but did not report them</SelectItem>
-                    <SelectItem value="Has witnessed someone stealing from work and reported them">Has witnessed someone stealing from work and reported them</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Witnessed theft at work</Label>
+                  <Select value={theftData.witnessed || ''} onValueChange={(v) => {
+                    const updates: any = { witnessed: v };
+                    if (v.includes("never")) updates.witnessedEmployers = {};
+                    updateTheft(updates);
+                  }}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Has never witnessed anyone stealing at work">Has never witnessed anyone stealing at work</SelectItem>
+                      <SelectItem value="Has witnessed someone stealing from work but did not report them">Has witnessed someone stealing from work but did not report them</SelectItem>
+                      <SelectItem value="Has witnessed someone stealing from work and reported them">Has witnessed someone stealing from work and reported them</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {(theftData.witnessed === "Has witnessed someone stealing from work but did not report them" || theftData.witnessed === "Has witnessed someone stealing from work and reported them") && (
                   <>
@@ -2254,15 +2256,14 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       const entry = witnessedEmployers[emp] || { reason: '', personType: '' };
                       const didNotReport = theftData.witnessed?.includes("did not report");
                       return (
-                        <div key={emp} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
-                          <span className="text-xs font-medium text-zinc-300">{emp}</span>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-zinc-500">Was it a staff member or a customer?</Label>
+                        <div key={emp} className="flex items-start gap-2 border border-zinc-800 rounded-md p-2 bg-zinc-900/50">
+                          <span className="text-xs font-medium text-zinc-300 whitespace-nowrap pt-1.5 min-w-[80px]">{emp}</span>
+                          <div className="w-[140px]">
                             <Select value={entry.personType} onValueChange={(v) => {
                               const next = { ...witnessedEmployers, [emp]: { ...entry, personType: v } };
                               updateTheft({ witnessedEmployers: next });
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Staff/Customer" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Staff member">Staff member</SelectItem>
                                 <SelectItem value="Customer">Customer</SelectItem>
@@ -2270,12 +2271,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                             </Select>
                           </div>
                           {didNotReport && (
-                            <div className="space-y-1">
-                              <Label className="text-[10px] text-zinc-500">Why was it not reported?</Label>
-                              <Textarea value={entry.reason} onChange={(e) => {
+                            <div className="flex-1">
+                              <Input value={entry.reason} onChange={(e) => {
                                 const next = { ...witnessedEmployers, [emp]: { ...entry, reason: e.target.value } };
                                 updateTheft({ witnessedEmployers: next });
-                              }} className="bg-zinc-900 border-zinc-700 text-white text-xs min-h-[48px] resize-none" placeholder="Reason it was not reported..." />
+                              }} className="bg-zinc-900 border-zinc-700 text-white text-xs h-8" placeholder="Why was it not reported..." />
                             </div>
                           )}
                         </div>
@@ -2287,14 +2287,16 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 3. Benefited from theft at work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <Label className="text-xs font-semibold text-zinc-300">Benefited from theft at work</Label>
-                <Select value={theftData.benefited || ''} onValueChange={(v) => updateTheft({ benefited: v })}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Has never benefited from any theft at work">Has never benefited from any theft at work</SelectItem>
-                    <SelectItem value="Has benefited from theft at work">Has benefited from theft at work</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Benefited from theft at work</Label>
+                  <Select value={theftData.benefited || ''} onValueChange={(v) => updateTheft({ benefited: v })}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Has never benefited from any theft at work">Has never benefited from any theft at work</SelectItem>
+                      <SelectItem value="Has benefited from theft at work">Has benefited from theft at work</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 {theftData.stolen === "Has stolen from work before" && theftData.benefited === "Has benefited from theft at work" && (
                   <p className="text-[10px] text-amber-400 italic">Auto-populated: You indicated you have stolen from work, which means you benefited from theft.</p>
                 )}
@@ -2302,18 +2304,20 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 4. Helped someone to steal from work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <Label className="text-xs font-semibold text-zinc-300">Helped someone to steal from work</Label>
-                <Select value={theftData.helped || ''} onValueChange={(v) => {
-                  const updates: any = { helped: v };
-                  if (v.includes("never")) updates.helpedEmployers = {};
-                  updateTheft(updates);
-                }}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Has never helped anyone to steal from work">Has never helped anyone to steal from work</SelectItem>
-                    <SelectItem value="Has helped someone steal from work">Has helped someone steal from work</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Helped someone to steal from work</Label>
+                  <Select value={theftData.helped || ''} onValueChange={(v) => {
+                    const updates: any = { helped: v };
+                    if (v.includes("never")) updates.helpedEmployers = {};
+                    updateTheft(updates);
+                  }}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Has never helped anyone to steal from work">Has never helped anyone to steal from work</SelectItem>
+                      <SelectItem value="Has helped someone steal from work">Has helped someone steal from work</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {theftData.helped === "Has helped someone steal from work" && (
                   <>
@@ -2329,15 +2333,14 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     {Object.keys(helpedEmployers).map((emp) => {
                       const entry = helpedEmployers[emp] || { helpedWho: '' };
                       return (
-                        <div key={emp} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
-                          <span className="text-xs font-medium text-zinc-300">{emp}</span>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-zinc-500">Who did you help steal?</Label>
+                        <div key={emp} className="flex items-start gap-2 border border-zinc-800 rounded-md p-2 bg-zinc-900/50">
+                          <span className="text-xs font-medium text-zinc-300 whitespace-nowrap pt-1.5 min-w-[80px]">{emp}</span>
+                          <div className="w-[180px]">
                             <Select value={entry.helpedWho} onValueChange={(v) => {
                               const next = { ...helpedEmployers, [emp]: { ...entry, helpedWho: v } };
                               updateTheft({ helpedEmployers: next });
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Who did you help?" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Customer">Customer</SelectItem>
                                 <SelectItem value="Colleague">Colleague</SelectItem>
@@ -2355,15 +2358,17 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 5. Approached to steal from work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <Label className="text-xs font-semibold text-zinc-300">Approached to steal from work</Label>
-                <Select value={theftData.approached || ''} onValueChange={(v) => updateTheft({ approached: v })}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Has never been approached to get involved with theft at work">Has never been approached to get involved with theft at work</SelectItem>
-                    <SelectItem value="Has been approached to steal at work but declined to get involved">Has been approached to steal at work but declined to get involved</SelectItem>
-                    <SelectItem value="Has been approached to get involved with stealing at work and accepted to get involved">Has been approached to get involved with stealing at work and accepted to get involved</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Approached to steal from work</Label>
+                  <Select value={theftData.approached || ''} onValueChange={(v) => updateTheft({ approached: v })}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Has never been approached to get involved with theft at work">Has never been approached to get involved with theft at work</SelectItem>
+                      <SelectItem value="Has been approached to steal at work but declined to get involved">Has been approached to steal at work but declined to get involved</SelectItem>
+                      <SelectItem value="Has been approached to get involved with stealing at work and accepted to get involved">Has been approached to get involved with stealing at work and accepted to get involved</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
             </div>
