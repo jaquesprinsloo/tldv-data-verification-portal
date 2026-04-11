@@ -3357,20 +3357,22 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           <VideoPlayButton videoUrl={rowMediaUrl} label={rowKey} />
                         ) : <span className="inline-block w-[70px]" />}
                       </div>
-                      <label htmlFor={`disc_row_${table.id}_${rowIdx}`} className="text-xs text-zinc-300 cursor-pointer ml-1">
-                        {rowKey}
-                      </label>
-                      <Checkbox
-                        id={`disc_row_${table.id}_${rowIdx}`}
-                        checked={isSelected}
-                        onCheckedChange={(checked) => {
-                          const next = checked
-                            ? [...selectedDisciplinaryRows, rowKey]
-                            : selectedDisciplinaryRows.filter((r) => r !== rowKey);
-                          setAnswer(disciplinaryRowSelectKey, next);
-                        }}
-                        className="border-zinc-600 data-[state=checked]:bg-red-600 flex-shrink-0 ml-1"
-                      />
+                      <div className="flex items-center gap-2 ml-1" style={{ minWidth: '180px' }}>
+                        <label htmlFor={`disc_row_${table.id}_${rowIdx}`} className="text-xs text-zinc-300 cursor-pointer w-[150px]">
+                          {rowKey}
+                        </label>
+                        <Checkbox
+                          id={`disc_row_${table.id}_${rowIdx}`}
+                          checked={isSelected}
+                          onCheckedChange={(checked) => {
+                            const next = checked
+                              ? [...selectedDisciplinaryRows, rowKey]
+                              : selectedDisciplinaryRows.filter((r) => r !== rowKey);
+                            setAnswer(disciplinaryRowSelectKey, next);
+                          }}
+                          className="border-zinc-600 data-[state=checked]:bg-red-600 flex-shrink-0"
+                        />
+                      </div>
                     </div>
                   );
                 })}
