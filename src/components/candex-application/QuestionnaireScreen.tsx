@@ -780,16 +780,31 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         "Paid a bribe to not get charged"
       ];
 
+      // Find the reason row index to look up each incident's selected reason
+      const reasonRowIdx = table.row_labels.findIndex((l) => {
+        const ll = String(l).toLowerCase().trim();
+        return ll.includes("reason") && ll.includes("date") && !ll.includes("leaving");
+      });
+
       const renderChargedLine = (idx: number) => {
         const chargedKey = idx === 0
           ? `charged_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`
           : `charged_incident_${tableId}_${entryIdx}_${idx}`;
         const chargedVal = idx === 0 ? (value || "") : (answers[chargedKey] || "");
 
+        // Get the reason selected for this incident
+        const reasonKey = idx === 0
+          ? `arrest_reason_${tableId}_${entryIdx}_${reasonRowIdx >= 0 ? reasonRowIdx : rowIdx}_0`
+          : `arrest_reason_incident_${tableId}_${entryIdx}_${idx}`;
+        const incidentReason = answers[reasonKey] || "";
+
         return (
           <div key={idx} className="flex gap-2 w-full items-center">
             {incidentCount > 1 && (
               <span className="text-[10px] text-zinc-500 flex-shrink-0 w-4">{idx + 1}.</span>
+            )}
+            {incidentCount > 1 && incidentReason && (
+              <span className="text-[10px] text-zinc-400 flex-shrink-0 font-medium">{incidentReason}:</span>
             )}
             <Select value={chargedVal} onValueChange={(v) => {
               if (idx === 0) {
