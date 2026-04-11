@@ -508,75 +508,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
-    // "bank service provider" → multi-bank with multi-account-type per bank
-    if (rowLabel.includes("bank") && rowLabel.includes("service provider") || rowLabel.includes("bank") && rowLabel.includes("provider")) {
-      const bankKey = `bank_selections_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
-      const bankSelections: Record<string, string[]> = answers[bankKey] || {};
-      const bankOptions = (rowConfig.options && rowConfig.options.length > 0)
-        ? rowConfig.options
-        : ["ABSA", "FNB", "Standard Bank", "Nedbank", "Capitec", "African Bank", "TymeBank", "Discovery Bank", "Investec", "Old Mutual", "Other"];
-      const accountTypes = ["Cheque", "Savings", "Current", "Credit", "Business", "Fixed Saving", "Investment"];
-
-      // Sync back to cell value as a readable string
-      const syncValue = (selections: Record<string, string[]>) => {
-        const parts = Object.entries(selections)
-          .filter(([_, types]) => types.length > 0)
-          .map(([bank, types]) => `${bank}: ${types.join(", ")}`);
-        setCellValue(tableId, entryIdx, rowIdx, colIdx, parts.join(" | "));
-      };
-
-      return (
-        <div className="space-y-2 w-full">
-          {bankOptions.map((bank) => {
-            const isSelected = !!bankSelections[bank];
-            const selectedTypes = bankSelections[bank] || [];
-            return (
-              <div key={bank} className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={(checked) => {
-                      const next = { ...bankSelections };
-                      if (checked) {
-                        next[bank] = [];
-                      } else {
-                        delete next[bank];
-                      }
-                      setAnswer(bankKey, next);
-                      syncValue(next);
-                    }}
-                    className="border-zinc-600 data-[state=checked]:bg-red-600 h-3.5 w-3.5"
-                  />
-                  <span className="text-xs text-zinc-300 font-medium">{bank}</span>
-                </div>
-                {isSelected && (
-                  <div className="ml-6 flex flex-wrap gap-x-4 gap-y-1">
-                    {accountTypes.map((accType) => (
-                      <div key={accType} className="flex items-center gap-1.5">
-                        <Checkbox
-                          checked={selectedTypes.includes(accType)}
-                          onCheckedChange={(checked) => {
-                            const nextTypes = checked
-                              ? [...selectedTypes, accType]
-                              : selectedTypes.filter((t) => t !== accType);
-                            const next = { ...bankSelections, [bank]: nextTypes };
-                            setAnswer(bankKey, next);
-                            syncValue(next);
-                          }}
-                          className="border-zinc-600 data-[state=checked]:bg-red-600 h-3 w-3"
-                        />
-                        <span className="text-[11px] text-zinc-400">{accType}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-
     // === GENERIC INPUT TYPE HANDLERS ===
 
     if (inputType === "yes_no") {
@@ -753,6 +684,91 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     });
 
     const isDisciplinaryTable = table.table_title.toLowerCase().includes("disciplinary");
+    const isBankServiceProvider = table.table_title.toLowerCase().includes("bank") && table.table_title.toLowerCase().includes("service provider");
+
+    // Special rendering for BANK SERVICE PROVIDER table
+    if (isBankServiceProvider) {
+      const bankKey = `bank_selections_${table.id}`;
+      const bankSelections: Record<string, string[]> = answers[bankKey] || {};
+      
+      // Get bank options from row_input_types or use defaults
+      const bankRowConfig = getRowInputConfig(table, 0);
+      const bankOptions = (bankRowConfig.options && bankRowConfig.options.length > 0)
+        ? bankRowConfig.options.map(o => o.replace(/\.\s*$/, '').trim())
+        : ["ABSA Bank", "First National Bank", "Standard Bank", "Capitec Bank", "Discovery Bank", "TymeBank", "African Bank", "Nedbank", "Investec", "Old Mutual"];
+      const accountTypes = ["Cheque", "Savings", "Current", "Credit", "Business", "Fixed Saving", "Investment"];
+
+      const syncCellValues = (selections: Record<string, string[]>) => {
+        const parts = Object.entries(selections)
+          .filter(([_, types]) => types.length > 0)
+          .map(([bank, types]) => `${bank}: ${types.join(", ")}`);
+        setCellValue(table.id, 0, 0, 0, parts.map(p => p.split(":")[0]).join(", "));
+        if (table.row_labels.length > 1) {
+          setCellValue(table.id, 0, 1, 0, parts.map(p => p.split(": ")[1]).join(" | "));
+        }
+      };
+
+      return (
+        <div key={table.id} className="space-y-3">
+          <div className="border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="bg-zinc-900 border-b border-zinc-800 p-2 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-semibold text-zinc-300">{table.table_title}</span>
+                {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
+              </div>
+            </div>
+            <div className="p-3 space-y-2">
+              {bankOptions.map((bank) => {
+                const isSelected = !!bankSelections[bank];
+                const selectedTypes = bankSelections[bank] || [];
+                return (
+                  <div key={bank} className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => {
+                          const next = { ...bankSelections };
+                          if (checked) {
+                            next[bank] = [];
+                          } else {
+                            delete next[bank];
+                          }
+                          setAnswer(bankKey, next);
+                          syncCellValues(next);
+                        }}
+                        className="border-zinc-600 data-[state=checked]:bg-red-600 h-3.5 w-3.5"
+                      />
+                      <span className="text-xs text-zinc-300 font-medium">{bank}</span>
+                    </div>
+                    {isSelected && (
+                      <div className="ml-6 flex flex-wrap gap-x-4 gap-y-1.5">
+                        {accountTypes.map((accType) => (
+                          <div key={accType} className="flex items-center gap-1.5">
+                            <Checkbox
+                              checked={selectedTypes.includes(accType)}
+                              onCheckedChange={(checked) => {
+                                const nextTypes = checked
+                                  ? [...selectedTypes, accType]
+                                  : selectedTypes.filter((t) => t !== accType);
+                                const next = { ...bankSelections, [bank]: nextTypes };
+                                setAnswer(bankKey, next);
+                                syncCellValues(next);
+                              }}
+                              className="border-zinc-600 data-[state=checked]:bg-red-600 h-3 w-3"
+                            />
+                            <span className="text-[11px] text-zinc-400">{accType}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div key={table.id} className="space-y-3">
