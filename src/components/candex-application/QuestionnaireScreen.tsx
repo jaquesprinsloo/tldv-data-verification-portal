@@ -491,7 +491,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       const reasonDetails = answers[detailReasonKey] || "";
       return (
         <div className="flex gap-2 w-full">
-          <div className="w-[220px] flex-shrink-0">
+          <div className="w-[190px] flex-shrink-0">
             <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
               <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
                 <SelectValue placeholder="Select reason" />
