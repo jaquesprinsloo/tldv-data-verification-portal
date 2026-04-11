@@ -3289,6 +3289,24 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     const neverWorkedKey = `never_worked_${table.id}`;
     const hasNeverWorked = answers[neverWorkedKey] === "yes";
 
+    // Check if "never worked" is checked on ANY employment table in the same section
+    const sectionEmploymentTables = tables.filter((t) => {
+      const tl = t.table_title.toLowerCase();
+      return t.section_id === table.section_id && tl.includes("employment") && (tl.includes("history") || tl.includes("record"));
+    });
+    const anyNeverWorked = sectionEmploymentTables.some((t) => answers[`never_worked_${t.id}`] === "yes");
+
+    // Detect Disciplinary table — hide entirely if "never worked" is checked
+    if (isDisciplinaryTable && anyNeverWorked) {
+      return null;
+    }
+
+    // Disciplinary: "no disciplinary actions" checkbox and row selection
+    const noDisciplinaryKey = `no_disciplinary_${table.id}`;
+    const hasNoDisciplinary = answers[noDisciplinaryKey] === "yes";
+    const disciplinaryRowSelectKey = `disciplinary_rows_${table.id}`;
+    const selectedDisciplinaryRows: string[] = isDisciplinaryTable ? (answers[disciplinaryRowSelectKey] || []) : [];
+
     // Check if first entry has any data filled in (for the "add another" hint)
     const firstEntryHasData = entries.length > 0 && entries[0]?.some((row) => row.some((cell) => cell.trim() !== ""));
 
@@ -3308,7 +3326,54 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           </div>
         )}
 
-        {!(isEmploymentHistory && hasNeverWorked) && (
+        {isDisciplinaryTable && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg">
+              <Checkbox
+                id={noDisciplinaryKey}
+                checked={hasNoDisciplinary}
+                onCheckedChange={(checked) => {
+                  setAnswer(noDisciplinaryKey, checked ? "yes" : "no");
+                  if (checked) setAnswer(disciplinaryRowSelectKey, []);
+                }}
+                className="border-zinc-600 data-[state=checked]:bg-red-600"
+              />
+              <label htmlFor={noDisciplinaryKey} className="text-xs text-zinc-300 cursor-pointer">
+                I have never had any disciplinary actions taken against me at a place of employment
+              </label>
+            </div>
+
+            {!hasNoDisciplinary && (
+              <div className="p-3 bg-zinc-900/30 border border-zinc-800 rounded-lg space-y-2">
+                <p className="text-xs text-zinc-400 font-medium">Select the disciplinary actions that apply to you:</p>
+                {table.row_labels.map((label, rowIdx) => {
+                  const rowKey = String(label);
+                  const isSelected = selectedDisciplinaryRows.includes(rowKey);
+                  return (
+                    <div key={rowIdx} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`disc_row_${table.id}_${rowIdx}`}
+                        checked={isSelected}
+                        onCheckedChange={(checked) => {
+                          const next = checked
+                            ? [...selectedDisciplinaryRows, rowKey]
+                            : selectedDisciplinaryRows.filter((r) => r !== rowKey);
+                          setAnswer(disciplinaryRowSelectKey, next);
+                        }}
+                        className="border-zinc-600 data-[state=checked]:bg-red-600"
+                      />
+                      <label htmlFor={`disc_row_${table.id}_${rowIdx}`} className="text-xs text-zinc-300 cursor-pointer">
+                        {rowKey}
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!(isEmploymentHistory && hasNeverWorked) && !(isDisciplinaryTable && hasNoDisciplinary) && !(isDisciplinaryTable && selectedDisciplinaryRows.length === 0) && (
           <>
             {entries.map((entry, entryIdx) => (
               <div key={entryIdx} className="border border-zinc-800 rounded-lg overflow-hidden">
@@ -3341,6 +3406,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     </thead>
                     <tbody>
                       {table.row_labels.map((label, rowIdx) => {
+                        // For disciplinary tables, only show selected rows
+                        if (isDisciplinaryTable && selectedDisciplinaryRows.length > 0 && !selectedDisciplinaryRows.includes(String(label))) {
+                          return null;
+                        }
                         const rowConfig = getRowInputConfig(table, rowIdx);
                         const needsDetails = rowConfig.require_explanation === true;
                         const inputType = rowConfig.type;
@@ -3604,6 +3673,38 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         // Validate all entries have all fields filled
         for (let eIdx = 0; eIdx < entries.length; eIdx++) {
           for (let rIdx = 0; rIdx < table.row_labels.length; rIdx++) {
+            const cellVal = entries[eIdx]?.[rIdx]?.[0] || "";
+            if (!cellVal.trim()) {
+              toast.error(`Please fill in "${table.row_labels[rIdx]}" in ${table.table_title}${entries.length > 1 ? ` (Entry ${eIdx + 1})` : ""}`);
+              return false;
+            }
+          }
+        }
+        continue;
+      }
+
+      // Disciplinary: skip if "never worked" on employment table in same section, or "no disciplinary" checked
+      const isDisciplinaryVal = ttLower.includes("disciplinary");
+      if (isDisciplinaryVal) {
+        const sectionEmpTables = tables.filter((t) => {
+          const tl = t.table_title.toLowerCase();
+          return t.section_id === table.section_id && tl.includes("employment") && (tl.includes("history") || tl.includes("record"));
+        });
+        const anyNeverWorkedVal = sectionEmpTables.some((t) => answers[`never_worked_${t.id}`] === "yes");
+        if (anyNeverWorkedVal) continue;
+
+        const noDisciplinaryKey = `no_disciplinary_${table.id}`;
+        if (answers[noDisciplinaryKey] === "yes") continue;
+
+        // Validate only selected rows
+        const selectedRows: string[] = answers[`disciplinary_rows_${table.id}`] || [];
+        if (selectedRows.length === 0) {
+          toast.error("Please select the disciplinary actions that apply to you, or indicate you have never had any.");
+          return false;
+        }
+        for (let eIdx = 0; eIdx < entries.length; eIdx++) {
+          for (let rIdx = 0; rIdx < table.row_labels.length; rIdx++) {
+            if (!selectedRows.includes(String(table.row_labels[rIdx]))) continue;
             const cellVal = entries[eIdx]?.[rIdx]?.[0] || "";
             if (!cellVal.trim()) {
               toast.error(`Please fill in "${table.row_labels[rIdx]}" in ${table.table_title}${entries.length > 1 ? ` (Entry ${eIdx + 1})` : ""}`);
