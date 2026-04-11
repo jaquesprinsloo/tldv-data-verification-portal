@@ -2182,7 +2182,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     }
                     updateTheft(updates);
                   }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never stolen from work before">Has never stolen from work before</SelectItem>
                       <SelectItem value="Has stolen from work before">Has stolen from work before</SelectItem>
@@ -2237,7 +2237,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     if (v.includes("never")) updates.witnessedEmployers = {};
                     updateTheft(updates);
                   }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never witnessed anyone stealing at work">Has never witnessed anyone stealing at work</SelectItem>
                       <SelectItem value="Has witnessed someone stealing from work but did not report them">Has witnessed someone stealing from work but did not report them</SelectItem>
@@ -2295,7 +2295,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <div className="flex items-center gap-2">
                   <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Benefited from theft at work</Label>
                   <Select value={theftData.benefited || ''} onValueChange={(v) => updateTheft({ benefited: v })}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never benefited from any theft at work">Has never benefited from any theft at work</SelectItem>
                       <SelectItem value="Has benefited from theft at work">Has benefited from theft at work</SelectItem>
@@ -2316,7 +2316,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     if (v.includes("never")) updates.helpedEmployers = {};
                     updateTheft(updates);
                   }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never helped anyone to steal from work">Has never helped anyone to steal from work</SelectItem>
                       <SelectItem value="Has helped someone steal from work">Has helped someone steal from work</SelectItem>
@@ -2366,7 +2366,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <div className="flex items-center gap-2">
                   <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Approached to steal from work</Label>
                   <Select value={theftData.approached || ''} onValueChange={(v) => updateTheft({ approached: v })}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never been approached to get involved with theft at work">Has never been approached to get involved with theft at work</SelectItem>
                       <SelectItem value="Has been approached to steal at work but declined to get involved">Has been approached to steal at work but declined to get involved</SelectItem>
@@ -3246,7 +3246,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                         <tbody>
                           {table.row_labels.map((label, rowIdx) => (
                             <tr key={rowIdx} className="border-b border-zinc-800/50">
-                              <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap w-[180px]">
+                              <td className="p-2 text-xs text-zinc-400 font-medium w-[100px] sm:w-[180px]">
                                 <div className="flex items-center gap-1.5">
                                   {table.row_video_urls?.[rowIdx] && (
                                     <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
