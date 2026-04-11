@@ -3277,180 +3277,213 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    // Detect Employment History table
+    const isEmploymentHistory = ttLower.includes("employment") && (ttLower.includes("history") || ttLower.includes("record"));
+    const neverWorkedKey = `never_worked_${table.id}`;
+    const hasNeverWorked = answers[neverWorkedKey] === "yes";
+
+    // Check if first entry has any data filled in (for the "add another" hint)
+    const firstEntryHasData = entries.length > 0 && entries[0]?.some((row) => row.some((cell) => cell.trim() !== ""));
+
     return (
       <div key={table.id} className="space-y-3">
-        {entries.map((entry, entryIdx) => (
-          <div key={entryIdx} className="border border-zinc-800 rounded-lg overflow-hidden">
-            {table.is_repeatable && entries.length > 1 && (
-              <div className="flex justify-between items-center px-3 py-1.5 bg-zinc-900/50 border-b border-zinc-800">
-                <span className="text-xs text-zinc-500">Entry {entryIdx + 1}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeRepeatEntry(table.id, entryIdx)}
-                  className="h-6 text-xs text-red-400 hover:text-red-300"
-                >
-                  <Trash2 className="h-3 w-3 mr-1" /> Remove
-                </Button>
-              </div>
-            )}
-            <div className="overflow-x-auto">
-              <table className={`w-full text-sm ${isDisciplinaryTable ? "table-fixed" : ""}`} data-table-title={table.table_title}>
-                <thead>
-                  <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th colSpan={visibleColHeaders.length + 1 + (isEducationTable ? 1 : 0)} className="p-2 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <span className="text-sm font-semibold text-primary">{table.table_title}</span>
-                        {table.video_url && (
-                          <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />
-                        )}
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {table.row_labels.map((label, rowIdx) => {
-                    const rowConfig = getRowInputConfig(table, rowIdx);
-                    const needsDetails = rowConfig.require_explanation === true;
-                    const inputType = rowConfig.type;
-                    const detailKey = `detail_${table.id}_${entryIdx}_${rowIdx}`;
-                    const showSeparateDetails = needsDetails && inputType !== "dynamic_select";
-                    const rl = String(label).toLowerCase().trim();
-                    const isFullWidthRow = (rl.includes("employer") && rl.includes("location"))
-                      || (rl.includes("job") && rl.includes("description"))
-                      || rl.includes("job description")
-                      || rl.includes("duration")
-                      || (rl.includes("reason") && rl.includes("leaving"))
-                      || (rl.includes("name") && rl.includes("surname"))
-                      || (rl.includes("residence") || (rl.includes("location") && !rl.includes("employer")))
-                      || rl.includes("employment status")
-                      || (rl.includes("employer") && rl.includes("position"))
-                      || (rl.includes("criminal") && rl.includes("history"))
-                      || rl.includes("arrested") || rl.includes("detained")
-                      || (rl.includes("reason") && rl.includes("date") && !rl.includes("leaving"))
-                      || (rl.includes("charged") && !rl.includes("court"))
-                      || rl.includes("convicted")
-                      || (rl.includes("term") && rl.includes("served"))
-                      || rl.includes("court")
-                      || (rl.includes("criminal") && rl.includes("record") && rl.includes("check"))
-                      || (rl.includes("criminal") && rl.includes("expung"))
-                      || (rl.includes("pending") && rl.includes("court"));
+        {isEmploymentHistory && (
+          <div className="flex items-center gap-2 p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg">
+            <Checkbox
+              id={neverWorkedKey}
+              checked={hasNeverWorked}
+              onCheckedChange={(checked) => setAnswer(neverWorkedKey, checked ? "yes" : "no")}
+              className="border-zinc-600 data-[state=checked]:bg-red-600"
+            />
+            <label htmlFor={neverWorkedKey} className="text-xs text-zinc-300 cursor-pointer">
+              I have never been employed since leaving school
+            </label>
+          </div>
+        )}
 
-                    // Hide "employer & position" row when employment status is "unemployed"
-                    if (rl.includes("employer") && rl.includes("position")) {
-                      const empStatusRowIdx = table.row_labels.findIndex((l) => String(l).toLowerCase().includes("employment status"));
-                      const empStatus = empStatusRowIdx >= 0 ? (tableData[table.id]?.[entryIdx]?.[empStatusRowIdx]?.[0] || "").toLowerCase() : "";
-                      if (empStatus === "unemployed") return null;
-                    }
-
-                    // Hide arrested-dependent rows when "never arrested" is selected
-                    const isArrestDependentRow = (rl.includes("reason") && rl.includes("date") && !rl.includes("leaving"))
-                      || (rl.includes("charged") && !rl.includes("court"))
-                      || rl.includes("convicted")
-                      || (rl.includes("term") && rl.includes("served"))
-                      || rl.includes("court");
-                    if (isArrestDependentRow) {
-                      const arrestedRowIdx = table.row_labels.findIndex((l) => {
-                        const ll = String(l).toLowerCase().trim();
-                        return ll.includes("arrested") || ll.includes("detained");
-                      });
-                      if (arrestedRowIdx >= 0) {
-                        const arrestedVal = (tableData[table.id]?.[entryIdx]?.[arrestedRowIdx]?.[0] || "").toLowerCase();
-                        if (arrestedVal.includes("never") || !arrestedVal.includes("has been")) return null;
-                      }
-                    }
-
-                    return (
-                      <tr key={rowIdx} className="border-b border-zinc-800/50">
-                        <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            {table.row_video_urls?.[rowIdx] && (
-                              <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
+        {!(isEmploymentHistory && hasNeverWorked) && (
+          <>
+            {entries.map((entry, entryIdx) => (
+              <div key={entryIdx} className="border border-zinc-800 rounded-lg overflow-hidden">
+                {table.is_repeatable && entries.length > 1 && (
+                  <div className="flex justify-between items-center px-3 py-1.5 bg-zinc-900/50 border-b border-zinc-800">
+                    <span className="text-xs text-zinc-500">Entry {entryIdx + 1}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeRepeatEntry(table.id, entryIdx)}
+                      className="h-6 text-xs text-red-400 hover:text-red-300"
+                    >
+                      <Trash2 className="h-3 w-3 mr-1" /> Remove
+                    </Button>
+                  </div>
+                )}
+                <div className="overflow-x-auto">
+                  <table className={`w-full text-sm ${isDisciplinaryTable ? "table-fixed" : ""}`} data-table-title={table.table_title}>
+                    <thead>
+                      <tr className="bg-zinc-900 border-b border-zinc-800">
+                        <th colSpan={visibleColHeaders.length + 1 + (isEducationTable ? 1 : 0)} className="p-2 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="text-sm font-semibold text-primary">{table.table_title}</span>
+                            {table.video_url && (
+                              <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />
                             )}
-                            {label as string}
                           </div>
-                        </td>
-                        {isFullWidthRow ? (
-                          <>
-                            <td className={`p-2 ${isEducationTable ? "w-1/2" : ""}`} colSpan={isEducationTable ? 1 : visibleColHeaders.length}>
-                              {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
-                            </td>
-                            {isEducationTable && <td className="w-1/2"></td>}
-                          </>
-                        ) : (
-                          <>
-                            {visibleColIndices.map((colIdx, vi) => {
-                              const colHeader = String(table.column_headers[colIdx] || "").toLowerCase().trim();
-                              if (colHeader === "details") {
-                                return (
-                                  <td key={vi} className="p-2">
-                                    {needsDetails ? (
-                                      <Input
-                                        value={answers[detailKey] || ""}
-                                        onChange={(e) => setAnswer(detailKey, e.target.value)}
-                                        className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
-                                        placeholder="Please provide details..."
-                                      />
-                                    ) : null}
-                                  </td>
-                                );
-                              }
-                              return (
-                                <td key={vi} className={`p-2 ${isEducationTable ? "w-1/2" : ""}`}>
-                                  <div className="space-y-1">
-                                    {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
-                                    {showSeparateDetails && vi === 0 && !visibleColHeaders.some(h => h.toLowerCase().trim() === "details") && (
-                                      <Input
-                                        value={answers[detailKey] || ""}
-                                        onChange={(e) => setAnswer(detailKey, e.target.value)}
-                                        className="bg-zinc-900 border-zinc-700 text-white text-xs h-7"
-                                        placeholder="Please provide details..."
-                                      />
-                                    )}
-                                  </div>
-                                </td>
-                              );
-                            })}
-                            {isEducationTable && visibleColIndices.length === 1 && <td className="w-1/2"></td>}
-                          </>
-                        )}
+                        </th>
                       </tr>
-                    );
-                  })}
-                  {/* Currency total row */}
-                  {isCurrency && (
-                    <tr className="bg-zinc-900/80 sticky bottom-0">
-                      <td className="p-2 text-xs font-bold text-red-400">Total</td>
-                      {visibleColIndices.map((colIdx, vi) => {
-                        const total = entries[0]?.reduce((sum, row, rIdx) => {
-                          if (getInputType(table, rIdx) === "currency") {
-                            return sum + (parseFloat(row[colIdx]) || 0);
+                    </thead>
+                    <tbody>
+                      {table.row_labels.map((label, rowIdx) => {
+                        const rowConfig = getRowInputConfig(table, rowIdx);
+                        const needsDetails = rowConfig.require_explanation === true;
+                        const inputType = rowConfig.type;
+                        const detailKey = `detail_${table.id}_${entryIdx}_${rowIdx}`;
+                        const showSeparateDetails = needsDetails && inputType !== "dynamic_select";
+                        const rl = String(label).toLowerCase().trim();
+                        const isFullWidthRow = (rl.includes("employer") && rl.includes("location"))
+                          || (rl.includes("job") && rl.includes("description"))
+                          || rl.includes("job description")
+                          || rl.includes("duration")
+                          || (rl.includes("reason") && rl.includes("leaving"))
+                          || (rl.includes("name") && rl.includes("surname"))
+                          || (rl.includes("residence") || (rl.includes("location") && !rl.includes("employer")))
+                          || rl.includes("employment status")
+                          || (rl.includes("employer") && rl.includes("position"))
+                          || (rl.includes("criminal") && rl.includes("history"))
+                          || rl.includes("arrested") || rl.includes("detained")
+                          || (rl.includes("reason") && rl.includes("date") && !rl.includes("leaving"))
+                          || (rl.includes("charged") && !rl.includes("court"))
+                          || rl.includes("convicted")
+                          || (rl.includes("term") && rl.includes("served"))
+                          || rl.includes("court")
+                          || (rl.includes("criminal") && rl.includes("record") && rl.includes("check"))
+                          || (rl.includes("criminal") && rl.includes("expung"))
+                          || (rl.includes("pending") && rl.includes("court"));
+
+                        // Hide "employer & position" row when employment status is "unemployed"
+                        if (rl.includes("employer") && rl.includes("position")) {
+                          const empStatusRowIdx = table.row_labels.findIndex((l) => String(l).toLowerCase().includes("employment status"));
+                          const empStatus = empStatusRowIdx >= 0 ? (tableData[table.id]?.[entryIdx]?.[empStatusRowIdx]?.[0] || "").toLowerCase() : "";
+                          if (empStatus === "unemployed") return null;
+                        }
+
+                        // Hide arrested-dependent rows when "never arrested" is selected
+                        const isArrestDependentRow = (rl.includes("reason") && rl.includes("date") && !rl.includes("leaving"))
+                          || (rl.includes("charged") && !rl.includes("court"))
+                          || rl.includes("convicted")
+                          || (rl.includes("term") && rl.includes("served"))
+                          || rl.includes("court");
+                        if (isArrestDependentRow) {
+                          const arrestedRowIdx = table.row_labels.findIndex((l) => {
+                            const ll = String(l).toLowerCase().trim();
+                            return ll.includes("arrested") || ll.includes("detained");
+                          });
+                          if (arrestedRowIdx >= 0) {
+                            const arrestedVal = (tableData[table.id]?.[entryIdx]?.[arrestedRowIdx]?.[0] || "").toLowerCase();
+                            if (arrestedVal.includes("never") || !arrestedVal.includes("has been")) return null;
                           }
-                          return sum;
-                        }, 0) || 0;
+                        }
+
                         return (
-                          <td key={vi} className="p-2 text-xs font-bold text-red-400">
-                            R {total.toFixed(2)}
-                          </td>
+                          <tr key={rowIdx} className="border-b border-zinc-800/50">
+                            <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap">
+                              <div className="flex items-center gap-1.5">
+                                {table.row_video_urls?.[rowIdx] && (
+                                  <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
+                                )}
+                                {label as string}
+                              </div>
+                            </td>
+                            {isFullWidthRow ? (
+                              <>
+                                <td className={`p-2 ${isEducationTable ? "w-1/2" : ""}`} colSpan={isEducationTable ? 1 : visibleColHeaders.length}>
+                                  {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
+                                </td>
+                                {isEducationTable && <td className="w-1/2"></td>}
+                              </>
+                            ) : (
+                              <>
+                                {visibleColIndices.map((colIdx, vi) => {
+                                  const colHeader = String(table.column_headers[colIdx] || "").toLowerCase().trim();
+                                  if (colHeader === "details") {
+                                    return (
+                                      <td key={vi} className="p-2">
+                                        {needsDetails ? (
+                                          <Input
+                                            value={answers[detailKey] || ""}
+                                            onChange={(e) => setAnswer(detailKey, e.target.value)}
+                                            className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
+                                            placeholder="Please provide details..."
+                                          />
+                                        ) : null}
+                                      </td>
+                                    );
+                                  }
+                                  return (
+                                    <td key={vi} className={`p-2 ${isEducationTable ? "w-1/2" : ""}`}>
+                                      <div className="space-y-1">
+                                        {renderCellInput(table, table.id, entryIdx, rowIdx, colIdx, entry[rowIdx]?.[colIdx] || "")}
+                                        {showSeparateDetails && vi === 0 && !visibleColHeaders.some(h => h.toLowerCase().trim() === "details") && (
+                                          <Input
+                                            value={answers[detailKey] || ""}
+                                            onChange={(e) => setAnswer(detailKey, e.target.value)}
+                                            className="bg-zinc-900 border-zinc-700 text-white text-xs h-7"
+                                            placeholder="Please provide details..."
+                                          />
+                                        )}
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                                {isEducationTable && visibleColIndices.length === 1 && <td className="w-1/2"></td>}
+                              </>
+                            )}
+                          </tr>
                         );
                       })}
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
+                      {/* Currency total row */}
+                      {isCurrency && (
+                        <tr className="bg-zinc-900/80 sticky bottom-0">
+                          <td className="p-2 text-xs font-bold text-red-400">Total</td>
+                          {visibleColIndices.map((colIdx, vi) => {
+                            const total = entries[0]?.reduce((sum, row, rIdx) => {
+                              if (getInputType(table, rIdx) === "currency") {
+                                return sum + (parseFloat(row[colIdx]) || 0);
+                              }
+                              return sum;
+                            }, 0) || 0;
+                            return (
+                              <td key={vi} className="p-2 text-xs font-bold text-red-400">
+                                R {total.toFixed(2)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
 
-        {table.is_repeatable && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => addRepeatEntry(table.id, table)}
-            className="border-zinc-700 text-zinc-400 hover:text-white"
-          >
-            <Plus className="h-3 w-3 mr-1" /> Add Entry
-          </Button>
+            {table.is_repeatable && (
+              <div className="space-y-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addRepeatEntry(table.id, table)}
+                  className="border-zinc-700 text-zinc-400 hover:text-white"
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add Entry
+                </Button>
+                {firstEntryHasData && entries.length === 1 && (
+                  <p className="text-[11px] text-amber-400/80 pl-1 animate-pulse">
+                    ☝ Click "Add Entry" above to add another place of employment
+                  </p>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
     );
