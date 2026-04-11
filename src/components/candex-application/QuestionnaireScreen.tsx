@@ -1727,16 +1727,18 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         const flagged: { name: string; surname: string; relationship: string }[] = [];
         const contactTraceTables = tables.filter(t => {
           const tt = t.table_title.toLowerCase();
-          return (tt.includes("father") || tt.includes("mother") || tt.includes("next of kin") || tt.includes("close friend") || tt.includes("sibling") || tt.includes("brother") || tt.includes("sister"))
-            && !t.id.includes(table.id);
+          return (tt.includes("contact trace") || tt.includes("close friend") || tt.includes("next of kin")
+            || tt.includes("father") || tt.includes("mother") || tt.includes("sibling") || tt.includes("brother") || tt.includes("sister"))
+            && t.id !== table.id;
         });
         
         for (const ct of contactTraceTables) {
           const ctEntries = tableData[ct.id] || [];
-          for (const ctEntry of ctEntries) {
+          for (let entryIdx = 0; entryIdx < ctEntries.length; entryIdx++) {
+            const ctEntry = ctEntries[entryIdx];
             // Find criminal history row
             const crimRowIdx = ct.row_labels.findIndex(l => {
-              const ll = String(l).toLowerCase();
+              const ll = String(l).toLowerCase().replace(/[:\s]+$/, '');
               return ll.includes("criminal") && ll.includes("history");
             });
             if (crimRowIdx < 0) continue;
@@ -1745,18 +1747,29 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             
             // Find name row
             const nameRowIdx = ct.row_labels.findIndex(l => {
-              const ll = String(l).toLowerCase();
+              const ll = String(l).toLowerCase().replace(/[:\s]+$/, '');
               return ll.includes("name") && ll.includes("surname");
             });
             const nameVal = nameRowIdx >= 0 ? (ctEntry[nameRowIdx]?.[0] || "") : "";
-            const surnameKey = `surname_${ct.id}_0_${nameRowIdx}_0`;
+            const surnameKey = `surname_${ct.id}_${entryIdx}_${nameRowIdx}_0`;
             const surnameVal = nameRowIdx >= 0 ? (answers[surnameKey] || "") : "";
+            
+            // Get relationship from either the table title or a "Relationship" row
+            let relationship = ct.table_title;
+            const relRowIdx = ct.row_labels.findIndex(l => {
+              const ll = String(l).toLowerCase().replace(/[:\s]+$/, '');
+              return ll === "relationship";
+            });
+            if (relRowIdx >= 0) {
+              const relVal = ctEntry[relRowIdx]?.[0] || "";
+              if (relVal) relationship = relVal;
+            }
             
             if (nameVal || surnameVal) {
               flagged.push({
                 name: nameVal,
                 surname: surnameVal,
-                relationship: ct.table_title
+                relationship
               });
             }
           }
