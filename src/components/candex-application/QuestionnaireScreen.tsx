@@ -628,24 +628,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
       return (
         <div className="flex gap-2 w-full">
-          <div className="w-[160px] flex-shrink-0">
+          <div className="flex-shrink-0">
             <Label className="text-[10px] text-zinc-500 mb-0.5 block">Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full justify-start">
-                  <CalendarIcon className="mr-1 h-3 w-3" />
-                  {dateVal ? format(dateVal, "dd/MM/yyyy") : "Select date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={dateVal} onSelect={(d) => {
-                  if (d) {
-                    setAnswer(dateKey, d.toISOString());
-                    setCellValue(tableId, entryIdx, rowIdx, colIdx, `${format(d, "dd/MM/yyyy")} - ${reasonVal}`);
-                  }
-                }} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
+            <DateDropdowns
+              value={dateVal}
+              onChange={(d) => {
+                setAnswer(dateKey, d.toISOString());
+                setCellValue(tableId, entryIdx, rowIdx, colIdx, `${format(d, "dd/MM/yyyy")} - ${reasonVal}`);
+              }}
+            />
           </div>
           <div className="flex-1 min-w-0">
             <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>
