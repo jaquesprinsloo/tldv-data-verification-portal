@@ -3253,9 +3253,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                   {label as string}
                                 </div>
                               </td>
-                              <td className="p-2">
+                              <td className="p-2 w-1/2">
                                 {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
                               </td>
+                              <td className="w-1/2"></td>
                             </tr>
                           ))}
                         </tbody>
@@ -3293,7 +3294,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               </div>
             )}
             <div className="overflow-x-auto">
-              <table className={`w-full text-sm ${isDisciplinaryTable ? "table-fixed" : ""}`}>
+              <table className={`w-full text-sm ${isDisciplinaryTable ? "table-fixed" : ""}`} data-table-title={table.table_title}>
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
                     <th colSpan={visibleColHeaders.length + 1} className="p-2 text-center">
