@@ -1003,13 +1003,23 @@ const CandexBuilder = () => {
                         label="Section Overview"
                       />
                       {tables.map((tbl) => (
-                        <VideoUploadButton
-                          key={`tbl-${tbl.id}`}
-                          currentUrl={tbl.video_url}
-                          onUploaded={(url) => updateTableVideo.mutate({ id: tbl.id, video_url: url })}
-                          onRemoved={() => updateTableVideo.mutate({ id: tbl.id, video_url: null })}
-                          label={tbl.table_title}
-                        />
+                        <React.Fragment key={`tbl-${tbl.id}`}>
+                          <VideoUploadButton
+                            currentUrl={tbl.video_url}
+                            onUploaded={(url) => updateTableVideo.mutate({ id: tbl.id, video_url: url })}
+                            onRemoved={() => updateTableVideo.mutate({ id: tbl.id, video_url: null })}
+                            label={tbl.table_title}
+                          />
+                          {tbl.row_video_urls?.map((rvUrl, ri) => rvUrl ? (
+                            <VideoUploadButton
+                              key={`row-${tbl.id}-${ri}`}
+                              currentUrl={rvUrl}
+                              onUploaded={(url) => updateRowVideoUrl.mutate({ tableId: tbl.id, rowIndex: ri, url, currentUrls: tbl.row_video_urls || [] })}
+                              onRemoved={() => updateRowVideoUrl.mutate({ tableId: tbl.id, rowIndex: ri, url: null, currentUrls: tbl.row_video_urls || [] })}
+                              label={`${tbl.table_title} → ${tbl.row_labels[ri] || `Row ${ri + 1}`}`}
+                            />
+                          ) : null)}
+                        </React.Fragment>
                       ))}
                     </div>
                   </div>
