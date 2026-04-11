@@ -1035,7 +1035,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               {selectedAccounts.map((acc) => {
                 const entry = huSelections[acc] || { amount: "", lastPayment: "" };
                 const dateVal = entry.lastPayment ? new Date(entry.lastPayment) : undefined;
-                const dateVal = entry.lastPayment ? new Date(entry.lastPayment) : undefined;
                 return (
                   <div key={acc} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
                     <span className="text-xs font-medium text-zinc-300">{acc}</span>
