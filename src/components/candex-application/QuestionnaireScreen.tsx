@@ -2170,18 +2170,20 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 1. Stolen from work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <Label className="text-xs font-semibold text-zinc-300">Stolen from work before</Label>
-                <Select value={theftData.stolen || ''} onValueChange={(v) => {
-                  const updates: any = { stolen: v };
-                  if (v.includes("never")) updates.stolenEmployers = {};
-                  updateTheft(updates);
-                }}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Has never stolen from work before">Has never stolen from work before</SelectItem>
-                    <SelectItem value="Has stolen from work before">Has stolen from work before</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs font-semibold text-zinc-300 whitespace-nowrap">Stolen from work before</Label>
+                  <Select value={theftData.stolen || ''} onValueChange={(v) => {
+                    const updates: any = { stolen: v };
+                    if (v.includes("never")) updates.stolenEmployers = {};
+                    updateTheft(updates);
+                  }}>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-auto min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Has never stolen from work before">Has never stolen from work before</SelectItem>
+                      <SelectItem value="Has stolen from work before">Has stolen from work before</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {theftData.stolen === "Has stolen from work before" && (
                   <>
@@ -2197,17 +2199,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     {Object.keys(stolenEmployers).map((emp) => {
                       const entry = stolenEmployers[emp] || { description: '', value: '' };
                       return (
-                        <div key={emp} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
-                          <span className="text-xs font-medium text-zinc-300">{emp}</span>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-zinc-500">What was taken</Label>
-                            <Textarea value={entry.description} onChange={(e) => {
+                        <div key={emp} className="flex items-start gap-2 border border-zinc-800 rounded-md p-2 bg-zinc-900/50">
+                          <span className="text-xs font-medium text-zinc-300 whitespace-nowrap pt-1.5 min-w-[80px]">{emp}</span>
+                          <div className="flex-1">
+                            <Input value={entry.description} onChange={(e) => {
                               const next = { ...stolenEmployers, [emp]: { ...entry, description: e.target.value } };
                               updateTheft({ stolenEmployers: next });
-                            }} className="bg-zinc-900 border-zinc-700 text-white text-xs min-h-[48px] resize-none" placeholder="Describe what was taken..." />
+                            }} className="bg-zinc-900 border-zinc-700 text-white text-xs h-8" placeholder="What was taken..." />
                           </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] text-zinc-500">Estimated Value (R)</Label>
+                          <div className="w-[120px]">
                             <div className="relative">
                               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">R</span>
                               <Input type="number" value={entry.value} onChange={(e) => {
