@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { extractStoragePath } from "@/lib/storageUtils";
 import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -818,6 +818,21 @@ const CandexBuilder = () => {
     },
   });
 
+  const updateRowVideoUrl = useMutation({
+    mutationFn: async ({ tableId, rowIndex, url, currentUrls }: { tableId: string; rowIndex: number; url: string | null; currentUrls: (string | null)[] }) => {
+      const updated = [...currentUrls];
+      updated[rowIndex] = url;
+      const { error } = await supabase
+        .from("candex_section_tables")
+        .update({ row_video_urls: updated as any })
+        .eq("id", tableId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
+    },
+  });
+
   const toggleSection = (id: string) => {
     setExpandedSections((prev) => {
       const next = new Set(prev);
@@ -988,13 +1003,23 @@ const CandexBuilder = () => {
                         label="Section Overview"
                       />
                       {tables.map((tbl) => (
-                        <VideoUploadButton
-                          key={`tbl-${tbl.id}`}
-                          currentUrl={tbl.video_url}
-                          onUploaded={(url) => updateTableVideo.mutate({ id: tbl.id, video_url: url })}
-                          onRemoved={() => updateTableVideo.mutate({ id: tbl.id, video_url: null })}
-                          label={tbl.table_title}
-                        />
+                        <React.Fragment key={`tbl-${tbl.id}`}>
+                          <VideoUploadButton
+                            currentUrl={tbl.video_url}
+                            onUploaded={(url) => updateTableVideo.mutate({ id: tbl.id, video_url: url })}
+                            onRemoved={() => updateTableVideo.mutate({ id: tbl.id, video_url: null })}
+                            label={tbl.table_title}
+                          />
+                          {tbl.row_video_urls?.map((rvUrl, ri) => rvUrl ? (
+                            <VideoUploadButton
+                              key={`row-${tbl.id}-${ri}`}
+                              currentUrl={rvUrl}
+                              onUploaded={(url) => updateRowVideoUrl.mutate({ tableId: tbl.id, rowIndex: ri, url, currentUrls: tbl.row_video_urls || [] })}
+                              onRemoved={() => updateRowVideoUrl.mutate({ tableId: tbl.id, rowIndex: ri, url: null, currentUrls: tbl.row_video_urls || [] })}
+                              label={`${tbl.table_title} → ${tbl.row_labels[ri] || `Row ${ri + 1}`}`}
+                            />
+                          ) : null)}
+                        </React.Fragment>
                       ))}
                     </div>
                   </div>
