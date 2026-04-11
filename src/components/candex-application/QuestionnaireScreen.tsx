@@ -2624,6 +2624,124 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    const isOrganizedCrimesTable = ttLower.includes("organized") || ttLower.includes("organised");
+    if (isOrganizedCrimesTable) {
+      const ocKey = `organized_crimes_${table.id}`;
+      const ocData = answers[ocKey] || {};
+      const updateOC = (updates: Record<string, any>) => {
+        setAnswer(ocKey, { ...ocData, ...updates });
+      };
+
+      const organizedCrimesCategories = [
+        {
+          key: "theft_hijacking_robbery",
+          title: "Theft, Hijacking, and Robbery Syndicates",
+          items: [
+            { key: "colluded_steal_work", label: "Colluded to steal at work" },
+            { key: "planned_robberies_hijackings", label: "Planned store robberies or vehicle hijackings" },
+            { key: "robbed_pedestrians_houses", label: "Robbed pedestrians & houses" },
+          ]
+        },
+        {
+          key: "financial_economic",
+          title: "Financial and Economic",
+          items: [
+            { key: "fraudulent_transactions", label: "Fraudulent transactions" },
+            { key: "identity_theft", label: "Identity theft" },
+            { key: "government_programmes", label: "Government programmes (SASSA, NSFAS etc.)" },
+            { key: "tenders", label: "Tenders" },
+          ]
+        },
+        {
+          key: "extortion",
+          title: "Extortion",
+          items: [
+            { key: "blackmailing", label: "Blackmailing" },
+            { key: "information_ransomed", label: "Information ransomed (IT)" },
+            { key: "forcing_protection", label: "Forcing people to pay for \"protection\"" },
+          ]
+        },
+        {
+          key: "drug_trafficking",
+          title: "Drug Trafficking",
+          items: [
+            { key: "smuggle_drugs", label: "Smuggle Illegal drugs" },
+            { key: "sold_large_scale", label: "Sold large scale drugs to runners" },
+            { key: "manufacturing_drugs", label: "Manufacturing drugs" },
+          ]
+        },
+      ];
+
+      return (
+        <div key={table.id} className="space-y-3">
+          <div className="border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="bg-zinc-900 border-b border-zinc-800 p-2 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-semibold text-primary">{table.table_title}</span>
+                {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
+              </div>
+            </div>
+            <div className="p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-zinc-900 border-b border-zinc-800">
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {organizedCrimesCategories.map((cat) => 
+                    cat.items.map((item, idx) => {
+                      const itemKey = `${cat.key}_${item.key}`;
+                      const val = ocData[itemKey] || '';
+                      const details = ocData[`${itemKey}_details`] || '';
+                      const isYes = val === 'Yes';
+                      return (
+                        <tr key={itemKey} className="border-b border-zinc-800/50">
+                          {idx === 0 ? (
+                            <td className="p-2 text-xs font-semibold align-middle text-center border-r border-zinc-800/50 text-zinc-300" rowSpan={cat.items.length}>
+                              {cat.title}
+                            </td>
+                          ) : null}
+                          <td className="p-2">
+                            <span className="text-xs text-zinc-300">{item.label}</span>
+                            {isYes && (
+                              <Input
+                                value={details}
+                                onChange={(e) => updateOC({ [`${itemKey}_details`]: e.target.value })}
+                                className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 mt-1"
+                                placeholder="Provide details..."
+                              />
+                            )}
+                          </td>
+                          <td className="p-2">
+                            <Select value={val} onValueChange={(v) => {
+                              const updates: Record<string, any> = { [itemKey]: v };
+                              if (v === 'No') updates[`${itemKey}_details`] = '';
+                              updateOC(updates);
+                            }}>
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                                <SelectValue placeholder="Select" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="No">No</SelectItem>
+                                <SelectItem value="Yes">Yes</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={table.id} className="space-y-3">
         {entries.map((entry, entryIdx) => (
