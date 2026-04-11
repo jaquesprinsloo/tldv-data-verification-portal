@@ -3298,7 +3298,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <table className={`w-full text-sm ${isDisciplinaryTable ? "table-fixed" : ""}`} data-table-title={table.table_title}>
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th colSpan={visibleColHeaders.length + 1} className="p-2 text-center">
+                    <th colSpan={visibleColHeaders.length + 1 + (isEducationTable ? 1 : 0)} className="p-2 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <span className="text-sm font-semibold text-primary">{table.table_title}</span>
                         {table.video_url && (
