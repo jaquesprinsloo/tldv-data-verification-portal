@@ -2742,6 +2742,139 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    const isUndetectedCrimesTable = ttLower.includes("undetected");
+    if (isUndetectedCrimesTable) {
+      const ucKey = `undetected_crimes_${table.id}`;
+      const ucData = answers[ucKey] || {};
+      const updateUC = (updates: Record<string, any>) => {
+        setAnswer(ucKey, { ...ucData, ...updates });
+      };
+
+      const undetectedCrimesCategories = [
+        {
+          key: "financial_white_collar",
+          title: "Financial & White-Collar Crimes",
+          items: [
+            { key: "employee_theft", label: "Employee theft" },
+            { key: "fraud", label: "Fraud" },
+          ]
+        },
+        {
+          key: "corruption_abuse",
+          title: "Corruption & Abuse of Power",
+          items: [
+            { key: "bribery_gifts_favours", label: "Bribery disguised as \"gifts\" or favours" },
+            { key: "bid_rigging", label: "Bid rigging" },
+            { key: "regulatory_capture", label: "Regulatory capture (officials favouring certain businesses)" },
+          ]
+        },
+        {
+          key: "retail_commercial",
+          title: "Retail & Commercial Crimes",
+          items: [
+            { key: "sweethearting", label: "Sweethearting (cashiers giving discounts to friends/family)" },
+            { key: "false_damage_claims", label: "False damage claims" },
+            { key: "stock_shrinkage", label: "Stock shrinkage manipulation" },
+          ]
+        },
+        {
+          key: "cyber_digital",
+          title: "Cyber & Digital Crimes",
+          items: [
+            { key: "insider_data_theft", label: "Insider data theft" },
+            { key: "malware_spyware", label: "Silent malware / spyware installations" },
+            { key: "unauthorized_access", label: "Unauthorized system access using valid credentials" },
+          ]
+        },
+        {
+          key: "violent_serious",
+          title: "Violent & Serious Crimes",
+          items: [
+            { key: "gang_coercion", label: "Gang-related coercion" },
+            { key: "domestic_violence", label: "Domestic violence" },
+            { key: "threats_intimidation", label: "Threats and intimidation" },
+          ]
+        },
+        {
+          key: "insurance_claims_fraud",
+          title: "Insurance & Claims Fraud",
+          items: [
+            { key: "staged_accidents", label: "Staged accidents" },
+            { key: "inflated_loss_claims", label: "Inflated loss claims" },
+          ]
+        },
+      ];
+
+      return (
+        <div key={table.id} className="space-y-3">
+          <div className="border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="bg-zinc-900 border-b border-zinc-800 p-2 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-semibold text-primary">{table.table_title}</span>
+                {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
+              </div>
+            </div>
+            <div className="p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-zinc-900 border-b border-zinc-800">
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[160px]">Topic</th>
+                    <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
+                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[100px]">Answer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {undetectedCrimesCategories.map((cat) => 
+                    cat.items.map((item, idx) => {
+                      const itemKey = `${cat.key}_${item.key}`;
+                      const val = ucData[itemKey] || '';
+                      const details = ucData[`${itemKey}_details`] || '';
+                      const isYes = val === 'Yes';
+                      return (
+                        <tr key={itemKey} className="border-b border-zinc-800/50">
+                          {idx === 0 ? (
+                            <td className="p-2 text-xs font-semibold align-middle text-center border-r border-zinc-800/50 text-zinc-300" rowSpan={cat.items.length}>
+                              {cat.title}
+                            </td>
+                          ) : null}
+                          <td className="p-2">
+                            <span className="text-xs text-zinc-300">{item.label}</span>
+                            {isYes && (
+                              <Input
+                                value={details}
+                                onChange={(e) => updateUC({ [`${itemKey}_details`]: e.target.value })}
+                                className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 mt-1"
+                                placeholder="Provide details..."
+                              />
+                            )}
+                          </td>
+                          <td className="p-2">
+                            <Select value={val} onValueChange={(v) => {
+                              const updates: Record<string, any> = { [itemKey]: v };
+                              if (v === 'No') updates[`${itemKey}_details`] = '';
+                              updateUC(updates);
+                            }}>
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                                <SelectValue placeholder="Select" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="No">No</SelectItem>
+                                <SelectItem value="Yes">Yes</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={table.id} className="space-y-3">
         {entries.map((entry, entryIdx) => (
