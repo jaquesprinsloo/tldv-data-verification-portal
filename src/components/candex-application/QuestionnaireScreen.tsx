@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import type { Json } from "@/integrations/supabase/types";
 
+// Shared state for sticky audio player in header
 let setGlobalAudio: ((audio: { url: string; label: string } | null) => void) | null = null;
 
 const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string }) => {
