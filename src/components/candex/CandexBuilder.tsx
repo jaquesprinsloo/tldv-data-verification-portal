@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  Plus, Trash2, FileText, ChevronDown, ChevronRight, Copy, Table as TableIcon, Eye, Video, PlayCircle, Upload, X, Info, Pencil, List,
+  Plus, Trash2, FileText, ChevronDown, ChevronRight, Copy, Table as TableIcon, Eye, Video, PlayCircle, Upload, X, Info, Pencil, List, Volume2,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -897,39 +897,71 @@ const CandexBuilder = () => {
           const tables = sectionTables.filter((t) => t.section_id === section.id);
           const isExpanded = expandedSections.has(section.id);
 
+          // Count all media items for this section
+          const sectionMediaCount = (section.video_url ? 1 : 0)
+            + tables.filter(t => t.video_url).length
+            + tables.reduce((sum, t) => sum + (t.row_video_urls?.filter(Boolean).length || 0), 0);
+
           return (
             <Card key={section.id}>
               <CardHeader
-                className="cursor-pointer flex flex-row items-center justify-between"
+                className="cursor-pointer flex flex-col gap-2"
                 onClick={() => toggleSection(section.id)}
               >
-                <div className="flex items-center gap-2">
-                  {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  <CardTitle className="text-base">{section.title}</CardTitle>
-                  <Badge variant="secondary">{tables.length} table{tables.length !== 1 ? "s" : ""}</Badge>
-                  {section.video_url && (
-                    <Badge variant="outline" className="gap-1 text-xs">
-                      <Video className="h-3 w-3" /> Video
-                    </Badge>
-                  )}
-                  {previewMode && section.video_url && (
-                    <VideoHelpBubble videoUrl={section.video_url} label={`How to: ${section.title}`} />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    <CardTitle className="text-base">{section.title}</CardTitle>
+                    <Badge variant="secondary">{tables.length} table{tables.length !== 1 ? "s" : ""}</Badge>
+                    {sectionMediaCount > 0 && (
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        <Volume2 className="h-3 w-3" /> {sectionMediaCount} explainer{sectionMediaCount !== 1 ? "s" : ""}
+                      </Badge>
+                    )}
+                    {previewMode && section.video_url && (
+                      <VideoHelpBubble videoUrl={section.video_url} label={`How to: ${section.title}`} />
+                    )}
+                  </div>
+                  {!previewMode && (
+                    <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
+                      <Button size="sm" variant="outline" onClick={() => setShowAddTable(section.id)}>
+                        <Plus className="h-3 w-3 mr-1" /> <TableIcon className="h-3 w-3 mr-1" /> Table
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteSection.mutate(section.id)}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
                   )}
                 </div>
-                {!previewMode && (
-                  <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-                    <VideoUploadButton
-                      currentUrl={section.video_url}
-                      onUploaded={(url) => updateSectionVideo.mutate({ id: section.id, video_url: url })}
-                      onRemoved={() => updateSectionVideo.mutate({ id: section.id, video_url: null })}
-                      label="Section"
-                    />
-                    <Button size="sm" variant="outline" onClick={() => setShowAddTable(section.id)}>
-                      <Plus className="h-3 w-3 mr-1" /> <TableIcon className="h-3 w-3 mr-1" /> Table
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => deleteSection.mutate(section.id)}>
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
+                {/* Dedicated Section Audio/Video Explainer Upload Area */}
+                {!previewMode && isExpanded && (
+                  <div
+                    className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 space-y-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                      <Volume2 className="h-3.5 w-3.5" /> Section Audio/Video Explainers
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Upload audio or video explainers that will appear in a dedicated bar at the top of this section in the applicant's view. These help candidates understand how to complete each part.
+                    </p>
+                    <div className="flex flex-wrap gap-2 items-center">
+                      <VideoUploadButton
+                        currentUrl={section.video_url}
+                        onUploaded={(url) => updateSectionVideo.mutate({ id: section.id, video_url: url })}
+                        onRemoved={() => updateSectionVideo.mutate({ id: section.id, video_url: null })}
+                        label="Section Overview"
+                      />
+                      {tables.map((tbl) => (
+                        <VideoUploadButton
+                          key={`tbl-${tbl.id}`}
+                          currentUrl={tbl.video_url}
+                          onUploaded={(url) => updateTableVideo.mutate({ id: tbl.id, video_url: url })}
+                          onRemoved={() => updateTableVideo.mutate({ id: tbl.id, video_url: null })}
+                          label={tbl.table_title}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardHeader>
