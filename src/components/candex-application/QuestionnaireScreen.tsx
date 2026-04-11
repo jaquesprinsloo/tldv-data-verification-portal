@@ -3202,6 +3202,79 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    // Special handling for TERTIARY EDUCATION table
+    const isTertiaryEducation = ttLower.includes("tertiary") && ttLower.includes("education");
+    if (isTertiaryEducation) {
+      const tertiaryKey = `tertiary_no_education_${table.id}`;
+      const hasNoTertiary = answers[tertiaryKey] === "yes";
+
+      return (
+        <div key={table.id} className="space-y-3">
+          <div className="border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="bg-zinc-900 border-b border-zinc-800 p-2 text-center">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-semibold text-primary">{table.table_title}</span>
+                {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
+              </div>
+            </div>
+            <div className="p-3 space-y-3">
+              <div className="flex items-center gap-3 py-2">
+                <Checkbox
+                  id={tertiaryKey}
+                  checked={hasNoTertiary}
+                  onCheckedChange={(checked) => setAnswer(tertiaryKey, checked ? "yes" : "no")}
+                  className="border-zinc-600 data-[state=checked]:bg-red-600"
+                />
+                <label htmlFor={tertiaryKey} className="text-sm text-zinc-300 cursor-pointer select-none">
+                  I have not completed any tertiary education
+                </label>
+              </div>
+              {!hasNoTertiary && (
+                <div className="space-y-3">
+                  {entries.map((entry, entryIdx) => (
+                    <div key={entryIdx} className="border border-zinc-800/60 rounded-lg overflow-hidden">
+                      {table.is_repeatable && entries.length > 1 && (
+                        <div className="flex justify-between items-center px-3 py-1.5 bg-zinc-900/50 border-b border-zinc-800">
+                          <span className="text-xs text-zinc-500">Entry {entryIdx + 1}</span>
+                          <Button variant="ghost" size="sm" onClick={() => removeRepeatEntry(table.id, entryIdx)} className="h-6 text-xs text-red-400 hover:text-red-300">
+                            <Trash2 className="h-3 w-3 mr-1" /> Remove
+                          </Button>
+                        </div>
+                      )}
+                      <table className="w-full text-sm">
+                        <tbody>
+                          {table.row_labels.map((label, rowIdx) => (
+                            <tr key={rowIdx} className="border-b border-zinc-800/50">
+                              <td className="p-2 text-xs text-zinc-400 font-medium whitespace-nowrap w-[180px]">
+                                <div className="flex items-center gap-1.5">
+                                  {label as string}
+                                  {table.row_video_urls?.[rowIdx] && (
+                                    <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-2">
+                                {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                  {table.is_repeatable && (
+                    <Button variant="outline" size="sm" onClick={() => addRepeatEntry(table.id, table)} className="border-zinc-700 text-zinc-400 hover:text-white">
+                      <Plus className="h-3 w-3 mr-1" /> Add Qualification
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={table.id} className="space-y-3">
         {entries.map((entry, entryIdx) => (
