@@ -708,7 +708,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   <tr className="bg-zinc-900 border-b border-zinc-800">
                     <th colSpan={visibleColHeaders.length + 1} className="p-2 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <span className="text-xs font-semibold text-zinc-300">{table.table_title}</span>
+                        <span className="text-sm font-semibold text-zinc-300">{table.table_title}</span>
                         {table.video_url && (
                           <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />
                         )}
