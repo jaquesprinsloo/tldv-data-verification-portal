@@ -2496,7 +2496,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateFraud(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2604,7 +2604,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateBribery(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2722,7 +2722,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateOC(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2855,7 +2855,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateUC(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2983,7 +2983,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateDrug(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-7 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
