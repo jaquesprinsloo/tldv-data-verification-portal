@@ -690,8 +690,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if (isBankServiceProvider) {
       const bankKey = `bank_selections_${table.id}`;
       const bankSelections: Record<string, string[]> = answers[bankKey] || {};
+      const [bankDropdownOpen, setBankDropdownOpen] = useState(false);
       
-      // Get bank options from row_input_types or use defaults
       const bankRowConfig = getRowInputConfig(table, 0);
       const bankOptions = (bankRowConfig.options && bankRowConfig.options.length > 0)
         ? bankRowConfig.options.map(o => o.replace(/\.\s*$/, '').trim())
@@ -708,6 +708,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         }
       };
 
+      const selectedBanks = Object.keys(bankSelections);
+      const bankSummary = selectedBanks.length > 0 ? selectedBanks.join(", ") : "";
+
       return (
         <div key={table.id} className="space-y-3">
           <div className="border border-zinc-800 rounded-lg overflow-hidden">
@@ -717,50 +720,92 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-3 space-y-2">
-              {bankOptions.map((bank) => {
-                const isSelected = !!bankSelections[bank];
+            <div className="p-3 space-y-3">
+              {/* Bank multi-select dropdown */}
+              <div className="space-y-1">
+                <Label className="text-[10px] text-zinc-500">Select your bank(s)</Label>
+                <Popover open={bankDropdownOpen} onOpenChange={setBankDropdownOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-9 w-full justify-between">
+                      <span className="truncate text-left">
+                        {bankSummary || "Select banks..."}
+                      </span>
+                      <ChevronDown className="h-3.5 w-3.5 opacity-50 ml-2 flex-shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2 max-h-[250px] overflow-y-auto" align="start">
+                    {bankOptions.map((bank) => {
+                      const isSelected = !!bankSelections[bank];
+                      return (
+                        <div
+                          key={bank}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-zinc-800 cursor-pointer"
+                          onClick={() => {
+                            const next = { ...bankSelections };
+                            if (isSelected) {
+                              delete next[bank];
+                            } else {
+                              next[bank] = [];
+                            }
+                            setAnswer(bankKey, next);
+                            syncCellValues(next);
+                          }}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            className="border-zinc-600 data-[state=checked]:bg-red-600 h-3.5 w-3.5 pointer-events-none"
+                          />
+                          <span className="text-xs text-zinc-300">{bank}</span>
+                        </div>
+                      );
+                    })}
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Account type selectors per selected bank */}
+              {selectedBanks.map((bank) => {
                 const selectedTypes = bankSelections[bank] || [];
+                const [accDropdownOpen, setAccDropdownOpen] = useState(false);
+                const accSummary = selectedTypes.length > 0 ? selectedTypes.join(", ") : "";
                 return (
                   <div key={bank} className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={(checked) => {
-                          const next = { ...bankSelections };
-                          if (checked) {
-                            next[bank] = [];
-                          } else {
-                            delete next[bank];
-                          }
-                          setAnswer(bankKey, next);
-                          syncCellValues(next);
-                        }}
-                        className="border-zinc-600 data-[state=checked]:bg-red-600 h-3.5 w-3.5"
-                      />
-                      <span className="text-xs text-zinc-300 font-medium">{bank}</span>
-                    </div>
-                    {isSelected && (
-                      <div className="ml-6 flex flex-wrap gap-x-4 gap-y-1.5">
-                        {accountTypes.map((accType) => (
-                          <div key={accType} className="flex items-center gap-1.5">
-                            <Checkbox
-                              checked={selectedTypes.includes(accType)}
-                              onCheckedChange={(checked) => {
-                                const nextTypes = checked
-                                  ? [...selectedTypes, accType]
-                                  : selectedTypes.filter((t) => t !== accType);
+                    <Label className="text-[10px] text-zinc-500">{bank} — Account type(s)</Label>
+                    <Popover open={accDropdownOpen} onOpenChange={setAccDropdownOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-9 w-full justify-between">
+                          <span className="truncate text-left">
+                            {accSummary || "Select account types..."}
+                          </span>
+                          <ChevronDown className="h-3.5 w-3.5 opacity-50 ml-2 flex-shrink-0" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2" align="start">
+                        {accountTypes.map((accType) => {
+                          const isChecked = selectedTypes.includes(accType);
+                          return (
+                            <div
+                              key={accType}
+                              className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-zinc-800 cursor-pointer"
+                              onClick={() => {
+                                const nextTypes = isChecked
+                                  ? selectedTypes.filter((t) => t !== accType)
+                                  : [...selectedTypes, accType];
                                 const next = { ...bankSelections, [bank]: nextTypes };
                                 setAnswer(bankKey, next);
                                 syncCellValues(next);
                               }}
-                              className="border-zinc-600 data-[state=checked]:bg-red-600 h-3 w-3"
-                            />
-                            <span className="text-[11px] text-zinc-400">{accType}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                            >
+                              <Checkbox
+                                checked={isChecked}
+                                className="border-zinc-600 data-[state=checked]:bg-red-600 h-3 w-3 pointer-events-none"
+                              />
+                              <span className="text-xs text-zinc-300">{accType}</span>
+                            </div>
+                          );
+                        })}
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 );
               })}
