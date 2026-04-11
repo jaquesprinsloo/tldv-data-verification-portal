@@ -2036,27 +2036,12 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 </div>
               )}
 
-              {/* Court Attendance - auto-populated */}
-              {isArrested && hasFormallyCharged && (
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-zinc-500">Court Attendance</Label>
-                  <div className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-xs text-zinc-300 min-h-[32px] flex items-center">
-                    {person.courtAttendance || "Auto-populated from charge selections"}
-                  </div>
-                </div>
-              )}
-
               {/* Convicted */}
               {isArrested && hasFormallyCharged && (
                 <div className="space-y-1">
                   <Label className="text-[10px] text-zinc-500">Convicted</Label>
                   <Select value={person.convicted} onValueChange={(v) => {
-                    const updates: Partial<FFPerson> = { convicted: v };
-                    if (v === "Has never been convicted of any criminal offence") {
-                      updates.termStart = '';
-                      updates.termEnd = '';
-                    }
-                    updatePerson(pIdx, updates);
+                    updatePerson(pIdx, { convicted: v });
                   }}>
                     <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select conviction status" /></SelectTrigger>
                     <SelectContent>
@@ -2066,106 +2051,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   </Select>
                 </div>
               )}
-
-              {/* Term Served */}
-              {isArrested && hasFormallyCharged && person.convicted && !isNeverConvicted && (
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-zinc-500">Term Served</Label>
-                  <div className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      <Label className="text-[10px] text-zinc-500 mb-0.5 block">From</Label>
-                      <DateDropdowns value={person.termStart ? new Date(person.termStart) : undefined} onChange={(d) => updatePerson(pIdx, { termStart: d.toISOString() })} />
-                    </div>
-                    <div className="flex-1">
-                      <Label className="text-[10px] text-zinc-500 mb-0.5 block">To</Label>
-                      <DateDropdowns value={person.termEnd ? new Date(person.termEnd) : undefined} onChange={(d) => updatePerson(pIdx, { termEnd: d.toISOString() })} />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Criminal Record Check */}
-              {isArrested && !isNeverArrested && (
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-zinc-500">Criminal Record Check</Label>
-                  <Select value={person.criminalRecordCheck} onValueChange={(v) => updatePerson(pIdx, { criminalRecordCheck: v })}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Criminal Record Check Completed">Criminal Record Check Completed</SelectItem>
-                      <SelectItem value="Criminal Record Check Not Completed">Criminal Record Check Not Completed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Criminal Record Expunged */}
-              {isArrested && !isNeverArrested && (
-                <div className="space-y-1">
-                  <Label className="text-[10px] text-zinc-500">Criminal Record Expunged</Label>
-                  <Select value={person.expungedStatus} onValueChange={(v) => {
-                    const updates: Partial<FFPerson> = { expungedStatus: v };
-                    if (v === "I have had no Criminal Records Expunged") {
-                      updates.expungedReason = '';
-                      updates.expungedDate = '';
-                    }
-                    updatePerson(pIdx, updates);
-                  }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="I have had no Criminal Records Expunged">I have had no Criminal Records Expunged</SelectItem>
-                      <SelectItem value="I have had a Criminal Record Expunged">I have had a Criminal Record Expunged</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {person.expungedStatus === "I have had a Criminal Record Expunged" && (
-                    <div className="flex gap-2 items-end mt-1">
-                      <div className="flex-1">
-                        <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>
-                        <Select value={person.expungedReason} onValueChange={(v) => updatePerson(pIdx, { expungedReason: v })}>
-                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select reason..." /></SelectTrigger>
-                          <SelectContent className="max-h-[200px]">
-                            {arrestReasonOptions.map(opt => <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex-shrink-0">
-                        <Label className="text-[10px] text-zinc-500 mb-0.5 block">Date of Offence</Label>
-                        <DateDropdowns value={person.expungedDate ? new Date(person.expungedDate) : undefined} onChange={(d) => updatePerson(pIdx, { expungedDate: d.toISOString() })} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Pending Court Cases */}
-              <div className="space-y-1">
-                <Label className="text-[10px] text-zinc-500">Pending Court Cases</Label>
-                <Select value={person.pendingCourt} onValueChange={(v) => {
-                  const updates: Partial<FFPerson> = { pendingCourt: v };
-                  if (v === "I am not aware of any pending court cases") {
-                    updates.pendingCase = '';
-                    updates.pendingDate = '';
-                  }
-                  updatePerson(pIdx, updates);
-                }}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"><SelectValue placeholder="Select..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="I am not aware of any pending court cases">I am not aware of any pending court cases</SelectItem>
-                    <SelectItem value="I have pending court cases">I have pending court cases</SelectItem>
-                  </SelectContent>
-                </Select>
-                {person.pendingCourt === "I have pending court cases" && (
-                  <div className="flex gap-2 items-end mt-1">
-                    <div className="flex-1 min-w-0">
-                      <Label className="text-[10px] text-zinc-500 mb-0.5 block">What is the case about?</Label>
-                      <Input value={person.pendingCase} onChange={(e) => updatePerson(pIdx, { pendingCase: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white text-xs h-8" placeholder="Describe the case..." />
-                    </div>
-                    <div className="flex-shrink-0">
-                      <Label className="text-[10px] text-zinc-500 mb-0.5 block">Court Date</Label>
-                      <DateDropdowns value={person.pendingDate ? new Date(person.pendingDate) : undefined} onChange={(d) => updatePerson(pIdx, { pendingDate: d.toISOString() })} />
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         );
