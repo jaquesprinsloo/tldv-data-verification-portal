@@ -434,8 +434,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   {startDate ? format(startDate, "dd/MM/yyyy") : "Start"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={startDate} onSelect={(d) => d && setAnswer(startKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
+              <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                <StepDatePicker value={startDate} onChange={(d) => setAnswer(startKey, d.toISOString())} />
               </PopoverContent>
             </Popover>
             <span className="text-zinc-500 text-xs text-center hidden sm:block">–</span>
@@ -446,8 +446,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   {endDate ? format(endDate, "dd/MM/yyyy") : "End"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={endDate} onSelect={(d) => d && setAnswer(endKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
+              <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                <StepDatePicker value={endDate} onChange={(d) => setAnswer(endKey, d.toISOString())} />
               </PopoverContent>
             </Popover>
             <div className="flex-1 min-w-[80px] bg-zinc-900 border border-zinc-700 rounded-md h-8 flex items-center justify-center">
