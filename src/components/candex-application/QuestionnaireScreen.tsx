@@ -3483,7 +3483,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
                         return (
                           <tr key={rowIdx} className="border-b border-zinc-800/50">
-                            {isEducationTable ? (
+                            {(isEducationTable || isEmploymentHistory) ? (
                               <>
                                 <td className="hidden sm:table-cell p-1.5 sm:p-2 text-xs text-zinc-400 font-medium align-top" style={{ minWidth: '60px', maxWidth: '120px' }}>
                                   <div className="flex items-start gap-1 flex-wrap">
