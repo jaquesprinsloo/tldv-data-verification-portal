@@ -17,11 +17,9 @@ import { format } from "date-fns";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import type { Json } from "@/integrations/supabase/types";
 
-// Global audio state for animated border media player
-let globalAudioState: {
-  play: (url: string, label: string, buttonRef: HTMLButtonElement) => void;
-  stop: () => void;
-} | null = null;
+// Global registry: each VideoPlayButton registers its stop function
+const activeStopFns = new Set<() => void>();
+let stopAllAudio = () => { activeStopFns.forEach(fn => fn()); };
 
 const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string }) => {
   const [open, setOpen] = useState(false);
@@ -32,24 +30,33 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const isAudio = /\.(mp3|wav|ogg|aac|m4a|flac|wma)/i.test(videoUrl);
 
+  const stopSelf = useCallback(() => {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    setIsPlaying(false);
+    setProgress(0);
+  }, []);
+
+  // Register/unregister stop function
+  useEffect(() => {
+    activeStopFns.add(stopSelf);
+    return () => { stopSelf(); activeStopFns.delete(stopSelf); };
+  }, [stopSelf]);
+
   const handleClick = () => {
     setShowPulse(false);
     if (isAudio) {
       if (isPlaying) {
-        // Stop playing
-        audioRef.current?.pause();
-        audioRef.current = null;
-        setIsPlaying(false);
-        setProgress(0);
+        stopSelf();
         return;
       }
-      // Stop any other playing audio globally
-      globalAudioState?.stop();
-      
+      // Stop ALL other playing audio/video first
+      stopAllAudio();
+
       const audio = new Audio(videoUrl);
       audioRef.current = audio;
       setIsPlaying(true);
-      
+
       audio.addEventListener("timeupdate", () => {
         if (audio.duration) setProgress((audio.currentTime / audio.duration) * 100);
       });
@@ -60,24 +67,11 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
       });
       audio.play();
     } else {
+      // Stop any playing audio before opening video dialog
+      stopAllAudio();
       setOpen(true);
     }
   };
-
-  // Register for global stop
-  useEffect(() => {
-    const stopFn = () => {
-      audioRef.current?.pause();
-      audioRef.current = null;
-      setIsPlaying(false);
-      setProgress(0);
-    };
-    globalAudioState = { play: () => {}, stop: stopFn };
-    return () => { 
-      stopFn();
-      if (globalAudioState?.stop === stopFn) globalAudioState = null;
-    };
-  }, []);
 
   // SVG circle progress
   const radius = 12;
