@@ -3400,7 +3400,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           </div>
         )}
 
-        {!(isEmploymentHistory && hasNeverWorked) && !(isDisciplinaryTable && hasNoDisciplinary) && !(isDisciplinaryTable && selectedDisciplinaryRows.length === 0) && (
+        {!(isEmploymentHistory && hasNeverWorked) && !isDisciplinaryTable && (
           <>
             {entries.map((entry, entryIdx) => (
               <div key={entryIdx} className="border border-zinc-800 rounded-lg overflow-hidden">
