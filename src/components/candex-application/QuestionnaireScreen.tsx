@@ -89,7 +89,7 @@ const DateDropdowns = ({ value, onChange, fromYear = 1950 }: { value?: Date; fro
   return (
     <div className="flex gap-1.5 w-full">
       <Select value={selYear} onValueChange={(v) => buildDate(v, selMonth || "0", selDay || "1")}>
-        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 flex-1 min-w-0">
+        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 flex-1 min-w-0">
           <SelectValue placeholder="Year" />
         </SelectTrigger>
         <SelectContent className="max-h-[200px]">
@@ -97,7 +97,7 @@ const DateDropdowns = ({ value, onChange, fromYear = 1950 }: { value?: Date; fro
         </SelectContent>
       </Select>
       <Select value={selMonth} onValueChange={(v) => buildDate(selYear || String(currentYear), v, selDay || "1")}>
-        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 flex-1 min-w-0">
+        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 flex-1 min-w-0">
           <SelectValue placeholder="Month" />
         </SelectTrigger>
         <SelectContent className="max-h-[200px]">
@@ -105,7 +105,7 @@ const DateDropdowns = ({ value, onChange, fromYear = 1950 }: { value?: Date; fro
         </SelectContent>
       </Select>
       <Select value={selDay} onValueChange={(v) => buildDate(selYear || String(currentYear), selMonth || "0", v)}>
-        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-[70px] flex-shrink-0">
+        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-[70px] flex-shrink-0">
           <SelectValue placeholder="Day" />
         </SelectTrigger>
         <SelectContent className="max-h-[200px]">
@@ -305,7 +305,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             <Input
               value={value}
               onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
-              className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full"
+              className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
               placeholder="Employer"
             />
           </div>
@@ -313,7 +313,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             <Input
               value={splitVal}
               onChange={(e) => setAnswer(splitKey, e.target.value)}
-              className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full"
+              className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
               placeholder="Location"
             />
           </div>
@@ -354,7 +354,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full sm:w-[130px] justify-start flex-shrink-0">
+                <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full sm:w-[130px] justify-start flex-shrink-0">
                   <CalendarIcon className="mr-1 h-3 w-3" />
                   {startDate ? format(startDate, "dd/MM/yyyy") : "Start"}
                 </Button>
@@ -366,7 +366,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             <span className="text-zinc-500 text-xs text-center hidden sm:block">–</span>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full sm:w-[130px] justify-start flex-shrink-0">
+                <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full sm:w-[130px] justify-start flex-shrink-0">
                   <CalendarIcon className="mr-1 h-3 w-3" />
                   {endDate ? format(endDate, "dd/MM/yyyy") : "End"}
                 </Button>
@@ -389,7 +389,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         <Textarea
           value={value}
           onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
-          className="bg-zinc-900 border-zinc-700 text-white text-sm min-h-[72px] resize-none w-full"
+          className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs min-h-[72px] resize-none w-full"
           rows={3}
           placeholder="Describe your role and responsibilities..."
         />
@@ -406,7 +406,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       return (
         <div className="flex flex-col gap-1.5 w-full">
           <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
-            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full">
+            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full">
               <SelectValue placeholder="Employment Status" />
             </SelectTrigger>
             <SelectContent>
@@ -418,7 +418,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           <Input
             value={reasonDetails}
             onChange={(e) => setAnswer(detailReasonKey, e.target.value)}
-            className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full"
+            className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
             placeholder="Employment status explanation"
           />
         </div>
@@ -436,7 +436,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             <Input
               value={value}
               onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
-              className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full"
+              className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
               placeholder="First name"
             />
           </div>
@@ -445,7 +445,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             <Input
               value={surnameVal}
               onChange={(e) => setAnswer(surnameKey, e.target.value)}
-              className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full"
+              className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
               placeholder="Surname"
             />
           </div>
@@ -459,7 +459,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         <Input
           value={value}
           onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
-          className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full"
+          className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
           placeholder="Enter location / address..."
         />
       );
@@ -472,7 +472,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         : ["Employed", "Unemployed", "Retired"];
       return (
         <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
-          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full">
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full">
             <SelectValue placeholder="Select status" />
           </SelectTrigger>
           <SelectContent>
@@ -508,7 +508,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <Input
                 value={value}
                 onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
-                className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full"
+                className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
                 placeholder="Employer name"
               />
             </div>
@@ -517,7 +517,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <Input
                 value={positionVal}
                 onChange={(e) => setAnswer(positionKey, e.target.value)}
-                className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full"
+                className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
                 placeholder="Position / Job title"
               />
             </div>
@@ -541,7 +541,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
               if (v.toLowerCase().includes("no criminal")) setAnswer(crimDetailKey, "");
             }}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9">
+              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>
@@ -556,7 +556,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <Input
                 value={crimDetails}
                 onChange={(e) => setAnswer(crimDetailKey, e.target.value)}
-                className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full"
+                className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
                 placeholder="Please provide details..."
               />
             </div>
@@ -608,7 +608,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               }
             }
           }}>
-            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full">
+            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full">
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
@@ -637,7 +637,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     }
                   }
                 }}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-[140px]">
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-[140px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -658,7 +658,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       setAnswer(`arrest_date_incident_${tableId}_${entryIdx}_${i}`, "");
                     }
                   }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-[80px]">
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-[80px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -739,7 +739,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 const combined = `${dateStr} - ${v}`;
                 if (idx === 0) setCellValue(tableId, entryIdx, rowIdx, colIdx, combined);
               }}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full">
+                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full">
                   <SelectValue placeholder="Select reason..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-[200px]">
@@ -924,7 +924,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 }
               }
             }}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full">
+              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full">
                 <SelectValue placeholder="Select charge outcome" />
               </SelectTrigger>
               <SelectContent>
@@ -975,7 +975,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             }
           }
         }}>
-          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9">
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
             <SelectValue placeholder="Select conviction status" />
           </SelectTrigger>
           <SelectContent>
@@ -1045,7 +1045,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               setAnswer(pendingDateKey, "");
             }
           }}>
-            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9">
+            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
               <SelectValue placeholder="Select..." />
             </SelectTrigger>
             <SelectContent>
@@ -1060,7 +1060,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <Input
                   value={pendingCase}
                   onChange={(e) => setAnswer(pendingCaseKey, e.target.value)}
-                  className="bg-zinc-900 border-zinc-700 text-white text-sm h-9"
+                  className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9"
                   placeholder="Describe the case..."
                 />
               </div>
@@ -1090,7 +1090,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if (rowLabel.includes("criminal") && rowLabel.includes("record") && rowLabel.includes("check")) {
       return (
         <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
-          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9">
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
             <SelectValue placeholder="Select..." />
           </SelectTrigger>
           <SelectContent>
@@ -1127,7 +1127,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               setAnswer(expungedDateKey, "");
             }
           }}>
-            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9">
+            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
               <SelectValue placeholder="Select..." />
             </SelectTrigger>
             <SelectContent>
@@ -1140,7 +1140,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <div className="flex-1 min-w-0">
                 <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>
                 <Select value={expungedReason} onValueChange={(v) => setAnswer(expungedReasonKey, v)}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9">
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
                     <SelectValue placeholder="Select reason..." />
                   </SelectTrigger>
                   <SelectContent className="max-h-[200px]">
@@ -1165,7 +1165,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if (inputType === "yes_no") {
       return (
         <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
-          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9">
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
             <SelectValue placeholder="Select" />
           </SelectTrigger>
           <SelectContent>
@@ -1184,7 +1184,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             type="number"
             value={value}
             onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
-            className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 pl-6"
+            className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 pl-6"
             step="0.01"
           />
         </div>
@@ -1204,7 +1204,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if ((inputType === "single_select" || inputType === "select") && rowConfig.options && rowConfig.options.length > 0) {
       return (
         <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
-          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9">
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
             <SelectValue placeholder="Select an option" />
           </SelectTrigger>
           <SelectContent>
@@ -1280,7 +1280,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                         );
                         setAnswer(dynamicKey, next);
                       }}
-                      className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-full"
+                      className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-full"
                       placeholder={`Details for ${opt}...`}
                     />
                   )}
@@ -1296,7 +1296,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       <Input
         value={value}
         onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
-        className="bg-zinc-900 border-zinc-700 text-white text-sm h-9"
+        className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9"
         placeholder={mobilePlaceholder || "Enter..."}
       />
     );
@@ -1369,7 +1369,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <Label className="text-[10px] text-zinc-500">Select your bank(s)</Label>
                 <Popover open={bankDropdownOpen} onOpenChange={setBankDropdownOpen}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full justify-between">
+                    <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full justify-between">
                       <span className="truncate text-left">
                         {bankSummary || "Select banks..."}
                       </span>
@@ -1418,7 +1418,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     <Label className="text-[10px] text-zinc-500">{bank} — Account type(s)</Label>
                     <Popover open={accDropdownOpen} onOpenChange={setAccDropdownOpen}>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full justify-between">
+                        <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full justify-between">
                           <span className="truncate text-left">
                             {accSummary || "Select account types..."}
                           </span>
@@ -1503,7 +1503,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <Label className="text-[10px] text-zinc-500">Select your account(s)</Label>
                 <Popover open={maDropdownOpen} onOpenChange={setMaDropdownOpen}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full justify-between">
+                    <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full justify-between">
                       <span className="truncate text-left">
                         {maSummary || "Select accounts..."}
                       </span>
@@ -1560,7 +1560,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               setAnswer(maKey, next);
                               syncMaCellValues(next);
                             }}
-                            className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 pl-6"
+                            className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 pl-6"
                             placeholder="0.00"
                             step="0.01"
                           />
@@ -1636,7 +1636,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <Label className="text-[10px] text-zinc-500">Select unpaid account(s)</Label>
                 <Popover open={huDropdownOpen} onOpenChange={setHuDropdownOpen}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full justify-between">
+                    <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full justify-between">
                       <span className="truncate text-left">{huSummary || "Select accounts..."}</span>
                       <ChevronDown className="h-3.5 w-3.5 opacity-50 ml-2 flex-shrink-0" />
                     </Button>
@@ -1678,7 +1678,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               setAnswer(huKey, next);
                               syncHuCellValues(next);
                             }}
-                            className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 pl-6" placeholder="0.00" step="0.01" />
+                            className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 pl-6" placeholder="0.00" step="0.01" />
                         </div>
                       </div>
                       <div className="flex-1 space-y-0.5">
@@ -1888,15 +1888,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <Label className="text-[10px] text-zinc-500 mb-0.5 block">Name</Label>
-                    <Input value={person.name} onChange={(e) => updatePerson(pIdx, { name: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white text-sm h-9" placeholder="First name" />
+                    <Input value={person.name} onChange={(e) => updatePerson(pIdx, { name: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9" placeholder="First name" />
                   </div>
                   <div className="flex-1">
                     <Label className="text-[10px] text-zinc-500 mb-0.5 block">Surname</Label>
-                    <Input value={person.surname} onChange={(e) => updatePerson(pIdx, { surname: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white text-sm h-9" placeholder="Surname" />
+                    <Input value={person.surname} onChange={(e) => updatePerson(pIdx, { surname: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9" placeholder="Surname" />
                   </div>
                   <div className="flex-1">
                     <Label className="text-[10px] text-zinc-500 mb-0.5 block">Relationship</Label>
-                    <Input value={person.relationship} onChange={(e) => updatePerson(pIdx, { relationship: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white text-sm h-9" placeholder="e.g. Uncle, Cousin" />
+                    <Input value={person.relationship} onChange={(e) => updatePerson(pIdx, { relationship: e.target.value })} className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9" placeholder="e.g. Uncle, Cousin" />
                   </div>
                 </div>
               )}
@@ -1920,7 +1920,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   }
                   updatePerson(pIdx, updates);
                 }}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9">
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1939,7 +1939,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                         if (v === "single") incidents.length = 1;
                         updatePerson(pIdx, { frequency: v, incidentCount: newCount, incidents });
                       }}>
-                        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-[140px]"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-[140px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="single">Single incident</SelectItem>
                           <SelectItem value="multiple">Multiple incidents</SelectItem>
@@ -1956,7 +1956,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           incidents.length = n;
                           updatePerson(pIdx, { incidentCount: n, incidents });
                         }}>
-                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-[80px]"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-[80px]"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {[2,3,4,5,6,7,8,9,10].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
                           </SelectContent>
@@ -1992,7 +1992,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                             incidents[idx] = { ...incidents[idx], reason: v };
                             updatePerson(pIdx, { incidents });
                           }}>
-                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9"><SelectValue placeholder="Select reason..." /></SelectTrigger>
+                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9"><SelectValue placeholder="Select reason..." /></SelectTrigger>
                             <SelectContent className="max-h-[200px]">
                               {arrestReasonOptions.map(opt => <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>)}
                             </SelectContent>
@@ -2023,7 +2023,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           const courtText = courtReasons.length > 0 ? `Has gone to court for: ${courtReasons.join(", ")}` : "";
                           updatePerson(pIdx, { incidents: updatedIncidents, courtAttendance: courtText });
                         }}>
-                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full"><SelectValue placeholder="Select charge outcome" /></SelectTrigger>
+                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"><SelectValue placeholder="Select charge outcome" /></SelectTrigger>
                           <SelectContent>
                             {chargedOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
                           </SelectContent>
@@ -2041,7 +2041,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   <Select value={person.convicted} onValueChange={(v) => {
                     updatePerson(pIdx, { convicted: v });
                   }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9"><SelectValue placeholder="Select conviction status" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9"><SelectValue placeholder="Select conviction status" /></SelectTrigger>
                     <SelectContent>
                       {formalReasons.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                       <SelectItem value="Has never been convicted of any criminal offence">Has never been convicted of any criminal offence</SelectItem>
@@ -2132,7 +2132,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             <Label className="text-[10px] text-zinc-500">Select employer(s)</Label>
             <Popover open={isOpen} onOpenChange={(v) => setAnswer(dropKey, v)}>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full justify-between">
+                <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full justify-between">
                   <span className="truncate text-left">{summary || "Select employers..."}</span>
                   <ChevronDown className="h-3.5 w-3.5 opacity-50 ml-2 flex-shrink-0" />
                 </Button>
@@ -2179,7 +2179,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     }
                     updateTheft(updates);
                   }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never stolen from work before">Has never stolen from work before</SelectItem>
                       <SelectItem value="Has stolen from work before">Has stolen from work before</SelectItem>
@@ -2207,7 +2207,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                             <Input value={entry.description} onChange={(e) => {
                               const next = { ...stolenEmployers, [emp]: { ...entry, description: e.target.value } };
                               updateTheft({ stolenEmployers: next });
-                            }} className="bg-zinc-900 border-zinc-700 text-white text-sm h-9" placeholder="What was taken..." />
+                            }} className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9" placeholder="What was taken..." />
                           </div>
                           <div className="w-[120px]">
                             <div className="relative">
@@ -2215,7 +2215,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               <Input type="number" value={entry.value} onChange={(e) => {
                                 const next = { ...stolenEmployers, [emp]: { ...entry, value: e.target.value } };
                                 updateTheft({ stolenEmployers: next, benefited: "Has benefited from theft at work" });
-                              }} className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 pl-6" placeholder="0.00" step="0.01" />
+                              }} className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 pl-6" placeholder="0.00" step="0.01" />
                             </div>
                           </div>
                         </div>
@@ -2234,7 +2234,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     if (v.includes("never")) updates.witnessedEmployers = {};
                     updateTheft(updates);
                   }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never witnessed anyone stealing at work">Has never witnessed anyone stealing at work</SelectItem>
                       <SelectItem value="Has witnessed someone stealing from work but did not report them">Has witnessed someone stealing from work but did not report them</SelectItem>
@@ -2265,7 +2265,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               const next = { ...witnessedEmployers, [emp]: { ...entry, personType: v } };
                               updateTheft({ witnessedEmployers: next });
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9"><SelectValue placeholder="Staff/Customer" /></SelectTrigger>
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9"><SelectValue placeholder="Staff/Customer" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Staff member">Staff member</SelectItem>
                                 <SelectItem value="Customer">Customer</SelectItem>
@@ -2277,7 +2277,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               <Input value={entry.reason} onChange={(e) => {
                                 const next = { ...witnessedEmployers, [emp]: { ...entry, reason: e.target.value } };
                                 updateTheft({ witnessedEmployers: next });
-                              }} className="bg-zinc-900 border-zinc-700 text-white text-sm h-9" placeholder="Why was it not reported..." />
+                              }} className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9" placeholder="Why was it not reported..." />
                             </div>
                           )}
                         </div>
@@ -2292,7 +2292,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <Label className="text-xs font-semibold text-zinc-300">Benefited from theft at work</Label>
                   <Select value={theftData.benefited || ''} onValueChange={(v) => updateTheft({ benefited: v })}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never benefited from any theft at work">Has never benefited from any theft at work</SelectItem>
                       <SelectItem value="Has benefited from theft at work">Has benefited from theft at work</SelectItem>
@@ -2313,7 +2313,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     if (v.includes("never")) updates.helpedEmployers = {};
                     updateTheft(updates);
                   }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never helped anyone to steal from work">Has never helped anyone to steal from work</SelectItem>
                       <SelectItem value="Has helped someone steal from work">Has helped someone steal from work</SelectItem>
@@ -2342,7 +2342,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               const next = { ...helpedEmployers, [emp]: { ...entry, helpedWho: v } };
                               updateTheft({ helpedEmployers: next });
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9"><SelectValue placeholder="Who did you help?" /></SelectTrigger>
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9"><SelectValue placeholder="Who did you help?" /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="Customer">Customer</SelectItem>
                                 <SelectItem value="Colleague">Colleague</SelectItem>
@@ -2363,7 +2363,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <Label className="text-xs font-semibold text-zinc-300">Approached to steal from work</Label>
                   <Select value={theftData.approached || ''} onValueChange={(v) => updateTheft({ approached: v })}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Has never been approached to get involved with theft at work">Has never been approached to get involved with theft at work</SelectItem>
                       <SelectItem value="Has been approached to steal at work but declined to get involved">Has been approached to steal at work but declined to get involved</SelectItem>
@@ -2482,7 +2482,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               <Input
                                 value={details}
                                 onChange={(e) => updateFraud({ [`${itemKey}_details`]: e.target.value })}
-                                className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 mt-1"
+                                className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 mt-1"
                                 placeholder="Provide details..."
                               />
                             )}
@@ -2493,7 +2493,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateFraud(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-[60px] sm:w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2590,7 +2590,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               <Input
                                 value={details}
                                 onChange={(e) => updateBribery({ [`${itemKey}_details`]: e.target.value })}
-                                className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 mt-1"
+                                className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 mt-1"
                                 placeholder="Provide details..."
                               />
                             )}
@@ -2601,7 +2601,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateBribery(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-[60px] sm:w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2708,7 +2708,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               <Input
                                 value={details}
                                 onChange={(e) => updateOC({ [`${itemKey}_details`]: e.target.value })}
-                                className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 mt-1"
+                                className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 mt-1"
                                 placeholder="Provide details..."
                               />
                             )}
@@ -2719,7 +2719,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateOC(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-[60px] sm:w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2841,7 +2841,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               <Input
                                 value={details}
                                 onChange={(e) => updateUC({ [`${itemKey}_details`]: e.target.value })}
-                                className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 mt-1"
+                                className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 mt-1"
                                 placeholder="Provide details..."
                               />
                             )}
@@ -2852,7 +2852,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateUC(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-[60px] sm:w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -2969,7 +2969,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               <Input
                                 value={details}
                                 onChange={(e) => updateDrug({ [`${itemKey}_details`]: e.target.value })}
-                                className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 mt-1"
+                                className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 mt-1"
                                 placeholder="Provide details..."
                               />
                             )}
@@ -2980,7 +2980,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               if (v === 'No') updates[`${itemKey}_details`] = '';
                               updateDrug(updates);
                             }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-[60px] sm:w-[90px] mx-auto">
+                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[60px] sm:w-[90px] mx-auto">
                                 <SelectValue placeholder="Select" />
                               </SelectTrigger>
                               <SelectContent>
@@ -3050,7 +3050,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 if (v === "No") { updates.rehabilitation_types = []; }
                 updateGen(updates);
               }}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-[90px]">
+                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[90px]">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -3089,7 +3089,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 if (v === "No") updates.lied_on_cv_details = "";
                 updateGen(updates);
               }}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-[90px]">
+                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[90px]">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -3101,7 +3101,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 <Input
                   value={liedDetails}
                   onChange={(e) => updateGen({ lied_on_cv_details: e.target.value })}
-                  className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 mt-1"
+                  className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 mt-1"
                   placeholder="What did you lie about on your CV?"
                 />
               )}
@@ -3113,7 +3113,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           label: "Gambling",
           render: () => (
             <Select value={gamblingAnswer} onValueChange={(v) => updateGen({ gambling: v })}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-full">
+              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-full">
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>
@@ -3134,7 +3134,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 if (v === "No") updates.gambling_missed_accounts = [];
                 updateGen(updates);
               }}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-[90px]">
+                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[90px]">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
@@ -3262,7 +3262,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                     <Input
                                       value={entry[rowIdx]?.[0] || ""}
                                       onChange={(e) => setCellValue(table.id, entryIdx, rowIdx, 0, e.target.value)}
-                                      className="bg-zinc-900 border-zinc-700 text-white text-sm h-10 sm:h-8 w-full"
+                                      className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-10 sm:h-8 w-full"
                                       placeholder={String(label).replace(/:$/, '')}
                                     />
                                   </div>
@@ -3528,7 +3528,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                               <Input
                                                 value={answers[detailKey] || ""}
                                                 onChange={(e) => setAnswer(detailKey, e.target.value)}
-                                                className="bg-zinc-900 border-zinc-700 text-white text-sm h-9"
+                                                className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9"
                                                 placeholder="Please provide details..."
                                               />
                                             ) : null}
@@ -3543,7 +3543,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                               <Input
                                                 value={answers[detailKey] || ""}
                                                 onChange={(e) => setAnswer(detailKey, e.target.value)}
-                                                className="bg-zinc-900 border-zinc-700 text-white text-sm h-8"
+                                                className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8"
                                                 placeholder="Please provide details..."
                                               />
                                             )}
