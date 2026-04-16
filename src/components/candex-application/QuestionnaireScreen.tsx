@@ -38,10 +38,10 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
     <>
       <button
         onClick={handleClick}
-        className="relative inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-600/20 border border-red-600/40 text-red-400 hover:bg-red-600/30 hover:text-red-300 transition-colors text-xs font-medium"
+        className="relative inline-flex items-center gap-1 px-1.5 py-1 sm:gap-1.5 sm:px-2 rounded-md bg-red-600/20 border border-red-600/40 text-red-400 hover:bg-red-600/30 hover:text-red-300 transition-colors text-xs font-medium flex-shrink-0"
       >
-        <PlayCircle className="h-4 w-4" />
-        <span>{isAudio ? "Listen" : "Watch Video"}</span>
+        <PlayCircle className="h-4 w-4 flex-shrink-0" />
+        <span className="hidden sm:inline">{isAudio ? "Listen" : "Watch"}</span>
         {showPulse && (
           <span className="absolute -top-1 -right-1 flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
@@ -3246,18 +3246,17 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                         <tbody>
                           {table.row_labels.map((label, rowIdx) => (
                             <tr key={rowIdx} className="border-b border-zinc-800/50">
-                              <td className="p-2 text-xs text-zinc-400 font-medium w-[100px] sm:w-[180px]">
-                                <div className="flex items-center gap-1.5">
+                              <td className="p-1.5 sm:p-2 text-xs text-zinc-400 font-medium w-[70px] sm:w-[180px]">
+                                <div className="flex items-center gap-1">
                                   {table.row_video_urls?.[rowIdx] && (
                                     <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
                                   )}
-                                  {label as string}
+                                  <span className="break-words leading-tight">{label as string}</span>
                                 </div>
                               </td>
-                              <td className="p-2 w-1/2">
+                              <td className="p-1.5 sm:p-2" colSpan={2}>
                                 {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
                               </td>
-                              <td className="w-1/2"></td>
                             </tr>
                           ))}
                         </tbody>
@@ -3351,11 +3350,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   const isSelected = selectedDisciplinaryRows.includes(rowKey);
                   const rowMediaUrl = table.row_video_urls?.[rowIdx];
                   return (
-                    <div key={rowIdx} className="flex items-center gap-3">
+                    <div key={rowIdx} className="flex items-center gap-2">
                       <div className="flex-shrink-0">
                         {rowMediaUrl ? (
                           <VideoPlayButton videoUrl={rowMediaUrl} label={rowKey} />
-                        ) : <span className="inline-block w-[70px]" />}
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-2 ml-1" style={{ minWidth: '180px' }}>
                         <label htmlFor={`disc_row_${table.id}_${rowIdx}`} className="text-xs text-zinc-300 cursor-pointer w-[150px]">
@@ -3470,12 +3469,12 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
                         return (
                           <tr key={rowIdx} className="border-b border-zinc-800/50">
-                            <td className="p-2 text-xs text-zinc-400 font-medium align-top" style={{ minWidth: '80px', maxWidth: '140px' }}>
-                              <div className="flex items-start gap-1.5 flex-wrap">
+                            <td className="p-1.5 sm:p-2 text-xs text-zinc-400 font-medium align-top" style={{ minWidth: '60px', maxWidth: '120px' }}>
+                              <div className="flex items-start gap-1 flex-wrap">
                                 {!isDisciplinaryTable && table.row_video_urls?.[rowIdx] && (
                                   <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
                                 )}
-                                <span className="break-words">{label as string}</span>
+                                <span className="break-words leading-tight">{label as string}</span>
                               </div>
                             </td>
                             {isFullWidthRow ? (
@@ -3815,13 +3814,14 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       </div>
 
       <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-3xl">
-        <Card className="bg-zinc-950 border-zinc-800 text-white">
+        <Card className="bg-zinc-950 border-zinc-800 text-white overflow-hidden">
           <CardHeader className="space-y-2">
             <CardTitle className="text-white text-center">{currentSec.title}</CardTitle>
             {/* Section-level audio explainer inline under heading */}
             {currentSec.video_url && (
               <div className="flex items-center justify-center gap-2 pt-1">
-                <span className="text-[11px] text-red-400 font-medium">🎧 Audio Explainer — Listen before completing this section</span>
+                <span className="text-[11px] text-red-400 font-medium hidden sm:inline">🎧 Audio Explainer — Listen before completing this section</span>
+                <span className="text-[11px] text-red-400 font-medium sm:hidden">🎧 Listen first</span>
                 <VideoPlayButton videoUrl={currentSec.video_url} label={`Section Overview: ${currentSec.title}`} />
               </div>
             )}
