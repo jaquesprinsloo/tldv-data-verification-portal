@@ -133,7 +133,7 @@ const CanDexPreScreening = () => {
               <select
                 value={activeTab}
                 onChange={(e) => setActiveTab(e.target.value)}
-                className="w-full border border-border rounded-lg px-4 py-3 bg-background text-foreground text-sm font-medium appearance-none"
+                className="w-full border border-border rounded-lg px-4 py-3 bg-background text-foreground text-sm font-medium text-center appearance-none"
                 style={{ backgroundImage: 'none' }}
               >
                 <option value="statistics">
