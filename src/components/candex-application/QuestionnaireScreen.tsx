@@ -404,27 +404,23 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         ? rowConfig.options
         : ["Contract term completed", "Resigned", "Retrenched", "Dismissed", "Still employed", "Other"];
       return (
-        <div className="flex gap-2 w-full">
-          <div className="w-full sm:w-[190px] flex-shrink-0">
-            <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
-                <SelectValue placeholder="Select reason" />
-              </SelectTrigger>
-              <SelectContent>
-                {options.map((opt) => (
-                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1 min-w-0">
-            <Input
-              value={reasonDetails}
-              onChange={(e) => setAnswer(detailReasonKey, e.target.value)}
-              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
-              placeholder="Please provide details..."
-            />
-          </div>
+        <div className="flex flex-col gap-1.5 w-full">
+          <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
+            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full">
+              <SelectValue placeholder="Employment Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((opt) => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            value={reasonDetails}
+            onChange={(e) => setAnswer(detailReasonKey, e.target.value)}
+            className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+            placeholder="Why was this employment status selected?"
+          />
         </div>
       );
     }
