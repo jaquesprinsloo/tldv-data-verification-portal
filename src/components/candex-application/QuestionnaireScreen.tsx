@@ -392,11 +392,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         if (value !== durationText) setCellValue(tableId, entryIdx, rowIdx, colIdx, durationText);
       }
 
+      const [startOpen, setStartOpen] = useState(false);
+      const [endOpen, setEndOpen] = useState(false);
       return (
         <div className="space-y-1 w-full">
           <Label className="text-[10px] text-zinc-500 block text-center">Employment Duration</Label>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full">
-            <Popover>
+            <Popover open={startOpen} onOpenChange={setStartOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full sm:w-[130px] justify-start flex-shrink-0">
                   <CalendarIcon className="mr-1 h-3 w-3" />
@@ -404,11 +406,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
-                <StepDatePicker value={startDate} onChange={(d) => setAnswer(startKey, d.toISOString())} />
+                <StepDatePicker value={startDate} onChange={(d) => setAnswer(startKey, d.toISOString())} onDone={() => setStartOpen(false)} />
               </PopoverContent>
             </Popover>
             <span className="text-zinc-500 text-xs text-center hidden sm:block">–</span>
-            <Popover>
+            <Popover open={endOpen} onOpenChange={setEndOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full sm:w-[130px] justify-start flex-shrink-0">
                   <CalendarIcon className="mr-1 h-3 w-3" />
@@ -416,7 +418,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
-                <StepDatePicker value={endDate} onChange={(d) => setAnswer(endKey, d.toISOString())} />
+                <StepDatePicker value={endDate} onChange={(d) => setAnswer(endKey, d.toISOString())} onDone={() => setEndOpen(false)} />
               </PopoverContent>
             </Popover>
             <div className="flex-1 min-w-[80px] bg-zinc-900 border border-zinc-700 rounded-md h-8 flex items-center justify-center">
