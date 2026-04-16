@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar } from "@/components/ui/calendar";
+
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,31 +17,101 @@ import { format } from "date-fns";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import type { Json } from "@/integrations/supabase/types";
 
-// Shared state for sticky audio player in header
-let setGlobalAudio: ((audio: { url: string; label: string } | null) => void) | null = null;
+// Global audio state for animated border media player
+let globalAudioState: {
+  play: (url: string, label: string, buttonRef: HTMLButtonElement) => void;
+  stop: () => void;
+} | null = null;
 
 const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string }) => {
   const [open, setOpen] = useState(false);
   const [showPulse, setShowPulse] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const isAudio = /\.(mp3|wav|ogg|aac|m4a|flac|wma)/i.test(videoUrl);
 
   const handleClick = () => {
     setShowPulse(false);
-    if (isAudio && setGlobalAudio) {
-      setGlobalAudio({ url: videoUrl, label });
+    if (isAudio) {
+      if (isPlaying) {
+        // Stop playing
+        audioRef.current?.pause();
+        audioRef.current = null;
+        setIsPlaying(false);
+        setProgress(0);
+        return;
+      }
+      // Stop any other playing audio globally
+      globalAudioState?.stop();
+      
+      const audio = new Audio(videoUrl);
+      audioRef.current = audio;
+      setIsPlaying(true);
+      
+      audio.addEventListener("timeupdate", () => {
+        if (audio.duration) setProgress((audio.currentTime / audio.duration) * 100);
+      });
+      audio.addEventListener("ended", () => {
+        setIsPlaying(false);
+        setProgress(0);
+        audioRef.current = null;
+      });
+      audio.play();
     } else {
       setOpen(true);
     }
   };
 
+  // Register for global stop
+  useEffect(() => {
+    const stopFn = () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+      setIsPlaying(false);
+      setProgress(0);
+    };
+    globalAudioState = { play: () => {}, stop: stopFn };
+    return () => { 
+      stopFn();
+      if (globalAudioState?.stop === stopFn) globalAudioState = null;
+    };
+  }, []);
+
+  // SVG circle progress
+  const radius = 12;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
+
   return (
     <>
       <button
+        ref={buttonRef}
         onClick={handleClick}
-        className="relative inline-flex items-center text-red-400 hover:text-red-300 transition-colors flex-shrink-0"
+        className="relative inline-flex items-center justify-center flex-shrink-0 w-8 h-8"
       >
-        <PlayCircle className="h-5 w-5" />
-        {showPulse && (
+        <svg className="absolute inset-0 w-8 h-8 -rotate-90" viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r={radius} fill="none" stroke="rgb(63, 63, 70)" strokeWidth="2" />
+          {isPlaying && (
+            <circle
+              cx="16" cy="16" r={radius}
+              fill="none"
+              stroke="rgb(220, 38, 38)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              className="transition-[stroke-dashoffset] duration-200"
+            />
+          )}
+        </svg>
+        {isPlaying ? (
+          <span className="relative z-10 w-2.5 h-2.5 bg-red-600 rounded-sm" />
+        ) : (
+          <PlayCircle className="relative z-10 h-5 w-5 text-red-400 hover:text-red-300 transition-colors" />
+        )}
+        {showPulse && !isPlaying && (
           <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
@@ -144,50 +214,19 @@ const StepDatePicker = ({ value, onChange, fromYear = 1950, onDone }: { value?: 
 };
 
 const DateDropdowns = ({ value, onChange, fromYear = 1950 }: { value?: Date; fromYear?: number; onChange: (d: Date) => void }) => {
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: currentYear - fromYear + 1 }, (_, i) => currentYear - i);
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-
-  const selYear = value ? String(value.getFullYear()) : "";
-  const selMonth = value ? String(value.getMonth()) : "";
-  const selDay = value ? String(value.getDate()) : "";
-
-  const daysInMonth = selYear && selMonth !== "" ? new Date(Number(selYear), Number(selMonth) + 1, 0).getDate() : 31;
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
-  const buildDate = (y: string, m: string, d: string) => {
-    if (y && m !== "" && d) {
-      onChange(new Date(Number(y), Number(m), Number(d)));
-    }
-  };
-
+  const [open, setOpen] = useState(false);
   return (
-    <div className="flex gap-1.5 w-full">
-      <Select value={selYear} onValueChange={(v) => buildDate(v, selMonth || "0", selDay || "1")}>
-        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 flex-1 min-w-0">
-          <SelectValue placeholder="Year" />
-        </SelectTrigger>
-        <SelectContent className="max-h-[200px]">
-          {years.map(y => <SelectItem key={y} value={String(y)} className="text-xs">{y}</SelectItem>)}
-        </SelectContent>
-      </Select>
-      <Select value={selMonth} onValueChange={(v) => buildDate(selYear || String(currentYear), v, selDay || "1")}>
-        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 flex-1 min-w-0">
-          <SelectValue placeholder="Month" />
-        </SelectTrigger>
-        <SelectContent className="max-h-[200px]">
-          {months.map((m, i) => <SelectItem key={i} value={String(i)} className="text-xs">{m}</SelectItem>)}
-        </SelectContent>
-      </Select>
-      <Select value={selDay} onValueChange={(v) => buildDate(selYear || String(currentYear), selMonth || "0", v)}>
-        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-[70px] flex-shrink-0">
-          <SelectValue placeholder="Day" />
-        </SelectTrigger>
-        <SelectContent className="max-h-[200px]">
-          {days.map(d => <SelectItem key={d} value={String(d)} className="text-xs">{d}</SelectItem>)}
-        </SelectContent>
-      </Select>
-    </div>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full justify-start">
+          <CalendarIcon className="mr-1 h-3 w-3" />
+          {value ? format(value, "dd/MM/yyyy") : "Select date"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+        <StepDatePicker value={value} fromYear={fromYear} onChange={onChange} onDone={() => setOpen(false)} />
+      </PopoverContent>
+    </Popover>
   );
 };
 
@@ -244,13 +283,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [tableData, setTableData] = useState<Record<string, string[][][]>>({});
   const [currentSection, setCurrentSection] = useState(0);
-  const [stickyAudio, setStickyAudio] = useState<{ url: string; label: string } | null>(null);
 
-  // Wire up the global audio setter so VideoPlayButton can trigger it
-  useEffect(() => {
-    setGlobalAudio = setStickyAudio;
-    return () => { setGlobalAudio = null; };
-  }, []);
+
 
   useEffect(() => {
     const load = async () => {
@@ -423,11 +457,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         if (value !== durationText) setCellValue(tableId, entryIdx, rowIdx, colIdx, durationText);
       }
 
+      const [startOpen, setStartOpen] = useState(false);
+      const [endOpen, setEndOpen] = useState(false);
       return (
         <div className="space-y-1 w-full">
           <Label className="text-[10px] text-zinc-500 block text-center">Employment Duration</Label>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full">
-            <Popover>
+            <Popover open={startOpen} onOpenChange={setStartOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full sm:w-[130px] justify-start flex-shrink-0">
                   <CalendarIcon className="mr-1 h-3 w-3" />
@@ -435,11 +471,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
-                <StepDatePicker value={startDate} onChange={(d) => setAnswer(startKey, d.toISOString())} />
+                <StepDatePicker value={startDate} onChange={(d) => setAnswer(startKey, d.toISOString())} onDone={() => setStartOpen(false)} />
               </PopoverContent>
             </Popover>
             <span className="text-zinc-500 text-xs text-center hidden sm:block">–</span>
-            <Popover>
+            <Popover open={endOpen} onOpenChange={setEndOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full sm:w-[130px] justify-start flex-shrink-0">
                   <CalendarIcon className="mr-1 h-3 w-3" />
@@ -447,7 +483,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
-                <StepDatePicker value={endDate} onChange={(d) => setAnswer(endKey, d.toISOString())} />
+                <StepDatePicker value={endDate} onChange={(d) => setAnswer(endKey, d.toISOString())} onDone={() => setEndOpen(false)} />
               </PopoverContent>
             </Popover>
             <div className="flex-1 min-w-[80px] bg-zinc-900 border border-zinc-700 rounded-md h-8 flex items-center justify-center">
@@ -3917,29 +3953,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             Section {currentSection + 1} of {sections.length}
           </span>
         </div>
-        {stickyAudio && (
-          <div className="border-t border-zinc-800 bg-zinc-900/80 px-4 py-2">
-            <div className="container mx-auto flex items-center gap-3 max-w-3xl">
-              <div className="flex items-center gap-2 shrink-0">
-                <PlayCircle className="h-4 w-4 text-red-500" />
-                <span className="text-xs text-zinc-300 font-medium truncate max-w-[140px]">{stickyAudio.label}</span>
-              </div>
-              <audio
-                src={stickyAudio.url}
-                controls
-                autoPlay
-                className="flex-1 h-8 min-w-0"
-                style={{ colorScheme: "dark" }}
-              />
-              <button
-                onClick={() => setStickyAudio(null)}
-                className="text-zinc-500 hover:text-zinc-300 transition-colors shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Progress bar */}
