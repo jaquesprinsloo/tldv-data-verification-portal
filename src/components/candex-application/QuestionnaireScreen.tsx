@@ -589,6 +589,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       const positionKey = `position_${tableId}_${entryIdx}_${rowIdx}_${colIdx}`;
       const positionVal = answers[positionKey] || "";
 
+      const tt = (table.table_title || "").toLowerCase();
+      const isContactTrace = tt.includes("contact trace") || tt.includes("close friend") || tt.includes("next of kin")
+        || tt.includes("father") || tt.includes("mother") || tt.includes("sibling") || tt.includes("brother") || tt.includes("sister");
+
       return (
         <div className="space-y-1 w-full">
           {empStatus === "retired" && (
@@ -596,7 +600,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           )}
           <div className="flex gap-2 w-full">
             <div className="flex-1 min-w-0">
-              <Label className="text-[10px] text-zinc-500 mb-0.5 block">Employer Name</Label>
+              {!isContactTrace && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Employer Name</Label>}
               <Input
                 value={value}
                 onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
@@ -605,7 +609,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               />
             </div>
             <div className="flex-1 min-w-0">
-              <Label className="text-[10px] text-zinc-500 mb-0.5 block">Position</Label>
+              {!isContactTrace && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Position</Label>}
               <Input
                 value={positionVal}
                 onChange={(e) => setAnswer(positionKey, e.target.value)}
