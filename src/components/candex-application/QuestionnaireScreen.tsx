@@ -3262,7 +3262,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                     <Input
                                       value={entry[rowIdx]?.[0] || ""}
                                       onChange={(e) => setCellValue(table.id, entryIdx, rowIdx, 0, e.target.value)}
-                                      className="bg-zinc-900 border-zinc-700 text-white text-[11px] sm:text-xs h-10 sm:h-8 w-full"
+                                      className="bg-zinc-900 border-zinc-700 text-white text-xs h-10 sm:h-8 w-full"
                                       placeholder={String(label).replace(/:$/, '')}
                                     />
                                   </div>
