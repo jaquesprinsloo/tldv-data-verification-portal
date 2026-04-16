@@ -3350,11 +3350,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   const isSelected = selectedDisciplinaryRows.includes(rowKey);
                   const rowMediaUrl = table.row_video_urls?.[rowIdx];
                   return (
-                    <div key={rowIdx} className="flex items-center gap-3">
+                    <div key={rowIdx} className="flex items-center gap-2">
                       <div className="flex-shrink-0">
                         {rowMediaUrl ? (
                           <VideoPlayButton videoUrl={rowMediaUrl} label={rowKey} />
-                        ) : <span className="inline-block w-[70px]" />}
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-2 ml-1" style={{ minWidth: '180px' }}>
                         <label htmlFor={`disc_row_${table.id}_${rowIdx}`} className="text-xs text-zinc-300 cursor-pointer w-[150px]">
