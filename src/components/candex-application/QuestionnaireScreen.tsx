@@ -302,16 +302,14 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       return (
         <div className="flex gap-2 w-full">
           <div className="flex-1 min-w-0">
-            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Employer Name</Label>
             <Input
               value={value}
               onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
               className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
-              placeholder="Employer name"
+              placeholder="Employer"
             />
           </div>
           <div className="flex-1 min-w-0">
-            <Label className="text-[10px] text-zinc-500 mb-0.5 block">Location</Label>
             <Input
               value={splitVal}
               onChange={(e) => setAnswer(splitKey, e.target.value)}
