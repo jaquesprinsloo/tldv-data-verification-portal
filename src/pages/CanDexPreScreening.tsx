@@ -119,7 +119,7 @@ const CanDexPreScreening = () => {
           </button>
         </div>
         <div className="flex items-center justify-center mb-6">
-          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-[28rem]" />
+          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-48 sm:h-72 md:h-[28rem] w-auto object-contain" />
         </div>
       </div>
 
@@ -127,34 +127,34 @@ const CanDexPreScreening = () => {
 
         {isMasterAdmin ? (
           <Tabs defaultValue="statistics" className="space-y-6">
-            <TabsList className="flex w-full max-w-3xl mx-auto overflow-x-auto no-scrollbar">
-              <TabsTrigger value="statistics" className="relative text-xs">
-                Statistics
+            <TabsList className="flex w-full max-w-3xl mx-auto flex-wrap h-auto gap-1 p-1">
+              <TabsTrigger value="statistics" className="relative text-[10px] sm:text-xs flex-1 min-w-[70px] px-2 py-1.5">
+                Stats
                 {pendingSubmissionsCount > 0 && (
                   <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
                     {pendingSubmissionsCount}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="risk-requests" className="relative text-xs">
-                Risk Requests
+              <TabsTrigger value="risk-requests" className="relative text-[10px] sm:text-xs flex-1 min-w-[70px] px-2 py-1.5">
+                Risk
                 {pendingRiskCount > 0 && (
                   <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
                     {pendingRiskCount}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="appointments" className="relative text-xs">
-                Appointments
+              <TabsTrigger value="appointments" className="relative text-[10px] sm:text-xs flex-1 min-w-[70px] px-2 py-1.5">
+                Appts
                 {pendingAppointmentCount > 0 && (
                   <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
                     {pendingAppointmentCount}
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="builder" className="text-xs">Builder</TabsTrigger>
-              <TabsTrigger value="popia" className="text-xs">POPIA & Indemnity</TabsTrigger>
-              <TabsTrigger value="clients" className="text-xs">Clients</TabsTrigger>
+              <TabsTrigger value="builder" className="text-[10px] sm:text-xs flex-1 min-w-[70px] px-2 py-1.5">Builder</TabsTrigger>
+              <TabsTrigger value="popia" className="text-[10px] sm:text-xs flex-1 min-w-[70px] px-2 py-1.5">POPIA</TabsTrigger>
+              <TabsTrigger value="clients" className="text-[10px] sm:text-xs flex-1 min-w-[70px] px-2 py-1.5">Clients</TabsTrigger>
             </TabsList>
 
             <TabsContent value="statistics">
