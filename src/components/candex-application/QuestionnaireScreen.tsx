@@ -38,14 +38,13 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
     <>
       <button
         onClick={handleClick}
-        className="relative inline-flex items-center gap-1 px-1.5 py-1 sm:gap-1.5 sm:px-2 rounded-md bg-red-600/20 border border-red-600/40 text-red-400 hover:bg-red-600/30 hover:text-red-300 transition-colors text-xs font-medium flex-shrink-0"
+        className="relative inline-flex items-center text-red-400 hover:text-red-300 transition-colors flex-shrink-0"
       >
-        <PlayCircle className="h-4 w-4 flex-shrink-0" />
-        <span className="hidden sm:inline">{isAudio ? "Listen" : "Watch"}</span>
+        <PlayCircle className="h-5 w-5" />
         {showPulse && (
-          <span className="absolute -top-1 -right-1 flex h-3 w-3">
+          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
           </span>
         )}
       </button>
