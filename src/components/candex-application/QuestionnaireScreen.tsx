@@ -17,31 +17,101 @@ import { format } from "date-fns";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import type { Json } from "@/integrations/supabase/types";
 
-// Shared state for sticky audio player in header
-let setGlobalAudio: ((audio: { url: string; label: string } | null) => void) | null = null;
+// Global audio state for animated border media player
+let globalAudioState: {
+  play: (url: string, label: string, buttonRef: HTMLButtonElement) => void;
+  stop: () => void;
+} | null = null;
 
 const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string }) => {
   const [open, setOpen] = useState(false);
   const [showPulse, setShowPulse] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const isAudio = /\.(mp3|wav|ogg|aac|m4a|flac|wma)/i.test(videoUrl);
 
   const handleClick = () => {
     setShowPulse(false);
-    if (isAudio && setGlobalAudio) {
-      setGlobalAudio({ url: videoUrl, label });
+    if (isAudio) {
+      if (isPlaying) {
+        // Stop playing
+        audioRef.current?.pause();
+        audioRef.current = null;
+        setIsPlaying(false);
+        setProgress(0);
+        return;
+      }
+      // Stop any other playing audio globally
+      globalAudioState?.stop();
+      
+      const audio = new Audio(videoUrl);
+      audioRef.current = audio;
+      setIsPlaying(true);
+      
+      audio.addEventListener("timeupdate", () => {
+        if (audio.duration) setProgress((audio.currentTime / audio.duration) * 100);
+      });
+      audio.addEventListener("ended", () => {
+        setIsPlaying(false);
+        setProgress(0);
+        audioRef.current = null;
+      });
+      audio.play();
     } else {
       setOpen(true);
     }
   };
 
+  // Register for global stop
+  useEffect(() => {
+    const stopFn = () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+      setIsPlaying(false);
+      setProgress(0);
+    };
+    globalAudioState = { play: () => {}, stop: stopFn };
+    return () => { 
+      stopFn();
+      if (globalAudioState?.stop === stopFn) globalAudioState = null;
+    };
+  }, []);
+
+  // SVG circle progress
+  const radius = 12;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (progress / 100) * circumference;
+
   return (
     <>
       <button
+        ref={buttonRef}
         onClick={handleClick}
-        className="relative inline-flex items-center text-red-400 hover:text-red-300 transition-colors flex-shrink-0"
+        className="relative inline-flex items-center justify-center flex-shrink-0 w-8 h-8"
       >
-        <PlayCircle className="h-5 w-5" />
-        {showPulse && (
+        <svg className="absolute inset-0 w-8 h-8 -rotate-90" viewBox="0 0 32 32">
+          <circle cx="16" cy="16" r={radius} fill="none" stroke="rgb(63, 63, 70)" strokeWidth="2" />
+          {isPlaying && (
+            <circle
+              cx="16" cy="16" r={radius}
+              fill="none"
+              stroke="rgb(220, 38, 38)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              className="transition-[stroke-dashoffset] duration-200"
+            />
+          )}
+        </svg>
+        {isPlaying ? (
+          <span className="relative z-10 w-2.5 h-2.5 bg-red-600 rounded-sm" />
+        ) : (
+          <PlayCircle className="relative z-10 h-5 w-5 text-red-400 hover:text-red-300 transition-colors" />
+        )}
+        {showPulse && !isPlaying && (
           <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
             <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
