@@ -3444,7 +3444,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
             {!hasNoDisciplinary && (
               <div className="p-3 bg-zinc-900/30 border border-zinc-800 rounded-lg space-y-2">
-                <p className="text-xs text-zinc-400 font-medium">Select the disciplinary actions that apply to you:</p>
+                <p className="text-xs text-zinc-400 font-semibold text-center">Disciplinary Conduct</p>
+                <p className="text-[10px] text-zinc-500 text-center mb-1">Select the disciplinary actions that apply to you:</p>
                 {table.row_labels.map((label, rowIdx) => {
                   const rowKey = String(label);
                   const isSelected = selectedDisciplinaryRows.includes(rowKey);
@@ -3480,33 +3481,109 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           </div>
         )}
 
-        {isDisciplinaryTable && !hasNoDisciplinary && selectedDisciplinaryRows.length > 0 && (
-          <div className="border border-zinc-800 rounded-lg overflow-hidden p-3 bg-zinc-900/30 space-y-2">
-            <p className="text-sm font-semibold text-primary text-center mb-3">Workplace & Context</p>
-            {selectedDisciplinaryRows.map((rowKey) => {
-              const contextKey = `disciplinary_context_${table.id}_${rowKey}`;
-              const workplaceKey = `disciplinary_workplace_${table.id}_${rowKey}`;
-              return (
-                <div key={rowKey} className="space-y-1 border border-zinc-800 rounded-lg p-2">
-                  <p className="text-xs text-zinc-300 font-medium">{rowKey}</p>
-                  <Input
-                    placeholder="Specify workplace"
-                    value={answers[workplaceKey] || ""}
-                    onChange={(e) => setAnswer(workplaceKey, e.target.value)}
-                    className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
-                  />
-                  <Textarea
-                    rows={2}
-                    placeholder="Describe the context of this disciplinary conduct"
-                    value={answers[contextKey] || ""}
-                    onChange={(e) => setAnswer(contextKey, e.target.value)}
-                    className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs w-full"
-                  />
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {isDisciplinaryTable && !hasNoDisciplinary && selectedDisciplinaryRows.length > 0 && (() => {
+          // Gather employer names from employment history tables in this section
+          const getDiscEmployerNames = (): string[] => {
+            const employers: string[] = [];
+            for (const t of tables) {
+              const tt = t.table_title.toLowerCase();
+              if (!tt.includes("employment") && !tt.includes("work history")) continue;
+              const tEntries = tableData[t.id] || [t.row_labels.map(() => t.column_headers.map(() => ""))];
+              const empRowIdx = t.row_labels.findIndex(l => {
+                const ll = String(l).toLowerCase();
+                return (ll.includes("employer") && ll.includes("location")) || (ll.includes("employer") && !ll.includes("position")) || (ll.includes("employer") && ll.includes("position"));
+              });
+              if (empRowIdx < 0) continue;
+              for (const entry of tEntries) {
+                const val = entry[empRowIdx]?.[0]?.trim();
+                if (val && !employers.includes(val)) employers.push(val);
+              }
+            }
+            return employers;
+          };
+          const discEmployerNames = getDiscEmployerNames();
+
+          return (
+            <div className="border border-zinc-800 rounded-lg overflow-hidden p-3 bg-zinc-900/30 space-y-3">
+              <p className="text-sm font-semibold text-primary text-center mb-1">Workplace & Context</p>
+              {selectedDisciplinaryRows.map((rowKey) => {
+                const entriesKey = `disciplinary_entries_${table.id}_${rowKey}`;
+                const currentEntries: Array<{ employer: string; context: string }> = answers[entriesKey] || [{ employer: "", context: "" }];
+
+                const updateEntries = (newEntries: Array<{ employer: string; context: string }>) => {
+                  setAnswer(entriesKey, newEntries);
+                };
+
+                return (
+                  <div key={rowKey} className="space-y-2 border border-zinc-800 rounded-lg p-2">
+                    <p className="text-xs text-zinc-300 font-semibold">{rowKey}</p>
+                    {currentEntries.map((entry, eIdx) => (
+                      <div key={eIdx} className="space-y-1 bg-zinc-950/50 border border-zinc-800 rounded p-2">
+                        {currentEntries.length > 1 && (
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[10px] text-zinc-500">Workplace {eIdx + 1}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => updateEntries(currentEntries.filter((_, i) => i !== eIdx))}
+                              className="h-5 w-5 p-0 text-red-500 hover:text-red-400"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        <div>
+                          <Label className="text-[10px] text-zinc-500 mb-0.5 block">Specify workplace</Label>
+                          <Select
+                            value={entry.employer}
+                            onValueChange={(val) => {
+                              const updated = [...currentEntries];
+                              updated[eIdx] = { ...updated[eIdx], employer: val };
+                              updateEntries(updated);
+                            }}
+                          >
+                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full">
+                              <SelectValue placeholder="Select employer" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-zinc-900 border-zinc-700">
+                              {discEmployerNames.map((emp) => (
+                                <SelectItem key={emp} value={emp} className="text-white text-sm">
+                                  {emp}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-zinc-500 mb-0.5 block">Context</Label>
+                          <Textarea
+                            rows={2}
+                            placeholder="Describe the context of this disciplinary conduct"
+                            value={entry.context}
+                            onChange={(e) => {
+                              const updated = [...currentEntries];
+                              updated[eIdx] = { ...updated[eIdx], context: e.target.value };
+                              updateEntries(updated);
+                            }}
+                            className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs w-full"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => updateEntries([...currentEntries, { employer: "", context: "" }])}
+                      className="w-full border-dashed border-zinc-700 text-zinc-400 hover:text-white text-xs h-8 gap-1"
+                    >
+                      <Plus className="h-3 w-3" /> Add another workplace
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {!(isEmploymentHistory && hasNeverWorked) && !isDisciplinaryTable && (
           <>
