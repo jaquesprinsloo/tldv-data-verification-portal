@@ -3391,7 +3391,35 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           </div>
         )}
 
-        {!(isEmploymentHistory && hasNeverWorked) && !(isDisciplinaryTable && hasNoDisciplinary) && !(isDisciplinaryTable && selectedDisciplinaryRows.length === 0) && (
+        {isDisciplinaryTable && !hasNoDisciplinary && selectedDisciplinaryRows.length > 0 && (
+          <div className="border border-zinc-800 rounded-lg overflow-hidden p-3 bg-zinc-900/30 space-y-2">
+            <p className="text-sm font-semibold text-primary text-center mb-3">Workplace & Context</p>
+            {selectedDisciplinaryRows.map((rowKey) => {
+              const contextKey = `disciplinary_context_${table.id}_${rowKey}`;
+              const workplaceKey = `disciplinary_workplace_${table.id}_${rowKey}`;
+              return (
+                <div key={rowKey} className="space-y-1 border border-zinc-800 rounded-lg p-2">
+                  <p className="text-xs text-zinc-300 font-medium">{rowKey}</p>
+                  <Input
+                    placeholder="Specify workplace"
+                    value={answers[workplaceKey] || ""}
+                    onChange={(e) => setAnswer(workplaceKey, e.target.value)}
+                    className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
+                  />
+                  <Textarea
+                    rows={2}
+                    placeholder="Describe the context of this disciplinary conduct"
+                    value={answers[contextKey] || ""}
+                    onChange={(e) => setAnswer(contextKey, e.target.value)}
+                    className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs w-full"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!(isEmploymentHistory && hasNeverWorked) && !isDisciplinaryTable && (
           <>
             {entries.map((entry, entryIdx) => (
               <div key={entryIdx} className="border border-zinc-800 rounded-lg overflow-hidden">
