@@ -286,7 +286,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     entryIdx: number,
     rowIdx: number,
     colIdx: number,
-    value: string
+    value: string,
+    mobilePlaceholder?: string
   ) => {
     const rowConfig = getRowInputConfig(table, rowIdx);
     const inputType = rowConfig.type;
