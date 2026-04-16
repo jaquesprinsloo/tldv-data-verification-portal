@@ -349,32 +349,35 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       }
 
       return (
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full sm:w-[130px] justify-start flex-shrink-0">
-                <CalendarIcon className="mr-1 h-3 w-3" />
-                {startDate ? format(startDate, "dd/MM/yyyy") : "Start"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={startDate} onSelect={(d) => d && setAnswer(startKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
-          <span className="text-zinc-500 text-xs text-center hidden sm:block">–</span>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full sm:w-[130px] justify-start flex-shrink-0">
-                <CalendarIcon className="mr-1 h-3 w-3" />
-                {endDate ? format(endDate, "dd/MM/yyyy") : "End"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={endDate} onSelect={(d) => d && setAnswer(endKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
-            </PopoverContent>
-          </Popover>
-          <div className="flex-1 min-w-[80px] bg-zinc-900 border border-zinc-700 rounded-md h-8 flex items-center justify-center">
-            <span className="text-xs text-emerald-400 font-medium">{durationText || "—"}</span>
+        <div className="space-y-1 w-full">
+          <Label className="text-[10px] text-zinc-500 block">Employment Duration</Label>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full sm:w-[130px] justify-start flex-shrink-0">
+                  <CalendarIcon className="mr-1 h-3 w-3" />
+                  {startDate ? format(startDate, "dd/MM/yyyy") : "Start"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={startDate} onSelect={(d) => d && setAnswer(startKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+            <span className="text-zinc-500 text-xs text-center hidden sm:block">–</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full sm:w-[130px] justify-start flex-shrink-0">
+                  <CalendarIcon className="mr-1 h-3 w-3" />
+                  {endDate ? format(endDate, "dd/MM/yyyy") : "End"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={endDate} onSelect={(d) => d && setAnswer(endKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
+            <div className="flex-1 min-w-[80px] bg-zinc-900 border border-zinc-700 rounded-md h-8 flex items-center justify-center">
+              <span className="text-xs text-emerald-400 font-medium">{durationText || "—"}</span>
+            </div>
           </div>
         </div>
       );
@@ -401,27 +404,23 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         ? rowConfig.options
         : ["Contract term completed", "Resigned", "Retrenched", "Dismissed", "Still employed", "Other"];
       return (
-        <div className="flex gap-2 w-full">
-          <div className="w-full sm:w-[190px] flex-shrink-0">
-            <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8">
-                <SelectValue placeholder="Select reason" />
-              </SelectTrigger>
-              <SelectContent>
-                {options.map((opt) => (
-                  <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex-1 min-w-0">
-            <Input
-              value={reasonDetails}
-              onChange={(e) => setAnswer(detailReasonKey, e.target.value)}
-              className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
-              placeholder="Please provide details..."
-            />
-          </div>
+        <div className="flex flex-col gap-1.5 w-full">
+          <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
+            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full">
+              <SelectValue placeholder="Employment Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((opt) => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            value={reasonDetails}
+            onChange={(e) => setAnswer(detailReasonKey, e.target.value)}
+            className="bg-zinc-900 border-zinc-700 text-white text-xs h-8 w-full"
+            placeholder="Why was this employment status selected?"
+          />
         </div>
       );
     }
