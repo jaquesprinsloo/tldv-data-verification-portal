@@ -3501,7 +3501,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                       )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
+                                      {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "", String(label).replace(/:$/, ''))}
                                     </div>
                                   </div>
                                 </td>
