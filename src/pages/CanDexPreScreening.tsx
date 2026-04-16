@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Home } from "lucide-react";
+import { Home, ChevronDown } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import preapplicheckShield from "@/assets/preapplicheck-shield.jpg";
@@ -21,6 +21,7 @@ const CanDexPreScreening = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isMasterAdmin, setIsMasterAdmin] = useState(false);
+  const [activeTab, setActiveTab] = useState("statistics");
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -126,61 +127,82 @@ const CanDexPreScreening = () => {
       <main className="container mx-auto px-4 sm:px-6 pb-8">
 
         {isMasterAdmin ? (
-          <Tabs defaultValue="statistics" className="space-y-6">
-            <TabsList className="flex w-full max-w-3xl mx-auto flex-wrap h-auto gap-1 p-1">
-              <TabsTrigger value="statistics" className="relative text-[10px] sm:text-xs flex-1 min-w-[70px] px-2 py-1.5">
-                Stats
-                {pendingSubmissionsCount > 0 && (
-                  <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
-                    {pendingSubmissionsCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="risk-requests" className="relative text-[10px] sm:text-xs flex-1 min-w-[70px] px-2 py-1.5">
-                Risk
-                {pendingRiskCount > 0 && (
-                  <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
-                    {pendingRiskCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="appointments" className="relative text-[10px] sm:text-xs flex-1 min-w-[70px] px-2 py-1.5">
-                Appts
-                {pendingAppointmentCount > 0 && (
-                  <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
-                    {pendingAppointmentCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="builder" className="text-[10px] sm:text-xs flex-1 min-w-[70px] px-2 py-1.5">Builder</TabsTrigger>
-              <TabsTrigger value="popia" className="text-[10px] sm:text-xs flex-1 min-w-[70px] px-2 py-1.5">POPIA</TabsTrigger>
-              <TabsTrigger value="clients" className="text-[10px] sm:text-xs flex-1 min-w-[70px] px-2 py-1.5">Clients</TabsTrigger>
-            </TabsList>
+          <div className="space-y-6">
+            {/* Mobile: Dropdown selector */}
+            <div className="sm:hidden">
+              <select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value)}
+                className="w-full border border-border rounded-lg px-4 py-3 bg-background text-foreground text-sm font-medium appearance-none"
+                style={{ backgroundImage: 'none' }}
+              >
+                <option value="statistics">
+                  Statistics {pendingSubmissionsCount > 0 ? `(${pendingSubmissionsCount})` : ''}
+                </option>
+                <option value="risk-requests">
+                  Risk Requests {pendingRiskCount > 0 ? `(${pendingRiskCount})` : ''}
+                </option>
+                <option value="appointments">
+                  Appointments {pendingAppointmentCount > 0 ? `(${pendingAppointmentCount})` : ''}
+                </option>
+                <option value="builder">Builder</option>
+                <option value="popia">POPIA & Indemnity</option>
+                <option value="clients">Clients</option>
+              </select>
+            </div>
 
-            <TabsContent value="statistics">
-              <CandexStatistics />
-            </TabsContent>
+            {/* Desktop: Regular tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              <TabsList className="hidden sm:grid w-full grid-cols-6 max-w-3xl mx-auto">
+                <TabsTrigger value="statistics" className="relative text-xs">
+                  Statistics
+                  {pendingSubmissionsCount > 0 && (
+                    <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                      {pendingSubmissionsCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="risk-requests" className="relative text-xs">
+                  Risk Requests
+                  {pendingRiskCount > 0 && (
+                    <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                      {pendingRiskCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="appointments" className="relative text-xs">
+                  Appointments
+                  {pendingAppointmentCount > 0 && (
+                    <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
+                      {pendingAppointmentCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="builder" className="text-xs">Builder</TabsTrigger>
+                <TabsTrigger value="popia" className="text-xs">POPIA & Indemnity</TabsTrigger>
+                <TabsTrigger value="clients" className="text-xs">Clients</TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="risk-requests">
-              <CandexRiskRequests />
-            </TabsContent>
-
-            <TabsContent value="appointments">
-              <PolygraphAppointments />
-            </TabsContent>
-
-            <TabsContent value="builder">
-              <CandexBuilder />
-            </TabsContent>
-
-            <TabsContent value="popia">
-              <POPIAIndemnityEditor />
-            </TabsContent>
-
-            <TabsContent value="clients">
-              <CandexClients />
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="statistics" forceMount className={activeTab !== "statistics" ? "hidden" : ""}>
+                <CandexStatistics />
+              </TabsContent>
+              <TabsContent value="risk-requests" forceMount className={activeTab !== "risk-requests" ? "hidden" : ""}>
+                <CandexRiskRequests />
+              </TabsContent>
+              <TabsContent value="appointments" forceMount className={activeTab !== "appointments" ? "hidden" : ""}>
+                <PolygraphAppointments />
+              </TabsContent>
+              <TabsContent value="builder" forceMount className={activeTab !== "builder" ? "hidden" : ""}>
+                <CandexBuilder />
+              </TabsContent>
+              <TabsContent value="popia" forceMount className={activeTab !== "popia" ? "hidden" : ""}>
+                <POPIAIndemnityEditor />
+              </TabsContent>
+              <TabsContent value="clients" forceMount className={activeTab !== "clients" ? "hidden" : ""}>
+                <CandexClients />
+              </TabsContent>
+            </Tabs>
+          </div>
         ) : (
           <CandexClientPortal userId={user?.id || ""} />
         )}
