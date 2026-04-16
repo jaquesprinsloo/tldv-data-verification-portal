@@ -1300,7 +1300,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         value={value}
         onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
         className="bg-zinc-900 border-zinc-700 text-white text-xs h-8"
-        placeholder="Enter..."
+        placeholder={mobilePlaceholder || "Enter..."}
       />
     );
   };
