@@ -127,7 +127,7 @@ const CanDexPreScreening = () => {
 
         {isMasterAdmin ? (
           <Tabs defaultValue="statistics" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-6 max-w-3xl mx-auto">
+            <TabsList className="flex w-full max-w-3xl mx-auto overflow-x-auto no-scrollbar">
               <TabsTrigger value="statistics" className="relative text-xs">
                 Statistics
                 {pendingSubmissionsCount > 0 && (
