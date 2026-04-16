@@ -68,6 +68,81 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
 };
 
 
+const StepDatePicker = ({ value, onChange, fromYear = 1950, onDone }: { value?: Date; fromYear?: number; onChange: (d: Date) => void; onDone?: () => void }) => {
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: currentYear - fromYear + 1 }, (_, i) => currentYear - i);
+  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const [step, setStep] = useState<"year" | "month" | "day">("year");
+  const [pickedYear, setPickedYear] = useState<number | null>(value ? value.getFullYear() : null);
+  const [pickedMonth, setPickedMonth] = useState<number | null>(value ? value.getMonth() : null);
+
+  useEffect(() => {
+    if (value) {
+      setPickedYear(value.getFullYear());
+      setPickedMonth(value.getMonth());
+    }
+  }, [value]);
+
+  const handleYearSelect = (y: number) => { setPickedYear(y); setStep("month"); };
+  const handleMonthSelect = (m: number) => { setPickedMonth(m); setStep("day"); };
+  const handleDaySelect = (d: number) => {
+    const newDate = new Date(pickedYear!, pickedMonth!, d);
+    onChange(newDate);
+    onDone?.();
+    setStep("year");
+  };
+
+  const daysInMonth = pickedYear != null && pickedMonth != null ? new Date(pickedYear, pickedMonth + 1, 0).getDate() : 31;
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  return (
+    <div className="p-2 w-[260px]">
+      {step === "year" && (
+        <div>
+          <p className="text-xs text-zinc-400 font-medium text-center mb-2">Select Year</p>
+          <div className="grid grid-cols-4 gap-1 max-h-[200px] overflow-y-auto">
+            {years.map(y => (
+              <button key={y} onClick={() => handleYearSelect(y)}
+                className={`text-xs py-1.5 rounded ${pickedYear === y ? "bg-red-600 text-white" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"}`}>
+                {y}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {step === "month" && (
+        <div>
+          <p className="text-xs text-zinc-400 font-medium text-center mb-2">{pickedYear} — Select Month</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {monthNames.map((m, i) => (
+              <button key={i} onClick={() => handleMonthSelect(i)}
+                className={`text-xs py-2 rounded ${pickedMonth === i ? "bg-red-600 text-white" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"}`}>
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {step === "day" && (
+        <div>
+          <p className="text-xs text-zinc-400 font-medium text-center mb-2">{monthNames[pickedMonth!]} {pickedYear} — Select Day</p>
+          <div className="grid grid-cols-7 gap-1">
+            {days.map(d => {
+              const isSelected = value && value.getFullYear() === pickedYear && value.getMonth() === pickedMonth && value.getDate() === d;
+              return (
+                <button key={d} onClick={() => handleDaySelect(d)}
+                  className={`text-xs py-1.5 rounded ${isSelected ? "bg-red-600 text-white" : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"}`}>
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const DateDropdowns = ({ value, onChange, fromYear = 1950 }: { value?: Date; fromYear?: number; onChange: (d: Date) => void }) => {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: currentYear - fromYear + 1 }, (_, i) => currentYear - i);
@@ -359,8 +434,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   {startDate ? format(startDate, "dd/MM/yyyy") : "Start"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={startDate} onSelect={(d) => d && setAnswer(startKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
+              <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                <StepDatePicker value={startDate} onChange={(d) => setAnswer(startKey, d.toISOString())} />
               </PopoverContent>
             </Popover>
             <span className="text-zinc-500 text-xs text-center hidden sm:block">–</span>
@@ -371,8 +446,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   {endDate ? format(endDate, "dd/MM/yyyy") : "End"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={endDate} onSelect={(d) => d && setAnswer(endKey, d.toISOString())} captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()} className="p-3 pointer-events-auto" />
+              <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+                <StepDatePicker value={endDate} onChange={(d) => setAnswer(endKey, d.toISOString())} />
               </PopoverContent>
             </Popover>
             <div className="flex-1 min-w-[80px] bg-zinc-900 border border-zinc-700 rounded-md h-8 flex items-center justify-center">
