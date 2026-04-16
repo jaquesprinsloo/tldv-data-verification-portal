@@ -3245,7 +3245,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                         <tbody>
                           {table.row_labels.map((label, rowIdx) => (
                             <tr key={rowIdx} className="border-b border-zinc-800/50">
-                              <td className="p-1.5 sm:p-2 text-xs text-zinc-400 font-medium w-[70px] sm:w-[180px]">
+                              <td className="hidden sm:table-cell p-1.5 sm:p-2 text-xs text-zinc-400 font-medium sm:w-[180px]">
                                 <div className="flex items-center gap-1">
                                   {table.row_video_urls?.[rowIdx] && (
                                     <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
@@ -3254,7 +3254,21 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                 </div>
                               </td>
                               <td className="p-1.5 sm:p-2" colSpan={2}>
-                                {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
+                                <div className="flex items-center gap-1.5 sm:block">
+                                  <div className="sm:hidden flex-shrink-0">
+                                    {table.row_video_urls?.[rowIdx] && (
+                                      <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <Input
+                                      value={entry[rowIdx]?.[0] || ""}
+                                      onChange={(e) => setCellValue(table.id, entryIdx, rowIdx, 0, e.target.value)}
+                                      className="bg-zinc-900 border-zinc-700 text-white text-[11px] sm:text-xs h-10 sm:h-8 w-full"
+                                      placeholder={String(label).replace(/:$/, '')}
+                                    />
+                                  </div>
+                                </div>
                               </td>
                             </tr>
                           ))}
