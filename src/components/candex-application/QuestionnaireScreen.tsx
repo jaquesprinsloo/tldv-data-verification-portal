@@ -3954,7 +3954,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           </span>
         </div>
       </div>
-      </div>
 
       {/* Progress bar */}
       <div className="h-1 bg-zinc-900">
