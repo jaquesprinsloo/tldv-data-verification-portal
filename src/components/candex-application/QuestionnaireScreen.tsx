@@ -419,7 +419,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             value={reasonDetails}
             onChange={(e) => setAnswer(detailReasonKey, e.target.value)}
             className="bg-zinc-900 border-zinc-700 text-white text-sm h-9 w-full"
-            placeholder="Why was this employment status selected?"
+            placeholder="Employment status explanation"
           />
         </div>
       );
