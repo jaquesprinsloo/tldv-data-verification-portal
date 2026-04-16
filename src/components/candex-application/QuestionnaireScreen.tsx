@@ -3354,23 +3354,16 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             </div>
 
             {!hasNoDisciplinary && (
-              <div className="p-3 bg-zinc-900/30 border border-zinc-800 rounded-lg space-y-2">
-                <p className="text-xs text-zinc-400 font-medium">Select the disciplinary actions that apply to you:</p>
+              <div className="p-3 bg-zinc-900/30 border border-zinc-800 rounded-lg space-y-1">
+                <p className="text-sm font-semibold text-primary text-center mb-3">{table.table_title}</p>
                 {table.row_labels.map((label, rowIdx) => {
                   const rowKey = String(label);
                   const isSelected = selectedDisciplinaryRows.includes(rowKey);
                   const rowMediaUrl = table.row_video_urls?.[rowIdx];
+                  const contextKey = `disciplinary_context_${table.id}_${rowKey}`;
                   return (
-                    <div key={rowIdx} className="flex items-center gap-2">
-                      <div className="flex-shrink-0">
-                        {rowMediaUrl ? (
-                          <VideoPlayButton videoUrl={rowMediaUrl} label={rowKey} />
-                        ) : null}
-                      </div>
-                      <div className="flex items-center gap-2 ml-1" style={{ minWidth: '180px' }}>
-                        <label htmlFor={`disc_row_${table.id}_${rowIdx}`} className="text-xs text-zinc-300 cursor-pointer w-[150px]">
-                          {rowKey}
-                        </label>
+                    <div key={rowIdx} className="space-y-1">
+                      <div className="flex items-center gap-2 py-1">
                         <Checkbox
                           id={`disc_row_${table.id}_${rowIdx}`}
                           checked={isSelected}
@@ -3379,10 +3372,26 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                               ? [...selectedDisciplinaryRows, rowKey]
                               : selectedDisciplinaryRows.filter((r) => r !== rowKey);
                             setAnswer(disciplinaryRowSelectKey, next);
+                            if (!checked) setAnswer(contextKey, "");
                           }}
                           className="border-zinc-600 data-[state=checked]:bg-red-600 flex-shrink-0"
                         />
+                        <label htmlFor={`disc_row_${table.id}_${rowIdx}`} className="text-xs text-zinc-300 cursor-pointer">
+                          {rowKey}
+                        </label>
+                        {rowMediaUrl && (
+                          <VideoPlayButton videoUrl={rowMediaUrl} label={rowKey} />
+                        )}
                       </div>
+                      {isSelected && (
+                        <Textarea
+                          rows={2}
+                          placeholder="Describe the context of this disciplinary conduct"
+                          value={answers[contextKey] || ""}
+                          onChange={(e) => setAnswer(contextKey, e.target.value)}
+                          className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs ml-6 w-[calc(100%-1.5rem)]"
+                        />
+                      )}
                     </div>
                   );
                 })}
@@ -3391,7 +3400,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           </div>
         )}
 
-        {!(isEmploymentHistory && hasNeverWorked) && !(isDisciplinaryTable && hasNoDisciplinary) && !(isDisciplinaryTable && selectedDisciplinaryRows.length === 0) && (
+        {!(isEmploymentHistory && hasNeverWorked) && !isDisciplinaryTable && (
           <>
             {entries.map((entry, entryIdx) => (
               <div key={entryIdx} className="border border-zinc-800 rounded-lg overflow-hidden">
