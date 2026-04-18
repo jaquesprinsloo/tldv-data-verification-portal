@@ -1387,6 +1387,18 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
+    // Court Attendance row holds long auto-generated text — render as wrapping textarea
+    if (rowLabel.includes("court attendance") || (rowLabel.includes("court") && rowLabel.includes("attend"))) {
+      return (
+        <Textarea
+          value={value}
+          onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
+          className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs min-h-[72px] resize-y w-full break-words"
+          placeholder={mobilePlaceholder || "Enter..."}
+        />
+      );
+    }
+
     return (
       <Input
         value={value}
