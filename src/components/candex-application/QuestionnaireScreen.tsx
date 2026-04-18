@@ -207,14 +207,14 @@ const StepDatePicker = ({ value, onChange, fromYear = 1950, onDone }: { value?: 
   );
 };
 
-const DateDropdowns = ({ value, onChange, fromYear = 1950 }: { value?: Date; fromYear?: number; onChange: (d: Date) => void }) => {
+const DateDropdowns = ({ value, onChange, fromYear = 1950, placeholder = "Select date" }: { value?: Date; fromYear?: number; onChange: (d: Date) => void; placeholder?: string }) => {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full justify-start">
+        <Button variant="outline" className={`bg-zinc-900 border-zinc-700 text-sm placeholder:text-xs h-9 w-full justify-start ${value ? "text-white" : "text-zinc-500"}`}>
           <CalendarIcon className="mr-1 h-3 w-3" />
-          {value ? format(value, "dd/MM/yyyy") : "Select date"}
+          {value ? format(value, "dd/MM/yyyy") : placeholder}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
@@ -716,7 +716,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           {value && value.includes("Has been") && (
             <div className="flex gap-2 items-end">
               <div>
-                <Label className="text-[10px] text-zinc-500 mb-0.5 block">Frequency</Label>
                 <Select value={currentFrequency || "single"} onValueChange={(v) => {
                   setAnswer(frequencyKey, v);
                   if (v === "single") {
@@ -732,8 +731,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     }
                   }
                 }}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-[140px]">
-                    <SelectValue />
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-[160px]">
+                    <SelectValue placeholder="Frequency" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="single">Single incident</SelectItem>
@@ -816,9 +815,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <span className="text-[10px] text-zinc-500 mb-0 sm:mb-2 flex-shrink-0 w-4">{idx + 1}.</span>
             )}
             <div className="w-full sm:w-auto sm:flex-shrink-0">
-              {idx === 0 && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Date</Label>}
               <DateDropdowns
                 value={dateVal}
+                placeholder="Date"
                 onChange={(d) => {
                   setAnswer(dateKey, d.toISOString());
                   const combined = `${format(d, "dd/MM/yyyy")} - ${reasonVal}`;
@@ -827,7 +826,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               />
             </div>
             <div className="flex-1 min-w-0">
-              {idx === 0 && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>}
               <Select value={reasonVal} onValueChange={(v) => {
                 setAnswer(reasonKey, v);
                 const dateStr = dateVal ? format(dateVal, "dd/MM/yyyy") : "";
@@ -835,7 +833,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 if (idx === 0) setCellValue(tableId, entryIdx, rowIdx, colIdx, combined);
               }}>
                 <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal w-full [&>span]:line-clamp-none [&>span]:whitespace-normal text-left">
-                  <SelectValue placeholder="Select reason..." />
+                  <SelectValue placeholder="Reason" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[200px]">
                   {arrestReasonOptions.map(opt => (
@@ -1101,17 +1099,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         <div className="space-y-1 w-full">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full">
             <div className="flex-1 min-w-0">
-              <Label className="text-[10px] text-zinc-500 mb-0.5 block">From</Label>
-              <DateDropdowns value={startVal} onChange={(d) => {
+              <DateDropdowns value={startVal} placeholder="From" onChange={(d) => {
                 setAnswer(termStartKey, d.toISOString());
                 const endStr = endVal ? format(endVal, "dd/MM/yyyy") : "";
                 setCellValue(tableId, entryIdx, rowIdx, colIdx, `${format(d, "dd/MM/yyyy")} - ${endStr}`);
               }} />
             </div>
-            <span className="text-zinc-500 text-xs text-center hidden sm:block mt-4">–</span>
+            <span className="text-zinc-500 text-xs text-center hidden sm:block">–</span>
             <div className="flex-1 min-w-0">
-              <Label className="text-[10px] text-zinc-500 mb-0.5 block">To</Label>
-              <DateDropdowns value={endVal} onChange={(d) => {
+              <DateDropdowns value={endVal} placeholder="To" onChange={(d) => {
                 setAnswer(termEndKey, d.toISOString());
                 const startStr = startVal ? format(startVal, "dd/MM/yyyy") : "";
                 setCellValue(tableId, entryIdx, rowIdx, colIdx, `${startStr} - ${format(d, "dd/MM/yyyy")}`);
@@ -1462,7 +1458,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             <div className="p-3 space-y-3">
               {/* Bank multi-select dropdown */}
               <div className="space-y-1">
-                <Label className="text-[10px] text-zinc-500">Select your bank(s)</Label>
+                
                 <Popover open={bankDropdownOpen} onOpenChange={setBankDropdownOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full justify-between">
@@ -1596,7 +1592,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             <div className="p-3 space-y-3">
               {/* Account multi-select dropdown */}
               <div className="space-y-1">
-                <Label className="text-[10px] text-zinc-500">Select your account(s)</Label>
+                
                 <Popover open={maDropdownOpen} onOpenChange={setMaDropdownOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full justify-between">
@@ -1729,7 +1725,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             </div>
             <div className="p-3 space-y-3">
               <div className="space-y-1">
-                <Label className="text-[10px] text-zinc-500">Select unpaid account(s)</Label>
+                
                 <Popover open={huDropdownOpen} onOpenChange={setHuDropdownOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full justify-between">
@@ -2037,7 +2033,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {isArrested && (
                   <div className="flex gap-2 items-end mt-1">
                     <div>
-                      <Label className="text-[10px] text-zinc-500 mb-0.5 block">Frequency</Label>
                       <Select value={person.frequency || "single"} onValueChange={(v) => {
                         const newCount = v === "single" ? 1 : Math.max(person.incidentCount, 2);
                         const incidents = [...person.incidents];
@@ -2045,7 +2040,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                         if (v === "single") incidents.length = 1;
                         updatePerson(pIdx, { frequency: v, incidentCount: newCount, incidents });
                       }}>
-                        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-[140px]"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-[160px]"><SelectValue placeholder="Frequency" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="single">Single incident</SelectItem>
                           <SelectItem value="multiple">Multiple incidents</SelectItem>
@@ -2054,7 +2049,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     </div>
                     {person.frequency === "multiple" && (
                       <div>
-                        <Label className="text-[10px] text-zinc-500 mb-0.5 block">Number</Label>
                         <Select value={String(person.incidentCount)} onValueChange={(v) => {
                           const n = parseInt(v, 10);
                           const incidents = [...person.incidents];
@@ -2062,7 +2056,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           incidents.length = n;
                           updatePerson(pIdx, { incidentCount: n, incidents });
                         }}>
-                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-[80px]"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-[90px]"><SelectValue placeholder="Number" /></SelectTrigger>
                           <SelectContent>
                             {[2,3,4,5,6,7,8,9,10].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
                           </SelectContent>
@@ -2076,7 +2070,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               {/* Reason & Date per incident */}
               {isArrested && (
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-zinc-500">Reason & Date</Label>
                   {Array.from({ length: incidentCount }, (_, idx) => {
                     const inc = person.incidents[idx] || { reason: '', date: '', charged: '' };
                     const dateVal = inc.date ? new Date(inc.date) : undefined;
@@ -2084,21 +2077,19 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       <div key={idx} className="flex gap-2 items-end">
                         {incidentCount > 1 && <span className="text-[10px] text-zinc-500 mb-2 w-4">{idx + 1}.</span>}
                         <div className="flex-shrink-0">
-                          {idx === 0 && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Date</Label>}
-                          <DateDropdowns value={dateVal} onChange={(d) => {
+                          <DateDropdowns value={dateVal} placeholder="Date" onChange={(d) => {
                             const incidents = [...person.incidents];
                             incidents[idx] = { ...incidents[idx], date: d.toISOString() };
                             updatePerson(pIdx, { incidents });
                           }} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          {idx === 0 && <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>}
                           <Select value={inc.reason} onValueChange={(v) => {
                             const incidents = [...person.incidents];
                             incidents[idx] = { ...incidents[idx], reason: v };
                             updatePerson(pIdx, { incidents });
                           }}>
-                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal"><SelectValue placeholder="Select reason..." /></SelectTrigger>
+                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal"><SelectValue placeholder="Reason" /></SelectTrigger>
                             <SelectContent className="max-h-[200px]">
                               {arrestReasonOptions.map(opt => <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>)}
                             </SelectContent>
