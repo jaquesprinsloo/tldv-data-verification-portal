@@ -3583,6 +3583,25 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           );
         })()}
 
+        {isEmploymentHistory && hasNeverWorked && (
+          <div className="border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="bg-zinc-900 border-b border-zinc-800 p-2 text-center">
+              <span className="text-sm font-semibold text-primary">{table.table_title}</span>
+            </div>
+            <div className="bg-zinc-900/40 p-2 flex items-center justify-center gap-2">
+              <Checkbox
+                id={neverWorkedKey}
+                checked={hasNeverWorked}
+                onCheckedChange={(checked) => setAnswer(neverWorkedKey, checked ? "yes" : "no")}
+                className="border-zinc-600 data-[state=checked]:bg-red-600"
+              />
+              <label htmlFor={neverWorkedKey} className="text-xs text-zinc-300 cursor-pointer font-normal">
+                I have never been employed since leaving school
+              </label>
+            </div>
+          </div>
+        )}
+
         {!(isEmploymentHistory && hasNeverWorked) && !isDisciplinaryTable && (
           <>
             {entries.map((entry, entryIdx) => (
