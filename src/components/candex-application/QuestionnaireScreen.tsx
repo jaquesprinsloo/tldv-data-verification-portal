@@ -2378,16 +2378,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 3. Benefited from theft at work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300">Benefited from theft at work</Label>
-                  <Select value={theftData.benefited || ''} onValueChange={(v) => updateTheft({ benefited: v })}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Has never benefited from any theft at work">Has never benefited from any theft at work</SelectItem>
-                      <SelectItem value="Has benefited from theft at work">Has benefited from theft at work</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select value={theftData.benefited || ''} onValueChange={(v) => updateTheft({ benefited: v })}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-auto min-h-9 py-2 w-full [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:text-left"><SelectValue placeholder="Benefited from theft at work" /></SelectTrigger>
+                  <SelectContent className="max-w-[calc(100vw-2rem)]">
+                    <SelectItem value="Has never benefited from any theft at work" className="whitespace-normal"><span className="block whitespace-normal">Has never benefited from any theft at work</span></SelectItem>
+                    <SelectItem value="Has benefited from theft at work" className="whitespace-normal"><span className="block whitespace-normal">Has benefited from theft at work</span></SelectItem>
+                  </SelectContent>
+                </Select>
                 {theftData.stolen === "Has stolen from work before" && theftData.benefited === "Has benefited from theft at work" && (
                   <p className="text-[10px] text-amber-400 italic">Auto-populated: You indicated you have stolen from work, which means you benefited from theft.</p>
                 )}
