@@ -323,6 +323,20 @@ ${questionnaireText}`;
       };
     }
 
+    // Integrity is determined ONLY by polygraph results (NDI/DI/INC).
+    // Until a polygraph report is linked to this candidate, integrity is "Pending".
+    let polygraphReport: any = null;
+    if (app.candidate_id_number) {
+      const { data: polyRows } = await supabase
+        .from("polygraph_reports")
+        .select("id, overall_result, status")
+        .eq("id_number", app.candidate_id_number)
+        .order("examination_date", { ascending: false })
+        .limit(1);
+      polygraphReport = polyRows?.[0] || null;
+    }
+    riskProfile.integrity = calculateIntegrityFromPolygraph(polygraphReport);
+
     riskProfile.totalScore =
       Number(riskProfile?.employment?.score || 0) +
       Number(riskProfile?.financial?.score || 0) +
