@@ -309,6 +309,28 @@ ${questionnaireText}`;
 
     const riskProfile = JSON.parse(toolCall.function.arguments);
 
+    const deterministicCriminal = calculateDeterministicCriminalProfile(answers?.questionnaire?.questions || {});
+    riskProfile.criminal = deterministicCriminal;
+    riskProfile.totalScore =
+      Number(riskProfile?.employment?.score || 0) +
+      Number(riskProfile?.financial?.score || 0) +
+      Number(riskProfile?.legal?.score || 0) +
+      Number(deterministicCriminal?.score || 0) +
+      Number(riskProfile?.integrity?.score || 0);
+    riskProfile.riskLevel = getRiskLevelFromTotal(riskProfile.totalScore);
+
+    const criminalFinding = deterministicCriminal.score > 0
+      ? `${deterministicCriminal.score} confirmed criminal activity disclosure${deterministicCriminal.score === 1 ? "" : "s"}`
+      : "No confirmed criminal activity disclosures";
+    riskProfile.keyFindings = Array.from(new Set([
+      ...((riskProfile.keyFindings || []) as string[]).filter((finding: string) => !/no criminal activity|criminal activity disclosure/i.test(finding)),
+      criminalFinding,
+    ]));
+
+    if (deterministicCriminal.score > 0) {
+      riskProfile.summary = `The questionnaire indicates ${deterministicCriminal.score} confirmed criminal activity disclosure${deterministicCriminal.score === 1 ? "" : "s"}, contributing directly to the overall pre-risk alert level.`;
+    }
+
     // Update the application with risk data
     const updatedAnswers = {
       ...answers,
