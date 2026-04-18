@@ -1098,9 +1098,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       const endVal = answers[termEndKey] ? new Date(answers[termEndKey]) : undefined;
 
       return (
-        <div className="flex flex-col gap-2 w-full">
-          <div className="flex gap-2 items-end">
-            <div className="flex-1">
+        <div className="space-y-1 w-full">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full">
+            <div className="flex-1 min-w-0">
               <Label className="text-[10px] text-zinc-500 mb-0.5 block">From</Label>
               <DateDropdowns value={startVal} onChange={(d) => {
                 setAnswer(termStartKey, d.toISOString());
@@ -1108,7 +1108,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 setCellValue(tableId, entryIdx, rowIdx, colIdx, `${format(d, "dd/MM/yyyy")} - ${endStr}`);
               }} />
             </div>
-            <div className="flex-1">
+            <span className="text-zinc-500 text-xs text-center hidden sm:block mt-4">–</span>
+            <div className="flex-1 min-w-0">
               <Label className="text-[10px] text-zinc-500 mb-0.5 block">To</Label>
               <DateDropdowns value={endVal} onChange={(d) => {
                 setAnswer(termEndKey, d.toISOString());
