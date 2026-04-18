@@ -2263,24 +2263,21 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 1. Stolen from work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300">Stolen from work before</Label>
-                  <Select value={theftData.stolen || ''} onValueChange={(v) => {
-                    const updates: any = { stolen: v };
-                    if (v.includes("never")) {
-                      updates.stolenEmployers = {};
-                    } else if (v === "Has stolen from work before") {
-                      updates.benefited = "Has benefited from theft at work";
-                    }
-                    updateTheft(updates);
-                  }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Has never stolen from work before">Has never stolen from work before</SelectItem>
-                      <SelectItem value="Has stolen from work before">Has stolen from work before</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select value={theftData.stolen || ''} onValueChange={(v) => {
+                  const updates: any = { stolen: v };
+                  if (v.includes("never")) {
+                    updates.stolenEmployers = {};
+                  } else if (v === "Has stolen from work before") {
+                    updates.benefited = "Has benefited from theft at work";
+                  }
+                  updateTheft(updates);
+                }}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-auto min-h-9 py-2 w-full [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:text-left"><SelectValue placeholder="Stolen from work before" /></SelectTrigger>
+                  <SelectContent className="max-w-[calc(100vw-2rem)]">
+                    <SelectItem value="Has never stolen from work before" className="whitespace-normal"><span className="block whitespace-normal">Has never stolen from work before</span></SelectItem>
+                    <SelectItem value="Has stolen from work before" className="whitespace-normal"><span className="block whitespace-normal">Has stolen from work before</span></SelectItem>
+                  </SelectContent>
+                </Select>
 
                 {theftData.stolen === "Has stolen from work before" && (
                   <>
