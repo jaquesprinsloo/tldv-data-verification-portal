@@ -424,31 +424,40 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Delete application (and its risk-request candidate links)
+  // Soft-delete application: hide from this user, keep on Master Admin
+  // and lock further processing. Also soft-deletes linked risk candidates.
   const deleteApplication = useMutation({
     mutationFn: async (appId: string) => {
-      await supabase.from("candex_risk_request_candidates").delete().eq("application_id", appId);
-      await supabase.from("polygraph_appointment_candidates").delete().eq("application_id", appId);
-      const { error } = await supabase.from("candex_applications").delete().eq("id", appId);
+      const stamp = {
+        deleted_at: new Date().toISOString(),
+        deleted_by: userId,
+        deleted_by_name: deleterName,
+      };
+      await supabase.from("candex_risk_request_candidates").update(stamp).eq("application_id", appId);
+      const { error } = await supabase.from("candex_applications").update(stamp).eq("id", appId);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Application deleted");
+      toast.success("Application removed (master record retained)");
       queryClient.invalidateQueries({ queryKey: ["candex-my-applications", client?.id] });
       queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates-for-approved", client?.id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Delete polygraph appointment
+  // Soft-delete polygraph appointment: hide from this user, keep on Master.
   const deleteAppointment = useMutation({
     mutationFn: async (aptId: string) => {
-      await supabase.from("polygraph_appointment_candidates").delete().eq("appointment_id", aptId);
-      const { error } = await supabase.from("polygraph_appointments" as any).delete().eq("id", aptId);
+      const stamp = {
+        deleted_at: new Date().toISOString(),
+        deleted_by: userId,
+        deleted_by_name: deleterName,
+      };
+      const { error } = await supabase.from("polygraph_appointments" as any).update(stamp).eq("id", aptId);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Appointment deleted");
+      toast.success("Appointment removed (master record retained)");
       queryClient.invalidateQueries({ queryKey: ["user-polygraph-appointments", client?.id] });
     },
     onError: (e: any) => toast.error(e.message),
