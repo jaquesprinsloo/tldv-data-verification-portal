@@ -17,6 +17,7 @@ import {
   Briefcase, DollarSign, Scale, AlertCircle, Activity,
   Fingerprint, TrendingDown, Ban, Check, X,
 } from "lucide-react";
+import { CalculationInfoPopover } from "./CalculationInfoPopover";
 
 interface RiskAnalysisDisplayProps {
   polygraphReport: any;
@@ -770,6 +771,20 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             <div className="flex items-center gap-2">
               <Briefcase className="h-5 w-5 text-primary" />
               Employment — Job Stability
+              <CalculationInfoPopover title="Job Stability">
+                <p><strong>Data used:</strong> The candidate's full disclosed employment history (company, duration, reason for leaving, disciplinary record).</p>
+                <p><strong>Step 1 — Average tenure:</strong> Sum of all parsed durations ÷ number of jobs with a duration. Durations are parsed from formats like "2 years", "6 months" or "2020-2023".</p>
+                <p><strong>Step 2 — Short-tenure count:</strong> Count jobs that lasted <strong>less than half the average</strong>. Contracts that ended due to <em>term completion / fixed-term / seasonal</em> are excluded — they are normal endings, not instability.</p>
+                <p><strong>Step 3 — Base score (0-3):</strong></p>
+                <ul>
+                  <li>0 (Stable): no short-tenure jobs AND avg ≥ 36 months</li>
+                  <li>1 (Fairly Stable): ≤25% short AND avg ≥ 24 months</li>
+                  <li>2 (Caution): ≤50% short OR avg ≥ 12 months</li>
+                  <li>3 (Unstable): &gt;50% short or avg &lt; 12 months</li>
+                </ul>
+                <p><strong>Step 4 — Penalty:</strong> +1 per <strong>absconding / dismissal / disciplinary exit</strong> (capped at +2; max final score 3).</p>
+                <p><strong>This candidate:</strong> {employment.jobs.length} jobs · avg {formatMonths(employment.avgMonths)} · {employment.shortTenureCount}/{employment.qualifyingJobsCount} below half-average · {employment.seriousExitCount} serious exit(s).</p>
+              </CalculationInfoPopover>
             </div>
             <ScoreBadge score={employment.score} max={3} label={employment.label} />
           </CardTitle>
@@ -845,6 +860,19 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             <div className="flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-primary" />
               Financial Circumstances
+              <CalculationInfoPopover title="Financial Circumstances">
+                <p><strong>Data used:</strong> Disclosed current accounts (vehicle, bond, credit cards, store accounts, cellphone, etc.), historical/arrears debt, and any blacklisting flag.</p>
+                <p><strong>Step 1 — Account load:</strong> Tally active accounts and approximate monthly commitments.</p>
+                <p><strong>Step 2 — Historical pressure:</strong> Sum of disclosed arrears / written-off debt across providers; high outstanding balances increase the score.</p>
+                <p><strong>Step 3 — Score (0-3):</strong></p>
+                <ul>
+                  <li>0 (Stable): no arrears, paid-up accounts, no blacklist</li>
+                  <li>1 (Fairly Stable): minor arrears or some load</li>
+                  <li>2 (Caution): notable historical debt or multiple accounts in arrears</li>
+                  <li>3 (Pressure): blacklisted or significant unresolved debt</li>
+                </ul>
+                <p><strong>Penalty:</strong> Confirmed blacklisting forces the score to at least 2.</p>
+              </CalculationInfoPopover>
             </div>
             <ScoreBadge score={financial.score} max={3} label={financial.label} />
           </CardTitle>
@@ -932,6 +960,18 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             <div className="flex items-center gap-2">
               <Scale className="h-5 w-5 text-primary" />
               Encounters with the Law
+              <CalculationInfoPopover title="Encounters with the Law">
+                <p><strong>Data used:</strong> Personal arrests/convictions disclosed by the candidate, plus the criminal histories of disclosed family members and close friends.</p>
+                <p><strong>Branches scored:</strong></p>
+                <ul>
+                  <li><strong>Personal:</strong> arrest/conviction history disclosed by the candidate</li>
+                  <li><strong>Family:</strong> any family member with criminal history</li>
+                  <li><strong>Friends/Associates:</strong> any close friend with criminal history</li>
+                </ul>
+                <p><strong>Step 1 — Severity weight per branch:</strong> "convicted/sentenced" &gt; "arrested/charged" &gt; "investigated only".</p>
+                <p><strong>Step 2 — Score (0-5):</strong> Aggregated across all three branches; higher counts and severity push the score up.</p>
+                <p><strong>Note:</strong> Family/friend encounters indicate criminal <em>association</em>, not personal guilt — they contribute less than personal encounters.</p>
+              </CalculationInfoPopover>
             </div>
             <ScoreBadge score={law.score} max={5} label={law.label} />
           </CardTitle>
@@ -997,6 +1037,13 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-primary" />
               Criminal Activity
+              <CalculationInfoPopover title="Criminal Activity">
+                <p><strong>Data used:</strong> The candidate's questionnaire responses across 7 branches: Fraud, Bribery, Organized Crimes, Undetected Crimes, Illegal Drug Involvement, Theft at Work, and General Criminal Disclosures.</p>
+                <p><strong>Step 1 — Confirmed item count:</strong> The system counts every <strong>"Yes"</strong> disclosure or selected option within these specialized tables (e.g. "fraud_*", "bribery_*", "illegal_drugs_*", "theft_at_work_*").</p>
+                <p><strong>Step 2 — Branch scoring:</strong> Each branch has a max score (typically 0-5). The score is based on the count and severity of confirmed items in that branch.</p>
+                <p><strong>Step 3 — Grand Total (out of 30):</strong> Sum of all 7 branch scores. The number badge shows confirmed disclosures contributing to that total.</p>
+                <p><strong>Important:</strong> This score is <em>deterministic</em> — it directly reflects what the candidate admitted to in the questionnaire, not AI inference.</p>
+              </CalculationInfoPopover>
             </div>
             <div className="flex items-center gap-3">
               <Badge className={`${criminal.grandTotal > 0 ? "bg-red-500" : "bg-green-500"} text-white text-sm px-3 py-1`}>
@@ -1052,6 +1099,16 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             <div className="flex items-center gap-2">
               <Fingerprint className="h-5 w-5 text-primary" />
               Integrity — Polygraph Result
+              <CalculationInfoPopover title="Integrity (Polygraph)">
+                <p><strong>Data used:</strong> The polygraph examiner's findings on the relevant exam questions for this candidate.</p>
+                <p><strong>Step 1 — Per-question outcome:</strong> Each question is marked by the examiner as <strong>NDI</strong> (No Deception Indicated), <strong>DI</strong> (Deception Indicated), or <strong>INC</strong> (Inconclusive).</p>
+                <p><strong>Step 2 — Score (0 or 1):</strong></p>
+                <ul>
+                  <li>0 (Pass): all relevant questions are NDI</li>
+                  <li>1 (Concerns): one or more DI / Inconclusive findings</li>
+                </ul>
+                <p><strong>Note:</strong> Unlike the other categories, this is a <em>pass/fail</em> indicator. The detailed counts (NDI/DI/INC) are shown in the card body for context.</p>
+              </CalculationInfoPopover>
             </div>
             <ScoreBadge score={integrity.score} max={1} label={integrity.result} />
           </CardTitle>
