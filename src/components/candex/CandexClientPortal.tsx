@@ -494,8 +494,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         deleted_by: userId,
         deleted_by_name: deleterName,
       };
-      const { error } = await supabase.from("polygraph_appointments" as any).update(stamp).eq("id", aptId);
+      const { data, error } = await supabase.from("polygraph_appointments" as any).update(stamp).eq("id", aptId).select("id");
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error("Not permitted to delete this appointment");
     },
     onSuccess: () => {
       toast.success("Appointment removed (master record retained)");
