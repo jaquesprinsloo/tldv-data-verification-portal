@@ -218,8 +218,9 @@ const CandexRiskRequests = () => {
     }
   };
 
-  const allCandidatesProcessed = requestCandidates.length > 0 &&
-    requestCandidates.every((c) => c.risk_assessment_result);
+  const activeCandidates = requestCandidates.filter((c: any) => !c.deleted_at);
+  const allCandidatesProcessed = activeCandidates.length > 0 &&
+    activeCandidates.every((c) => c.risk_assessment_result);
 
   if (isLoading) {
     return (
