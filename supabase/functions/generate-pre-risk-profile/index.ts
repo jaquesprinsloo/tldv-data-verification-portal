@@ -12,6 +12,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
+    console.log("[generate-pre-risk-profile] v2-integrity-override invoked");
     const { application_id } = await req.json();
     if (!application_id) {
       return new Response(JSON.stringify({ error: "application_id required" }), {
