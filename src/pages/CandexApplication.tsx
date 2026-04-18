@@ -83,18 +83,12 @@ const CandexApplication = () => {
 
   const handleQuestionnaireComplete = useCallback(async (answers: Record<string, any>) => {
     try {
-      // Update invitation to completed
-      await supabase
-        .from("candex_invitations")
-        .update({ status: "completed" })
-        .eq("token", token!);
-
-      // Create application record
+      // Create application record FIRST (RLS requires invitation status to still be 'sent' or 'opened')
       const candidateName = personalDetails
         ? `${personalDetails.firstName} ${personalDetails.secondName ? personalDetails.secondName + " " : ""}${personalDetails.surname}`.trim()
         : invitation.candidate_name;
 
-      const { data: insertedApp } = await supabase.from("candex_applications").insert([{
+      const { data: insertedApp, error: insertError } = await supabase.from("candex_applications").insert([{
         invitation_id: invitation.id,
         client_id: invitation.client_id,
         candidate_name: candidateName,
@@ -112,6 +106,14 @@ const CandexApplication = () => {
           indemnityAccepted: true,
         } as any,
       }]).select("id").single();
+
+      if (insertError) throw insertError;
+
+      // Now mark the invitation as completed
+      await supabase
+        .from("candex_invitations")
+        .update({ status: "completed" })
+        .eq("token", token!);
 
       // Trigger pre-risk profile generation in background (fire-and-forget)
       if (insertedApp?.id) {
