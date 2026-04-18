@@ -1815,9 +1815,9 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if (isFamilyFriendsLaw) {
       const ffKey = `family_friends_law_${table.id}`;
       
-      // Collect flagged people from contact trace tables
-      const getFlaggedPeople = (): { name: string; surname: string; relationship: string }[] => {
-        const flagged: { name: string; surname: string; relationship: string }[] = [];
+      // Collect flagged people from contact trace tables (Family & Friend Contact Trace, Close Friend, Next of Kin, parents/siblings)
+      const getFlaggedPeople = (): { name: string; surname: string; relationship: string; sourceKey: string }[] => {
+        const flagged: { name: string; surname: string; relationship: string; sourceKey: string }[] = [];
         const contactTraceTables = tables.filter(t => {
           const tt = t.table_title.toLowerCase();
           return (tt.includes("contact trace") || tt.includes("close friend") || tt.includes("next of kin")
@@ -1847,8 +1847,12 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             const surnameKey = `surname_${ct.id}_${entryIdx}_${nameRowIdx}_0`;
             const surnameVal = nameRowIdx >= 0 ? (answers[surnameKey] || "") : "";
             
-            // Get relationship from either the table title or a "Relationship" row
-            let relationship = ct.table_title;
+            // Get relationship from a "Relationship" row, else fall back to a friendly form of the table title
+            let relationship = ct.table_title
+              .toLowerCase()
+              .split(' ')
+              .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(' ');
             const relRowIdx = ct.row_labels.findIndex(l => {
               const ll = String(l).toLowerCase().replace(/[:\s]+$/, '');
               return ll === "relationship";
@@ -1858,13 +1862,13 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               if (relVal) relationship = relVal;
             }
             
-            if (nameVal || surnameVal) {
-              flagged.push({
-                name: nameVal,
-                surname: surnameVal,
-                relationship
-              });
-            }
+            // Always include flagged people, even if name not yet entered (so they appear immediately when ticked)
+            flagged.push({
+              name: nameVal,
+              surname: surnameVal,
+              relationship,
+              sourceKey: `${ct.id}_${entryIdx}`,
+            });
           }
         }
         return flagged;
@@ -1875,6 +1879,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         surname: string;
         relationship: string;
         source: 'flagged' | 'manual';
+        sourceKey?: string;
         arrested: string;
         frequency: string;
         incidentCount: number;
@@ -1894,26 +1899,31 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
       const ffPersons: FFPerson[] = answers[ffKey] || [];
       
-      // Auto-sync flagged people (only add new ones not already present)
+      // Auto-sync flagged people: contact trace tables are the source of truth.
+      // Match existing flagged entries by stable sourceKey to preserve arrest details
+      // when names/relationships are edited, and auto-remove if no longer flagged.
       const flaggedPeople = getFlaggedPeople();
-      const needsSync = flaggedPeople.some(fp => 
-        !ffPersons.some(p => p.source === 'flagged' && p.name === fp.name && p.surname === fp.surname && p.relationship === fp.relationship)
-      );
-      if (needsSync && flaggedPeople.length > 0) {
-        const existingManual = ffPersons.filter(p => p.source === 'manual');
-        const existingFlagged = ffPersons.filter(p => p.source === 'flagged');
-        const newFlagged = flaggedPeople.map(fp => {
-          const existing = existingFlagged.find(ef => ef.name === fp.name && ef.surname === fp.surname && ef.relationship === fp.relationship);
-          if (existing) return existing;
-          return {
-            name: fp.name, surname: fp.surname, relationship: fp.relationship, source: 'flagged' as const,
-            arrested: '', frequency: '', incidentCount: 1, incidents: [{ reason: '', date: '', charged: '' }],
-            courtAttendance: '', convicted: '', termStart: '', termEnd: '',
-            criminalRecordCheck: '', expungedStatus: '', expungedReason: '', expungedDate: '',
-            pendingCourt: '', pendingCase: '', pendingDate: ''
-          };
-        });
-        const merged = [...newFlagged, ...existingManual];
+      const existingManual = ffPersons.filter(p => p.source === 'manual');
+      const existingFlagged = ffPersons.filter(p => p.source === 'flagged');
+      const newFlagged: FFPerson[] = flaggedPeople.map(fp => {
+        // Prefer match by stable sourceKey; fall back to legacy match by name/surname/relationship
+        const existing = existingFlagged.find(ef => ef.sourceKey && ef.sourceKey === fp.sourceKey)
+          || existingFlagged.find(ef => !ef.sourceKey && ef.name === fp.name && ef.surname === fp.surname && ef.relationship === fp.relationship);
+        if (existing) {
+          return { ...existing, name: fp.name, surname: fp.surname, relationship: fp.relationship, sourceKey: fp.sourceKey, source: 'flagged' as const };
+        }
+        return {
+          name: fp.name, surname: fp.surname, relationship: fp.relationship, source: 'flagged' as const, sourceKey: fp.sourceKey,
+          arrested: '', frequency: '', incidentCount: 1, incidents: [{ reason: '', date: '', charged: '' }],
+          courtAttendance: '', convicted: '', termStart: '', termEnd: '',
+          criminalRecordCheck: '', expungedStatus: '', expungedReason: '', expungedDate: '',
+          pendingCourt: '', pendingCase: '', pendingDate: ''
+        };
+      });
+      const merged = [...newFlagged, ...existingManual];
+      // Only write if the flagged set changed (avoid render loops)
+      const flaggedFingerprint = (arr: FFPerson[]) => arr.filter(p => p.source === 'flagged').map(p => `${p.sourceKey || ''}|${p.name}|${p.surname}|${p.relationship}`).join('||');
+      if (flaggedFingerprint(merged) !== flaggedFingerprint(ffPersons) || merged.length !== ffPersons.length) {
         setTimeout(() => setAnswer(ffKey, merged), 0);
       }
 
