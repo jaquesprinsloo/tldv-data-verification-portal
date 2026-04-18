@@ -3743,7 +3743,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                     {!isDisciplinaryTable && table.row_video_urls?.[rowIdx] && (
                                       <VideoPlayButton videoUrl={table.row_video_urls[rowIdx]!} label={label as string} />
                                     )}
-                                    <span className="break-words leading-tight">{(label as string).replace("Arrested/Detained:", "Arrested:")}</span>
+                                    <span className="break-words leading-tight">{(label as string).replace("Arrested/Detained:", "Arrested:").replace("Criminal Record Check:", "C/R Check:")}</span>
                                   </div>
                                 </td>
                                 {isFullWidthRow ? (
