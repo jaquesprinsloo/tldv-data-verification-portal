@@ -636,7 +636,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               setCellValue(tableId, entryIdx, rowIdx, colIdx, v);
               if (v.toLowerCase().includes("no criminal")) setAnswer(crimDetailKey, "");
             }}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
+              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal w-full [&>span]:line-clamp-none [&>span]:whitespace-normal text-left">
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>
@@ -834,7 +834,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 const combined = `${dateStr} - ${v}`;
                 if (idx === 0) setCellValue(tableId, entryIdx, rowIdx, colIdx, combined);
               }}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full">
+                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal w-full [&>span]:line-clamp-none [&>span]:whitespace-normal text-left">
                   <SelectValue placeholder="Select reason..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-[200px]">
@@ -1019,7 +1019,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 }
               }
             }}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full">
+              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal w-full [&>span]:line-clamp-none [&>span]:whitespace-normal text-left">
                 <SelectValue placeholder="Select charge outcome" />
               </SelectTrigger>
               <SelectContent>
@@ -1070,7 +1070,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             }
           }
         }}>
-          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal w-full [&>span]:line-clamp-none [&>span]:whitespace-normal text-left">
             <SelectValue placeholder="Select conviction status" />
           </SelectTrigger>
           <SelectContent>
@@ -1140,7 +1140,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               setAnswer(pendingDateKey, "");
             }
           }}>
-            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
+            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal w-full [&>span]:line-clamp-none [&>span]:whitespace-normal text-left">
               <SelectValue placeholder="Select..." />
             </SelectTrigger>
             <SelectContent>
@@ -1185,7 +1185,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if (rowLabel.includes("criminal") && rowLabel.includes("record") && rowLabel.includes("check")) {
       return (
         <Select value={value || ""} onValueChange={(v) => setCellValue(tableId, entryIdx, rowIdx, colIdx, v)}>
-          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
+          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal w-full [&>span]:line-clamp-none [&>span]:whitespace-normal text-left">
             <SelectValue placeholder="Select..." />
           </SelectTrigger>
           <SelectContent>
@@ -1222,7 +1222,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               setAnswer(expungedDateKey, "");
             }
           }}>
-            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
+            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal w-full [&>span]:line-clamp-none [&>span]:whitespace-normal text-left">
               <SelectValue placeholder="Select..." />
             </SelectTrigger>
             <SelectContent>
@@ -1235,7 +1235,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               <div className="flex-1 min-w-0">
                 <Label className="text-[10px] text-zinc-500 mb-0.5 block">Reason</Label>
                 <Select value={expungedReason} onValueChange={(v) => setAnswer(expungedReasonKey, v)}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal w-full [&>span]:line-clamp-none [&>span]:whitespace-normal text-left">
                     <SelectValue placeholder="Select reason..." />
                   </SelectTrigger>
                   <SelectContent className="max-h-[200px]">
