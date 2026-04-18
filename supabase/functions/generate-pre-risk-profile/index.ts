@@ -309,6 +309,28 @@ ${questionnaireText}`;
 
     const riskProfile = JSON.parse(toolCall.function.arguments);
 
+    const deterministicCriminal = calculateDeterministicCriminalProfile(answers?.questionnaire?.questions || {});
+    riskProfile.criminal = deterministicCriminal;
+    riskProfile.totalScore =
+      Number(riskProfile?.employment?.score || 0) +
+      Number(riskProfile?.financial?.score || 0) +
+      Number(riskProfile?.legal?.score || 0) +
+      Number(deterministicCriminal?.score || 0) +
+      Number(riskProfile?.integrity?.score || 0);
+    riskProfile.riskLevel = getRiskLevelFromTotal(riskProfile.totalScore);
+
+    const criminalFinding = deterministicCriminal.score > 0
+      ? `${deterministicCriminal.score} confirmed criminal activity disclosure${deterministicCriminal.score === 1 ? "" : "s"}`
+      : "No confirmed criminal activity disclosures";
+    riskProfile.keyFindings = Array.from(new Set([
+      ...((riskProfile.keyFindings || []) as string[]).filter((finding: string) => !/no criminal activity|criminal activity disclosure/i.test(finding)),
+      criminalFinding,
+    ]));
+
+    if (deterministicCriminal.score > 0) {
+      riskProfile.summary = `The questionnaire indicates ${deterministicCriminal.score} confirmed criminal activity disclosure${deterministicCriminal.score === 1 ? "" : "s"}, contributing directly to the overall pre-risk alert level.`;
+    }
+
     // Update the application with risk data
     const updatedAnswers = {
       ...answers,
@@ -478,4 +500,68 @@ function buildQuestionnaireText(
   }
 
   return lines.join("\n") || "No questionnaire data available.";
+}
+
+function humanizeCriminalLabel(value: string): string {
+  return value
+    .replace(/_details$/i, "")
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function collectConfirmedCriminalItems(questionAnswers: Record<string, any> = {}): string[] {
+  const items: string[] = [];
+  const prefixes = ["fraud_", "bribery_", "organized_crimes_", "undetected_crimes_", "illegal_drugs_", "theft_at_work_"];
+
+  for (const [rootKey, rootValue] of Object.entries(questionAnswers)) {
+    const prefix = prefixes.find((candidate) => rootKey.startsWith(candidate));
+    if (!prefix || rootKey.endsWith("_dropdown")) continue;
+
+    if (prefix === "theft_at_work_") {
+      const theftData = rootValue as Record<string, any>;
+      if (!theftData || typeof theftData !== "object" || Array.isArray(theftData)) continue;
+
+      if (String(theftData.stolen || "").toLowerCase().includes("has stolen from work before")) items.push("Stolen from work before");
+      if (String(theftData.benefited || "").toLowerCase().includes("has benefited from theft at work")) items.push("Benefited from theft at work");
+      if (String(theftData.helped || "").toLowerCase().includes("has helped someone steal from work")) items.push("Helped someone steal from work");
+      if (String(theftData.approached || "").toLowerCase().includes("accepted to get involved")) items.push("Accepted involvement in theft at work");
+      if (String(theftData.witnessed || "").toLowerCase().includes("did not report")) items.push("Witnessed theft at work and did not report it");
+      continue;
+    }
+
+    if (!rootValue || typeof rootValue !== "object" || Array.isArray(rootValue)) continue;
+
+    for (const [fieldKey, fieldValue] of Object.entries(rootValue)) {
+      if (fieldKey.endsWith("_details")) continue;
+      if (String(fieldValue || "").trim().toLowerCase() !== "yes") continue;
+      items.push(humanizeCriminalLabel(fieldKey));
+    }
+  }
+
+  return Array.from(new Set(items));
+}
+
+function calculateDeterministicCriminalProfile(questionAnswers: Record<string, any> = {}) {
+  const confirmedItems = collectConfirmedCriminalItems(questionAnswers);
+  const actualCount = confirmedItems.length;
+  const score = Math.min(actualCount, 30);
+
+  return {
+    score,
+    label: score === 0 ? "No criminal activity disclosed" : `${actualCount} confirmed disclosure${actualCount === 1 ? "" : "s"}`,
+    reasoning:
+      score === 0
+        ? "No confirmed criminal activity disclosures were detected in the saved questionnaire answers."
+        : `The criminal activity score was calculated directly from ${actualCount} confirmed questionnaire disclosure${actualCount === 1 ? "" : "s"}.`,
+    confirmedItems,
+  };
+}
+
+function getRiskLevelFromTotal(total: number): "LOW" | "MEDIUM" | "HIGH" | "VERY HIGH" {
+  if (total >= 31) return "VERY HIGH";
+  if (total >= 18) return "HIGH";
+  if (total >= 8) return "MEDIUM";
+  return "LOW";
 }
