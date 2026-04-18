@@ -863,6 +863,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           <Button variant="ghost" size="sm" onClick={() => setReviewApp(app)}><Eye className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="text-primary" onClick={() => updateAppStatus.mutate({ id: app.id, status: "approved" })}><Check className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="text-destructive" onClick={() => updateAppStatus.mutate({ id: app.id, status: "rejected" })}><X className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="text-destructive" title="Delete application" onClick={() => { if (confirm("Delete this application? This cannot be undone.")) deleteApplication.mutate(app.id); }} disabled={deleteApplication.isPending}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
