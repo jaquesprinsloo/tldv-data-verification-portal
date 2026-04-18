@@ -207,14 +207,14 @@ const StepDatePicker = ({ value, onChange, fromYear = 1950, onDone }: { value?: 
   );
 };
 
-const DateDropdowns = ({ value, onChange, fromYear = 1950 }: { value?: Date; fromYear?: number; onChange: (d: Date) => void }) => {
+const DateDropdowns = ({ value, onChange, fromYear = 1950, placeholder = "Select date" }: { value?: Date; fromYear?: number; onChange: (d: Date) => void; placeholder?: string }) => {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full justify-start">
+        <Button variant="outline" className={`bg-zinc-900 border-zinc-700 text-sm placeholder:text-xs h-9 w-full justify-start ${value ? "text-white" : "text-zinc-500"}`}>
           <CalendarIcon className="mr-1 h-3 w-3" />
-          {value ? format(value, "dd/MM/yyyy") : "Select date"}
+          {value ? format(value, "dd/MM/yyyy") : placeholder}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
