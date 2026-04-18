@@ -1241,8 +1241,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {apt.booking_reference && (
-                            <div className="flex gap-1 justify-end">
+                          <div className="flex gap-1 justify-end">
+                            {apt.booking_reference && (
                               <Button variant="ghost" size="sm" title="View Confirmation" onClick={() => {
                                 setViewBookingConfirmation({
                                   bookingReference: apt.booking_reference,
@@ -1258,8 +1258,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                               }}>
                                 <Eye className="h-4 w-4" />
                               </Button>
-                            </div>
-                          )}
+                            )}
+                            <Button variant="ghost" size="sm" className="text-destructive" title="Delete appointment" onClick={() => { if (confirm("Delete this appointment? This cannot be undone.")) deleteAppointment.mutate(apt.id); }} disabled={deleteAppointment.isPending}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
