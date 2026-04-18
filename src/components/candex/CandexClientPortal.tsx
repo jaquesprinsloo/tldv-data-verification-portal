@@ -195,7 +195,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     enabled: !!requestAccountId,
   });
 
-  // Get risk request candidate statuses for approved apps
+  // Get risk request candidate statuses for approved apps (exclude soft-deleted)
   const { data: riskCandidateData } = useQuery({
     queryKey: ["candex-risk-candidates-for-approved", client?.id],
     queryFn: async () => {
@@ -203,6 +203,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       const { data } = await supabase
         .from("candex_risk_request_candidates")
         .select("application_id, id_verified, risk_assessment_result, risk_assessment_url, request_id, candex_risk_requests(status)")
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       return data || [];
     },
