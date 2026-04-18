@@ -126,7 +126,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     enabled: !!client?.id,
   });
 
-  // Get applications
+  // Get applications (exclude soft-deleted)
   const { data: applications } = useQuery({
     queryKey: ["candex-my-applications", client?.id],
     queryFn: async () => {
@@ -135,11 +135,26 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         .from("candex_applications")
         .select("*")
         .eq("client_id", client.id)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       return data || [];
     },
     enabled: !!client?.id,
   });
+
+  // Current user's display name (for deleted_by_name attribution)
+  const { data: currentProfile } = useQuery({
+    queryKey: ["candex-current-profile", userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", userId)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const deleterName = currentProfile?.full_name || currentProfile?.email || "Unknown user";
 
   // Get accounts user has access to
   const { data: accounts } = useQuery({
