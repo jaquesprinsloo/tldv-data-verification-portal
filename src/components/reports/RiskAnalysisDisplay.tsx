@@ -1037,6 +1037,13 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-primary" />
               Criminal Activity
+              <CalculationInfoPopover title="Criminal Activity">
+                <p><strong>Data used:</strong> The candidate's questionnaire responses across 7 branches: Fraud, Bribery, Organized Crimes, Undetected Crimes, Illegal Drug Involvement, Theft at Work, and General Criminal Disclosures.</p>
+                <p><strong>Step 1 — Confirmed item count:</strong> The system counts every <strong>"Yes"</strong> disclosure or selected option within these specialized tables (e.g. "fraud_*", "bribery_*", "illegal_drugs_*", "theft_at_work_*").</p>
+                <p><strong>Step 2 — Branch scoring:</strong> Each branch has a max score (typically 0-5). The score is based on the count and severity of confirmed items in that branch.</p>
+                <p><strong>Step 3 — Grand Total (out of 30):</strong> Sum of all 7 branch scores. The number badge shows confirmed disclosures contributing to that total.</p>
+                <p><strong>Important:</strong> This score is <em>deterministic</em> — it directly reflects what the candidate admitted to in the questionnaire, not AI inference.</p>
+              </CalculationInfoPopover>
             </div>
             <div className="flex items-center gap-3">
               <Badge className={`${criminal.grandTotal > 0 ? "bg-red-500" : "bg-green-500"} text-white text-sm px-3 py-1`}>
