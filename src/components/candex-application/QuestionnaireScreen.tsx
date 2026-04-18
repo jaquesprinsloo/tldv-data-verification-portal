@@ -1146,20 +1146,18 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             </SelectContent>
           </Select>
           {pendingVal === "I have pending court cases" && (
-            <div className="flex gap-2 items-end">
-              <div className="flex-1 min-w-0">
-                <Label className="text-[10px] text-zinc-500 mb-0.5 block">What is the case about?</Label>
-                <Input
-                  value={pendingCase}
-                  onChange={(e) => setAnswer(pendingCaseKey, e.target.value)}
-                  className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9"
-                  placeholder="Describe the case..."
-                />
-              </div>
-              <div className="flex-shrink-0">
-                <Label className="text-[10px] text-zinc-500 mb-0.5 block">Court Date</Label>
-                <DateDropdowns value={pendingDate} onChange={(d) => setAnswer(pendingDateKey, d.toISOString())} />
-              </div>
+            <div className="space-y-2">
+              <Textarea
+                value={pendingCase}
+                onChange={(e) => setAnswer(pendingCaseKey, e.target.value)}
+                className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs min-h-[80px]"
+                placeholder="Describe the case..."
+              />
+              <DateDropdowns
+                value={pendingDate}
+                onChange={(d) => setAnswer(pendingDateKey, d.toISOString())}
+                placeholder="Court Date"
+              />
             </div>
           )}
         </div>
