@@ -1640,8 +1640,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 const entry = maSelections[acc] || { amount: "", lastPayment: "" };
                 const dateVal = entry.lastPayment ? new Date(entry.lastPayment) : undefined;
                 return (
-                  <div key={acc} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
-                    <span className="text-xs font-medium text-zinc-300">{acc}</span>
+                  <div key={acc} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50 min-w-0">
+                    <span className="text-xs font-medium text-zinc-300 break-words block">{acc}</span>
                     <div className="flex gap-2 w-full">
                       <div className="flex-1 min-w-0 space-y-0.5">
                         <Label className="text-[10px] text-zinc-500">Monthly Amount</Label>
@@ -1760,8 +1760,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 const entry = huSelections[acc] || { amount: "", lastPayment: "" };
                 const dateVal = entry.lastPayment ? new Date(entry.lastPayment) : undefined;
                 return (
-                  <div key={acc} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
-                    <span className="text-xs font-medium text-zinc-300">{acc}</span>
+                  <div key={acc} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50 min-w-0">
+                    <span className="text-xs font-medium text-zinc-300 break-words block">{acc}</span>
                     <div className="flex gap-2 w-full">
                       <div className="flex-1 min-w-0 space-y-0.5">
                         <Label className="text-[10px] text-zinc-500">Amount Owed</Label>
