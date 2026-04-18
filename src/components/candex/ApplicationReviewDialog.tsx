@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Check, X, Shield, FileText, User, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity } from "lucide-react";
 import { format } from "date-fns";
 import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
+import { CalculationInfoPopover } from "@/components/reports/CalculationInfoPopover";
 
 interface ApplicationReviewDialogProps {
   application: any;
