@@ -35,9 +35,20 @@ const CandexApplication = () => {
       if (error || !data) { setStep("invalid"); return; }
 
       if (data.status === "completed") {
-        setInvitation(data);
-        setStep("completed");
-        return;
+        // Verify an application actually exists for this invitation.
+        // If not (orphan invitation), allow the candidate to redo the submission.
+        const { data: existingApp } = await supabase
+          .from("candex_applications")
+          .select("id")
+          .eq("invitation_id", data.id)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (existingApp) {
+          setInvitation(data);
+          setStep("completed");
+          return;
+        }
+        console.warn("Orphan invitation detected (completed status, no application). Allowing re-submission.");
       }
 
       setInvitation(data);
@@ -108,15 +119,25 @@ const CandexApplication = () => {
         } as any,
       }]).select("id").single();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("candex_applications insert failed:", insertError);
+        throw insertError;
+      }
+      if (!insertedApp?.id) {
+        // RLS may silently return no row — treat as failure to avoid orphan invitations
+        throw new Error("Submission was not saved. Please try again or contact support.");
+      }
 
-      // Now mark the invitation as completed
+      // Only mark the invitation as completed AFTER we've confirmed the application row exists
       const { error: invitationUpdateError } = await supabase
         .from("candex_invitations")
         .update({ status: "completed" })
         .eq("token", token!);
 
-      if (invitationUpdateError) throw invitationUpdateError;
+      if (invitationUpdateError) {
+        console.error("Invitation update failed (application was saved):", invitationUpdateError);
+        // Don't throw — the application is saved, which is what matters for the review tab
+      }
 
       // Trigger pre-risk profile generation in background (fire-and-forget)
       if (insertedApp?.id) {
