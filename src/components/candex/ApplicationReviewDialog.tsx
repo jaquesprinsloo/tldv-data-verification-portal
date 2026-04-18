@@ -1,15 +1,12 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
-import { Check, X, Shield, FileText, User, MapPin, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity } from "lucide-react";
+import { Check, X, Shield, FileText, User, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity } from "lucide-react";
 import { format } from "date-fns";
+import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 
 interface ApplicationReviewDialogProps {
   application: any;
@@ -20,28 +17,7 @@ interface ApplicationReviewDialogProps {
   readOnly?: boolean;
 }
 
-interface SectionTable {
-  id: string;
-  section_id: string;
-  table_title: string;
-  sort_order: number;
-  column_headers: string[];
-  row_labels: string[];
-  row_input_types: any[];
-  is_repeatable: boolean;
-}
-
-interface Section {
-  id: string;
-  title: string;
-  sort_order: number;
-}
-
 export default function ApplicationReviewDialog({ application, open, onClose, onApprove, onReject, readOnly }: ApplicationReviewDialogProps) {
-  const [sections, setSections] = useState<Section[]>([]);
-  const [tables, setTables] = useState<SectionTable[]>([]);
-  const [loading, setLoading] = useState(false);
-
   const appAnswers = application?.answers as any;
   const personalDetails = appAnswers?.personalDetails;
   const deviceData = appAnswers?.deviceData;
@@ -51,20 +27,8 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   const indemnityAccepted = appAnswers?.indemnityAccepted;
   const preRiskProfile = appAnswers?.preRiskProfile;
 
-  useEffect(() => {
-    if (!open || !application?.template_id) return;
-    setLoading(true);
-    Promise.all([
-      supabase.from("candex_template_sections").select("*").eq("template_id", application.template_id).order("sort_order"),
-      supabase.from("candex_section_tables").select("*").order("sort_order"),
-    ]).then(([secRes, tblRes]) => {
-      setSections((secRes.data || []) as Section[]);
-      const allTables = (tblRes.data || []) as SectionTable[];
-      const sectionIds = new Set((secRes.data || []).map((s: any) => s.id));
-      setTables(allTables.filter(t => sectionIds.has(t.section_id)));
-      setLoading(false);
-    });
-  }, [open, application?.template_id]);
+  // QuestionnaireScreen invokes onComplete via Promise; we never call it in read-only mode.
+  const noopComplete = async () => true;
 
   const InfoRow = ({ label, value }: { label: string; value: string | null | undefined }) => (
     <div className="flex justify-between py-1.5 border-b border-border/50 last:border-0">
@@ -72,92 +36,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
       <span className="text-sm font-medium text-right">{value || "—"}</span>
     </div>
   );
-
-  const renderTableAnswers = (table: SectionTable) => {
-    const entries: string[][][] = questionnaireTables[table.id] || [[]];
-    const headers = table.column_headers || [];
-    const displayHeaders = headers.filter((h: string) => h.toLowerCase() !== "details");
-    
-    return (
-      <div className="space-y-3">
-        {entries.map((entry: string[][], entryIdx: number) => (
-          <div key={entryIdx} className="border rounded-lg overflow-hidden">
-            {entries.length > 1 && (
-              <div className="bg-muted/50 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                Entry {entryIdx + 1}
-              </div>
-            )}
-            <div className="divide-y divide-border/50">
-              {table.row_labels.map((label: string, rowIdx: number) => {
-                const inputType = table.row_input_types?.[rowIdx];
-                const hasDetails = inputType?.require_explanation;
-                const rowData = entry?.[rowIdx] || [];
-                const detail = questionnaireQuestions[`detail_${table.id}_${entryIdx}_${rowIdx}`] || "";
-                const dynamicData = questionnaireQuestions[`dynamic_${table.id}_${entryIdx}_${rowIdx}_0`];
-
-                if (inputType?.type === "employer_reference" || dynamicData) {
-                  return (
-                    <div key={rowIdx} className="px-3 py-2">
-                      <span className="text-xs text-muted-foreground">{label}</span>
-                      {dynamicData && Array.isArray(dynamicData) ? (
-                        <div className="mt-1 space-y-1">
-                          {dynamicData.map((item: any, i: number) => (
-                            <div key={i} className="flex items-start gap-2 text-sm">
-                              <Badge variant="outline" className="shrink-0 text-xs">{item.name || "—"}</Badge>
-                              {item.details && <span className="text-muted-foreground">— {item.details}</span>}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm mt-0.5">{rowData[0] || "—"}</p>
-                      )}
-                    </div>
-                  );
-                }
-
-                if (displayHeaders.length > 1) {
-                  return (
-                    <div key={rowIdx} className="px-3 py-2">
-                      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-                      <div className="grid grid-cols-2 gap-2 mt-1">
-                        {displayHeaders.map((header: string, colIdx: number) => (
-                          <div key={colIdx}>
-                            <span className="text-[10px] text-muted-foreground uppercase">{header}</span>
-                            <p className="text-sm font-medium">
-                              {inputType?.type === "currency" && rowData[colIdx] ? `R ${rowData[colIdx]}` : rowData[colIdx] || "—"}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                      {hasDetails && detail && (
-                        <p className="text-xs text-muted-foreground mt-1 pl-2 border-l-2 border-primary/30">
-                          Details: {detail}
-                        </p>
-                      )}
-                    </div>
-                  );
-                }
-
-                return (
-                  <div key={rowIdx} className="px-3 py-2">
-                    <span className="text-xs text-muted-foreground">{label}</span>
-                    <p className="text-sm font-medium mt-0.5">
-                      {inputType?.type === "currency" && rowData[0] ? `R ${rowData[0]}` : rowData[0] || "—"}
-                    </p>
-                    {hasDetails && detail && (
-                      <p className="text-xs text-muted-foreground mt-1 pl-2 border-l-2 border-primary/30">
-                        Details: {detail}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
 
   const getRiskTierColor = (level: string) => {
     switch (level) {
@@ -330,7 +208,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           <DialogDescription>Review all submitted information before making a decision.</DialogDescription>
         </DialogHeader>
 
-        {loading ? (
+        {false ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
@@ -392,50 +270,21 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                 </CardContent>
               </Card>
 
-              {/* Questionnaire Sections */}
-              {sections.length === 0 ? (
+              {/* Questionnaire Sections — full parity with candidate UI, read-only */}
+              {application?.template_id ? (
+                <QuestionnaireScreen
+                  templateId={application.template_id}
+                  onComplete={noopComplete}
+                  readOnly
+                  initialAnswers={questionnaireQuestions}
+                  initialTableData={questionnaireTables}
+                />
+              ) : (
                 <Card>
                   <CardContent className="py-8 text-center">
                     <p className="text-sm text-muted-foreground">No template data available.</p>
                   </CardContent>
                 </Card>
-              ) : (
-                <Accordion type="multiple" defaultValue={[]} className="space-y-2">
-                  {sections.map((section) => {
-                    const sectionTables = tables.filter(t => t.section_id === section.id);
-                    return (
-                      <AccordionItem key={section.id} value={`section-${section.id}`} className="border rounded-lg px-1">
-                        <AccordionTrigger className="hover:no-underline px-3">
-                          <div className="flex items-center gap-2">
-                            <ClipboardList className="h-4 w-4 text-primary" />
-                            <span className="font-semibold text-sm">{section.title}</span>
-                            {sectionTables.length > 0 && (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{sectionTables.length} {sectionTables.length === 1 ? 'table' : 'tables'}</Badge>
-                            )}
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="px-3 pb-3">
-                          {sectionTables.length > 0 ? (
-                            <Accordion type="multiple" className="space-y-2">
-                              {sectionTables.map(table => (
-                                <AccordionItem key={table.id} value={`table-${table.id}`} className="border rounded-md px-1">
-                                  <AccordionTrigger className="hover:no-underline px-2 py-2 text-xs">
-                                    <span className="font-medium text-muted-foreground">{table.table_title}</span>
-                                  </AccordionTrigger>
-                                  <AccordionContent className="px-2 pb-2">
-                                    {renderTableAnswers(table)}
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                            </Accordion>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">No tables in this section.</p>
-                          )}
-                        </AccordionContent>
-                      </AccordionItem>
-                    );
-                  })}
-                </Accordion>
               )}
             </TabsContent>
 

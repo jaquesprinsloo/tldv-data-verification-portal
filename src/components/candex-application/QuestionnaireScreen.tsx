@@ -227,6 +227,12 @@ const DateDropdowns = ({ value, onChange, fromYear = 1950, placeholder = "Select
 interface QuestionnaireScreenProps {
   templateId: string;
   onComplete: (answers: Record<string, any>) => Promise<boolean>;
+  /** When true, render the questionnaire in read-only mode for review purposes. */
+  readOnly?: boolean;
+  /** Pre-populated keyed answers (questionnaire.questions blob from candex_applications). */
+  initialAnswers?: Record<string, any>;
+  /** Pre-populated table cell data (questionnaire.tables blob from candex_applications). */
+  initialTableData?: Record<string, string[][][]>;
 }
 
 interface Section {
@@ -268,14 +274,14 @@ interface Question {
   options: string[] | null;
 }
 
-export default function QuestionnaireScreen({ templateId, onComplete }: QuestionnaireScreenProps) {
+export default function QuestionnaireScreen({ templateId, onComplete, readOnly = false, initialAnswers, initialTableData }: QuestionnaireScreenProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
   const [tables, setTables] = useState<SectionTable[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
-  const [tableData, setTableData] = useState<Record<string, string[][][]>>({});
+  const [answers, setAnswers] = useState<Record<string, any>>(initialAnswers || {});
+  const [tableData, setTableData] = useState<Record<string, string[][][]>>(initialTableData || {});
   const [currentSection, setCurrentSection] = useState(0);
 
 
@@ -310,14 +316,17 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       }));
       setQuestions(parsedQuestions);
 
-      // Init table data
-      const initData: Record<string, string[][][]> = {};
-      for (const tbl of parsedTables) {
-        const cols = tbl.column_headers.length || 1;
-        const rows = tbl.row_labels.length || 1;
-        initData[tbl.id] = [Array.from({ length: rows }, () => Array(cols).fill(""))];
-      }
-      setTableData(initData);
+      // Init table data only for tables that don't already have submitted data (read-only review)
+      setTableData((prev) => {
+        const next: Record<string, string[][][]> = { ...prev };
+        for (const tbl of parsedTables) {
+          if (next[tbl.id] && next[tbl.id].length > 0) continue; // keep submitted data
+          const cols = tbl.column_headers.length || 1;
+          const rows = tbl.row_labels.length || 1;
+          next[tbl.id] = [Array.from({ length: rows }, () => Array(cols).fill(""))];
+        }
+        return next;
+      });
 
       setLoading(false);
     };
@@ -3965,6 +3974,31 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
   const currentSec = sections[currentSection];
   const sectionTables = tables.filter((t) => t.section_id === currentSec.id);
   const sectionQuestions = questions.filter((q) => q.section_id === currentSec.id);
+
+  // ── Read-only review mode: render all sections stacked, disabled ──
+  if (readOnly) {
+    return (
+      <fieldset disabled className="min-w-0 [&_*]:pointer-events-none">
+        <div className="space-y-6">
+          {sections.map((sec) => {
+            const secTables = tables.filter((t) => t.section_id === sec.id);
+            const secQuestions = questions.filter((q) => q.section_id === sec.id);
+            return (
+              <Card key={sec.id} className="bg-zinc-950 border-zinc-800 text-white overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="text-white text-base">{sec.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {secTables.map(renderTable)}
+                  {secQuestions.map(renderQuestion)}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </fieldset>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black">
