@@ -1425,9 +1425,10 @@ const CandexBuilder = () => {
             <div className="overflow-auto h-full">
               <QuestionnaireScreen
                 templateId={selectedTemplate.id}
-                onComplete={() => {
+                onComplete={async () => {
                   toast.info("Preview mode — submissions are not saved.");
                   setShowLivePreview(false);
+                  return true;
                 }}
               />
             </div>
