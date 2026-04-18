@@ -199,7 +199,7 @@ const AdminPortalDashboard = () => {
       permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
       requiresMasterAdmin: true
     }
-  ], [dataManagementBadge, pendingRequests, pendingPolygraphCount]);
+  ], [dataManagementBadge, pendingRequests, pendingPolygraphCount, preAppliCheckedUnread]);
 
   // Compute ordered portals whenever dependencies change
   useEffect(() => {
