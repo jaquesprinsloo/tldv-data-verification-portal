@@ -711,3 +711,45 @@ function calculateDeterministicEmploymentProfile(
         : "",
   };
 }
+
+function calculateIntegrityFromPolygraph(report: any) {
+  if (!report) {
+    return {
+      score: 0,
+      label: "Pending Polygraph",
+      reasoning: "Integrity cannot be assessed until a polygraph examination has been conducted and linked to this candidate.",
+      pending: true,
+    };
+  }
+  const result = String(report.overall_result || "").toUpperCase();
+  if (result === "NDI" || result === "NO DECEPTION INDICATED") {
+    return {
+      score: 0,
+      label: "No Deception Indicated (NDI)",
+      reasoning: "Polygraph examination indicated no deception.",
+      pending: false,
+    };
+  }
+  if (result === "DI" || result === "DECEPTION INDICATED") {
+    return {
+      score: 1,
+      label: "Deception Indicated (DI)",
+      reasoning: "Polygraph examination indicated deception on one or more relevant questions.",
+      pending: false,
+    };
+  }
+  if (result === "INC" || result === "INCONCLUSIVE") {
+    return {
+      score: 1,
+      label: "Inconclusive (INC)",
+      reasoning: "Polygraph examination produced an inconclusive result and warrants follow-up.",
+      pending: false,
+    };
+  }
+  return {
+    score: 0,
+    label: "Pending Polygraph",
+    reasoning: "A polygraph report exists but has no recorded overall result yet.",
+    pending: true,
+  };
+}
