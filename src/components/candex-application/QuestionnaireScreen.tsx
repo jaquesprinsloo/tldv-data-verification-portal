@@ -3619,7 +3619,18 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     </Button>
                   </div>
                 )}
-                <div className="overflow-x-auto">
+                {(() => {
+                  const ttl = (table.table_title || "").toLowerCase();
+                  const isContactTraceTbl = ttl.includes("contact trace") || ttl.includes("close friend") || ttl.includes("next of kin")
+                    || ttl.includes("father") || ttl.includes("mother") || ttl.includes("sibling") || ttl.includes("brother") || ttl.includes("sister");
+                  return null;
+                })()}
+                <div className={(() => {
+                  const ttl = (table.table_title || "").toLowerCase();
+                  const isContactTraceTbl = ttl.includes("contact trace") || ttl.includes("close friend") || ttl.includes("next of kin")
+                    || ttl.includes("father") || ttl.includes("mother") || ttl.includes("sibling") || ttl.includes("brother") || ttl.includes("sister");
+                  return isContactTraceTbl ? "" : "overflow-x-auto";
+                })()}>
                   <table className={`w-full text-sm ${isDisciplinaryTable ? "table-fixed" : ""}`} data-table-title={table.table_title}>
                     <thead>
                       <tr className="bg-zinc-900 border-b border-zinc-800">
