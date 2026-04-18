@@ -3931,9 +3931,12 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     setCurrentSection((p) => p + 1);
   };
 
+  const [submitted, setSubmitted] = useState(false);
+
   const handleSubmit = () => {
     if (!validateCurrentSection()) return;
     setSubmitting(true);
+    setSubmitted(true);
     const allAnswers = { questions: answers, tables: tableData };
     onComplete(allAnswers);
   };
