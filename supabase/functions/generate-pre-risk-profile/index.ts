@@ -311,6 +311,18 @@ ${questionnaireText}`;
 
     const deterministicCriminal = calculateDeterministicCriminalProfile(answers?.questionnaire?.questions || {});
     riskProfile.criminal = deterministicCriminal;
+
+    const deterministicEmployment = calculateDeterministicEmploymentProfile(
+      answers?.questionnaire?.tables || {},
+      tablesData
+    );
+    if (deterministicEmployment) {
+      riskProfile.employment = {
+        ...(riskProfile.employment || {}),
+        ...deterministicEmployment,
+      };
+    }
+
     riskProfile.totalScore =
       Number(riskProfile?.employment?.score || 0) +
       Number(riskProfile?.financial?.score || 0) +
