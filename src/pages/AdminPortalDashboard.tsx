@@ -11,6 +11,7 @@ import tldvLogo from "@/assets/tldv-logo-primary.png";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
+import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
 import { toast } from "sonner";
 
 interface PortalCard {
