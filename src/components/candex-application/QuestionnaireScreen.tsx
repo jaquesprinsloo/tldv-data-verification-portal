@@ -4010,7 +4010,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             {sectionQuestions.map(renderQuestion)}
 
             {/* Navigation */}
-            <div className="flex gap-3 pt-4">
+            <div className="flex items-center gap-3 pt-4">
               {currentSection > 0 && (
                 <Button
                   variant="outline"
@@ -4020,7 +4020,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   Previous
                 </Button>
               )}
-              <div className="flex-1" />
+              <div className="flex-1 text-center">
+                <span className="text-xs text-zinc-500">
+                  Section {currentSection + 1} of {sections.length}
+                </span>
+              </div>
               {currentSection < sections.length - 1 && (
                 <Button
                   onClick={handleNext}
