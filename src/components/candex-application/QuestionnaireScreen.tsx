@@ -453,7 +453,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
       return (
         <div className="space-y-1 w-full">
-          <Label className="text-[10px] text-zinc-500 block text-center">Employment Duration</Label>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full">
             <div className="flex-1 min-w-0">
               <Label className="text-[10px] text-zinc-500 mb-0.5 block">Start</Label>
@@ -3434,24 +3433,28 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
         {isDisciplinaryTable && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg">
-              <Checkbox
-                id={noDisciplinaryKey}
-                checked={hasNoDisciplinary}
-                onCheckedChange={(checked) => {
-                  setAnswer(noDisciplinaryKey, checked ? "yes" : "no");
-                  if (checked) setAnswer(disciplinaryRowSelectKey, []);
-                }}
-                className="border-zinc-600 data-[state=checked]:bg-red-600"
-              />
-              <label htmlFor={noDisciplinaryKey} className="text-xs text-zinc-300 cursor-pointer">
-                I have never had any disciplinary actions taken against me at a place of employment
-              </label>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 overflow-hidden">
+              <div className="bg-zinc-900 px-3 py-2 text-center">
+                <h3 className="text-sm font-bold text-red-500 uppercase tracking-wide">Disciplinary Conduct</h3>
+              </div>
+              <div className="p-3 flex items-center gap-2">
+                <Checkbox
+                  id={noDisciplinaryKey}
+                  checked={hasNoDisciplinary}
+                  onCheckedChange={(checked) => {
+                    setAnswer(noDisciplinaryKey, checked ? "yes" : "no");
+                    if (checked) setAnswer(disciplinaryRowSelectKey, []);
+                  }}
+                  className="border-zinc-600 data-[state=checked]:bg-red-600"
+                />
+                <label htmlFor={noDisciplinaryKey} className="text-xs text-zinc-300 cursor-pointer">
+                  I have never had any disciplinary actions taken against me at a place of employment
+                </label>
+              </div>
             </div>
 
             {!hasNoDisciplinary && (
               <div className="p-3 bg-zinc-900/30 border border-zinc-800 rounded-lg space-y-2">
-                <p className="text-xs text-zinc-400 font-semibold text-center">Disciplinary Conduct</p>
                 <p className="text-[10px] text-zinc-500 text-center mb-1">Select the disciplinary actions that apply to you:</p>
                 {table.row_labels.map((label, rowIdx) => {
                   const rowKey = String(label);
