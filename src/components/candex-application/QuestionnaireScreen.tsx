@@ -3015,18 +3015,21 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         setAnswer(genKey, { ...genData, ...updates });
       };
 
-      // Pull account options from Monthly Accounts table for gambling missing payment
+      // Pull account options from Monthly Accounts (paid) and Historical Unpaid tables
       const allAccountOptions: string[] = (() => {
-        const maTable = tables.find(t => {
+        const accountSet = new Set<string>();
+        tables.forEach((t) => {
           const tl = t.table_title.toLowerCase();
-          return tl.includes("monthly account") && tl.includes("paid");
+          if (tl.includes("monthly account") && tl.includes("paid")) {
+            const sel: Record<string, any> = answers[`monthly_accounts_${t.id}`] || {};
+            Object.keys(sel).forEach((k) => accountSet.add(k));
+          }
+          if (tl.includes("historical") && tl.includes("unpaid")) {
+            const sel: Record<string, any> = answers[`historical_unpaid_${t.id}`] || {};
+            Object.keys(sel).forEach((k) => accountSet.add(k));
+          }
         });
-        if (maTable) {
-          const maKey = `monthly_accounts_${maTable.id}`;
-          const maSelections: Record<string, any> = answers[maKey] || {};
-          return Object.keys(maSelections);
-        }
-        return [];
+        return Array.from(accountSet);
       })();
 
       const rehabOptions = ["Drug use", "Alcohol use", "Gambling", "Other"];
