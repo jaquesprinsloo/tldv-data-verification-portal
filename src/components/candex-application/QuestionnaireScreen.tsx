@@ -271,6 +271,7 @@ interface Question {
 export default function QuestionnaireScreen({ templateId, onComplete }: QuestionnaireScreenProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
   const [tables, setTables] = useState<SectionTable[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -3930,8 +3931,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     if (!validateCurrentSection()) return;
     setCurrentSection((p) => p + 1);
   };
-
-  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = () => {
     if (!validateCurrentSection()) return;
