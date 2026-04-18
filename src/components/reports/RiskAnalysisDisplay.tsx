@@ -860,6 +860,19 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             <div className="flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-primary" />
               Financial Circumstances
+              <CalculationInfoPopover title="Financial Circumstances">
+                <p><strong>Data used:</strong> Disclosed current accounts (vehicle, bond, credit cards, store accounts, cellphone, etc.), historical/arrears debt, and any blacklisting flag.</p>
+                <p><strong>Step 1 — Account load:</strong> Tally active accounts and approximate monthly commitments.</p>
+                <p><strong>Step 2 — Historical pressure:</strong> Sum of disclosed arrears / written-off debt across providers; high outstanding balances increase the score.</p>
+                <p><strong>Step 3 — Score (0-3):</strong></p>
+                <ul>
+                  <li>0 (Stable): no arrears, paid-up accounts, no blacklist</li>
+                  <li>1 (Fairly Stable): minor arrears or some load</li>
+                  <li>2 (Caution): notable historical debt or multiple accounts in arrears</li>
+                  <li>3 (Pressure): blacklisted or significant unresolved debt</li>
+                </ul>
+                <p><strong>Penalty:</strong> Confirmed blacklisting forces the score to at least 2.</p>
+              </CalculationInfoPopover>
             </div>
             <ScoreBadge score={financial.score} max={3} label={financial.label} />
           </CardTitle>
