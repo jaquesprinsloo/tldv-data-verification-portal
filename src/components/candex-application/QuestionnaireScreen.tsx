@@ -1914,7 +1914,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
         }
         return {
           name: fp.name, surname: fp.surname, relationship: fp.relationship, source: 'flagged' as const, sourceKey: fp.sourceKey,
-          arrested: '', frequency: '', incidentCount: 1, incidents: [{ reason: '', date: '', charged: '' }],
+          arrested: 'Has been arrested / detained by law enforcement', frequency: '', incidentCount: 1, incidents: [{ reason: '', date: '', charged: '' }],
           courtAttendance: '', convicted: '', termStart: '', termEnd: '',
           criminalRecordCheck: '', expungedStatus: '', expungedReason: '', expungedDate: '',
           pendingCourt: '', pendingCase: '', pendingDate: ''
