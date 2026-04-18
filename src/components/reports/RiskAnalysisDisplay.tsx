@@ -134,29 +134,52 @@ const isMeaningful = (value: any): boolean => {
 interface EmploymentResult {
   score: number;
   label: string;
-  jobs: { company: string; position: string; durationMonths: number; reason: string }[];
+  jobs: { company: string; position: string; durationMonths: number; reason: string; isContractEnd: boolean; isSeriousExit: boolean }[];
   totalMonths: number;
   avgMonths: number;
   mostCommonReason: string;
   hasDisciplinary: boolean;
   disciplinaryDetails: string;
+  shortTenureCount: number;
+  seriousExitCount: number;
+  qualifyingJobsCount: number;
 }
+
+const isContractCompletionReason = (reason: string): boolean => {
+  const r = (reason || "").toLowerCase();
+  return /contract\s*(term)?\s*(complet|end|expir|finish)|end\s*of\s*contract|contract\s*ended|fixed[-\s]term|temporary\s*contract|seasonal/i.test(r);
+};
+
+const isSeriousExitReason = (reason: string, disciplinary: string): boolean => {
+  const r = (reason || "").toLowerCase();
+  const d = (disciplinary || "").toLowerCase();
+  const seriousReason = /abscond|dismiss|fired|terminat|disciplin|hearing|misconduct|theft|fraud/i.test(r);
+  const seriousDisc = !!d && !["none", "n/a", "no", "not disclosed", ""].includes(d.trim()) && d.trim().length > 2;
+  return seriousReason || seriousDisc;
+};
 
 const calculateEmploymentScore = (report: any): EmploymentResult => {
   const history = report?.employment_history || [];
   const histArr = Array.isArray(history) ? history : [history];
-  const last4 = histArr.slice(0, 4);
 
-  const jobs = last4.map((j: any) => ({
-    company: j.Company || j.company || j.Employer || j.employer || "Unknown",
-    position: j.Position || j.position || j.Role || j.role || j.Title || j.title || "",
-    durationMonths: parseDurationToMonths(j.Duration || j.duration || j.Dates || j.dates || j.Period || j.period),
-    reason: j.ReasonForLeaving || j.reasonForLeaving || j.Reason || j.reason || "Not stated",
-    disciplinary: j.DisciplinaryConduct || j.disciplinaryConduct || j.Disciplinary || j.disciplinary || "",
-  }));
+  const jobs = histArr.map((j: any) => {
+    const reason = j.ReasonForLeaving || j.reasonForLeaving || j.Reason || j.reason || "Not stated";
+    const disciplinary = j.DisciplinaryConduct || j.disciplinaryConduct || j.Disciplinary || j.disciplinary || "";
+    return {
+      company: j.Company || j.company || j.Employer || j.employer || "Unknown",
+      position: j.Position || j.position || j.Role || j.role || j.Title || j.title || "",
+      durationMonths: parseDurationToMonths(j.Duration || j.duration || j.Dates || j.dates || j.Period || j.period),
+      reason,
+      disciplinary,
+      isContractEnd: isContractCompletionReason(reason),
+      isSeriousExit: isSeriousExitReason(reason, disciplinary),
+    };
+  });
 
-  const totalMonths = jobs.reduce((sum: number, j: any) => sum + j.durationMonths, 0);
-  const avgMonths = jobs.length > 0 ? totalMonths / jobs.length : 0;
+  // Average tenure across ALL disclosed jobs that have a parseable duration
+  const jobsWithDuration = jobs.filter((j: any) => j.durationMonths > 0);
+  const totalMonths = jobsWithDuration.reduce((sum: number, j: any) => sum + j.durationMonths, 0);
+  const avgMonths = jobsWithDuration.length > 0 ? totalMonths / jobsWithDuration.length : 0;
 
   // Most common reason
   const reasonCounts: Record<string, number> = {};
@@ -167,36 +190,55 @@ const calculateEmploymentScore = (report: any): EmploymentResult => {
   const sortedReasons = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1]);
   const mostCommonReason = sortedReasons.length > 0 ? sortedReasons[0][0] : "Not available";
 
-  // Check disciplinary conduct from both the DisciplinaryConduct field and reason keywords
-  const disciplinaryJobs = jobs.filter((j: any) => {
-    const r = j.reason.toLowerCase();
-    const d = (j.disciplinary || "").toLowerCase();
-    const hasReasonFlag = r.includes("dismiss") || r.includes("fired") || r.includes("hearing") || r.includes("disciplin") || r.includes("warning");
-    const hasDisciplinaryField = d && d !== "none" && d !== "not disclosed" && d !== "n/a" && d !== "no" && d.length > 2;
-    return hasReasonFlag || hasDisciplinaryField;
-  });
+  // Serious exits (absconding / dismissal / disciplinary)
+  const disciplinaryJobs = jobs.filter((j: any) => j.isSeriousExit);
   const hasDisciplinary = disciplinaryJobs.length > 0;
+  const seriousExitCount = disciplinaryJobs.length;
   const disciplinaryDetails = hasDisciplinary
     ? disciplinaryJobs.map((d: any) => {
         const parts = [d.company];
-        if (d.disciplinary && d.disciplinary.toLowerCase() !== "none") parts.push(d.disciplinary);
+        if (d.disciplinary && !["none", "n/a", "no"].includes(d.disciplinary.toLowerCase())) parts.push(d.disciplinary);
         else parts.push(d.reason);
         return parts.join(": ");
       }).join("; ")
     : "None disclosed";
 
+  // Stability: count jobs below HALF the average tenure, EXCLUDING contract completions
+  const halfAvg = avgMonths / 2;
+  const qualifyingJobs = jobsWithDuration.filter((j: any) => !j.isContractEnd);
+  const shortTenureJobs = qualifyingJobs.filter((j: any) => j.durationMonths < halfAvg);
+  const shortTenureCount = shortTenureJobs.length;
+  const qualifyingJobsCount = qualifyingJobs.length;
+  const shortRatio = qualifyingJobsCount > 0 ? shortTenureCount / qualifyingJobsCount : 0;
+
+  // Base score: combines short-tenure ratio with overall avg tenure
   let score = 0;
-  if (avgMonths >= 36) score = 0;
-  else if (avgMonths >= 24) score = 1;
-  else if (avgMonths >= 12) score = 2;
+  if (qualifyingJobsCount === 0 && avgMonths >= 36) score = 0;
+  else if (shortRatio === 0 && avgMonths >= 36) score = 0;
+  else if (shortRatio <= 0.25 && avgMonths >= 24) score = 1;
+  else if (shortRatio <= 0.5 || avgMonths >= 12) score = 2;
   else score = 3;
 
-  // Bump score if disciplinary issues
-  if (hasDisciplinary && score < 3) score = Math.min(score + 1, 3);
+  // Penalty for absconding / dismissals: +1 per occurrence (cap +2)
+  if (seriousExitCount > 0) {
+    score = Math.min(score + Math.min(seriousExitCount, 2), 3);
+  }
 
   const labels = ["Stable", "Fairly Stable", "Caution", "Unstable"];
 
-  return { score, label: labels[score], jobs, totalMonths, avgMonths, mostCommonReason, hasDisciplinary, disciplinaryDetails };
+  return {
+    score,
+    label: labels[score],
+    jobs,
+    totalMonths,
+    avgMonths,
+    mostCommonReason,
+    hasDisciplinary,
+    disciplinaryDetails,
+    shortTenureCount,
+    seriousExitCount,
+    qualifyingJobsCount,
+  };
 };
 
 interface FinancialResult {
@@ -731,24 +773,32 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             </div>
             <ScoreBadge score={employment.score} max={3} label={employment.label} />
           </CardTitle>
-          <CardDescription>Last {employment.jobs.length} position{employment.jobs.length !== 1 ? "s" : ""} analyzed</CardDescription>
+          <CardDescription>
+            {employment.jobs.length} position{employment.jobs.length !== 1 ? "s" : ""} analyzed · {employment.shortTenureCount} below half-avg tenure
+            {employment.seriousExitCount > 0 ? ` · ${employment.seriousExitCount} absconding/dismissal` : ""}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Stats row */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-3">
             <div className="text-center p-3 rounded-lg bg-muted/50 border">
               <p className="text-xl font-bold">{formatMonths(employment.totalMonths)}</p>
               <p className="text-xs text-muted-foreground">Total Duration</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-muted/50 border">
               <p className={`text-xl font-bold ${getScoreColor(employment.score, 3)}`}>{formatMonths(employment.avgMonths)}</p>
-              <p className="text-xs text-muted-foreground">Avg Duration</p>
+              <p className="text-xs text-muted-foreground">Avg Tenure</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-muted/50 border">
+              <p className="text-xl font-bold">{employment.shortTenureCount}/{employment.qualifyingJobsCount}</p>
+              <p className="text-xs text-muted-foreground">Below ½ Avg*</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-muted/50 border">
               <p className="text-sm font-medium capitalize">{employment.mostCommonReason}</p>
               <p className="text-xs text-muted-foreground">Common Reason</p>
             </div>
           </div>
+          <p className="text-[10px] text-muted-foreground -mt-2">*Excludes contracts ended due to term completion. Avg tenure is across all disclosed positions.</p>
 
           {/* Job duration chart */}
           {employmentChartData.length > 0 && (
