@@ -210,7 +210,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           <DialogDescription>Review all submitted information before making a decision.</DialogDescription>
         </DialogHeader>
 
-        {loading ? (
+        {false ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
@@ -272,50 +272,21 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                 </CardContent>
               </Card>
 
-              {/* Questionnaire Sections */}
-              {sections.length === 0 ? (
+              {/* Questionnaire Sections — full parity with candidate UI, read-only */}
+              {application?.template_id ? (
+                <QuestionnaireScreen
+                  templateId={application.template_id}
+                  onComplete={noopComplete}
+                  readOnly
+                  initialAnswers={questionnaireQuestions}
+                  initialTableData={questionnaireTables}
+                />
+              ) : (
                 <Card>
                   <CardContent className="py-8 text-center">
                     <p className="text-sm text-muted-foreground">No template data available.</p>
                   </CardContent>
                 </Card>
-              ) : (
-                <Accordion type="multiple" defaultValue={[]} className="space-y-2">
-                  {sections.map((section) => {
-                    const sectionTables = tables.filter(t => t.section_id === section.id);
-                    return (
-                      <AccordionItem key={section.id} value={`section-${section.id}`} className="border rounded-lg px-1">
-                        <AccordionTrigger className="hover:no-underline px-3">
-                          <div className="flex items-center gap-2">
-                            <ClipboardList className="h-4 w-4 text-primary" />
-                            <span className="font-semibold text-sm">{section.title}</span>
-                            {sectionTables.length > 0 && (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{sectionTables.length} {sectionTables.length === 1 ? 'table' : 'tables'}</Badge>
-                            )}
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="px-3 pb-3">
-                          {sectionTables.length > 0 ? (
-                            <Accordion type="multiple" className="space-y-2">
-                              {sectionTables.map(table => (
-                                <AccordionItem key={table.id} value={`table-${table.id}`} className="border rounded-md px-1">
-                                  <AccordionTrigger className="hover:no-underline px-2 py-2 text-xs">
-                                    <span className="font-medium text-muted-foreground">{table.table_title}</span>
-                                  </AccordionTrigger>
-                                  <AccordionContent className="px-2 pb-2">
-                                    {renderTableAnswers(table)}
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
-                            </Accordion>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">No tables in this section.</p>
-                          )}
-                        </AccordionContent>
-                      </AccordionItem>
-                    );
-                  })}
-                </Accordion>
               )}
             </TabsContent>
 
