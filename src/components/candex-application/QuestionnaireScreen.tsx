@@ -274,14 +274,14 @@ interface Question {
   options: string[] | null;
 }
 
-export default function QuestionnaireScreen({ templateId, onComplete }: QuestionnaireScreenProps) {
+export default function QuestionnaireScreen({ templateId, onComplete, readOnly = false, initialAnswers, initialTableData }: QuestionnaireScreenProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
   const [tables, setTables] = useState<SectionTable[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [answers, setAnswers] = useState<Record<string, any>>({});
-  const [tableData, setTableData] = useState<Record<string, string[][][]>>({});
+  const [answers, setAnswers] = useState<Record<string, any>>(initialAnswers || {});
+  const [tableData, setTableData] = useState<Record<string, string[][][]>>(initialTableData || {});
   const [currentSection, setCurrentSection] = useState(0);
 
 
@@ -316,14 +316,17 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       }));
       setQuestions(parsedQuestions);
 
-      // Init table data
-      const initData: Record<string, string[][][]> = {};
-      for (const tbl of parsedTables) {
-        const cols = tbl.column_headers.length || 1;
-        const rows = tbl.row_labels.length || 1;
-        initData[tbl.id] = [Array.from({ length: rows }, () => Array(cols).fill(""))];
-      }
-      setTableData(initData);
+      // Init table data only for tables that don't already have submitted data (read-only review)
+      setTableData((prev) => {
+        const next: Record<string, string[][][]> = { ...prev };
+        for (const tbl of parsedTables) {
+          if (next[tbl.id] && next[tbl.id].length > 0) continue; // keep submitted data
+          const cols = tbl.column_headers.length || 1;
+          const rows = tbl.row_labels.length || 1;
+          next[tbl.id] = [Array.from({ length: rows }, () => Array(cols).fill(""))];
+        }
+        return next;
+      });
 
       setLoading(false);
     };
