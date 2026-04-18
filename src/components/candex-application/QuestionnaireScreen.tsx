@@ -1661,7 +1661,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           />
                         </div>
                       </div>
-                      <div className="flex-1 space-y-0.5">
+                      <div className="flex-1 min-w-0 space-y-0.5">
                         <Label className="text-[10px] text-zinc-500">Last Payment Date</Label>
                         <DateDropdowns
                           value={dateVal}
@@ -1762,8 +1762,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 return (
                   <div key={acc} className="space-y-1.5 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
                     <span className="text-xs font-medium text-zinc-300">{acc}</span>
-                    <div className="flex gap-2">
-                      <div className="flex-1 space-y-0.5">
+                    <div className="flex gap-2 w-full">
+                      <div className="flex-1 min-w-0 space-y-0.5">
                         <Label className="text-[10px] text-zinc-500">Amount Owed</Label>
                         <div className="relative">
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-500 text-xs">R</span>
