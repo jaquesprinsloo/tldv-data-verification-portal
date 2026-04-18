@@ -2536,7 +2536,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             <div className="p-0">
               {fraudCategories.map((cat) => (
                 <div key={cat.key} className="border-b border-zinc-800/50 last:border-b-0">
-                  <div className="bg-zinc-900/60 px-3 py-2 text-xs font-semibold text-primary uppercase tracking-wide">
+                  <div className="bg-zinc-900/60 px-3 py-2 text-xs font-semibold text-primary uppercase tracking-wide text-center">
                     {cat.title}
                   </div>
                   <div>
