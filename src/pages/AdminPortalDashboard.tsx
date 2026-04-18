@@ -103,6 +103,10 @@ const AdminPortalDashboard = () => {
 
   const dataManagementBadge = (approvedCandidatesCount || 0) + (pendingSubmissionsCount || 0);
 
+  // Per-admin unread count for newly-approved PreAppliCheck applications.
+  // Toast surfaces here (the dashboard) so admins are alerted regardless of which portal they're in next.
+  const { unreadCount: preAppliCheckedUnread } = usePreAppliCheckedNotifications(currentUserId, { showToast: true });
+
   // Fetch saved card order
   const { data: savedOrder } = useQuery({
     queryKey: ['portal-card-order'],
