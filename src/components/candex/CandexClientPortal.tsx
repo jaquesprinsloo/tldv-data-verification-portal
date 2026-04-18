@@ -21,6 +21,7 @@ import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTr
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
+import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
 import { format } from "date-fns";
 
 interface CandexClientPortalProps {
