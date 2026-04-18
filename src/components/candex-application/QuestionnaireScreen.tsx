@@ -2319,21 +2319,18 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 2. Witnessed theft at work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300">Witnessed theft at work</Label>
-                  <Select value={theftData.witnessed || ''} onValueChange={(v) => {
-                    const updates: any = { witnessed: v };
-                    if (v.includes("never")) updates.witnessedEmployers = {};
-                    updateTheft(updates);
-                  }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Has never witnessed anyone stealing at work">Has never witnessed anyone stealing at work</SelectItem>
-                      <SelectItem value="Has witnessed someone stealing from work but did not report them">Has witnessed someone stealing from work but did not report them</SelectItem>
-                      <SelectItem value="Has witnessed someone stealing from work and reported them">Has witnessed someone stealing from work and reported them</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select value={theftData.witnessed || ''} onValueChange={(v) => {
+                  const updates: any = { witnessed: v };
+                  if (v.includes("never")) updates.witnessedEmployers = {};
+                  updateTheft(updates);
+                }}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-auto min-h-9 py-2 w-full [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:text-left"><SelectValue placeholder="Witnessed theft at work" /></SelectTrigger>
+                  <SelectContent className="max-w-[calc(100vw-2rem)]">
+                    <SelectItem value="Has never witnessed anyone stealing at work" className="whitespace-normal"><span className="block whitespace-normal">Has never witnessed anyone stealing at work</span></SelectItem>
+                    <SelectItem value="Has witnessed someone stealing from work but did not report them" className="whitespace-normal"><span className="block whitespace-normal">Has witnessed someone stealing from work but did not report them</span></SelectItem>
+                    <SelectItem value="Has witnessed someone stealing from work and reported them" className="whitespace-normal"><span className="block whitespace-normal">Has witnessed someone stealing from work and reported them</span></SelectItem>
+                  </SelectContent>
+                </Select>
 
                 {(theftData.witnessed === "Has witnessed someone stealing from work but did not report them" || theftData.witnessed === "Has witnessed someone stealing from work and reported them") && (
                   <>
