@@ -1112,26 +1112,29 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          {riskUrl && (
-                            <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={async () => {
-                              // If it's already a full URL (legacy), try it directly
-                              if (riskUrl.startsWith("http")) {
-                                setViewRiskUrl(riskUrl);
-                                return;
-                              }
-                              // Generate a signed URL for private bucket
-                              const { data, error } = await supabase.storage
-                                .from("employee-documents")
-                                .createSignedUrl(riskUrl, 3600);
-                              if (error || !data?.signedUrl) {
-                                toast.error("Could not load document");
-                                return;
-                              }
-                              setViewRiskUrl(data.signedUrl);
-                            }}>
-                              <Eye className="h-4 w-4" />
+                          <div className="flex gap-1 justify-end">
+                            {riskUrl && (
+                              <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={async () => {
+                                if (riskUrl.startsWith("http")) {
+                                  setViewRiskUrl(riskUrl);
+                                  return;
+                                }
+                                const { data, error } = await supabase.storage
+                                  .from("employee-documents")
+                                  .createSignedUrl(riskUrl, 3600);
+                                if (error || !data?.signedUrl) {
+                                  toast.error("Could not load document");
+                                  return;
+                                }
+                                setViewRiskUrl(data.signedUrl);
+                              }}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="sm" className="text-destructive" title="Delete" onClick={() => { if (confirm("Delete this candidate's risk assessment record? This cannot be undone.")) deleteApplication.mutate(app.id); }} disabled={deleteApplication.isPending}>
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                          )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
