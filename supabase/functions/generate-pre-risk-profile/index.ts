@@ -311,6 +311,18 @@ ${questionnaireText}`;
 
     const deterministicCriminal = calculateDeterministicCriminalProfile(answers?.questionnaire?.questions || {});
     riskProfile.criminal = deterministicCriminal;
+
+    const deterministicEmployment = calculateDeterministicEmploymentProfile(
+      answers?.questionnaire?.tables || {},
+      tablesData
+    );
+    if (deterministicEmployment) {
+      riskProfile.employment = {
+        ...(riskProfile.employment || {}),
+        ...deterministicEmployment,
+      };
+    }
+
     riskProfile.totalScore =
       Number(riskProfile?.employment?.score || 0) +
       Number(riskProfile?.financial?.score || 0) +
@@ -564,4 +576,118 @@ function getRiskLevelFromTotal(total: number): "LOW" | "MEDIUM" | "HIGH" | "VERY
   if (total >= 18) return "HIGH";
   if (total >= 8) return "MEDIUM";
   return "LOW";
+}
+
+function parseDurationToMonths(text: string): number {
+  if (!text) return 0;
+  const s = String(text).toLowerCase().trim();
+  let months = 0;
+  const yrMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:yr|yrs|year|years|y)\b/);
+  const moMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:mo|mos|month|months|m)\b/);
+  if (yrMatch) months += parseFloat(yrMatch[1]) * 12;
+  if (moMatch) months += parseFloat(moMatch[1]);
+  if (!yrMatch && !moMatch) {
+    const num = parseFloat(s);
+    if (!isNaN(num)) months = num * 12;
+  }
+  return months;
+}
+
+function classifyExitReason(reason: string): "absconded" | "dismissed" | "contract_ended" | "other" {
+  const r = String(reason || "").toLowerCase();
+  if (r.includes("abscond")) return "absconded";
+  if (r.includes("dismiss") || r.includes("fired") || r.includes("terminated for")) return "dismissed";
+  if (r.includes("contract") && (r.includes("end") || r.includes("complet") || r.includes("expir"))) return "contract_ended";
+  return "other";
+}
+
+function calculateDeterministicEmploymentProfile(
+  tableAnswers: Record<string, any>,
+  tables: any[]
+) {
+  const empTable = tables.find((t: any) => {
+    const labels = (t.row_labels || []).map((l: string) => String(l).toLowerCase());
+    return labels.some((l: string) => l.includes("employer")) && labels.some((l: string) => l.includes("duration"));
+  });
+  if (!empTable) return null;
+
+  const labels: string[] = empTable.row_labels || [];
+  const employerIdx = labels.findIndex((l) => l.toLowerCase().includes("employer"));
+  const durationIdx = labels.findIndex((l) => l.toLowerCase().includes("duration"));
+  const positionIdx = labels.findIndex((l) => l.toLowerCase().includes("position"));
+  const reasonIdx = labels.findIndex((l) => l.toLowerCase().includes("reason"));
+
+  const entries = tableAnswers[empTable.id] || [];
+  const jobs: { company: string; position: string; durationMonths: number; reason: string; exitType: string }[] = [];
+
+  for (const entry of entries) {
+    const get = (i: number) => {
+      if (i < 0) return "";
+      const cell = entry?.[i];
+      if (Array.isArray(cell)) return cell.filter(Boolean).join(" ");
+      return String(cell || "");
+    };
+    const company = get(employerIdx).trim();
+    if (!company) continue;
+    jobs.push({
+      company,
+      position: get(positionIdx).trim(),
+      durationMonths: parseDurationToMonths(get(durationIdx)),
+      reason: get(reasonIdx).trim(),
+      exitType: classifyExitReason(get(reasonIdx)),
+    });
+  }
+
+  if (jobs.length === 0) return null;
+
+  const totalMonths = jobs.reduce((sum, j) => sum + j.durationMonths, 0);
+  const avgMonths = totalMonths / jobs.length;
+  const halfAvg = avgMonths / 2;
+
+  const shortJobs = jobs.filter(
+    (j) => j.exitType !== "contract_ended" && j.durationMonths < halfAvg
+  );
+
+  const abscondedCount = jobs.filter((j) => j.exitType === "absconded").length;
+  const dismissedCount = jobs.filter((j) => j.exitType === "dismissed").length;
+
+  const shortRatio = shortJobs.length / jobs.length;
+  let baseScore = 0;
+  if (shortRatio > 0.5) baseScore = 3;
+  else if (shortRatio > 0.25) baseScore = 2;
+  else if (shortRatio > 0) baseScore = 1;
+
+  const penalty = abscondedCount + dismissedCount;
+  const score = Math.min(3, baseScore + penalty);
+
+  const labelMap: Record<number, string> = {
+    0: "Stable",
+    1: "Fairly Stable",
+    2: "Caution",
+    3: "Unstable",
+  };
+
+  const avgYears = (avgMonths / 12).toFixed(1);
+  const halfYears = (halfAvg / 12).toFixed(2);
+  const reasoningParts = [
+    `Average tenure across ${jobs.length} job${jobs.length === 1 ? "" : "s"}: ${avgYears} years (half-average threshold: ${halfYears} years).`,
+    shortJobs.length > 0
+      ? `${shortJobs.length} job${shortJobs.length === 1 ? "" : "s"} below half-average (excluding contract completions): ${shortJobs.map((j) => j.company).join(", ")}.`
+      : `No jobs below the half-average threshold (excluding contract completions).`,
+  ];
+  if (abscondedCount > 0) reasoningParts.push(`+${abscondedCount} for absconding.`);
+  if (dismissedCount > 0) reasoningParts.push(`+${dismissedCount} for dismissal.`);
+
+  return {
+    score,
+    label: labelMap[score],
+    reasoning: reasoningParts.join(" "),
+    jobs: jobs.map(({ exitType, ...rest }) => rest),
+    avgMonths,
+    hasDisciplinary: penalty > 0,
+    disciplinaryDetails:
+      penalty > 0
+        ? `${abscondedCount} absconding, ${dismissedCount} dismissal${dismissedCount === 1 ? "" : "s"}`
+        : "",
+  };
 }
