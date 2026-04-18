@@ -3975,6 +3975,31 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
   const sectionTables = tables.filter((t) => t.section_id === currentSec.id);
   const sectionQuestions = questions.filter((q) => q.section_id === currentSec.id);
 
+  // ── Read-only review mode: render all sections stacked, disabled ──
+  if (readOnly) {
+    return (
+      <fieldset disabled className="min-w-0 [&_*]:pointer-events-none">
+        <div className="space-y-6">
+          {sections.map((sec) => {
+            const secTables = tables.filter((t) => t.section_id === sec.id);
+            const secQuestions = questions.filter((q) => q.section_id === sec.id);
+            return (
+              <Card key={sec.id} className="bg-zinc-950 border-zinc-800 text-white overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="text-white text-base">{sec.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {secTables.map(renderTable)}
+                  {secQuestions.map(renderQuestion)}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </fieldset>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-black">
 
