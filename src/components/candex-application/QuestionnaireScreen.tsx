@@ -3044,25 +3044,35 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       const gamblingMissedPayment = genData.gambling_missed_payment || "";
       const gamblingAccounts: string[] = genData.gambling_missed_accounts || [];
 
+      const YesNoButtons = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+        <div className="flex gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => onChange("Yes")}
+            className={`h-8 w-12 rounded text-xs font-medium border transition-colors ${value === "Yes" ? "bg-primary text-primary-foreground border-primary" : "bg-zinc-900 text-zinc-300 border-zinc-700 hover:bg-zinc-800"}`}
+          >Yes</button>
+          <button
+            type="button"
+            onClick={() => onChange("No")}
+            className={`h-8 w-12 rounded text-xs font-medium border transition-colors ${value === "No" ? "bg-primary text-primary-foreground border-primary" : "bg-zinc-900 text-zinc-300 border-zinc-700 hover:bg-zinc-800"}`}
+          >No</button>
+        </div>
+      );
+
       const generalRows = [
         {
           key: "rehabilitation",
           label: "Attended a rehabilitation program",
           render: () => (
             <div className="space-y-2">
-              <Select value={rehabAnswer} onValueChange={(v) => {
-                const updates: Record<string, any> = { rehabilitation: v };
-                if (v === "No") { updates.rehabilitation_types = []; }
-                updateGen(updates);
-              }}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[90px]">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="No">No</SelectItem>
-                  <SelectItem value="Yes">Yes</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-start gap-2">
+                <span className="flex-1 min-w-0 text-xs text-zinc-300 break-words">Attended a rehabilitation program</span>
+                <YesNoButtons value={rehabAnswer} onChange={(v) => {
+                  const updates: Record<string, any> = { rehabilitation: v };
+                  if (v === "No") { updates.rehabilitation_types = []; }
+                  updateGen(updates);
+                }} />
+              </div>
               {rehabAnswer === "Yes" && (
                 <div className="space-y-1.5 mt-2 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
                   <Label className="text-[10px] text-zinc-500">Select type(s) of rehabilitation</Label>
@@ -3089,19 +3099,14 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           label: "Lied on CV",
           render: () => (
             <div className="space-y-2">
-              <Select value={liedOnCv} onValueChange={(v) => {
-                const updates: Record<string, any> = { lied_on_cv: v };
-                if (v === "No") updates.lied_on_cv_details = "";
-                updateGen(updates);
-              }}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[90px]">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="No">No</SelectItem>
-                  <SelectItem value="Yes">Yes</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-start gap-2">
+                <span className="flex-1 min-w-0 text-xs text-zinc-300 break-words">Lied on CV</span>
+                <YesNoButtons value={liedOnCv} onChange={(v) => {
+                  const updates: Record<string, any> = { lied_on_cv: v };
+                  if (v === "No") updates.lied_on_cv_details = "";
+                  updateGen(updates);
+                }} />
+              </div>
               {liedOnCv === "Yes" && (
                 <Input
                   value={liedDetails}
@@ -3117,16 +3122,19 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           key: "gambling",
           label: "Gambling",
           render: () => (
-            <Select value={gamblingAnswer} onValueChange={(v) => updateGen({ gambling: v })}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-full">
-                <SelectValue placeholder="Select" />
-              </SelectTrigger>
-              <SelectContent>
-                {gamblingOptions.map((opt) => (
-                  <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <span className="block text-xs text-zinc-300 break-words">Gambling</span>
+              <Select value={gamblingAnswer} onValueChange={(v) => updateGen({ gambling: v })}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs min-h-8 h-auto py-1.5 w-full whitespace-normal text-left [&>span]:whitespace-normal [&>span]:line-clamp-none">
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {gamblingOptions.map((opt) => (
+                    <SelectItem key={opt} value={opt} className="text-xs whitespace-normal">{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           ),
         },
         {
@@ -3134,19 +3142,14 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           label: "Missing payment on account due to money spent on gambling",
           render: () => (
             <div className="space-y-2">
-              <Select value={gamblingMissedPayment} onValueChange={(v) => {
-                const updates: Record<string, any> = { gambling_missed_payment: v };
-                if (v === "No") updates.gambling_missed_accounts = [];
-                updateGen(updates);
-              }}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[90px]">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="No">No</SelectItem>
-                  <SelectItem value="Yes">Yes</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-start gap-2">
+                <span className="flex-1 min-w-0 text-xs text-zinc-300 break-words">Missing payment on account due to money spent on gambling</span>
+                <YesNoButtons value={gamblingMissedPayment} onChange={(v) => {
+                  const updates: Record<string, any> = { gambling_missed_payment: v };
+                  if (v === "No") updates.gambling_missed_accounts = [];
+                  updateGen(updates);
+                }} />
+              </div>
               {gamblingMissedPayment === "Yes" && allAccountOptions.length > 0 && (
                 <div className="space-y-1.5 mt-2 border border-zinc-800 rounded-md p-2.5 bg-zinc-900/50">
                   <Label className="text-[10px] text-zinc-500">Select affected account(s)</Label>
@@ -3182,23 +3185,12 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[200px]">Topic</th>
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400">Answer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {generalRows.map((row) => (
-                    <tr key={row.key} className="border-b border-zinc-800/50">
-                      <td className="p-2 text-xs text-zinc-300 font-medium align-top">{row.label}</td>
-                      <td className="p-2">{row.render()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="divide-y divide-zinc-800/50">
+              {generalRows.map((row) => (
+                <div key={row.key} className="p-3">
+                  {row.render()}
+                </div>
+              ))}
             </div>
           </div>
         </div>
