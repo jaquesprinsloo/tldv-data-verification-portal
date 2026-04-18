@@ -227,6 +227,12 @@ const DateDropdowns = ({ value, onChange, fromYear = 1950, placeholder = "Select
 interface QuestionnaireScreenProps {
   templateId: string;
   onComplete: (answers: Record<string, any>) => Promise<boolean>;
+  /** When true, render the questionnaire in read-only mode for review purposes. */
+  readOnly?: boolean;
+  /** Pre-populated keyed answers (questionnaire.questions blob from candex_applications). */
+  initialAnswers?: Record<string, any>;
+  /** Pre-populated table cell data (questionnaire.tables blob from candex_applications). */
+  initialTableData?: Record<string, string[][][]>;
 }
 
 interface Section {
