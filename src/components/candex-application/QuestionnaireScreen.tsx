@@ -453,7 +453,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
       return (
         <div className="space-y-1 w-full">
-          <Label className="text-[10px] text-zinc-500 block text-center">Employment Duration</Label>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 w-full">
             <div className="flex-1 min-w-0">
               <Label className="text-[10px] text-zinc-500 mb-0.5 block">Start</Label>
