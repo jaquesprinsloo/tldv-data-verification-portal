@@ -604,7 +604,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 value={value}
                 onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
                 className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
-                placeholder="Employer name"
+                placeholder="Employer"
               />
             </div>
             <div className="flex-1 min-w-0">
@@ -613,7 +613,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 value={positionVal}
                 onChange={(e) => setAnswer(positionKey, e.target.value)}
                 className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
-                placeholder="Position / Job title"
+                placeholder="Position"
               />
             </div>
           </div>
