@@ -4013,41 +4013,50 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 </Button>
               )}
               <div className="flex-1" />
-              {currentSection < sections.length - 1 ? (
+              {currentSection < sections.length - 1 && (
                 <Button
                   onClick={handleNext}
                   className="bg-red-600 hover:bg-red-700 text-white"
                 >
                   Next Section
                 </Button>
-              ) : (
-                <Button
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  {submitting ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>
-                  ) : (
-                    <><CheckCircle className="mr-2 h-4 w-4" /> Complete PreAppliCheck Process</>
-                  )}
-                </Button>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Section navigation dots */}
-        <div className="flex justify-center gap-2 mt-6">
-          {sections.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setCurrentSection(idx)}
-              className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                idx === currentSection ? "bg-red-600" : idx < currentSection ? "bg-red-900" : "bg-zinc-700"
-              }`}
-            />
-          ))}
+        {/* Final submit card - only on last section */}
+        {currentSection === sections.length - 1 && (
+          <Card className="bg-zinc-950 border-zinc-800 text-white mt-4">
+            <CardContent className="p-6 flex justify-center">
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto"
+                size="lg"
+              >
+                {submitting ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>
+                ) : (
+                  <><CheckCircle className="mr-2 h-4 w-4" /> Complete PreAppliCheck Process</>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Section navigation dots - hidden on last section */}
+        {currentSection < sections.length - 1 && (
+          <div className="flex justify-center gap-2 mt-6">
+            {sections.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentSection(idx)}
+                className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                  idx === currentSection ? "bg-red-600" : idx < currentSection ? "bg-red-900" : "bg-zinc-700"
+                }`}
+              />
+            ))}
         </div>
       </main>
     </div>
