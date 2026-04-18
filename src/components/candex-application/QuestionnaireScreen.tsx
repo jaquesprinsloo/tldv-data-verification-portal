@@ -4010,32 +4010,25 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             {sectionQuestions.map(renderQuestion)}
 
             {/* Navigation */}
-            <div className="pt-4 space-y-2">
-              <div className="flex items-center gap-3">
-                {currentSection > 0 && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setCurrentSection((p) => p - 1)}
-                    className="border-zinc-700 text-zinc-400 hover:text-white"
-                  >
-                    Previous
-                  </Button>
-                )}
-                <div className="flex-1" />
-                {currentSection < sections.length - 1 && (
-                  <Button
-                    onClick={handleNext}
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                  >
-                    Next Section
-                  </Button>
-                )}
-              </div>
-              <div className="text-center">
-                <span className="text-xs text-zinc-500">
-                  Section {currentSection + 1} of {sections.length}
-                </span>
-              </div>
+            <div className="flex items-center gap-3 pt-4">
+              {currentSection > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentSection((p) => p - 1)}
+                  className="border-zinc-700 text-zinc-400 hover:text-white"
+                >
+                  Previous
+                </Button>
+              )}
+              <div className="flex-1" />
+              {currentSection < sections.length - 1 && (
+                <Button
+                  onClick={handleNext}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Next Section
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -4062,17 +4055,24 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
         {/* Section navigation dots - hidden on last section */}
         {currentSection < sections.length - 1 && (
-          <div className="flex justify-center gap-2 mt-6">
-            {sections.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentSection(idx)}
-                className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                  idx === currentSection ? "bg-red-600" : idx < currentSection ? "bg-red-900" : "bg-zinc-700"
-                }`}
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex justify-center gap-2 mt-6">
+              {sections.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCurrentSection(idx)}
+                  className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                    idx === currentSection ? "bg-red-600" : idx < currentSection ? "bg-red-900" : "bg-zinc-700"
+                  }`}
+                />
+              ))}
+            </div>
+            <div className="text-center mt-2">
+              <span className="text-xs text-zinc-500">
+                Section {currentSection + 1} of {sections.length}
+              </span>
+            </div>
+          </>
         )}
       </main>
     </div>
