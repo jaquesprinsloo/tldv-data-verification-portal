@@ -403,5 +403,79 @@ function buildQuestionnaireText(
     }
   }
 
+  // Append specialized criminal-activity data structures the candidate UI stores
+  // under composite keys inside questionnaire.questions (NOT as table rows).
+  // Without this, fraud / bribery / organized / undetected / drugs / theft-at-work
+  // confirmations are invisible to the AI and Criminal Activity scores 0/30.
+  const specializedPrefixes: { prefix: string; label: string }[] = [
+    { prefix: "fraud_", label: "FRAUD DISCLOSURES" },
+    { prefix: "bribery_", label: "BRIBERY DISCLOSURES" },
+    { prefix: "organized_crimes_", label: "ORGANIZED CRIME DISCLOSURES" },
+    { prefix: "undetected_crimes_", label: "UNDETECTED CRIME DISCLOSURES" },
+    { prefix: "illegal_drugs_", label: "ILLEGAL DRUG INVOLVEMENT" },
+    { prefix: "theft_at_work_", label: "THEFT AT WORK DISCLOSURES" },
+  ];
+
+  const isNegativeAnswer = (val: any): boolean => {
+    if (val === null || val === undefined || val === "" || val === false) return true;
+    if (typeof val !== "string") return false;
+    const v = val.trim().toLowerCase();
+    if (!v) return true;
+    return (
+      v === "no" ||
+      v === "none" ||
+      v === "nil" ||
+      v === "never" ||
+      v === "n/a" ||
+      v === "not applicable" ||
+      v === "not disclosed" ||
+      v.startsWith("has never") ||
+      v.startsWith("never ") ||
+      v.includes("no involvement") ||
+      v.includes("not involved")
+    );
+  };
+
+  const flattenObject = (obj: any, path: string[] = []): { key: string; value: string }[] => {
+    const out: { key: string; value: string }[] = [];
+    if (obj === null || obj === undefined) return out;
+    if (typeof obj !== "object") {
+      if (!isNegativeAnswer(obj)) {
+        out.push({ key: path.join("."), value: String(obj) });
+      }
+      return out;
+    }
+    if (Array.isArray(obj)) {
+      const filtered = obj.filter((v) => !isNegativeAnswer(v));
+      if (filtered.length > 0) {
+        out.push({ key: path.join("."), value: filtered.map((v) => (typeof v === "object" ? JSON.stringify(v) : String(v))).join(", ") });
+      }
+      return out;
+    }
+    for (const [k, v] of Object.entries(obj)) {
+      out.push(...flattenObject(v, [...path, k]));
+    }
+    return out;
+  };
+
+  for (const { prefix, label } of specializedPrefixes) {
+    const matchingKeys = Object.keys(questionAnswers).filter((k) => k.startsWith(prefix));
+    if (matchingKeys.length === 0) continue;
+
+    const sectionLines: string[] = [];
+    for (const key of matchingKeys) {
+      const data = questionAnswers[key];
+      const flat = flattenObject(data);
+      if (flat.length === 0) continue;
+      for (const { key: fieldKey, value } of flat) {
+        sectionLines.push(`  ${fieldKey}: ${value}`);
+      }
+    }
+    if (sectionLines.length > 0) {
+      lines.push(`\n=== ${label} (CONFIRMED ITEMS) ===`);
+      lines.push(...sectionLines);
+    }
+  }
+
   return lines.join("\n") || "No questionnaire data available.";
 }
