@@ -17,6 +17,7 @@ import {
   Briefcase, DollarSign, Scale, AlertCircle, Activity,
   Fingerprint, TrendingDown, Ban, Check, X,
 } from "lucide-react";
+import { CalculationInfoPopover } from "./CalculationInfoPopover";
 
 interface RiskAnalysisDisplayProps {
   polygraphReport: any;
