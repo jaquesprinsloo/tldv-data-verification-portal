@@ -3711,6 +3711,23 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           }
                         }
 
+                        // Hide driver's-license-dependent rows when "N/A - Does not have a Driver's License" is selected
+                        const isLicenseDependentRow = rl.includes("testing ground")
+                          || rl.includes("first issue")
+                          || rl === "pdp"
+                          || rl.includes("pdp");
+                        if (isLicenseDependentRow) {
+                          const licenseRowIdx = table.row_labels.findIndex((l) => {
+                            const ll = String(l).toLowerCase().trim();
+                            return (ll.includes("driver") && (ll.includes("license") || ll.includes("licence")))
+                              && !ll.includes("testing") && !ll.includes("first") && !ll.includes("pdp");
+                          });
+                          if (licenseRowIdx >= 0) {
+                            const licenseVal = (tableData[table.id]?.[entryIdx]?.[licenseRowIdx]?.[0] || "").toLowerCase();
+                            if (licenseVal.includes("n/a") || licenseVal.includes("does not have")) return null;
+                          }
+                        }
+
                         return (
                           <tr key={rowIdx} className="border-b border-zinc-800/50">
                             {(isEducationTable || isEmploymentHistory) ? (
