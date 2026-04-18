@@ -1099,6 +1099,16 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             <div className="flex items-center gap-2">
               <Fingerprint className="h-5 w-5 text-primary" />
               Integrity — Polygraph Result
+              <CalculationInfoPopover title="Integrity (Polygraph)">
+                <p><strong>Data used:</strong> The polygraph examiner's findings on the relevant exam questions for this candidate.</p>
+                <p><strong>Step 1 — Per-question outcome:</strong> Each question is marked by the examiner as <strong>NDI</strong> (No Deception Indicated), <strong>DI</strong> (Deception Indicated), or <strong>INC</strong> (Inconclusive).</p>
+                <p><strong>Step 2 — Score (0 or 1):</strong></p>
+                <ul>
+                  <li>0 (Pass): all relevant questions are NDI</li>
+                  <li>1 (Concerns): one or more DI / Inconclusive findings</li>
+                </ul>
+                <p><strong>Note:</strong> Unlike the other categories, this is a <em>pass/fail</em> indicator. The detailed counts (NDI/DI/INC) are shown in the card body for context.</p>
+              </CalculationInfoPopover>
             </div>
             <ScoreBadge score={integrity.score} max={1} label={integrity.result} />
           </CardTitle>
