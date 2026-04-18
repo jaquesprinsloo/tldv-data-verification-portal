@@ -2443,17 +2443,14 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 5. Approached to steal from work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300">Approached to steal from work</Label>
-                  <Select value={theftData.approached || ''} onValueChange={(v) => updateTheft({ approached: v })}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Has never been approached to get involved with theft at work">Has never been approached to get involved with theft at work</SelectItem>
-                      <SelectItem value="Has been approached to steal at work but declined to get involved">Has been approached to steal at work but declined to get involved</SelectItem>
-                      <SelectItem value="Has been approached to get involved with stealing at work and accepted to get involved">Has been approached to get involved with stealing at work and accepted to get involved</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select value={theftData.approached || ''} onValueChange={(v) => updateTheft({ approached: v })}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-auto min-h-9 py-2 w-full [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:text-left"><SelectValue placeholder="Approached to steal from work" /></SelectTrigger>
+                  <SelectContent className="max-w-[calc(100vw-2rem)]">
+                    <SelectItem value="Has never been approached to get involved with theft at work" className="whitespace-normal"><span className="block whitespace-normal">Has never been approached to get involved with theft at work</span></SelectItem>
+                    <SelectItem value="Has been approached to steal at work but declined to get involved" className="whitespace-normal"><span className="block whitespace-normal">Has been approached to steal at work but declined to get involved</span></SelectItem>
+                    <SelectItem value="Has been approached to get involved with stealing at work and accepted to get involved" className="whitespace-normal"><span className="block whitespace-normal">Has been approached to get involved with stealing at work and accepted to get involved</span></SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
             </div>
