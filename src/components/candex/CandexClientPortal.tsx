@@ -402,6 +402,37 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     onSuccess: () => {
       toast.success("Invitation deleted");
       queryClient.invalidateQueries({ queryKey: ["candex-my-invitations", client?.id] });
+      queryClient.invalidateQueries({ queryKey: ["candex-my-applications", client?.id] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Delete application (and its risk-request candidate links)
+  const deleteApplication = useMutation({
+    mutationFn: async (appId: string) => {
+      await supabase.from("candex_risk_request_candidates").delete().eq("application_id", appId);
+      await supabase.from("polygraph_appointment_candidates").delete().eq("application_id", appId);
+      const { error } = await supabase.from("candex_applications").delete().eq("id", appId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Application deleted");
+      queryClient.invalidateQueries({ queryKey: ["candex-my-applications", client?.id] });
+      queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates-for-approved", client?.id] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Delete polygraph appointment
+  const deleteAppointment = useMutation({
+    mutationFn: async (aptId: string) => {
+      await supabase.from("polygraph_appointment_candidates").delete().eq("appointment_id", aptId);
+      const { error } = await supabase.from("polygraph_appointments" as any).delete().eq("id", aptId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Appointment deleted");
+      queryClient.invalidateQueries({ queryKey: ["user-polygraph-appointments", client?.id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
