@@ -3813,6 +3813,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     </tbody>
                   </table>
                 </div>
+                  );
+                })()}
               </div>
             ))}
 
