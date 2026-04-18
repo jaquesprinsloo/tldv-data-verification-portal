@@ -551,7 +551,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
           value={value}
           onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
           className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"
-          placeholder="Enter location / address..."
+          placeholder="Address"
         />
       );
     }
