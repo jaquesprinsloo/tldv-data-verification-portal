@@ -3417,19 +3417,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
     return (
       <div key={table.id} className="space-y-3">
-        {isEmploymentHistory && (
-          <div className="flex items-center gap-2 p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg">
-            <Checkbox
-              id={neverWorkedKey}
-              checked={hasNeverWorked}
-              onCheckedChange={(checked) => setAnswer(neverWorkedKey, checked ? "yes" : "no")}
-              className="border-zinc-600 data-[state=checked]:bg-red-600"
-            />
-            <label htmlFor={neverWorkedKey} className="text-xs text-zinc-300 cursor-pointer">
-              I have never been employed since leaving school
-            </label>
-          </div>
-        )}
+        {/* "Never employed" checkbox is rendered inside the employment history table header below */}
 
         {isDisciplinaryTable && (
           <div className="space-y-3">
