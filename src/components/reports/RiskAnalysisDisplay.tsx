@@ -773,24 +773,32 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             </div>
             <ScoreBadge score={employment.score} max={3} label={employment.label} />
           </CardTitle>
-          <CardDescription>Last {employment.jobs.length} position{employment.jobs.length !== 1 ? "s" : ""} analyzed</CardDescription>
+          <CardDescription>
+            {employment.jobs.length} position{employment.jobs.length !== 1 ? "s" : ""} analyzed · {employment.shortTenureCount} below half-avg tenure
+            {employment.seriousExitCount > 0 ? ` · ${employment.seriousExitCount} absconding/dismissal` : ""}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Stats row */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-3">
             <div className="text-center p-3 rounded-lg bg-muted/50 border">
               <p className="text-xl font-bold">{formatMonths(employment.totalMonths)}</p>
               <p className="text-xs text-muted-foreground">Total Duration</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-muted/50 border">
               <p className={`text-xl font-bold ${getScoreColor(employment.score, 3)}`}>{formatMonths(employment.avgMonths)}</p>
-              <p className="text-xs text-muted-foreground">Avg Duration</p>
+              <p className="text-xs text-muted-foreground">Avg Tenure</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-muted/50 border">
+              <p className="text-xl font-bold">{employment.shortTenureCount}/{employment.qualifyingJobsCount}</p>
+              <p className="text-xs text-muted-foreground">Below ½ Avg*</p>
             </div>
             <div className="text-center p-3 rounded-lg bg-muted/50 border">
               <p className="text-sm font-medium capitalize">{employment.mostCommonReason}</p>
               <p className="text-xs text-muted-foreground">Common Reason</p>
             </div>
           </div>
+          <p className="text-[10px] text-muted-foreground -mt-2">*Excludes contracts ended due to term completion. Avg tenure is across all disclosed positions.</p>
 
           {/* Job duration chart */}
           {employmentChartData.length > 0 && (
