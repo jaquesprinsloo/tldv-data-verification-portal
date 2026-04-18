@@ -2741,32 +2741,28 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                       const val = ocData[itemKey] || '';
                       const details = ocData[`${itemKey}_details`] || '';
                       const isYes = val === 'Yes';
+                      const setVal = (v: string) => {
+                        const updates: Record<string, any> = { [itemKey]: v };
+                        if (v === 'No') updates[`${itemKey}_details`] = '';
+                        updateOC(updates);
+                      };
                       return (
-                        <div key={itemKey} className="flex items-start gap-2 px-3 py-2 border-t border-zinc-800/40">
-                          <div className="flex-1 min-w-0">
-                            <span className="text-xs text-zinc-300 break-words">{item.label}</span>
-                            {isYes && (
-                              <Input
-                                value={details}
-                                onChange={(e) => updateOC({ [`${itemKey}_details`]: e.target.value })}
-                                className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 mt-1"
-                                placeholder="Provide details..."
-                              />
-                            )}
+                        <div key={itemKey} className="px-3 py-2 border-t border-zinc-800/40 space-y-2">
+                          <div className="flex items-start gap-2">
+                            <span className="flex-1 min-w-0 text-xs text-zinc-300 break-words">{item.label}</span>
+                            <div className="flex gap-1 shrink-0">
+                              <button type="button" onClick={() => setVal('Yes')} className={`h-8 w-12 rounded text-xs font-medium border transition-colors ${val === 'Yes' ? 'bg-primary text-primary-foreground border-primary' : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:bg-zinc-800'}`}>Yes</button>
+                              <button type="button" onClick={() => setVal('No')} className={`h-8 w-12 rounded text-xs font-medium border transition-colors ${val === 'No' ? 'bg-primary text-primary-foreground border-primary' : 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:bg-zinc-800'}`}>No</button>
+                            </div>
                           </div>
-                          <Select value={val} onValueChange={(v) => {
-                            const updates: Record<string, any> = { [itemKey]: v };
-                            if (v === 'No') updates[`${itemKey}_details`] = '';
-                            updateOC(updates);
-                          }}>
-                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[80px] shrink-0">
-                              <SelectValue placeholder="Select" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="No">No</SelectItem>
-                              <SelectItem value="Yes">Yes</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          {isYes && (
+                            <Input
+                              value={details}
+                              onChange={(e) => updateOC({ [`${itemKey}_details`]: e.target.value })}
+                              className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8"
+                              placeholder="Provide details..."
+                            />
+                          )}
                         </div>
                       );
                     })}
