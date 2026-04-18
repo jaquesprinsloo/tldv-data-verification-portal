@@ -2533,31 +2533,22 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fraudCategories.map((cat) => 
-                    cat.items.map((item, idx) => {
+            <div className="p-0">
+              {fraudCategories.map((cat) => (
+                <div key={cat.key} className="border-b border-zinc-800/50 last:border-b-0">
+                  <div className="bg-zinc-900/60 px-3 py-2 text-xs font-semibold text-primary uppercase tracking-wide">
+                    {cat.title}
+                  </div>
+                  <div>
+                    {cat.items.map((item) => {
                       const itemKey = `${cat.key}_${item.key}`;
                       const val = fraudData[itemKey] || '';
                       const details = fraudData[`${itemKey}_details`] || '';
                       const isYes = val === 'Yes';
                       return (
-                        <tr key={itemKey} className="border-b border-zinc-800/50">
-                          {idx === 0 ? (
-                            <td className="p-2 text-xs font-semibold align-middle text-center border-r border-zinc-800/50 text-zinc-300" rowSpan={cat.items.length}>
-                              {cat.title}
-                            </td>
-                          ) : null}
-                          <td className="p-2">
-                            <span className="text-xs text-zinc-300">{item.label}</span>
+                        <div key={itemKey} className="flex items-start gap-2 px-3 py-2 border-t border-zinc-800/40">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs text-zinc-300 break-words">{item.label}</span>
                             {isYes && (
                               <Input
                                 value={details}
@@ -2566,28 +2557,26 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                 placeholder="Provide details..."
                               />
                             )}
-                          </td>
-                          <td className="p-2">
-                            <Select value={val} onValueChange={(v) => {
-                              const updates: Record<string, any> = { [itemKey]: v };
-                              if (v === 'No') updates[`${itemKey}_details`] = '';
-                              updateFraud(updates);
-                            }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[60px] sm:w-[90px] mx-auto">
-                                <SelectValue placeholder="Select" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="No">No</SelectItem>
-                                <SelectItem value="Yes">Yes</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </td>
-                        </tr>
+                          </div>
+                          <Select value={val} onValueChange={(v) => {
+                            const updates: Record<string, any> = { [itemKey]: v };
+                            if (v === 'No') updates[`${itemKey}_details`] = '';
+                            updateFraud(updates);
+                          }}>
+                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[80px] shrink-0">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="No">No</SelectItem>
+                              <SelectItem value="Yes">Yes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       );
-                    })
-                  )}
-                </tbody>
-              </table>
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -2641,31 +2630,22 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {briberyCategories.map((cat) => 
-                    cat.items.map((item, idx) => {
+            <div className="p-0">
+              {briberyCategories.map((cat) => (
+                <div key={cat.key} className="border-b border-zinc-800/50 last:border-b-0">
+                  <div className="bg-zinc-900/60 px-3 py-2 text-xs font-semibold text-primary uppercase tracking-wide">
+                    {cat.title}
+                  </div>
+                  <div>
+                    {cat.items.map((item) => {
                       const itemKey = `${cat.key}_${item.key}`;
                       const val = briberyData[itemKey] || '';
                       const details = briberyData[`${itemKey}_details`] || '';
                       const isYes = val === 'Yes';
                       return (
-                        <tr key={itemKey} className="border-b border-zinc-800/50">
-                          {idx === 0 ? (
-                            <td className="p-2 text-xs font-semibold align-middle text-center border-r border-zinc-800/50 text-zinc-300" rowSpan={cat.items.length}>
-                              {cat.title}
-                            </td>
-                          ) : null}
-                          <td className="p-2">
-                            <span className="text-xs text-zinc-300">{item.label}</span>
+                        <div key={itemKey} className="flex items-start gap-2 px-3 py-2 border-t border-zinc-800/40">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs text-zinc-300 break-words">{item.label}</span>
                             {isYes && (
                               <Input
                                 value={details}
@@ -2674,28 +2654,26 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                 placeholder="Provide details..."
                               />
                             )}
-                          </td>
-                          <td className="p-2">
-                            <Select value={val} onValueChange={(v) => {
-                              const updates: Record<string, any> = { [itemKey]: v };
-                              if (v === 'No') updates[`${itemKey}_details`] = '';
-                              updateBribery(updates);
-                            }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[60px] sm:w-[90px] mx-auto">
-                                <SelectValue placeholder="Select" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="No">No</SelectItem>
-                                <SelectItem value="Yes">Yes</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </td>
-                        </tr>
+                          </div>
+                          <Select value={val} onValueChange={(v) => {
+                            const updates: Record<string, any> = { [itemKey]: v };
+                            if (v === 'No') updates[`${itemKey}_details`] = '';
+                            updateBribery(updates);
+                          }}>
+                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[80px] shrink-0">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="No">No</SelectItem>
+                              <SelectItem value="Yes">Yes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       );
-                    })
-                  )}
-                </tbody>
-              </table>
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -2759,31 +2737,22 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {organizedCrimesCategories.map((cat) => 
-                    cat.items.map((item, idx) => {
+            <div className="p-0">
+              {organizedCrimesCategories.map((cat) => (
+                <div key={cat.key} className="border-b border-zinc-800/50 last:border-b-0">
+                  <div className="bg-zinc-900/60 px-3 py-2 text-xs font-semibold text-primary uppercase tracking-wide">
+                    {cat.title}
+                  </div>
+                  <div>
+                    {cat.items.map((item) => {
                       const itemKey = `${cat.key}_${item.key}`;
                       const val = ocData[itemKey] || '';
                       const details = ocData[`${itemKey}_details`] || '';
                       const isYes = val === 'Yes';
                       return (
-                        <tr key={itemKey} className="border-b border-zinc-800/50">
-                          {idx === 0 ? (
-                            <td className="p-2 text-xs font-semibold align-middle text-center border-r border-zinc-800/50 text-zinc-300" rowSpan={cat.items.length}>
-                              {cat.title}
-                            </td>
-                          ) : null}
-                          <td className="p-2">
-                            <span className="text-xs text-zinc-300">{item.label}</span>
+                        <div key={itemKey} className="flex items-start gap-2 px-3 py-2 border-t border-zinc-800/40">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs text-zinc-300 break-words">{item.label}</span>
                             {isYes && (
                               <Input
                                 value={details}
@@ -2792,28 +2761,26 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                 placeholder="Provide details..."
                               />
                             )}
-                          </td>
-                          <td className="p-2">
-                            <Select value={val} onValueChange={(v) => {
-                              const updates: Record<string, any> = { [itemKey]: v };
-                              if (v === 'No') updates[`${itemKey}_details`] = '';
-                              updateOC(updates);
-                            }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[60px] sm:w-[90px] mx-auto">
-                                <SelectValue placeholder="Select" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="No">No</SelectItem>
-                                <SelectItem value="Yes">Yes</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </td>
-                        </tr>
+                          </div>
+                          <Select value={val} onValueChange={(v) => {
+                            const updates: Record<string, any> = { [itemKey]: v };
+                            if (v === 'No') updates[`${itemKey}_details`] = '';
+                            updateOC(updates);
+                          }}>
+                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[80px] shrink-0">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="No">No</SelectItem>
+                              <SelectItem value="Yes">Yes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       );
-                    })
-                  )}
-                </tbody>
-              </table>
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -2892,31 +2859,22 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {undetectedCrimesCategories.map((cat) => 
-                    cat.items.map((item, idx) => {
+            <div className="p-0">
+              {undetectedCrimesCategories.map((cat) => (
+                <div key={cat.key} className="border-b border-zinc-800/50 last:border-b-0">
+                  <div className="bg-zinc-900/60 px-3 py-2 text-xs font-semibold text-primary uppercase tracking-wide">
+                    {cat.title}
+                  </div>
+                  <div>
+                    {cat.items.map((item) => {
                       const itemKey = `${cat.key}_${item.key}`;
                       const val = ucData[itemKey] || '';
                       const details = ucData[`${itemKey}_details`] || '';
                       const isYes = val === 'Yes';
                       return (
-                        <tr key={itemKey} className="border-b border-zinc-800/50">
-                          {idx === 0 ? (
-                            <td className="p-2 text-xs font-semibold align-middle text-center border-r border-zinc-800/50 text-zinc-300" rowSpan={cat.items.length}>
-                              {cat.title}
-                            </td>
-                          ) : null}
-                          <td className="p-2">
-                            <span className="text-xs text-zinc-300">{item.label}</span>
+                        <div key={itemKey} className="flex items-start gap-2 px-3 py-2 border-t border-zinc-800/40">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs text-zinc-300 break-words">{item.label}</span>
                             {isYes && (
                               <Input
                                 value={details}
@@ -2925,28 +2883,26 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                 placeholder="Provide details..."
                               />
                             )}
-                          </td>
-                          <td className="p-2">
-                            <Select value={val} onValueChange={(v) => {
-                              const updates: Record<string, any> = { [itemKey]: v };
-                              if (v === 'No') updates[`${itemKey}_details`] = '';
-                              updateUC(updates);
-                            }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[60px] sm:w-[90px] mx-auto">
-                                <SelectValue placeholder="Select" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="No">No</SelectItem>
-                                <SelectItem value="Yes">Yes</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </td>
-                        </tr>
+                          </div>
+                          <Select value={val} onValueChange={(v) => {
+                            const updates: Record<string, any> = { [itemKey]: v };
+                            if (v === 'No') updates[`${itemKey}_details`] = '';
+                            updateUC(updates);
+                          }}>
+                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[80px] shrink-0">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="No">No</SelectItem>
+                              <SelectItem value="Yes">Yes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       );
-                    })
-                  )}
-                </tbody>
-              </table>
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -3020,31 +2976,22 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-zinc-900 border-b border-zinc-800">
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400 w-[80px] sm:w-[160px]">Topic</th>
-                    <th className="p-2 text-left text-xs font-semibold text-zinc-400">Method</th>
-                    <th className="p-2 text-center text-xs font-semibold text-zinc-400 w-[60px] sm:w-[100px]">Answer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {drugCategories.map((cat) => 
-                    cat.items.map((item, idx) => {
+            <div className="p-0">
+              {drugCategories.map((cat) => (
+                <div key={cat.key} className="border-b border-zinc-800/50 last:border-b-0">
+                  <div className="bg-zinc-900/60 px-3 py-2 text-xs font-semibold text-primary uppercase tracking-wide">
+                    {cat.title}
+                  </div>
+                  <div>
+                    {cat.items.map((item) => {
                       const itemKey = `${cat.key}_${item.key}`;
                       const val = drugData[itemKey] || '';
                       const details = drugData[`${itemKey}_details`] || '';
                       const isYes = val === 'Yes';
                       return (
-                        <tr key={itemKey} className="border-b border-zinc-800/50">
-                          {idx === 0 ? (
-                            <td className="p-2 text-xs font-semibold align-middle text-center border-r border-zinc-800/50 text-zinc-300" rowSpan={cat.items.length}>
-                              {cat.title}
-                            </td>
-                          ) : null}
-                          <td className="p-2">
-                            <span className="text-xs text-zinc-300">{item.label}</span>
+                        <div key={itemKey} className="flex items-start gap-2 px-3 py-2 border-t border-zinc-800/40">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-xs text-zinc-300 break-words">{item.label}</span>
                             {isYes && (
                               <Input
                                 value={details}
@@ -3053,28 +3000,26 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                 placeholder="Provide details..."
                               />
                             )}
-                          </td>
-                          <td className="p-2">
-                            <Select value={val} onValueChange={(v) => {
-                              const updates: Record<string, any> = { [itemKey]: v };
-                              if (v === 'No') updates[`${itemKey}_details`] = '';
-                              updateDrug(updates);
-                            }}>
-                              <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[60px] sm:w-[90px] mx-auto">
-                                <SelectValue placeholder="Select" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="No">No</SelectItem>
-                                <SelectItem value="Yes">Yes</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </td>
-                        </tr>
+                          </div>
+                          <Select value={val} onValueChange={(v) => {
+                            const updates: Record<string, any> = { [itemKey]: v };
+                            if (v === 'No') updates[`${itemKey}_details`] = '';
+                            updateDrug(updates);
+                          }}>
+                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-[80px] shrink-0">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="No">No</SelectItem>
+                              <SelectItem value="Yes">Yes</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       );
-                    })
-                  )}
-                </tbody>
-              </table>
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
