@@ -771,6 +771,20 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             <div className="flex items-center gap-2">
               <Briefcase className="h-5 w-5 text-primary" />
               Employment — Job Stability
+              <CalculationInfoPopover title="Job Stability">
+                <p><strong>Data used:</strong> The candidate's full disclosed employment history (company, duration, reason for leaving, disciplinary record).</p>
+                <p><strong>Step 1 — Average tenure:</strong> Sum of all parsed durations ÷ number of jobs with a duration. Durations are parsed from formats like "2 years", "6 months" or "2020-2023".</p>
+                <p><strong>Step 2 — Short-tenure count:</strong> Count jobs that lasted <strong>less than half the average</strong>. Contracts that ended due to <em>term completion / fixed-term / seasonal</em> are excluded — they are normal endings, not instability.</p>
+                <p><strong>Step 3 — Base score (0-3):</strong></p>
+                <ul>
+                  <li>0 (Stable): no short-tenure jobs AND avg ≥ 36 months</li>
+                  <li>1 (Fairly Stable): ≤25% short AND avg ≥ 24 months</li>
+                  <li>2 (Caution): ≤50% short OR avg ≥ 12 months</li>
+                  <li>3 (Unstable): &gt;50% short or avg &lt; 12 months</li>
+                </ul>
+                <p><strong>Step 4 — Penalty:</strong> +1 per <strong>absconding / dismissal / disciplinary exit</strong> (capped at +2; max final score 3).</p>
+                <p><strong>This candidate:</strong> {employment.jobs.length} jobs · avg {formatMonths(employment.avgMonths)} · {employment.shortTenureCount}/{employment.qualifyingJobsCount} below half-average · {employment.seriousExitCount} serious exit(s).</p>
+              </CalculationInfoPopover>
             </div>
             <ScoreBadge score={employment.score} max={3} label={employment.label} />
           </CardTitle>
