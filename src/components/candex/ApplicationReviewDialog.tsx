@@ -4,12 +4,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
-import { Check, X, Shield, FileText, User, MapPin, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity } from "lucide-react";
+import { Check, X, Shield, FileText, User, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity } from "lucide-react";
 import { format } from "date-fns";
+import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 
 interface ApplicationReviewDialogProps {
   application: any;
