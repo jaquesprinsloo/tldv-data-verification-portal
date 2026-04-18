@@ -19,28 +19,7 @@ interface ApplicationReviewDialogProps {
   readOnly?: boolean;
 }
 
-interface SectionTable {
-  id: string;
-  section_id: string;
-  table_title: string;
-  sort_order: number;
-  column_headers: string[];
-  row_labels: string[];
-  row_input_types: any[];
-  is_repeatable: boolean;
-}
-
-interface Section {
-  id: string;
-  title: string;
-  sort_order: number;
-}
-
 export default function ApplicationReviewDialog({ application, open, onClose, onApprove, onReject, readOnly }: ApplicationReviewDialogProps) {
-  const [sections, setSections] = useState<Section[]>([]);
-  const [tables, setTables] = useState<SectionTable[]>([]);
-  const [loading, setLoading] = useState(false);
-
   const appAnswers = application?.answers as any;
   const personalDetails = appAnswers?.personalDetails;
   const deviceData = appAnswers?.deviceData;
@@ -50,20 +29,8 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   const indemnityAccepted = appAnswers?.indemnityAccepted;
   const preRiskProfile = appAnswers?.preRiskProfile;
 
-  useEffect(() => {
-    if (!open || !application?.template_id) return;
-    setLoading(true);
-    Promise.all([
-      supabase.from("candex_template_sections").select("*").eq("template_id", application.template_id).order("sort_order"),
-      supabase.from("candex_section_tables").select("*").order("sort_order"),
-    ]).then(([secRes, tblRes]) => {
-      setSections((secRes.data || []) as Section[]);
-      const allTables = (tblRes.data || []) as SectionTable[];
-      const sectionIds = new Set((secRes.data || []).map((s: any) => s.id));
-      setTables(allTables.filter(t => sectionIds.has(t.section_id)));
-      setLoading(false);
-    });
-  }, [open, application?.template_id]);
+  // QuestionnaireScreen invokes onComplete via Promise; we never call it in read-only mode.
+  const noopComplete = async () => true;
 
   const InfoRow = ({ label, value }: { label: string; value: string | null | undefined }) => (
     <div className="flex justify-between py-1.5 border-b border-border/50 last:border-0">
@@ -71,92 +38,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
       <span className="text-sm font-medium text-right">{value || "—"}</span>
     </div>
   );
-
-  const renderTableAnswers = (table: SectionTable) => {
-    const entries: string[][][] = questionnaireTables[table.id] || [[]];
-    const headers = table.column_headers || [];
-    const displayHeaders = headers.filter((h: string) => h.toLowerCase() !== "details");
-    
-    return (
-      <div className="space-y-3">
-        {entries.map((entry: string[][], entryIdx: number) => (
-          <div key={entryIdx} className="border rounded-lg overflow-hidden">
-            {entries.length > 1 && (
-              <div className="bg-muted/50 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                Entry {entryIdx + 1}
-              </div>
-            )}
-            <div className="divide-y divide-border/50">
-              {table.row_labels.map((label: string, rowIdx: number) => {
-                const inputType = table.row_input_types?.[rowIdx];
-                const hasDetails = inputType?.require_explanation;
-                const rowData = entry?.[rowIdx] || [];
-                const detail = questionnaireQuestions[`detail_${table.id}_${entryIdx}_${rowIdx}`] || "";
-                const dynamicData = questionnaireQuestions[`dynamic_${table.id}_${entryIdx}_${rowIdx}_0`];
-
-                if (inputType?.type === "employer_reference" || dynamicData) {
-                  return (
-                    <div key={rowIdx} className="px-3 py-2">
-                      <span className="text-xs text-muted-foreground">{label}</span>
-                      {dynamicData && Array.isArray(dynamicData) ? (
-                        <div className="mt-1 space-y-1">
-                          {dynamicData.map((item: any, i: number) => (
-                            <div key={i} className="flex items-start gap-2 text-sm">
-                              <Badge variant="outline" className="shrink-0 text-xs">{item.name || "—"}</Badge>
-                              {item.details && <span className="text-muted-foreground">— {item.details}</span>}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm mt-0.5">{rowData[0] || "—"}</p>
-                      )}
-                    </div>
-                  );
-                }
-
-                if (displayHeaders.length > 1) {
-                  return (
-                    <div key={rowIdx} className="px-3 py-2">
-                      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-                      <div className="grid grid-cols-2 gap-2 mt-1">
-                        {displayHeaders.map((header: string, colIdx: number) => (
-                          <div key={colIdx}>
-                            <span className="text-[10px] text-muted-foreground uppercase">{header}</span>
-                            <p className="text-sm font-medium">
-                              {inputType?.type === "currency" && rowData[colIdx] ? `R ${rowData[colIdx]}` : rowData[colIdx] || "—"}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                      {hasDetails && detail && (
-                        <p className="text-xs text-muted-foreground mt-1 pl-2 border-l-2 border-primary/30">
-                          Details: {detail}
-                        </p>
-                      )}
-                    </div>
-                  );
-                }
-
-                return (
-                  <div key={rowIdx} className="px-3 py-2">
-                    <span className="text-xs text-muted-foreground">{label}</span>
-                    <p className="text-sm font-medium mt-0.5">
-                      {inputType?.type === "currency" && rowData[0] ? `R ${rowData[0]}` : rowData[0] || "—"}
-                    </p>
-                    {hasDetails && detail && (
-                      <p className="text-xs text-muted-foreground mt-1 pl-2 border-l-2 border-primary/30">
-                        Details: {detail}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  };
 
   const getRiskTierColor = (level: string) => {
     switch (level) {
