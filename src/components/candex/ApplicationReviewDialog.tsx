@@ -252,6 +252,64 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                     <div className="flex items-center gap-2">
                       {getCategoryIcon(key)}
                       <span className="font-semibold text-sm">{label}</span>
+                      <CalculationInfoPopover title={label}>
+                        {key === "employment" && (
+                          <>
+                            <p><strong>Data used:</strong> The candidate's full disclosed employment history (company, duration, reason for leaving, disciplinary record).</p>
+                            <p><strong>Step 1 — Average tenure:</strong> Sum of all parsed durations ÷ number of jobs with a duration.</p>
+                            <p><strong>Step 2 — Short-tenure count:</strong> Count jobs lasting <strong>less than half the average</strong>. Contracts ended due to <em>term completion / fixed-term / seasonal</em> are excluded — they're normal endings, not instability.</p>
+                            <p><strong>Step 3 — Score (0-3):</strong></p>
+                            <ul>
+                              <li>0 (Stable): no short-tenure jobs AND avg ≥ 36 months</li>
+                              <li>1 (Fairly Stable): ≤25% short AND avg ≥ 24 months</li>
+                              <li>2 (Caution): ≤50% short OR avg ≥ 12 months</li>
+                              <li>3 (Unstable): &gt;50% short or avg &lt; 12 months</li>
+                            </ul>
+                            <p><strong>Penalty:</strong> +1 per absconding/dismissal/disciplinary exit (cap +2, max 3).</p>
+                          </>
+                        )}
+                        {key === "financial" && (
+                          <>
+                            <p><strong>Data used:</strong> Disclosed current accounts (vehicle, bond, cards, store/cellphone), historical/arrears debt, and any blacklisting flag.</p>
+                            <p><strong>Score (0-3):</strong></p>
+                            <ul>
+                              <li>0 (Stable): no arrears, accounts paid up, no blacklist</li>
+                              <li>1 (Fairly Stable): minor arrears or moderate load</li>
+                              <li>2 (Caution): notable historical debt or accounts in arrears</li>
+                              <li>3 (Pressure): blacklisted or significant unresolved debt</li>
+                            </ul>
+                            <p>Confirmed blacklisting forces the score to at least 2.</p>
+                          </>
+                        )}
+                        {key === "legal" && (
+                          <>
+                            <p><strong>Data used:</strong> Personal arrests/convictions disclosed, plus criminal histories of disclosed family and close friends.</p>
+                            <p><strong>Branches:</strong> Personal · Family · Friends/Associates.</p>
+                            <p><strong>Severity weighting:</strong> convicted/sentenced &gt; arrested/charged &gt; investigated only.</p>
+                            <p><strong>Score (0-5):</strong> aggregated across the three branches. Personal encounters weigh more than association.</p>
+                          </>
+                        )}
+                        {key === "criminal" && (
+                          <>
+                            <p><strong>Data used:</strong> Questionnaire responses across 7 branches: Fraud, Bribery, Organized Crimes, Undetected Crimes, Illegal Drug Involvement, Theft at Work, and General Criminal Disclosures.</p>
+                            <p><strong>How it's counted:</strong> Every <strong>"Yes"</strong> disclosure or selected option in the specialized tables (e.g. <code>fraud_*</code>, <code>bribery_*</code>, <code>illegal_drugs_*</code>, <code>theft_at_work_*</code>) is counted as a confirmed item.</p>
+                            <p><strong>Score (0-30):</strong> Each branch contributes up to 5; total = sum of all 7 branches.</p>
+                            <p><em>Deterministic — directly reflects what the candidate admitted, not AI inference.</em></p>
+                          </>
+                        )}
+                        {key === "integrity" && (
+                          <>
+                            <p><strong>Data used:</strong> The polygraph examiner's findings on this candidate's exam questions.</p>
+                            <p><strong>Per-question outcome:</strong> NDI (No Deception Indicated), DI (Deception Indicated), or INC (Inconclusive).</p>
+                            <p><strong>Score (0 or 1):</strong></p>
+                            <ul>
+                              <li>0 (Pass): all relevant questions are NDI</li>
+                              <li>1 (Concerns): one or more DI / Inconclusive findings</li>
+                            </ul>
+                            <p><em>Pass/fail indicator — only available once the polygraph exam is conducted.</em></p>
+                          </>
+                        )}
+                      </CalculationInfoPopover>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-xs">{data.label}</Badge>
