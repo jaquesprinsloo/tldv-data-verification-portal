@@ -3625,7 +3625,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                     || ttl.includes("father") || ttl.includes("mother") || ttl.includes("sibling") || ttl.includes("brother") || ttl.includes("sister");
                   return (
                     <div className={isContactTraceTbl ? "" : "overflow-x-auto"}>
-                  <table className={`w-full text-sm ${isDisciplinaryTable ? "table-fixed" : ""}`} data-table-title={table.table_title}>
+                  <table className={`w-full text-sm ${isDisciplinaryTable || isContactTraceTbl ? "table-fixed" : ""}`} data-table-title={table.table_title} style={{ tableLayout: isContactTraceTbl ? 'fixed' : undefined }}>
                     <thead>
                       <tr className="bg-zinc-900 border-b border-zinc-800">
                         <th colSpan={visibleColHeaders.length + 1 + (isEducationTable ? 1 : 0)} className="p-2 text-center">
@@ -3747,8 +3747,10 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                                   </div>
                                 </td>
                                 {isFullWidthRow ? (
-                                  <td className="p-2" colSpan={visibleColHeaders.length}>
-                                    {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
+                                  <td className="p-2 min-w-0" colSpan={visibleColHeaders.length} style={{ width: '100%' }}>
+                                    <div className="min-w-0 w-full">
+                                      {renderCellInput(table, table.id, entryIdx, rowIdx, 0, entry[rowIdx]?.[0] || "")}
+                                    </div>
                                   </td>
                                 ) : (
                                   <>
