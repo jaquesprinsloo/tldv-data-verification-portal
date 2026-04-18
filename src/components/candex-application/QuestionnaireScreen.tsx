@@ -271,6 +271,7 @@ interface Question {
 export default function QuestionnaireScreen({ templateId, onComplete }: QuestionnaireScreenProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
   const [tables, setTables] = useState<SectionTable[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -3934,6 +3935,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
   const handleSubmit = () => {
     if (!validateCurrentSection()) return;
     setSubmitting(true);
+    setSubmitted(true);
     const allAnswers = { questions: answers, tables: tableData };
     onComplete(allAnswers);
   };
@@ -3962,16 +3964,22 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
   const sectionTables = tables.filter((t) => t.section_id === currentSec.id);
   const sectionQuestions = questions.filter((q) => q.section_id === currentSec.id);
 
-  return (
-    <div className="min-h-screen bg-black">
-      <div className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-8" />
-          <span className="text-xs text-zinc-500">
-            Section {currentSection + 1} of {sections.length}
-          </span>
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="flex flex-col items-center text-center max-w-md">
+          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-32 mb-6" />
+          <h1 className="text-2xl font-bold text-white mb-3">Application Submitted</h1>
+          <p className="text-zinc-400 text-sm">
+            Your PreAppliCheck application has been submitted for review. You will be notified once the review is complete.
+          </p>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-black">
 
       {/* Progress bar */}
       <div className="h-1 bg-zinc-900">
@@ -4002,7 +4010,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
             {sectionQuestions.map(renderQuestion)}
 
             {/* Navigation */}
-            <div className="flex gap-3 pt-4">
+            <div className="flex items-center gap-3 pt-4">
               {currentSection > 0 && (
                 <Button
                   variant="outline"
@@ -4012,7 +4020,11 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   Previous
                 </Button>
               )}
-              <div className="flex-1" />
+              <div className="flex-1 text-center">
+                <span className="text-xs text-zinc-500">
+                  Section {currentSection + 1} of {sections.length}
+                </span>
+              </div>
               {currentSection < sections.length - 1 && (
                 <Button
                   onClick={handleNext}
