@@ -2097,7 +2097,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                             incidents[idx] = { ...incidents[idx], reason: v };
                             updatePerson(pIdx, { incidents });
                           }}>
-                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9"><SelectValue placeholder="Select reason..." /></SelectTrigger>
+                            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal"><SelectValue placeholder="Select reason..." /></SelectTrigger>
                             <SelectContent className="max-h-[200px]">
                               {arrestReasonOptions.map(opt => <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>)}
                             </SelectContent>
@@ -2128,7 +2128,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           const courtText = courtReasons.length > 0 ? `Has gone to court for: ${courtReasons.join(", ")}` : "";
                           updatePerson(pIdx, { incidents: updatedIncidents, courtAttendance: courtText });
                         }}>
-                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full"><SelectValue placeholder="Select charge outcome" /></SelectTrigger>
+                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal w-full"><SelectValue placeholder="Select charge outcome" /></SelectTrigger>
                           <SelectContent>
                             {chargedOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
                           </SelectContent>
@@ -2146,7 +2146,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   <Select value={person.convicted} onValueChange={(v) => {
                     updatePerson(pIdx, { convicted: v });
                   }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9"><SelectValue placeholder="Select conviction status" /></SelectTrigger>
+                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal"><SelectValue placeholder="Select conviction status" /></SelectTrigger>
                     <SelectContent>
                       {formalReasons.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                       <SelectItem value="Has never been convicted of any criminal offence">Has never been convicted of any criminal offence</SelectItem>
