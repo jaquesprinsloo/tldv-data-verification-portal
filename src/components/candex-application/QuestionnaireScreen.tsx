@@ -4057,7 +4057,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 }`}
               />
             ))}
-        </div>
+          </div>
+        )}
       </main>
     </div>
   );
