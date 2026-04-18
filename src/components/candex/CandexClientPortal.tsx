@@ -410,9 +410,48 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     setBulkCandidates((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // Delete invitation
+  // Delete invitation: soft-delete linked applications + their downstream
+  // references (risk request candidates, polygraph appointment candidates)
+  // so the invitation row can be hard-deleted without FK violations.
   const deleteInvite = useMutation({
     mutationFn: async (invId: string) => {
+      const stamp = {
+        deleted_at: new Date().toISOString(),
+        deleted_by: userId,
+        deleted_by_name: deleterName,
+      };
+
+      // Find any applications tied to this invitation
+      const { data: linkedApps } = await supabase
+        .from("candex_applications")
+        .select("id")
+        .eq("invitation_id", invId);
+
+      const appIds = (linkedApps ?? []).map((a: any) => a.id);
+
+      if (appIds.length > 0) {
+        // Hard-delete polygraph appointment candidate links (no soft-delete cols on this table)
+        const { error: pacErr } = await supabase
+          .from("polygraph_appointment_candidates")
+          .delete()
+          .in("application_id", appIds);
+        if (pacErr) throw pacErr;
+
+        // Soft-delete risk request candidates linked to those applications
+        await supabase
+          .from("candex_risk_request_candidates")
+          .update(stamp)
+          .in("application_id", appIds);
+
+        // Soft-delete the applications themselves (master keeps record)
+        const { error: appErr } = await supabase
+          .from("candex_applications")
+          .update(stamp)
+          .in("id", appIds);
+        if (appErr) throw appErr;
+      }
+
+      // Now safe to delete the invitation
       const { error } = await supabase.from("candex_invitations").delete().eq("id", invId);
       if (error) throw error;
     },
@@ -420,6 +459,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       toast.success("Invitation deleted");
       queryClient.invalidateQueries({ queryKey: ["candex-my-invitations", client?.id] });
       queryClient.invalidateQueries({ queryKey: ["candex-my-applications", client?.id] });
+      queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates-for-approved", client?.id] });
+      queryClient.invalidateQueries({ queryKey: ["user-polygraph-appointments", client?.id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
