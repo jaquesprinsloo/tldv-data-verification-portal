@@ -703,7 +703,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
               }
             }
           }}>
-            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 w-full">
+            <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal w-full [&>span]:line-clamp-none [&>span]:whitespace-normal text-left">
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent>
@@ -2025,7 +2025,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   }
                   updatePerson(pIdx, updates);
                 }}>
-                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9">
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-xs placeholder:text-xs h-auto min-h-9 py-2 whitespace-normal w-full [&>span]:line-clamp-none [&>span]:whitespace-normal text-left">
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
                   <SelectContent>
