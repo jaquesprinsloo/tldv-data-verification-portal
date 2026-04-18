@@ -17,6 +17,117 @@ interface ApplicationReviewDialogProps {
   readOnly?: boolean;
 }
 
+const CRIMINAL_SPECIAL_PREFIXES = ["fraud_", "bribery_", "organized_crimes_", "undetected_crimes_", "illegal_drugs_", "theft_at_work_"];
+
+const humanizeCriminalLabel = (value: string) =>
+  value
+    .replace(/_details$/i, "")
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+const collectConfirmedCriminalItems = (questionAnswers: Record<string, any> = {}) => {
+  const items: string[] = [];
+
+  for (const [rootKey, rootValue] of Object.entries(questionAnswers)) {
+    const prefix = CRIMINAL_SPECIAL_PREFIXES.find((candidate) => rootKey.startsWith(candidate));
+    if (!prefix || rootKey.endsWith("_dropdown")) continue;
+
+    if (prefix === "theft_at_work_") {
+      const theftData = rootValue as Record<string, any>;
+      if (!theftData || typeof theftData !== "object" || Array.isArray(theftData)) continue;
+
+      if (String(theftData.stolen || "").toLowerCase().includes("has stolen from work before")) {
+        items.push("Stolen from work before");
+      }
+      if (String(theftData.benefited || "").toLowerCase().includes("has benefited from theft at work")) {
+        items.push("Benefited from theft at work");
+      }
+      if (String(theftData.helped || "").toLowerCase().includes("has helped someone steal from work")) {
+        items.push("Helped someone steal from work");
+      }
+      if (String(theftData.approached || "").toLowerCase().includes("accepted to get involved")) {
+        items.push("Accepted involvement in theft at work");
+      }
+      if (String(theftData.witnessed || "").toLowerCase().includes("did not report")) {
+        items.push("Witnessed theft at work and did not report it");
+      }
+      continue;
+    }
+
+    if (!rootValue || typeof rootValue !== "object" || Array.isArray(rootValue)) continue;
+
+    for (const [fieldKey, fieldValue] of Object.entries(rootValue)) {
+      if (fieldKey.endsWith("_details")) continue;
+      if (String(fieldValue || "").trim().toLowerCase() !== "yes") continue;
+      items.push(humanizeCriminalLabel(fieldKey));
+    }
+  }
+
+  return Array.from(new Set(items));
+};
+
+const buildDeterministicCriminalProfile = (questionAnswers: Record<string, any> = {}) => {
+  const confirmedItems = collectConfirmedCriminalItems(questionAnswers);
+  const actualCount = confirmedItems.length;
+  const score = Math.min(actualCount, 30);
+
+  if (score === 0) {
+    return {
+      score: 0,
+      label: "No criminal activity disclosed",
+      reasoning: "No confirmed criminal activity disclosures were detected in the saved questionnaire answers.",
+      confirmedItems: [],
+    };
+  }
+
+  return {
+    score,
+    label: `${actualCount} confirmed disclosure${actualCount === 1 ? "" : "s"}`,
+    reasoning: `The saved questionnaire answers contain ${actualCount} confirmed criminal activity disclosure${actualCount === 1 ? "" : "s"}. The criminal activity score is calculated directly from those confirmed responses.`,
+    confirmedItems,
+  };
+};
+
+const getRiskLevelFromTotal = (total: number) => {
+  if (total >= 31) return "VERY HIGH";
+  if (total >= 18) return "HIGH";
+  if (total >= 8) return "MEDIUM";
+  return "LOW";
+};
+
+const resolvePreRiskProfile = (profile: any, questionAnswers: Record<string, any> = {}) => {
+  if (!profile) return null;
+
+  const inferredCriminal = buildDeterministicCriminalProfile(questionAnswers);
+  const storedCriminalScore = Number(profile?.criminal?.score || 0);
+
+  if (storedCriminalScore > 0 || inferredCriminal.score === 0) {
+    return profile;
+  }
+
+  const nonCriminalTotal =
+    Number(profile?.employment?.score || 0) +
+    Number(profile?.financial?.score || 0) +
+    Number(profile?.legal?.score || 0) +
+    Number(profile?.integrity?.score || 0);
+
+  const totalScore = nonCriminalTotal + inferredCriminal.score;
+
+  return {
+    ...profile,
+    criminal: inferredCriminal,
+    totalScore,
+    riskLevel: getRiskLevelFromTotal(totalScore),
+    summary: `Updated from questionnaire answers: ${inferredCriminal.score} confirmed criminal activity disclosure${inferredCriminal.score === 1 ? " was" : "s were"} identified and included in the pre-risk result.`,
+    keyFindings: Array.from(new Set([
+      ...((profile?.keyFindings || []) as string[]).filter((finding) => !/no criminal activity/i.test(finding)),
+      `${inferredCriminal.score} confirmed criminal activity disclosure${inferredCriminal.score === 1 ? "" : "s"}`,
+    ])),
+  };
+};
+
 export default function ApplicationReviewDialog({ application, open, onClose, onApprove, onReject, readOnly }: ApplicationReviewDialogProps) {
   const appAnswers = application?.answers as any;
   const personalDetails = appAnswers?.personalDetails;
@@ -25,7 +136,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   const questionnaireQuestions = appAnswers?.questionnaire?.questions || {};
   const popiaAccepted = appAnswers?.popiaAccepted;
   const indemnityAccepted = appAnswers?.indemnityAccepted;
-  const preRiskProfile = appAnswers?.preRiskProfile;
+  const preRiskProfile = resolvePreRiskProfile(appAnswers?.preRiskProfile, questionnaireQuestions);
 
   // QuestionnaireScreen invokes onComplete via Promise; we never call it in read-only mode.
   const noopComplete = async () => true;
