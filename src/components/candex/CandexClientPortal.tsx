@@ -52,6 +52,12 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [viewBookingConfirmation, setViewBookingConfirmation] = useState<BookingData | null>(null);
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  // Per-admin unread count for newly-approved PreAppliCheck applications.
+  // Toast is off here (dashboard hook already surfaces it) — this just drives the tab badge.
+  const { unreadCount: preAppliCheckedUnread, markSeen: markPreAppliCheckedSeen } =
+    usePreAppliCheckedNotifications(userId, { showToast: false });
 
   // Bulk invite state
   const [bulkCandidates, setBulkCandidates] = useState<BulkCandidate[]>([]);
