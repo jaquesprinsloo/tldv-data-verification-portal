@@ -335,9 +335,7 @@ ${questionnaireText}`;
         .limit(1);
       polygraphReport = polyRows?.[0] || null;
     }
-    console.log("[integrity] polygraphReport:", JSON.stringify(polygraphReport));
     riskProfile.integrity = calculateIntegrityFromPolygraph(polygraphReport);
-    console.log("[integrity] override applied:", JSON.stringify(riskProfile.integrity));
 
     riskProfile.totalScore =
       Number(riskProfile?.employment?.score || 0) +
