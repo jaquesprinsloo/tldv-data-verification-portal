@@ -3964,16 +3964,22 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
   const sectionTables = tables.filter((t) => t.section_id === currentSec.id);
   const sectionQuestions = questions.filter((q) => q.section_id === currentSec.id);
 
-  return (
-    <div className="min-h-screen bg-black">
-      <div className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-8" />
-          <span className="text-xs text-zinc-500">
-            Section {currentSection + 1} of {sections.length}
-          </span>
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="flex flex-col items-center text-center max-w-md">
+          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-32 mb-6" />
+          <h1 className="text-2xl font-bold text-white mb-3">Application Submitted</h1>
+          <p className="text-zinc-400 text-sm">
+            Your PreAppliCheck application has been submitted for review. You will be notified once the review is complete.
+          </p>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-black">
 
       {/* Progress bar */}
       <div className="h-1 bg-zinc-900">
