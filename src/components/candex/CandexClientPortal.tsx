@@ -165,7 +165,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     },
   });
 
-  // Get user's polygraph appointments
+  // Get user's polygraph appointments (exclude soft-deleted)
   const { data: userAppointments = [] } = useQuery({
     queryKey: ["user-polygraph-appointments", client?.id],
     queryFn: async () => {
@@ -174,6 +174,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         .from("polygraph_appointments" as any)
         .select("*, polygraph_appointment_candidates(*)")
         .eq("client_id", client.id)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       return (data as any[]) || [];
     },
