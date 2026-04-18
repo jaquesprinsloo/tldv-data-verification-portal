@@ -126,7 +126,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     enabled: !!client?.id,
   });
 
-  // Get applications
+  // Get applications (exclude soft-deleted)
   const { data: applications } = useQuery({
     queryKey: ["candex-my-applications", client?.id],
     queryFn: async () => {
@@ -135,11 +135,26 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         .from("candex_applications")
         .select("*")
         .eq("client_id", client.id)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       return data || [];
     },
     enabled: !!client?.id,
   });
+
+  // Current user's display name (for deleted_by_name attribution)
+  const { data: currentProfile } = useQuery({
+    queryKey: ["candex-current-profile", userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", userId)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const deleterName = currentProfile?.full_name || currentProfile?.email || "Unknown user";
 
   // Get accounts user has access to
   const { data: accounts } = useQuery({
@@ -150,7 +165,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     },
   });
 
-  // Get user's polygraph appointments
+  // Get user's polygraph appointments (exclude soft-deleted)
   const { data: userAppointments = [] } = useQuery({
     queryKey: ["user-polygraph-appointments", client?.id],
     queryFn: async () => {
@@ -159,6 +174,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         .from("polygraph_appointments" as any)
         .select("*, polygraph_appointment_candidates(*)")
         .eq("client_id", client.id)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       return (data as any[]) || [];
     },
@@ -179,7 +195,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     enabled: !!requestAccountId,
   });
 
-  // Get risk request candidate statuses for approved apps
+  // Get risk request candidate statuses for approved apps (exclude soft-deleted)
   const { data: riskCandidateData } = useQuery({
     queryKey: ["candex-risk-candidates-for-approved", client?.id],
     queryFn: async () => {
@@ -187,6 +203,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       const { data } = await supabase
         .from("candex_risk_request_candidates")
         .select("application_id, id_verified, risk_assessment_result, risk_assessment_url, request_id, candex_risk_requests(status)")
+        .is("deleted_at", null)
         .order("created_at", { ascending: false });
       return data || [];
     },
@@ -407,31 +424,40 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Delete application (and its risk-request candidate links)
+  // Soft-delete application: hide from this user, keep on Master Admin
+  // and lock further processing. Also soft-deletes linked risk candidates.
   const deleteApplication = useMutation({
     mutationFn: async (appId: string) => {
-      await supabase.from("candex_risk_request_candidates").delete().eq("application_id", appId);
-      await supabase.from("polygraph_appointment_candidates").delete().eq("application_id", appId);
-      const { error } = await supabase.from("candex_applications").delete().eq("id", appId);
+      const stamp = {
+        deleted_at: new Date().toISOString(),
+        deleted_by: userId,
+        deleted_by_name: deleterName,
+      };
+      await supabase.from("candex_risk_request_candidates").update(stamp).eq("application_id", appId);
+      const { error } = await supabase.from("candex_applications").update(stamp).eq("id", appId);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Application deleted");
+      toast.success("Application removed (master record retained)");
       queryClient.invalidateQueries({ queryKey: ["candex-my-applications", client?.id] });
       queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates-for-approved", client?.id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Delete polygraph appointment
+  // Soft-delete polygraph appointment: hide from this user, keep on Master.
   const deleteAppointment = useMutation({
     mutationFn: async (aptId: string) => {
-      await supabase.from("polygraph_appointment_candidates").delete().eq("appointment_id", aptId);
-      const { error } = await supabase.from("polygraph_appointments" as any).delete().eq("id", aptId);
+      const stamp = {
+        deleted_at: new Date().toISOString(),
+        deleted_by: userId,
+        deleted_by_name: deleterName,
+      };
+      const { error } = await supabase.from("polygraph_appointments" as any).update(stamp).eq("id", aptId);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Appointment deleted");
+      toast.success("Appointment removed (master record retained)");
       queryClient.invalidateQueries({ queryKey: ["user-polygraph-appointments", client?.id] });
     },
     onError: (e: any) => toast.error(e.message),

@@ -127,6 +127,9 @@ export type Database = {
           candidate_phone: string | null
           client_id: string
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_by_name: string | null
           id: string
           invitation_id: string | null
           risk_level: string | null
@@ -144,6 +147,9 @@ export type Database = {
           candidate_phone?: string | null
           client_id: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_name?: string | null
           id?: string
           invitation_id?: string | null
           risk_level?: string | null
@@ -161,6 +167,9 @@ export type Database = {
           candidate_phone?: string | null
           client_id?: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_name?: string | null
           id?: string
           invitation_id?: string | null
           risk_level?: string | null
@@ -351,6 +360,9 @@ export type Database = {
         Row: {
           application_id: string
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_by_name: string | null
           id: string
           id_verified: boolean | null
           request_id: string
@@ -360,6 +372,9 @@ export type Database = {
         Insert: {
           application_id: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_name?: string | null
           id?: string
           id_verified?: boolean | null
           request_id: string
@@ -369,6 +384,9 @@ export type Database = {
         Update: {
           application_id?: string
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_name?: string | null
           id?: string
           id_verified?: boolean | null
           request_id?: string
@@ -1316,6 +1334,9 @@ export type Database = {
           confirmed_at: string | null
           confirmed_by: string | null
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          deleted_by_name: string | null
           examiner_id: string | null
           id: string
           notes: string | null
@@ -1338,6 +1359,9 @@ export type Database = {
           confirmed_at?: string | null
           confirmed_by?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_name?: string | null
           examiner_id?: string | null
           id?: string
           notes?: string | null
@@ -1360,6 +1384,9 @@ export type Database = {
           confirmed_at?: string | null
           confirmed_by?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deleted_by_name?: string | null
           examiner_id?: string | null
           id?: string
           notes?: string | null

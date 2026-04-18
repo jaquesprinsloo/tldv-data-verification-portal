@@ -218,8 +218,9 @@ const CandexRiskRequests = () => {
     }
   };
 
-  const allCandidatesProcessed = requestCandidates.length > 0 &&
-    requestCandidates.every((c) => c.risk_assessment_result);
+  const activeCandidates = requestCandidates.filter((c: any) => !c.deleted_at);
+  const allCandidatesProcessed = activeCandidates.length > 0 &&
+    activeCandidates.every((c) => c.risk_assessment_result);
 
   if (isLoading) {
     return (
@@ -352,11 +353,21 @@ const CandexRiskRequests = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {requestCandidates.map((cand) => {
+                    {requestCandidates.map((cand: any) => {
                       const app = getAppDetails(cand.application_id);
+                      const isDeleted = !!cand.deleted_at;
                       return (
-                        <TableRow key={cand.id}>
-                          <TableCell className="font-medium">{app?.candidate_name || "—"}</TableCell>
+                        <TableRow key={cand.id} className={isDeleted ? "bg-destructive/5" : ""}>
+                          <TableCell className="font-medium">
+                            <div className="flex flex-col gap-1">
+                              <span>{app?.candidate_name || "—"}</span>
+                              {isDeleted && (
+                                <Badge variant="destructive" className="text-[10px] w-fit">
+                                  Deleted by {cand.deleted_by_name || "user"} · {format(new Date(cand.deleted_at), "dd MMM yyyy HH:mm")}
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell className="text-sm">{app?.candidate_id_number || "—"}</TableCell>
                           <TableCell>
                             {cand.id_verified ? (
@@ -381,7 +392,9 @@ const CandexRiskRequests = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            {!cand.risk_assessment_result ? (
+                            {isDeleted ? (
+                              <span className="text-xs text-muted-foreground italic">Locked</span>
+                            ) : !cand.risk_assessment_result ? (
                               <Button
                                 variant="outline"
                                 size="sm"

@@ -282,9 +282,19 @@ True Lie Detectors & Vetting
       <TableBody>
         {items.map((apt) => {
           const client = clients.find((c) => c.id === apt.client_id);
+          const isDeleted = !!apt.deleted_at;
           return (
-            <TableRow key={apt.id}>
-              <TableCell className="font-medium">{client?.name || client?.company_name || "—"}</TableCell>
+            <TableRow key={apt.id} className={isDeleted ? "bg-destructive/5" : ""}>
+              <TableCell className="font-medium">
+                <div className="flex flex-col gap-1">
+                  <span>{client?.name || client?.company_name || "—"}</span>
+                  {isDeleted && (
+                    <Badge variant="destructive" className="text-[10px] w-fit">
+                      Deleted by {apt.deleted_by_name || "user"} · {format(new Date(apt.deleted_at), "dd MMM yyyy HH:mm")}
+                    </Badge>
+                  )}
+                </div>
+              </TableCell>
               <TableCell>
                 <div className="text-xs">
                   <Badge variant="outline" className="text-xs mb-1">{getVenueLabel(apt.venue_type)}</Badge>
@@ -333,7 +343,7 @@ True Lie Detectors & Vetting
                       <Eye className="h-4 w-4" />
                     </Button>
                   )}
-                  {apt.status === "requested" && (
+                  {!isDeleted && apt.status === "requested" && (
                     <Button variant="ghost" size="sm" title="Schedule" onClick={() => {
                       setSelectedAppointment(apt);
                       setScheduleOpen(true);
@@ -341,13 +351,16 @@ True Lie Detectors & Vetting
                       <CalendarIcon className="h-4 w-4" />
                     </Button>
                   )}
-                  {(apt.status === "scheduled") && (
+                  {!isDeleted && apt.status === "scheduled" && (
                     <Button variant="ghost" size="sm" title="Assign Examiner" onClick={() => {
                       setSelectedAppointment(apt);
                       setAssignExaminerOpen(true);
                     }}>
                       <UserPlus className="h-4 w-4" />
                     </Button>
+                  )}
+                  {isDeleted && (
+                    <span className="text-xs text-muted-foreground italic px-2">Locked</span>
                   )}
                 </div>
               </TableCell>
