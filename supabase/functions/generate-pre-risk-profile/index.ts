@@ -644,8 +644,14 @@ function calculateDeterministicEmploymentProfile(
   const avgMonths = totalMonths / jobs.length;
   const halfAvg = avgMonths / 2;
 
+  // Exclude contract completions AND absconded/dismissed jobs (the latter are
+  // already penalized via the +1 reason flag — avoid double-counting).
   const shortJobs = jobs.filter(
-    (j) => j.exitType !== "contract_ended" && j.durationMonths < halfAvg
+    (j) =>
+      j.exitType !== "contract_ended" &&
+      j.exitType !== "absconded" &&
+      j.exitType !== "dismissed" &&
+      j.durationMonths < halfAvg
   );
 
   const abscondedCount = jobs.filter((j) => j.exitType === "absconded").length;
