@@ -2392,20 +2392,17 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
 
               {/* 4. Helped someone to steal from work */}
               <div className="space-y-2 border border-zinc-800 rounded-lg p-3">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <Label className="text-xs font-semibold text-zinc-300">Helped someone to steal from work</Label>
-                  <Select value={theftData.helped || ''} onValueChange={(v) => {
-                    const updates: any = { helped: v };
-                    if (v.includes("never")) updates.helpedEmployers = {};
-                    updateTheft(updates);
-                  }}>
-                    <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-8 w-auto min-w-0 sm:min-w-[180px]"><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Has never helped anyone to steal from work">Has never helped anyone to steal from work</SelectItem>
-                      <SelectItem value="Has helped someone steal from work">Has helped someone steal from work</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select value={theftData.helped || ''} onValueChange={(v) => {
+                  const updates: any = { helped: v };
+                  if (v.includes("never")) updates.helpedEmployers = {};
+                  updateTheft(updates);
+                }}>
+                  <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-auto min-h-9 py-2 w-full [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:text-left"><SelectValue placeholder="Helped someone to steal from work" /></SelectTrigger>
+                  <SelectContent className="max-w-[calc(100vw-2rem)]">
+                    <SelectItem value="Has never helped anyone to steal from work" className="whitespace-normal"><span className="block whitespace-normal">Has never helped anyone to steal from work</span></SelectItem>
+                    <SelectItem value="Has helped someone steal from work" className="whitespace-normal"><span className="block whitespace-normal">Has helped someone steal from work</span></SelectItem>
+                  </SelectContent>
+                </Select>
 
                 {theftData.helped === "Has helped someone steal from work" && (
                   <>
