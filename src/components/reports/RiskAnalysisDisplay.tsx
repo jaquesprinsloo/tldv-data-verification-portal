@@ -960,6 +960,18 @@ const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: R
             <div className="flex items-center gap-2">
               <Scale className="h-5 w-5 text-primary" />
               Encounters with the Law
+              <CalculationInfoPopover title="Encounters with the Law">
+                <p><strong>Data used:</strong> Personal arrests/convictions disclosed by the candidate, plus the criminal histories of disclosed family members and close friends.</p>
+                <p><strong>Branches scored:</strong></p>
+                <ul>
+                  <li><strong>Personal:</strong> arrest/conviction history disclosed by the candidate</li>
+                  <li><strong>Family:</strong> any family member with criminal history</li>
+                  <li><strong>Friends/Associates:</strong> any close friend with criminal history</li>
+                </ul>
+                <p><strong>Step 1 — Severity weight per branch:</strong> "convicted/sentenced" &gt; "arrested/charged" &gt; "investigated only".</p>
+                <p><strong>Step 2 — Score (0-5):</strong> Aggregated across all three branches; higher counts and severity push the score up.</p>
+                <p><strong>Note:</strong> Family/friend encounters indicate criminal <em>association</em>, not personal guilt — they contribute less than personal encounters.</p>
+              </CalculationInfoPopover>
             </div>
             <ScoreBadge score={law.score} max={5} label={law.label} />
           </CardTitle>
