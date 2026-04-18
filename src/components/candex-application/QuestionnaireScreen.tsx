@@ -3613,6 +3613,23 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                           </div>
                         </th>
                       </tr>
+                      {isEmploymentHistory && entryIdx === 0 && (
+                        <tr className="border-b border-zinc-800 bg-zinc-900/40">
+                          <th colSpan={visibleColHeaders.length + 1 + (isEducationTable ? 1 : 0)} className="p-2">
+                            <div className="flex items-center justify-center gap-2">
+                              <Checkbox
+                                id={neverWorkedKey}
+                                checked={hasNeverWorked}
+                                onCheckedChange={(checked) => setAnswer(neverWorkedKey, checked ? "yes" : "no")}
+                                className="border-zinc-600 data-[state=checked]:bg-red-600"
+                              />
+                              <label htmlFor={neverWorkedKey} className="text-xs text-zinc-300 cursor-pointer font-normal">
+                                I have never been employed since leaving school
+                              </label>
+                            </div>
+                          </th>
+                        </tr>
+                      )}
                     </thead>
                     <tbody>
                       {table.row_labels.map((label, rowIdx) => {
