@@ -21,6 +21,7 @@ import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTr
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
+import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
 import { format } from "date-fns";
 
 interface CandexClientPortalProps {
@@ -51,6 +52,12 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [viewBookingConfirmation, setViewBookingConfirmation] = useState<BookingData | null>(null);
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  // Per-admin unread count for newly-approved PreAppliCheck applications.
+  // Toast is off here (dashboard hook already surfaces it) — this just drives the tab badge.
+  const { unreadCount: preAppliCheckedUnread, markSeen: markPreAppliCheckedSeen } =
+    usePreAppliCheckedNotifications(userId, { showToast: false });
 
   // Bulk invite state
   const [bulkCandidates, setBulkCandidates] = useState<BulkCandidate[]>([]);
@@ -594,7 +601,14 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   };
 
   return (
-    <Tabs defaultValue="dashboard" className="space-y-6">
+    <Tabs
+      value={activeTab}
+      onValueChange={(v) => {
+        setActiveTab(v);
+        if (v === "approved") markPreAppliCheckedSeen();
+      }}
+      className="space-y-6"
+    >
       <TabsList className="flex w-full max-w-3xl mx-auto gap-1">
         <TabsTrigger value="dashboard" className="flex-1 text-xs px-2">
           <BarChart3 className="h-3.5 w-3.5 mr-1" /> Dashboard
@@ -610,9 +624,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         </TabsTrigger>
         <TabsTrigger value="approved" className="relative flex-1 text-xs px-2">
           PreAppliChecked
-          {preAppliChecked.length > 0 && approved.length === 0 && (
+          {preAppliCheckedUnread > 0 && (
             <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px] animate-pulse">
-              {preAppliChecked.length}
+              {preAppliCheckedUnread}
             </Badge>
           )}
         </TabsTrigger>

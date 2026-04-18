@@ -11,6 +11,7 @@ import tldvLogo from "@/assets/tldv-logo-primary.png";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
+import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
 import { toast } from "sonner";
 
 interface PortalCard {
@@ -102,6 +103,10 @@ const AdminPortalDashboard = () => {
 
   const dataManagementBadge = (approvedCandidatesCount || 0) + (pendingSubmissionsCount || 0);
 
+  // Per-admin unread count for newly-approved PreAppliCheck applications.
+  // Toast surfaces here (the dashboard) so admins are alerted regardless of which portal they're in next.
+  const { unreadCount: preAppliCheckedUnread } = usePreAppliCheckedNotifications(currentUserId, { showToast: true });
+
   // Fetch saved card order
   const { data: savedOrder } = useQuery({
     queryKey: ['portal-card-order'],
@@ -179,7 +184,7 @@ const AdminPortalDashboard = () => {
       icon: ShieldCheck,
       path: "/admin/candex-pre-screening",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: null,
+      badge: preAppliCheckedUnread > 0 ? preAppliCheckedUnread : null,
       permissionKey: PERMISSION_KEYS.PORTAL_CANDEX_PRE_SCREENING,
       requiresMasterAdmin: false
     },
@@ -194,7 +199,7 @@ const AdminPortalDashboard = () => {
       permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
       requiresMasterAdmin: true
     }
-  ], [dataManagementBadge, pendingRequests, pendingPolygraphCount]);
+  ], [dataManagementBadge, pendingRequests, pendingPolygraphCount, preAppliCheckedUnread]);
 
   // Compute ordered portals whenever dependencies change
   useEffect(() => {
