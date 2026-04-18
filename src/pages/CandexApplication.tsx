@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
 import SplashScreen from "@/components/candex-application/SplashScreen";
 import IntroVideoScreen from "@/components/candex-application/IntroVideoScreen";
 import POPIAIndemnityScreen, { type DeviceData } from "@/components/candex-application/POPIAIndemnityScreen";
@@ -110,10 +111,12 @@ const CandexApplication = () => {
       if (insertError) throw insertError;
 
       // Now mark the invitation as completed
-      await supabase
+      const { error: invitationUpdateError } = await supabase
         .from("candex_invitations")
         .update({ status: "completed" })
         .eq("token", token!);
+
+      if (invitationUpdateError) throw invitationUpdateError;
 
       // Trigger pre-risk profile generation in background (fire-and-forget)
       if (insertedApp?.id) {
@@ -124,9 +127,11 @@ const CandexApplication = () => {
 
       setStep("completed");
       toast.success("PreAppliCheck completed successfully!");
+      return true;
     } catch (err) {
       console.error("Submission error:", err);
       toast.error("Failed to submit. Please try again.");
+      return false;
     }
   }, [token, invitation, personalDetails, deviceData]);
 
@@ -157,9 +162,9 @@ const CandexApplication = () => {
       <div className="min-h-screen flex items-center justify-center bg-black p-4">
         <Card className="max-w-md w-full text-center bg-zinc-950 border-zinc-800">
           <CardContent className="pt-8 pb-8">
-            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2 text-white">PreAppliCheck Complete</h2>
-            <p className="text-zinc-400">Your application has been submitted successfully. Thank you for completing the PreAppliCheck process. You may now close this page.</p>
+            <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-24 w-auto mx-auto mb-6" />
+            <h2 className="text-xl font-bold mb-2 text-white">Application Submitted</h2>
+            <p className="text-zinc-400">Your PreAppliCheck application has been submitted for review. You may now close this page.</p>
           </CardContent>
         </Card>
       </div>
