@@ -1387,18 +1387,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
       );
     }
 
-    // Court Attendance row holds long auto-generated text — render as wrapping textarea
-    if (rowLabel.includes("court attendance") || (rowLabel.includes("court") && rowLabel.includes("attend"))) {
-      return (
-        <Textarea
-          value={value}
-          onChange={(e) => setCellValue(tableId, entryIdx, rowIdx, colIdx, e.target.value)}
-          className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs min-h-[72px] resize-y w-full break-words"
-          placeholder={mobilePlaceholder || "Enter..."}
-        />
-      );
-    }
-
     return (
       <Input
         value={value}
@@ -2560,7 +2548,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
@@ -2668,7 +2656,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
@@ -2786,7 +2774,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
@@ -2919,7 +2907,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
@@ -3047,7 +3035,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
@@ -3284,7 +3272,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                 {table.video_url && <VideoPlayButton videoUrl={table.video_url} label={table.table_title} />}
               </div>
             </div>
-            <div className="p-0">
+            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-zinc-900 border-b border-zinc-800">
@@ -3636,8 +3624,8 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                   const isContactTraceTbl = ttl.includes("contact trace") || ttl.includes("close friend") || ttl.includes("next of kin")
                     || ttl.includes("father") || ttl.includes("mother") || ttl.includes("sibling") || ttl.includes("brother") || ttl.includes("sister");
                   return (
-                    <div className="w-full">
-                  <table className="w-full text-sm table-fixed break-words" data-table-title={table.table_title} style={{ tableLayout: 'fixed', wordBreak: 'break-word' }}>
+                    <div className={isContactTraceTbl ? "" : "overflow-x-auto"}>
+                  <table className={`w-full text-sm ${isDisciplinaryTable || isContactTraceTbl ? "table-fixed" : ""}`} data-table-title={table.table_title} style={{ tableLayout: isContactTraceTbl ? 'fixed' : undefined }}>
                     <thead>
                       <tr className="bg-zinc-900 border-b border-zinc-800">
                         <th colSpan={visibleColHeaders.length + 1 + (isEducationTable ? 1 : 0)} className="p-2 text-center">
