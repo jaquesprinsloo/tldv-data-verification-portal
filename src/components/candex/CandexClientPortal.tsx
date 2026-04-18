@@ -961,6 +961,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           <Button variant="ghost" size="sm" title="View PreAppliCheck" onClick={() => setViewPreAppliCheckApp(app)}>
                             <Eye className="h-4 w-4" />
                           </Button>
+                          <Button variant="ghost" size="sm" className="text-destructive" title="Delete application" onClick={() => { if (confirm("Delete this approved candidate? This cannot be undone.")) deleteApplication.mutate(app.id); }} disabled={deleteApplication.isPending}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
