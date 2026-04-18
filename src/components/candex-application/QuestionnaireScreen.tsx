@@ -226,7 +226,7 @@ const DateDropdowns = ({ value, onChange, fromYear = 1950, placeholder = "Select
 
 interface QuestionnaireScreenProps {
   templateId: string;
-  onComplete: (answers: Record<string, any>) => void;
+  onComplete: (answers: Record<string, any>) => Promise<boolean>;
 }
 
 interface Section {
@@ -271,7 +271,6 @@ interface Question {
 export default function QuestionnaireScreen({ templateId, onComplete }: QuestionnaireScreenProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
   const [tables, setTables] = useState<SectionTable[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -3932,12 +3931,15 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
     setCurrentSection((p) => p + 1);
   };
 
-  const handleSubmit = () => {
-    if (!validateCurrentSection()) return;
+  const handleSubmit = async () => {
+    if (!validateCurrentSection() || submitting) return;
     setSubmitting(true);
-    setSubmitted(true);
     const allAnswers = { questions: answers, tables: tableData };
-    onComplete(allAnswers);
+    const success = await onComplete(allAnswers);
+
+    if (!success) {
+      setSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -3963,20 +3965,6 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
   const currentSec = sections[currentSection];
   const sectionTables = tables.filter((t) => t.section_id === currentSec.id);
   const sectionQuestions = questions.filter((q) => q.section_id === currentSec.id);
-
-  if (submitted) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <div className="flex flex-col items-center text-center max-w-md">
-          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-32 mb-6" />
-          <h1 className="text-2xl font-bold text-white mb-3">Application Submitted</h1>
-          <p className="text-zinc-400 text-sm">
-            Your PreAppliCheck application has been submitted for review. You will be notified once the review is complete.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-black">

@@ -284,7 +284,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       toast.success(`Invitation sent via ${inviteMethod === "email" ? "Email" : "WhatsApp"}`);
       setInviteOpen(false);
       setInviteForm({ name: "", surname: "", phone: "", email: "", id_number: "" });
-      queryClient.invalidateQueries({ queryKey: ["candex-my-invitations"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-my-invitations", client?.id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -341,7 +341,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     setBulkSending(false);
     setBulkCandidates([]);
     setInviteOpen(false);
-    queryClient.invalidateQueries({ queryKey: ["candex-my-invitations"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-my-invitations", client?.id] });
     toast.success(`${successCount} invitations sent${failCount > 0 ? `, ${failCount} failed` : ""}`);
   };
 
@@ -401,7 +401,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     },
     onSuccess: () => {
       toast.success("Invitation deleted");
-      queryClient.invalidateQueries({ queryKey: ["candex-my-invitations"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-my-invitations", client?.id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -427,7 +427,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     },
     onSuccess: () => {
       toast.success("Invitation resent");
-      queryClient.invalidateQueries({ queryKey: ["candex-my-invitations"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-my-invitations", client?.id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -448,7 +448,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     onSuccess: (status) => {
       toast.success(`Application ${status}`);
       setReviewApp(null);
-      queryClient.invalidateQueries({ queryKey: ["candex-my-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-my-applications", client?.id] });
       queryClient.invalidateQueries({ queryKey: ["candex-pending-submissions-count"] });
     },
     onError: (e: any) => toast.error(e.message || "Failed to update application status"),
