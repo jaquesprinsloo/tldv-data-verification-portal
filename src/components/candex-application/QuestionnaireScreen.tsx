@@ -1776,7 +1776,7 @@ export default function QuestionnaireScreen({ templateId, onComplete }: Question
                             className="bg-zinc-900 border-zinc-700 text-white text-sm placeholder:text-xs h-9 pl-6" placeholder="0.00" step="0.01" />
                         </div>
                       </div>
-                      <div className="flex-1 space-y-0.5">
+                      <div className="flex-1 min-w-0 space-y-0.5">
                         <Label className="text-[10px] text-zinc-500">Last Payment Date</Label>
                         <DateDropdowns
                           value={dateVal}
