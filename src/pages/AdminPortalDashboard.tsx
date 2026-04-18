@@ -184,7 +184,7 @@ const AdminPortalDashboard = () => {
       icon: ShieldCheck,
       path: "/admin/candex-pre-screening",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: null,
+      badge: preAppliCheckedUnread > 0 ? preAppliCheckedUnread : null,
       permissionKey: PERMISSION_KEYS.PORTAL_CANDEX_PRE_SCREENING,
       requiresMasterAdmin: false
     },
