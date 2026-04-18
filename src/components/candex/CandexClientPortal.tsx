@@ -402,6 +402,37 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     onSuccess: () => {
       toast.success("Invitation deleted");
       queryClient.invalidateQueries({ queryKey: ["candex-my-invitations", client?.id] });
+      queryClient.invalidateQueries({ queryKey: ["candex-my-applications", client?.id] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Delete application (and its risk-request candidate links)
+  const deleteApplication = useMutation({
+    mutationFn: async (appId: string) => {
+      await supabase.from("candex_risk_request_candidates").delete().eq("application_id", appId);
+      await supabase.from("polygraph_appointment_candidates").delete().eq("application_id", appId);
+      const { error } = await supabase.from("candex_applications").delete().eq("id", appId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Application deleted");
+      queryClient.invalidateQueries({ queryKey: ["candex-my-applications", client?.id] });
+      queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates-for-approved", client?.id] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Delete polygraph appointment
+  const deleteAppointment = useMutation({
+    mutationFn: async (aptId: string) => {
+      await supabase.from("polygraph_appointment_candidates").delete().eq("appointment_id", aptId);
+      const { error } = await supabase.from("polygraph_appointments" as any).delete().eq("id", aptId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Appointment deleted");
+      queryClient.invalidateQueries({ queryKey: ["user-polygraph-appointments", client?.id] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -832,6 +863,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           <Button variant="ghost" size="sm" onClick={() => setReviewApp(app)}><Eye className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="text-primary" onClick={() => updateAppStatus.mutate({ id: app.id, status: "approved" })}><Check className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="sm" className="text-destructive" onClick={() => updateAppStatus.mutate({ id: app.id, status: "rejected" })}><X className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="sm" className="text-destructive" title="Delete application" onClick={() => { if (confirm("Delete this application? This cannot be undone.")) deleteApplication.mutate(app.id); }} disabled={deleteApplication.isPending}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -928,6 +960,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                         <TableCell className="text-right flex gap-1 justify-end">
                           <Button variant="ghost" size="sm" title="View PreAppliCheck" onClick={() => setViewPreAppliCheckApp(app)}>
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-destructive" title="Delete application" onClick={() => { if (confirm("Delete this approved candidate? This cannot be undone.")) deleteApplication.mutate(app.id); }} disabled={deleteApplication.isPending}>
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -1077,26 +1112,29 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          {riskUrl && (
-                            <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={async () => {
-                              // If it's already a full URL (legacy), try it directly
-                              if (riskUrl.startsWith("http")) {
-                                setViewRiskUrl(riskUrl);
-                                return;
-                              }
-                              // Generate a signed URL for private bucket
-                              const { data, error } = await supabase.storage
-                                .from("employee-documents")
-                                .createSignedUrl(riskUrl, 3600);
-                              if (error || !data?.signedUrl) {
-                                toast.error("Could not load document");
-                                return;
-                              }
-                              setViewRiskUrl(data.signedUrl);
-                            }}>
-                              <Eye className="h-4 w-4" />
+                          <div className="flex gap-1 justify-end">
+                            {riskUrl && (
+                              <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={async () => {
+                                if (riskUrl.startsWith("http")) {
+                                  setViewRiskUrl(riskUrl);
+                                  return;
+                                }
+                                const { data, error } = await supabase.storage
+                                  .from("employee-documents")
+                                  .createSignedUrl(riskUrl, 3600);
+                                if (error || !data?.signedUrl) {
+                                  toast.error("Could not load document");
+                                  return;
+                                }
+                                setViewRiskUrl(data.signedUrl);
+                              }}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="sm" className="text-destructive" title="Delete" onClick={() => { if (confirm("Delete this candidate's risk assessment record? This cannot be undone.")) deleteApplication.mutate(app.id); }} disabled={deleteApplication.isPending}>
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                          )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -1203,8 +1241,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {apt.booking_reference && (
-                            <div className="flex gap-1 justify-end">
+                          <div className="flex gap-1 justify-end">
+                            {apt.booking_reference && (
                               <Button variant="ghost" size="sm" title="View Confirmation" onClick={() => {
                                 setViewBookingConfirmation({
                                   bookingReference: apt.booking_reference,
@@ -1220,8 +1258,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                               }}>
                                 <Eye className="h-4 w-4" />
                               </Button>
-                            </div>
-                          )}
+                            )}
+                            <Button variant="ghost" size="sm" className="text-destructive" title="Delete appointment" onClick={() => { if (confirm("Delete this appointment? This cannot be undone.")) deleteAppointment.mutate(apt.id); }} disabled={deleteAppointment.isPending}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
