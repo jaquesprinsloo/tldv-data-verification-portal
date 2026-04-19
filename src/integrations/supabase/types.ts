@@ -1144,6 +1144,7 @@ export type Database = {
           id: string
           id_number: string | null
           last_name: string | null
+          onedrive_recordings: Json
           original_file_name: string
           original_file_url: string
           overall_result: string | null
@@ -1173,6 +1174,7 @@ export type Database = {
           id?: string
           id_number?: string | null
           last_name?: string | null
+          onedrive_recordings?: Json
           original_file_name: string
           original_file_url: string
           overall_result?: string | null
@@ -1202,6 +1204,7 @@ export type Database = {
           id?: string
           id_number?: string | null
           last_name?: string | null
+          onedrive_recordings?: Json
           original_file_name?: string
           original_file_url?: string
           overall_result?: string | null
@@ -1664,6 +1667,7 @@ export type Database = {
           id: string
           id_number: string
           last_name: string
+          onedrive_recordings: Json
           overall_result:
             | Database["public"]["Enums"]["polygraph_overall_result"]
             | null
@@ -1701,6 +1705,7 @@ export type Database = {
           id?: string
           id_number: string
           last_name: string
+          onedrive_recordings?: Json
           overall_result?:
             | Database["public"]["Enums"]["polygraph_overall_result"]
             | null
@@ -1738,6 +1743,7 @@ export type Database = {
           id?: string
           id_number?: string
           last_name?: string
+          onedrive_recordings?: Json
           overall_result?:
             | Database["public"]["Enums"]["polygraph_overall_result"]
             | null
