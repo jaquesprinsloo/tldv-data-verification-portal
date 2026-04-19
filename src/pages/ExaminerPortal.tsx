@@ -680,6 +680,94 @@ const ExaminerPortal = () => {
                       </div>
                     </CardContent>
                   </Card>
+
+                  {/* OneDrive Recordings Upload */}
+                  <Card className="border-dashed">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Upload className="h-4 w-4 text-primary" /> Polygraph Recordings (OneDrive)
+                      </CardTitle>
+                      <CardDescription>
+                        Upload audio, video and raw test data files. They are saved directly to OneDrive at{" "}
+                        <span className="font-mono text-xs">
+                          /PreAppliCheck/Examinations/{userName || "[Examiner]"}/{"{Date}_{Candidate}_{BookingRef}"}/
+                        </span>{" "}
+                        — they don't use app storage.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <input
+                        type="file"
+                        multiple
+                        accept="audio/*,video/*,.dat,.bin,.zip,.lxe,.lx5,.lx6"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          setRecordings((prev) => [...prev, ...files]);
+                          e.target.value = "";
+                        }}
+                        className="hidden"
+                        id="examiner-recordings-upload"
+                        disabled={saving || !!recordingsProgress}
+                      />
+                      <label htmlFor="examiner-recordings-upload">
+                        <Button variant="outline" asChild className="cursor-pointer w-full" disabled={saving || !!recordingsProgress}>
+                          <span>+ Add Recording Files</span>
+                        </Button>
+                      </label>
+
+                      {recordings.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-muted-foreground">Pending upload ({recordings.length}):</p>
+                          {recordings.map((f, i) => (
+                            <div key={i} className="flex items-center justify-between rounded border bg-muted/30 px-2 py-1 text-xs">
+                              <span className="truncate">{f.name}</span>
+                              <span className="text-muted-foreground ml-2 whitespace-nowrap">
+                                {(f.size / (1024 * 1024)).toFixed(1)} MB
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 ml-1"
+                                onClick={() => setRecordings((prev) => prev.filter((_, idx) => idx !== i))}
+                                disabled={saving || !!recordingsProgress}
+                              >
+                                ✕
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {uploadedRecordings.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-green-700">Uploaded to OneDrive ({uploadedRecordings.length}):</p>
+                          {uploadedRecordings.map((r, i) => (
+                            <div key={i} className="flex items-center justify-between rounded border border-green-200 bg-green-50 px-2 py-1 text-xs">
+                              <span className="truncate">✓ {r.fileName}</span>
+                              {r.webUrl && (
+                                <a href={r.webUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-2 whitespace-nowrap">
+                                  Open
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {recordingsProgress && (
+                        <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                            <span>
+                              Uploading {recordingsProgress.current}/{recordingsProgress.total}: {recordingsProgress.name}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground">Large files may take a while. Please don't close this tab.</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
                   <Button onClick={handleSubmitReport} disabled={saving} className="w-full">
                     {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : <><Upload className="mr-2 h-4 w-4" /> Submit Report for Review</>}
                   </Button>
