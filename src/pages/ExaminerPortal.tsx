@@ -332,6 +332,11 @@ const ExaminerPortal = () => {
 
   const handleSubmitReport = async () => {
     if (!extractedData || !file) return;
+    const totalRecordings = recordings.length + uploadedRecordings.length;
+    if (totalRecordings === 0) {
+      toast.error("Polygraph recordings are required before submitting for review.");
+      return;
+    }
     setSaving(true);
     try {
       // 1. Upload recordings to OneDrive first (so links are saved with the report)
@@ -688,7 +693,7 @@ const ExaminerPortal = () => {
                         <Upload className="h-4 w-4 text-primary" /> Polygraph Recordings (OneDrive)
                       </CardTitle>
                       <CardDescription>
-                        Upload complete PF folder for this report.
+                        Upload complete PF folder for this report. <span className="text-destructive font-medium">Required before submission.</span>
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -764,7 +769,11 @@ const ExaminerPortal = () => {
                     </CardContent>
                   </Card>
 
-                  <Button onClick={handleSubmitReport} disabled={saving} className="w-full">
+                  <Button
+                    onClick={handleSubmitReport}
+                    disabled={saving || (recordings.length + uploadedRecordings.length === 0)}
+                    className="w-full"
+                  >
                     {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : <><Upload className="mr-2 h-4 w-4" /> Submit Report for Review</>}
                   </Button>
                 </div>
