@@ -5,14 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Eye, CheckCircle, ShieldCheck, AlertTriangle, FileText, Upload, Clock, Users, XCircle } from "lucide-react";
+import { Eye, CheckCircle, ShieldCheck, AlertTriangle, FileText, Upload, Clock, Users, XCircle, Layers } from "lucide-react";
 import {
   RISK_CHECKS,
   RiskCheckCell,
@@ -49,11 +48,20 @@ interface RiskCandidate {
 const CandexRiskRequests = () => {
   const queryClient = useQueryClient();
   const [selectedRequest, setSelectedRequest] = useState<RiskRequest | null>(null);
+
+  // Single-candidate processing
   const [processCandidate, setProcessCandidate] = useState<RiskCandidate | null>(null);
   const [workingResults, setWorkingResults] = useState<Record<string, RiskCheckResult>>({});
-  const [uploadingKey, setUploadingKey] = useState<RiskCheckKey | null>(null);
+  const [sharedDocPath, setSharedDocPath] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  // Fetch all risk requests
+  // Batch processing
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchResults, setBatchResults] = useState<Record<string, RiskCheckResult>>({});
+  const [batchDocPath, setBatchDocPath] = useState<string | null>(null);
+  const [batchUploading, setBatchUploading] = useState(false);
+
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ["candex-risk-requests-master"],
     queryFn: async () => {
@@ -128,45 +136,111 @@ const CandexRiskRequests = () => {
   const requestedChecksFor = (req?: RiskRequest | null): RiskCheckKey[] =>
     (req?.requested_checks && req.requested_checks.length > 0)
       ? req.requested_checks
-      : ["id_verification", "pre_crim"]; // legacy fallback for pre-existing requests
+      : ["id_verification", "pre_crim"];
 
-  // Save per-check progress
+  const requestedForSelected = requestedChecksFor(selectedRequest);
+
+  // -------- Shared upload helper --------
+  const uploadDoc = async (file: File, prefix: string): Promise<string> => {
+    const ext = file.name.split(".").pop();
+    const path = `risk-assessments/${prefix}_${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("employee-documents").upload(path, file);
+    if (error) throw error;
+    return path;
+  };
+
+  // -------- Single candidate save --------
   const saveResults = useMutation({
     mutationFn: async () => {
       if (!processCandidate) return;
-      const requested = requestedChecksFor(selectedRequest);
+      const requested = requestedForSelected;
       const allDone = requested.every((k) => {
         const s = workingResults[k]?.status;
         return s === "clear" || s === "flagged";
       });
+      if (!allDone) throw new Error("Every requested check must be Cleared or Flagged before saving.");
+      if (!sharedDocPath) throw new Error("A supporting document must be attached before saving.");
+
       const anyFlagged = requested.some((k) => workingResults[k]?.status === "flagged");
+      // Apply shared doc to every check entry so each row links back to it
+      const merged: Record<string, RiskCheckResult> = {};
+      requested.forEach((k) => {
+        merged[k] = { ...(workingResults[k] || { status: "pending" }), url: sharedDocPath };
+      });
 
       const { error } = await supabase
         .from("candex_risk_request_candidates")
         .update({
-          check_results: workingResults as any,
-          // Mirror legacy single-result fields so older UI bits keep working
-          id_verified: workingResults.id_verification?.status === "clear",
-          risk_assessment_result: allDone ? (anyFlagged ? "flagged" : "clear") : null,
+          check_results: merged as any,
+          risk_assessment_url: sharedDocPath,
+          id_verified: merged.id_verification?.status === "clear",
+          risk_assessment_result: anyFlagged ? "flagged" : "clear",
         })
         .eq("id", processCandidate.id);
       if (error) throw error;
 
-      // When every check on this candidate is processed, mirror onto the application
-      if (allDone) {
+      await supabase
+        .from("candex_applications")
+        .update({ status: "candexed", risk_level: anyFlagged ? "HIGH" : "LOW" })
+        .eq("id", processCandidate.application_id);
+    },
+    onSuccess: () => {
+      toast.success("Assessment saved");
+      setProcessCandidate(null);
+      setWorkingResults({});
+      setSharedDocPath(null);
+      queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-risk-apps"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // -------- Batch save --------
+  const saveBatch = useMutation({
+    mutationFn: async () => {
+      const requested = requestedForSelected;
+      const allDone = requested.every((k) => {
+        const s = batchResults[k]?.status;
+        return s === "clear" || s === "flagged";
+      });
+      if (!allDone) throw new Error("Every requested check must be Cleared or Flagged before saving.");
+      if (!batchDocPath) throw new Error("A supporting document must be attached before saving.");
+      if (selectedCandidateIds.size === 0) throw new Error("No candidates selected.");
+
+      const anyFlagged = requested.some((k) => batchResults[k]?.status === "flagged");
+      const merged: Record<string, RiskCheckResult> = {};
+      requested.forEach((k) => {
+        merged[k] = { ...(batchResults[k] || { status: "pending" }), url: batchDocPath };
+      });
+
+      const targets = requestCandidates.filter(
+        (c) => selectedCandidateIds.has(c.id) && !c.deleted_at
+      );
+
+      for (const cand of targets) {
+        const { error } = await supabase
+          .from("candex_risk_request_candidates")
+          .update({
+            check_results: merged as any,
+            risk_assessment_url: batchDocPath,
+            id_verified: merged.id_verification?.status === "clear",
+            risk_assessment_result: anyFlagged ? "flagged" : "clear",
+          })
+          .eq("id", cand.id);
+        if (error) throw error;
+
         await supabase
           .from("candex_applications")
-          .update({
-            status: "candexed",
-            risk_level: anyFlagged ? "HIGH" : "LOW",
-          })
-          .eq("id", processCandidate.application_id);
+          .update({ status: "candexed", risk_level: anyFlagged ? "HIGH" : "LOW" })
+          .eq("id", cand.application_id);
       }
     },
     onSuccess: () => {
-      toast.success("Assessment progress saved");
-      setProcessCandidate(null);
-      setWorkingResults({});
+      toast.success(`Assessment saved for ${selectedCandidateIds.size} candidate(s)`);
+      setBatchOpen(false);
+      setBatchResults({});
+      setBatchDocPath(null);
+      setSelectedCandidateIds(new Set());
       queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates"] });
       queryClient.invalidateQueries({ queryKey: ["candex-risk-apps"] });
     },
@@ -187,26 +261,6 @@ const CandexRiskRequests = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const handleFileUploadForCheck = async (file: File, checkKey: RiskCheckKey) => {
-    if (!processCandidate) return;
-    setUploadingKey(checkKey);
-    try {
-      const ext = file.name.split(".").pop();
-      const path = `risk-assessments/${processCandidate.id}_${checkKey}_${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("employee-documents").upload(path, file);
-      if (upErr) throw upErr;
-      setWorkingResults((prev) => ({
-        ...prev,
-        [checkKey]: { ...(prev[checkKey] || { status: "pending" }), url: path },
-      }));
-      toast.success(`${RISK_CHECKS.find((c) => c.key === checkKey)?.short} document uploaded`);
-    } catch (e: any) {
-      toast.error("Upload failed: " + e.message);
-    } finally {
-      setUploadingKey(null);
-    }
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
@@ -221,7 +275,6 @@ const CandexRiskRequests = () => {
   };
 
   const activeCandidates = requestCandidates.filter((c) => !c.deleted_at);
-  const requestedForSelected = requestedChecksFor(selectedRequest);
   const allCandidatesProcessed =
     activeCandidates.length > 0 &&
     activeCandidates.every((c) => {
@@ -231,6 +284,119 @@ const CandexRiskRequests = () => {
         return s === "clear" || s === "flagged";
       });
     });
+
+  const toggleCandidateSelection = (id: string) => {
+    setSelectedCandidateIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const selectableIds = activeCandidates.map((c) => c.id);
+    const allSelected = selectableIds.every((id) => selectedCandidateIds.has(id));
+    setSelectedCandidateIds(allSelected ? new Set() : new Set(selectableIds));
+  };
+
+  // Reusable per-check status row (shared by single and batch dialogs)
+  const renderCheckRows = (
+    state: Record<string, RiskCheckResult>,
+    setState: (next: Record<string, RiskCheckResult>) => void,
+  ) =>
+    requestedForSelected.map((k) => {
+      const c = RISK_CHECKS.find((x) => x.key === k)!;
+      const current = state[k] || { status: "pending" as RiskCheckStatus };
+      const setStatus = (status: RiskCheckStatus) =>
+        setState({ ...state, [k]: { ...(state[k] || {}), status } });
+      return (
+        <div key={k} className="border rounded-lg p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm">{c.label}</span>
+              <RiskCheckStatusBadge status={current.status} />
+            </div>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant={current.status === "clear" ? "default" : "outline"}
+                className={current.status === "clear" ? "bg-green-600 hover:bg-green-700" : ""}
+                onClick={() => setStatus("clear")}
+              >
+                <CheckCircle className="h-3.5 w-3.5 mr-1" /> Clear
+              </Button>
+              <Button
+                size="sm"
+                variant={current.status === "flagged" ? "destructive" : "outline"}
+                onClick={() => setStatus("flagged")}
+              >
+                <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Flagged
+              </Button>
+            </div>
+          </div>
+          <Textarea
+            placeholder="Notes (optional)…"
+            className="text-xs min-h-[50px]"
+            value={current.notes || ""}
+            onChange={(e) =>
+              setState({ ...state, [k]: { ...(state[k] || { status: "pending" }), notes: e.target.value } })
+            }
+          />
+        </div>
+      );
+    });
+
+  // Reusable bottom-left attachment control
+  const renderAttachment = (
+    docPath: string | null,
+    setDocPath: (p: string | null) => void,
+    isUploading: boolean,
+    setIsUploading: (b: boolean) => void,
+    prefix: string,
+  ) => (
+    <div className="flex-1 min-w-0">
+      {docPath ? (
+        <div className="flex items-center gap-2 p-2 bg-primary/5 rounded text-xs border">
+          <FileText className="h-4 w-4 text-primary shrink-0" />
+          <span className="truncate flex-1">Document attached</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-1"
+            onClick={() => setDocPath(null)}
+            aria-label="Remove document"
+          >
+            <XCircle className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Input
+            type="file"
+            accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
+            className="h-8 text-xs"
+            disabled={isUploading}
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              setIsUploading(true);
+              try {
+                const path = await uploadDoc(f, prefix);
+                setDocPath(path);
+                toast.success("Document uploaded");
+              } catch (err: any) {
+                toast.error("Upload failed: " + err.message);
+              } finally {
+                setIsUploading(false);
+              }
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
 
   if (isLoading) {
     return (
@@ -315,6 +481,7 @@ const CandexRiskRequests = () => {
                           size="sm"
                           onClick={() => {
                             setSelectedRequest(req);
+                            setSelectedCandidateIds(new Set());
                             if (req.status === "pending") {
                               updateRequestStatus.mutate({ id: req.id, status: "in_progress" });
                             }
@@ -333,7 +500,15 @@ const CandexRiskRequests = () => {
       </Card>
 
       {/* Request Detail */}
-      <Dialog open={!!selectedRequest} onOpenChange={(open) => { if (!open) setSelectedRequest(null); }}>
+      <Dialog
+        open={!!selectedRequest}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedRequest(null);
+            setSelectedCandidateIds(new Set());
+          }
+        }}
+      >
         <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -362,10 +537,46 @@ const CandexRiskRequests = () => {
                 </div>
               </div>
 
+              {/* Batch toolbar */}
+              {activeCandidates.length > 1 && (
+                <div className="flex items-center justify-between gap-2 p-2 bg-muted/30 rounded border">
+                  <div className="text-xs text-muted-foreground">
+                    {selectedCandidateIds.size > 0
+                      ? `${selectedCandidateIds.size} candidate(s) selected`
+                      : "Select candidates to process them together with the same document"}
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={selectedCandidateIds.size < 2}
+                    onClick={() => {
+                      const seed: Record<string, RiskCheckResult> = {};
+                      requestedForSelected.forEach((k) => (seed[k] = { status: "pending" }));
+                      setBatchResults(seed);
+                      setBatchDocPath(null);
+                      setBatchOpen(true);
+                    }}
+                  >
+                    <Layers className="h-3.5 w-3.5 mr-1" /> Batch Process Selected
+                  </Button>
+                </div>
+              )}
+
               <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8">
+                        {activeCandidates.length > 0 && (
+                          <Checkbox
+                            checked={
+                              activeCandidates.length > 0 &&
+                              activeCandidates.every((c) => selectedCandidateIds.has(c.id))
+                            }
+                            onCheckedChange={toggleSelectAll}
+                            aria-label="Select all candidates"
+                          />
+                        )}
+                      </TableHead>
                       <TableHead>Candidate</TableHead>
                       <TableHead>ID Number</TableHead>
                       {requestedForSelected.map((k) => {
@@ -390,6 +601,15 @@ const CandexRiskRequests = () => {
                       });
                       return (
                         <TableRow key={cand.id} className={isDeleted ? "bg-destructive/5" : ""}>
+                          <TableCell className="w-8">
+                            {!isDeleted && (
+                              <Checkbox
+                                checked={selectedCandidateIds.has(cand.id)}
+                                onCheckedChange={() => toggleCandidateSelection(cand.id)}
+                                aria-label={`Select ${app?.candidate_name || "candidate"}`}
+                              />
+                            )}
+                          </TableCell>
                           <TableCell className="font-medium">
                             <div className="flex flex-col gap-1">
                               <span>{app?.candidate_name || "—"}</span>
@@ -418,12 +638,17 @@ const CandexRiskRequests = () => {
                                 size="sm"
                                 onClick={() => {
                                   setProcessCandidate(cand);
-                                  // Seed working results from saved + ensure every requested check has an entry
                                   const seed: Record<string, RiskCheckResult> = { ...(cand.check_results || {}) };
                                   requestedForSelected.forEach((k) => {
                                     if (!seed[k]) seed[k] = { status: "pending" };
                                   });
                                   setWorkingResults(seed);
+                                  // Pre-load any existing shared doc
+                                  const existingUrl =
+                                    cand.risk_assessment_url ||
+                                    requestedForSelected.map((k) => seed[k]?.url).find(Boolean) ||
+                                    null;
+                                  setSharedDocPath(existingUrl);
                                 }}
                               >
                                 {allDone ? <Eye className="h-4 w-4 mr-1" /> : <FileText className="h-4 w-4 mr-1" />}
@@ -453,13 +678,22 @@ const CandexRiskRequests = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Per-Check Process Dialog */}
-      <Dialog open={!!processCandidate} onOpenChange={(open) => { if (!open) { setProcessCandidate(null); setWorkingResults({}); } }}>
+      {/* Single Candidate Process Dialog */}
+      <Dialog
+        open={!!processCandidate}
+        onOpenChange={(open) => {
+          if (!open) {
+            setProcessCandidate(null);
+            setWorkingResults({});
+            setSharedDocPath(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Process Candidate Checks</DialogTitle>
             <DialogDescription>
-              Set the outcome of each requested check and optionally upload supporting documents.
+              Set the outcome of every requested check. A single supporting document is required.
             </DialogDescription>
           </DialogHeader>
           {processCandidate && (() => {
@@ -479,96 +713,81 @@ const CandexRiskRequests = () => {
                 </div>
 
                 <div className="space-y-3">
-                  {requestedForSelected.map((k) => {
-                    const c = RISK_CHECKS.find((x) => x.key === k)!;
-                    const current = workingResults[k] || { status: "pending" as RiskCheckStatus };
-                    const setStatus = (status: RiskCheckStatus) =>
-                      setWorkingResults((prev) => ({ ...prev, [k]: { ...(prev[k] || {}), status } }));
-                    return (
-                      <div key={k} className="border rounded-lg p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{c.label}</span>
-                            <RiskCheckStatusBadge status={current.status} />
-                          </div>
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant={current.status === "clear" ? "default" : "outline"}
-                              className={current.status === "clear" ? "bg-green-600 hover:bg-green-700" : ""}
-                              onClick={() => setStatus("clear")}
-                            >
-                              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Clear
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={current.status === "flagged" ? "destructive" : "outline"}
-                              onClick={() => setStatus("flagged")}
-                            >
-                              <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Flagged
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {current.url ? (
-                            <div className="flex items-center gap-2 flex-1 p-1.5 bg-primary/5 rounded text-xs">
-                              <FileText className="h-3.5 w-3.5 text-primary" />
-                              <span className="truncate flex-1">Document attached</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-1"
-                                onClick={() =>
-                                  setWorkingResults((prev) => ({
-                                    ...prev,
-                                    [k]: { ...(prev[k] || { status: "pending" }), url: null },
-                                  }))
-                                }
-                              >
-                                <XCircle className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2 flex-1">
-                              <Upload className="h-3.5 w-3.5 text-muted-foreground" />
-                              <Input
-                                type="file"
-                                accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
-                                className="h-7 text-xs"
-                                disabled={uploadingKey === k}
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0];
-                                  if (f) handleFileUploadForCheck(f, k);
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        <Textarea
-                          placeholder="Notes (optional)…"
-                          className="text-xs min-h-[50px]"
-                          value={current.notes || ""}
-                          onChange={(e) =>
-                            setWorkingResults((prev) => ({
-                              ...prev,
-                              [k]: { ...(prev[k] || { status: "pending" }), notes: e.target.value },
-                            }))
-                          }
-                        />
-                      </div>
-                    );
-                  })}
+                  {renderCheckRows(workingResults, setWorkingResults)}
                 </div>
               </div>
             );
           })()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setProcessCandidate(null); setWorkingResults({}); }}>Cancel</Button>
-            <Button onClick={() => saveResults.mutate()} disabled={saveResults.isPending}>
-              <ShieldCheck className="h-4 w-4 mr-1" /> Save Progress
-            </Button>
+          <DialogFooter className="!justify-between gap-3 items-center flex-wrap">
+            {renderAttachment(sharedDocPath, setSharedDocPath, uploading, setUploading, processCandidate?.id || "doc")}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setProcessCandidate(null);
+                  setWorkingResults({});
+                  setSharedDocPath(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={() => saveResults.mutate()} disabled={saveResults.isPending || uploading}>
+                <ShieldCheck className="h-4 w-4 mr-1" /> Save Assessment
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Process Dialog */}
+      <Dialog
+        open={batchOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBatchOpen(false);
+            setBatchResults({});
+            setBatchDocPath(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5 text-primary" /> Batch Process Candidates
+            </DialogTitle>
+            <DialogDescription>
+              Apply the same outcomes and supporting document to {selectedCandidateIds.size} selected candidate(s).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1 max-h-32 overflow-y-auto">
+              <div className="text-muted-foreground font-medium mb-1">Applies to:</div>
+              {requestCandidates
+                .filter((c) => selectedCandidateIds.has(c.id))
+                .map((c) => {
+                  const app = getAppDetails(c.application_id);
+                  return (
+                    <div key={c.id}>
+                      • {app?.candidate_name || "—"} <span className="text-muted-foreground">({app?.candidate_id_number || "no ID"})</span>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <div className="space-y-3">
+              {renderCheckRows(batchResults, setBatchResults)}
+            </div>
+          </div>
+
+          <DialogFooter className="!justify-between gap-3 items-center flex-wrap">
+            {renderAttachment(batchDocPath, setBatchDocPath, batchUploading, setBatchUploading, `batch_${selectedRequest?.id || "x"}`)}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setBatchOpen(false)}>Cancel</Button>
+              <Button onClick={() => saveBatch.mutate()} disabled={saveBatch.isPending || batchUploading}>
+                <ShieldCheck className="h-4 w-4 mr-1" /> Save for {selectedCandidateIds.size} Candidate(s)
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
