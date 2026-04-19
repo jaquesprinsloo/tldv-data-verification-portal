@@ -278,6 +278,7 @@ ${questionnaireText}`;
             type: "function",
             function: { name: "submit_risk_profile" },
           },
+          max_tokens: 4096,
         }),
       }
     );
@@ -351,7 +352,7 @@ ${questionnaireText}`;
     riskProfile.riskLevel = getRiskLevelFromTotal(riskProfile.totalScore);
 
     const criminalFinding = deterministicCriminal.score > 0
-      ? `Criminal Activity score ${deterministicCriminal.score}/28 across ${deterministicCriminal.confirmedItems.length} disclosure${deterministicCriminal.confirmedItems.length === 1 ? "" : "s"}`
+      ? `Criminal Activity score ${deterministicCriminal.score}/28 across ${deterministicCriminal.confirmedItems.length} subcategory disclosure${deterministicCriminal.confirmedItems.length === 1 ? "" : "s"}`
       : "No confirmed criminal activity disclosures";
     riskProfile.keyFindings = Array.from(new Set([
       ...((riskProfile.keyFindings || []) as string[]).filter((finding: string) => !/no criminal activity|criminal activity (disclosure|score)/i.test(finding)),
@@ -687,21 +688,40 @@ function calculateDeterministicCriminalProfile(questionAnswers: Record<string, a
     breakdown[groupKey] = groupBreakdown;
   }
 
-  totalScore = Math.min(totalScore, 30);
+  totalScore = Math.min(totalScore, 28);
 
-  const reasoningParts: string[] = [];
-  reasoningParts.push(`Personal: ${breakdown.personal.score}/${breakdown.personal.max}`);
-  for (const [groupKey, group] of Object.entries(CRIMINAL_SUBCATEGORIES)) {
-    reasoningParts.push(`${group.label}: ${breakdown[groupKey].score}/${group.max}`);
+  // Tier label aligned with other categories (Stable / Caution / Concern / High Concern)
+  let tierLabel: string;
+  if (totalScore === 0) tierLabel = "No Disclosures";
+  else if (totalScore <= 4) tierLabel = "Minor Disclosures";
+  else if (totalScore <= 10) tierLabel = "Caution";
+  else if (totalScore <= 18) tierLabel = "Concern";
+  else tierLabel = "High Concern";
+
+  // General observation: highlight the most prominent disclosed areas
+  // (similar tone to "Disclosed a close friend with a criminal history.")
+  const flaggedAreas: string[] = [];
+  if (breakdown.personal.score > 0) flaggedAreas.push("workplace theft");
+  if (breakdown.fraud?.score > 0) flaggedAreas.push("fraud-related conduct");
+  if (breakdown.bribery?.score > 0) flaggedAreas.push("bribery");
+  if (breakdown.organized?.score > 0) flaggedAreas.push("organized-crime exposure");
+  if (breakdown.undetected?.score > 0) flaggedAreas.push("undetected criminal conduct");
+  if (breakdown.drugs?.score > 0) flaggedAreas.push("illegal drug involvement");
+
+  let observation: string;
+  if (totalScore === 0) {
+    observation = "No criminal activity was disclosed by the candidate.";
+  } else if (flaggedAreas.length === 1) {
+    observation = `Candidate disclosed past involvement in ${flaggedAreas[0]}.`;
+  } else {
+    const last = flaggedAreas.pop();
+    observation = `Candidate disclosed past involvement in ${flaggedAreas.join(", ")}, and ${last}.`;
   }
 
   return {
     score: totalScore,
-    label: totalScore === 0 ? "No criminal activity disclosed" : `${totalScore} subcategor${totalScore === 1 ? "y" : "ies"} flagged (max 28)`,
-    reasoning:
-      totalScore === 0
-        ? "No confirmed criminal activity disclosures were detected across Personal, Fraud, Bribery, Organized Crimes, Undetected Crimes, or Illegal Drug Involvement."
-        : `Subcategory-based scoring (+1 per subcategory with any Yes answer). Breakdown — ${reasoningParts.join(" | ")}.`,
+    label: tierLabel,
+    reasoning: observation,
     confirmedItems,
     breakdown,
   };

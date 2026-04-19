@@ -193,7 +193,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
       { key: "employment", label: "Employment History", max: 3, data: preRiskProfile.employment },
       { key: "financial", label: "Financial Pressure", max: 3, data: preRiskProfile.financial },
       { key: "legal", label: "Legal Encounters", max: 5, data: preRiskProfile.legal },
-      { key: "criminal", label: "Criminal Activity", max: 30, data: preRiskProfile.criminal },
+      { key: "criminal", label: "Criminal Activity", max: 28, data: preRiskProfile.criminal },
       { key: "integrity", label: "Integrity", max: 1, data: preRiskProfile.integrity },
     ];
 
@@ -292,9 +292,18 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                         )}
                         {key === "criminal" && (
                           <>
-                            <p><strong>Data used:</strong> Questionnaire responses across 7 branches: Fraud, Bribery, Organized Crimes, Undetected Crimes, Illegal Drug Involvement, Theft at Work, and General Criminal Disclosures.</p>
-                            <p><strong>How it's counted:</strong> Every <strong>"Yes"</strong> disclosure or selected option in the specialized tables (e.g. <code>fraud_*</code>, <code>bribery_*</code>, <code>illegal_drugs_*</code>, <code>theft_at_work_*</code>) is counted as a confirmed item.</p>
-                            <p><strong>Score (0-30):</strong> Each branch contributes up to 5; total = sum of all 7 branches.</p>
+                            <p><strong>Data used:</strong> Questionnaire disclosures across 6 branches, each split into subcategories.</p>
+                            <p><strong>Scoring rule:</strong> <em>+1 per subcategory</em> that contains <strong>at least one "Yes"</strong> answer. The actual count of "Yes" answers within a subcategory does not increase the score further — one "Yes" flags the whole subcategory.</p>
+                            <p><strong>Branch maxes (total max 28):</strong></p>
+                            <ul>
+                              <li><strong>Personal (max 4):</strong> Stolen &amp; benefited from theft at work · Witnessed theft &amp; did not report · Helped someone steal · Approached &amp; accepted involvement</li>
+                              <li><strong>Fraud (max 6):</strong> Refund &amp; Return · Cash Skimming · Asset Misappropriation · Supplier &amp; Delivery · Information / Data Misuse · Personal Information</li>
+                              <li><strong>Bribery (max 3):</strong> Law Enforcement · Work Colleagues · Employment</li>
+                              <li><strong>Organized Crimes (max 4):</strong> Theft / Hijacking / Robbery Syndicates · Financial &amp; Economic · Extortion · Drug Trafficking</li>
+                              <li><strong>Undetected Crimes (max 6):</strong> Financial &amp; White-Collar · Corruption &amp; Abuse of Power · Retail &amp; Commercial · Cyber &amp; Digital · Violent &amp; Serious · Insurance &amp; Claims Fraud</li>
+                              <li><strong>Illegal Drug Involvement (max 5):</strong> Sold Drugs · Manufactured Drugs · Transported Drugs · Lifetime Drug Use · Past 2 Years Drug Use</li>
+                            </ul>
+                            <p><strong>Key Findings</strong> note <em>what</em> was disclosed (not just the score), so reviewers can see the specific subcategories flagged.</p>
                             <p><em>Deterministic — directly reflects what the candidate admitted, not AI inference.</em></p>
                           </>
                         )}
