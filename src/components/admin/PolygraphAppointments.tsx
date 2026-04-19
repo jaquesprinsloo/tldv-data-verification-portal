@@ -403,7 +403,12 @@ True Lie Detectors & Vetting
         </TabsList>
 
         <TabsContent value="requested">
-          <Card><CardContent className="pt-6">
+          <Card><CardContent className="pt-6 space-y-4">
+            {requested.length > 0 && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <strong>Awaiting confirmation:</strong> These appointment requests are pending. Once a master admin schedules a date, time and venue, the request will move to the <em>Scheduled</em> tab with all original details preserved.
+              </div>
+            )}
             {requested.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8">No pending requests</p> : renderTable(requested)}
           </CardContent></Card>
         </TabsContent>
