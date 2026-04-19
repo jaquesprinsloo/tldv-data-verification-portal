@@ -1004,22 +1004,25 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                     <TableHead>Candidate</TableHead>
                     <TableHead>ID Number</TableHead>
                     <TableHead>Date Approved</TableHead>
-                    <TableHead>ID Verified</TableHead>
-                    <TableHead>Risk Assessment</TableHead>
                     <TableHead>Pre Risk</TableHead>
+                    {RISK_CHECKS.map((c) => (
+                      <TableHead key={c.key} className="text-center text-[10px] uppercase tracking-wide px-1" title={c.label}>
+                        {c.short}
+                      </TableHead>
+                    ))}
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {approved.map((app) => {
                     const riskCandidate = riskCandidateData?.find((rc: any) => rc.application_id === app.id);
-                    const requestStatus = (riskCandidate as any)?.candex_risk_requests?.status;
-                    const isRequested = !!riskCandidate;
-                    const isCompleted = requestStatus === "completed";
-                    const isPending = isRequested && !isCompleted;
-                    const idVerified = riskCandidate?.id_verified;
-                    const riskResult = riskCandidate?.risk_assessment_result;
-                    const riskUrl = riskCandidate?.risk_assessment_url;
+                    const requestedChecks: RiskCheckKey[] =
+                      ((riskCandidate as any)?.candex_risk_requests?.requested_checks as RiskCheckKey[]) || [];
+                    const checkResults: Record<string, RiskCheckResult> =
+                      ((riskCandidate as any)?.check_results as Record<string, RiskCheckResult>) || {};
+                    // Legacy fallback: pre-existing rows used the old single id_verified / risk_assessment_result fields.
+                    const legacyIdVerified = riskCandidate?.id_verified;
+                    const legacyRisk = riskCandidate?.risk_assessment_result;
 
                     return (
                       <TableRow key={app.id}>
@@ -1029,34 +1032,29 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           {app.updated_at ? format(new Date(app.updated_at), "dd MMM yyyy") : "—"}
                         </TableCell>
                         <TableCell>
-                          {!isRequested ? (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">Not Requested</Badge>
-                          ) : isPending ? (
-                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">Pending</Badge>
-                          ) : idVerified ? (
-                            <Badge className="text-xs bg-green-600 text-white"><CheckCircle className="h-3 w-3 mr-1" />Verified</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">Unverified</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {!isRequested ? (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">Not Requested</Badge>
-                          ) : isPending ? (
-                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">Requested</Badge>
-                          ) : isCompleted && riskResult === "clear" ? (
-                            <Badge className="text-xs bg-green-600 text-white"><CheckCircle className="h-3 w-3 mr-1" />No Risk Identified</Badge>
-                          ) : isCompleted && riskResult === "flagged" ? (
-                            <Badge className="text-xs bg-destructive text-destructive-foreground"><AlertTriangle className="h-3 w-3 mr-1" />Risk Identified</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">Completed</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
                           {app.risk_level ? (
                             <Badge className={`text-xs ${app.risk_level === "LOW" ? "bg-green-600 text-white" : "bg-destructive text-destructive-foreground"}`}>{app.risk_level}</Badge>
                           ) : "—"}
                         </TableCell>
+                        {RISK_CHECKS.map((c) => {
+                          const requested = requestedChecks.includes(c.key) ||
+                            (c.key === "id_verification" && !!riskCandidate && requestedChecks.length === 0) ||
+                            (c.key === "pre_crim" && !!riskCandidate && requestedChecks.length === 0);
+                          let result = checkResults[c.key];
+                          // Legacy bridge so old requests still show outcomes
+                          if (!result && requested) {
+                            if (c.key === "id_verification" && legacyIdVerified !== undefined && legacyIdVerified !== null) {
+                              result = { status: legacyIdVerified ? "clear" : "flagged" };
+                            } else if (c.key === "pre_crim" && legacyRisk) {
+                              result = { status: legacyRisk === "clear" ? "clear" : "flagged" };
+                            }
+                          }
+                          return (
+                            <TableCell key={c.key} className="text-center px-1">
+                              <RiskCheckCell requested={requested} result={result} label={c.label} />
+                            </TableCell>
+                          );
+                        })}
                         <TableCell className="text-right flex gap-1 justify-end">
                           <Button variant="ghost" size="sm" title="View PreAppliCheck" onClick={() => setViewPreAppliCheckApp(app)}>
                             <Eye className="h-4 w-4" />
