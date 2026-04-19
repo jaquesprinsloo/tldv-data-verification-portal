@@ -53,6 +53,22 @@ serve(async (req) => {
     // Build a structured plain-text dossier the AI can reason over.
     const dossier = buildPolygraphDossier(report);
 
+    // Optional: pull a linked PreAppliCheck summary for the same ID number.
+    let precheckContext = "";
+    if (report.id_number) {
+      const { data: precheckRows } = await supabase
+        .from("candex_applications")
+        .select("answers, risk_level, risk_score")
+        .eq("candidate_id_number", report.id_number)
+        .order("submitted_at", { ascending: false })
+        .limit(1);
+      const precheck = precheckRows?.[0] as any;
+      const pre = precheck?.answers?.preRiskProfile;
+      if (pre?.summary || pre?.keyFindings?.length) {
+        precheckContext = `\n\nLINKED PREAPPLICHECK CONTEXT (for continuity, do not re-score):\nRisk: ${precheck.risk_level || "N/A"} (${precheck.risk_score ?? "N/A"})\nSummary: ${pre.summary || ""}\nKey findings: ${(pre.keyFindings || []).join("; ")}`;
+      }
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "AI key not configured" }), {
@@ -61,53 +77,29 @@ serve(async (req) => {
       });
     }
 
-    // SAME system prompt as generate-pre-risk-profile (PreAppliCheck) — just
-    // worded for polygraph-disclosure context. Scoring rules are identical.
-    const systemPrompt = `You are a pre-employment risk analyst. Analyze a candidate's polygraph examination disclosures and produce a structured risk profile.
+    const systemPrompt = `You are a pre-employment risk analyst. Input is structured polygraph findings. Return JSON via the required tool only.
 
-You MUST return a JSON object using this exact tool call. Analyze the disclosures across these 5 categories:
+SCORING:
+- EMPLOYMENT (0-3): 0=stable >=3y, 1=2-3y, 2=1-2y, 3=<1y or dismissals
+- FINANCIAL (0-3): 0=none, 1=current ok, 2=historical debt, 3=blacklisted
+- LEGAL (0-5 additive): +1 each for arrest, conviction, bribery, pending cases, criminal associates
+- CRIMINAL + INTEGRITY: ignored (server-side)
 
-1. EMPLOYMENT (0-3 points):
-   - 0: Stable (avg tenure 3+ years, no disciplinary issues)
-   - 1: Fairly Stable (avg tenure 2-3 years)
-   - 2: Caution (avg tenure 1-2 years or disciplinary mentions)
-   - 3: Unstable (avg tenure <1 year, frequent job changes, dismissals)
+RULES:
+- Use only confirmed disclosures
+- Weight recent/repeated higher; old isolated incidents reduce risk
+- Distinguish lifetime vs recent (especially substances)
 
-2. FINANCIAL PRESSURE (0-3 points):
-   - 0: No monthly accounts or debts mentioned
-   - 1: Has active accounts but paid up to date
-   - 2: Active accounts AND historical debt/arrears
-   - 3: Active accounts, historical debt, AND blacklisted/judgments
-
-3. LEGAL ENCOUNTERS (0-5 points, additive):
-   - +1 for personal arrest history
-   - +1 for bribe involvement
-   - +1 for conviction history
-   - +1 for pending cases
-   - +1 for family/friend criminal associations
-
-4. CRIMINAL ACTIVITY (subcategory-based, computed deterministically — DO NOT score this yourself):
-   - The system scores +1 per subcategory branch with at least one confirmed admission across:
-     Personal/Theft (max 4), Fraud (max 6), Bribery (max 3), Organized Crimes (max 4), Undetected Crimes (max 6), Illegal Drug Involvement (max 5).
-   - Your job: just acknowledge what the candidate disclosed in the keyFindings.
-
-5. INTEGRITY (0-1 points, computed deterministically from polygraph result):
-   - Polygraph examination drives this: NDI/passed = 0, INC/inconclusive = 1, DI/failed = 1.
-
-Risk Tiers: LOW (0-7), MEDIUM (8-17), HIGH (18-30), VERY HIGH (31+)
-
-SUMMARY GUIDELINES (critical):
-- NEVER recommend "employ" or "do not employ". Instead, write an OBJECTIVE summary that proposes "considerations for employment" — practical risk-management measures (e.g. supervision, role restrictions, follow-up checks, support programs) tailored to the disclosures.
-- Look at the candidate's TIMELINE: distinguish recent disclosures from distant past. If a theft, drug use, or other issue occurred only at their first/early job many years ago and not since, note this as a mitigating factor suggesting learned behaviour change.
-- For drug use, distinguish "lifetime" from "past 2 years" — if no past-2-year use, note that recent abstinence is a mitigating factor.
-- Highlight mitigating factors (single isolated incident, long time since, no recent recurrence, contained to one employer) wherever supported by the data.
-- Filter out negative responses ("no", "none", "nil", "never", "not disclosed") — only flag actual positive disclosures.`;
+OUTPUT:
+- Clear reasoning per category
+- "summary" = objective employment considerations only (NEVER hire/no-hire)
+- "keyFindings" = short evidence-based bullets`;
 
     const userPrompt = `Candidate: ${report.first_name} ${report.last_name}
 ID Number: ${report.id_number || "Not provided"}
 
 POLYGRAPH DISCLOSURES:
-${dossier}`;
+${dossier}${precheckContext}`;
 
     const aiResponse = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -118,7 +110,7 @@ ${dossier}`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "openai/gpt-5-mini",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
