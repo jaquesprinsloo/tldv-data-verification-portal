@@ -1233,25 +1233,33 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                             {riskUrl && (
                               <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={async () => {
                                 try {
-                                  let blob: Blob | null = null;
-                                  if (!riskUrl.startsWith("http")) {
-                                    const { data, error } = await supabase.storage
-                                      .from("employee-documents")
-                                      .download(riskUrl);
-                                    if (error || !data) throw error || new Error("Download failed");
-                                    blob = data;
-                                  } else {
+                                  if (riskUrl.startsWith("http")) {
                                     const res = await fetch(riskUrl);
                                     if (!res.ok) throw new Error("Fetch failed");
-                                    blob = await res.blob();
+                                    const blob = await res.blob();
+                                    const typed = new Blob([blob], { type: blob.type || "application/pdf" });
+                                    setViewRiskUrl(URL.createObjectURL(typed));
+                                    return;
                                   }
-                                  // Force PDF mime so browsers render inline in <iframe>
+                                  // Route through edge function to bypass ad-blocker rules on storage hostnames
+                                  const { data, error } = await supabase.functions.invoke("proxy-storage-file", {
+                                    method: "GET" as any,
+                                  } as any);
+                                  // The above doesn't accept query params well; use direct fetch instead
+                                  const session = (await supabase.auth.getSession()).data.session;
+                                  const token = session?.access_token;
+                                  const projectUrl = (supabase as any).supabaseUrl as string;
+                                  const fnUrl = `${projectUrl}/functions/v1/proxy-storage-file?bucket=employee-documents&path=${encodeURIComponent(riskUrl)}`;
+                                  const res = await fetch(fnUrl, {
+                                    headers: { Authorization: `Bearer ${token}`, apikey: (supabase as any).supabaseKey },
+                                  });
+                                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                                  const blob = await res.blob();
                                   const typed = new Blob([blob], { type: blob.type || "application/pdf" });
-                                  const blobUrl = URL.createObjectURL(typed);
-                                  setViewRiskUrl(blobUrl);
+                                  setViewRiskUrl(URL.createObjectURL(typed));
                                 } catch (err) {
                                   console.error("View document error:", err);
-                                  toast.error("Could not load document. Try disabling your ad blocker for this site.");
+                                  toast.error("Could not load document. A browser extension (ad blocker) may be blocking the request — try disabling it for this site or use Incognito mode.");
                                 }
                               }}>
                                 <Eye className="h-4 w-4" />
