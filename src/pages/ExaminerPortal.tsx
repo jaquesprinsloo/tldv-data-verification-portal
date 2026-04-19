@@ -693,7 +693,7 @@ const ExaminerPortal = () => {
                         <Upload className="h-4 w-4 text-primary" /> Polygraph Recordings (OneDrive)
                       </CardTitle>
                       <CardDescription>
-                        Upload complete PF folder for this report.
+                        Upload complete PF folder for this report. <span className="text-destructive font-medium">Required before submission.</span>
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
