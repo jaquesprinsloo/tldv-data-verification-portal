@@ -332,6 +332,11 @@ const ExaminerPortal = () => {
 
   const handleSubmitReport = async () => {
     if (!extractedData || !file) return;
+    const totalRecordings = recordings.length + uploadedRecordings.length;
+    if (totalRecordings === 0) {
+      toast.error("Polygraph recordings are required before submitting for review.");
+      return;
+    }
     setSaving(true);
     try {
       // 1. Upload recordings to OneDrive first (so links are saved with the report)
