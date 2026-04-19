@@ -1232,18 +1232,20 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           <div className="flex gap-1 justify-end">
                             {riskUrl && (
                               <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={async () => {
-                                if (riskUrl.startsWith("http")) {
-                                  setViewRiskUrl(riskUrl);
-                                  return;
+                                let url = riskUrl;
+                                if (!riskUrl.startsWith("http")) {
+                                  const { data, error } = await supabase.storage
+                                    .from("employee-documents")
+                                    .createSignedUrl(riskUrl, 3600);
+                                  if (error || !data?.signedUrl) {
+                                    toast.error("Could not load document");
+                                    return;
+                                  }
+                                  url = data.signedUrl;
                                 }
-                                const { data, error } = await supabase.storage
-                                  .from("employee-documents")
-                                  .createSignedUrl(riskUrl, 3600);
-                                if (error || !data?.signedUrl) {
-                                  toast.error("Could not load document");
-                                  return;
-                                }
-                                setViewRiskUrl(data.signedUrl);
+                                // Open in new tab — Chrome blocks cross-origin storage docs inside iframes
+                                const win = window.open(url, "_blank", "noopener,noreferrer");
+                                if (!win) toast.error("Pop-up blocked. Please allow pop-ups for this site.");
                               }}>
                                 <Eye className="h-4 w-4" />
                               </Button>
