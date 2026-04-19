@@ -44,6 +44,13 @@ const ExaminerPortal = () => {
   const [saving, setSaving] = useState(false);
   const [matchedCandidate, setMatchedCandidate] = useState<any>(null);
 
+  // Recordings (OneDrive) state
+  const [recordings, setRecordings] = useState<File[]>([]);
+  const [uploadedRecordings, setUploadedRecordings] = useState<
+    { fileName: string; webUrl: string | null; itemId: string | null; size: number; folderPath: string }[]
+  >([]);
+  const [recordingsProgress, setRecordingsProgress] = useState<{ current: number; total: number; name: string } | null>(null);
+
   // Animation state
   const hasSeenAnimation = sessionStorage.getItem('examiner_animation_played') === 'true';
   const [isAnimating, setIsAnimating] = useState(!hasSeenAnimation);
@@ -275,10 +282,65 @@ const ExaminerPortal = () => {
     return 'inconclusive';
   };
 
+  const uploadRecordingsToOneDrive = async (): Promise<typeof uploadedRecordings> => {
+    if (recordings.length === 0) return uploadedRecordings;
+
+    const examinationDate = extractedData?.examination?.date
+      ? new Date(extractedData.examination.date).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0];
+    const candidateName =
+      matchedCandidate?.candidate_name ||
+      `${extractedData?.candidate?.firstName || ""} ${extractedData?.candidate?.lastName || ""}`.trim() ||
+      "Unknown Candidate";
+    const bookingReference = matchedCandidate
+      ? (appointments as any[]).find((a: any) => a.id === matchedCandidate.appointment_id)?.booking_reference || "NoRef"
+      : "NoRef";
+    const examinerName = userName || user?.email || "Unassigned";
+
+    const results: typeof uploadedRecordings = [...uploadedRecordings];
+    for (let i = 0; i < recordings.length; i++) {
+      const f = recordings[i];
+      setRecordingsProgress({ current: i + 1, total: recordings.length, name: f.name });
+      const fileBase64 = await fileToBase64(f);
+      const { data, error } = await supabase.functions.invoke("upload-recording-to-onedrive", {
+        body: {
+          fileName: f.name,
+          fileBase64,
+          contentType: f.type || "application/octet-stream",
+          examinerName,
+          examinationDate,
+          candidateName,
+          bookingReference,
+        },
+      });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || `Failed to upload ${f.name} to OneDrive`);
+      }
+      results.push({
+        fileName: data.fileName,
+        webUrl: data.webUrl,
+        itemId: data.itemId,
+        size: data.size,
+        folderPath: data.folderPath,
+      });
+    }
+    setUploadedRecordings(results);
+    setRecordings([]);
+    setRecordingsProgress(null);
+    return results;
+  };
+
   const handleSubmitReport = async () => {
     if (!extractedData || !file) return;
     setSaving(true);
     try {
+      // 1. Upload recordings to OneDrive first (so links are saved with the report)
+      let recordingLinks = uploadedRecordings;
+      if (recordings.length > 0) {
+        recordingLinks = await uploadRecordingsToOneDrive();
+      }
+
+      // 2. Upload the report PDF/DOCX to Supabase storage
       const uploadId = crypto.randomUUID();
       const fileName = `pending/${uploadId}/${file.name}`;
       const { error: uploadError } = await supabase.storage
@@ -317,20 +379,22 @@ const ExaminerPortal = () => {
         overall_result: mapOverallResult(extractedData.examQuestions),
         status: "pending",
         uploaded_by: user?.id,
+        onedrive_recordings: recordingLinks,
       };
 
-      const { error } = await supabase.from("pending_polygraph_uploads").insert([pendingPayload]);
+      const { error } = await supabase.from("pending_polygraph_uploads").insert([pendingPayload as any]);
       if (error) throw error;
 
       toastHook({
         title: "Report Submitted",
         description: matchedCandidate
-          ? `Report submitted for review. Matched to: ${matchedCandidate.candidate_name}`
-          : "Report submitted for review by Master Admin.",
+          ? `Report submitted for review. Matched to: ${matchedCandidate.candidate_name}${recordingLinks.length ? ` • ${recordingLinks.length} recording(s) saved to OneDrive` : ""}`
+          : `Report submitted for review by Master Admin.${recordingLinks.length ? ` ${recordingLinks.length} recording(s) saved to OneDrive.` : ""}`,
       });
       setFile(null);
       setExtractedData(null);
       setMatchedCandidate(null);
+      setUploadedRecordings([]);
       setActiveView("dashboard");
     } catch (err: any) {
       toastHook({ title: "Error", description: err.message, variant: "destructive" });
@@ -616,6 +680,94 @@ const ExaminerPortal = () => {
                       </div>
                     </CardContent>
                   </Card>
+
+                  {/* OneDrive Recordings Upload */}
+                  <Card className="border-dashed">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Upload className="h-4 w-4 text-primary" /> Polygraph Recordings (OneDrive)
+                      </CardTitle>
+                      <CardDescription>
+                        Upload audio, video and raw test data files. They are saved directly to OneDrive at{" "}
+                        <span className="font-mono text-xs">
+                          /PreAppliCheck/Examinations/{userName || "[Examiner]"}/{"{Date}_{Candidate}_{BookingRef}"}/
+                        </span>{" "}
+                        — they don't use app storage.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <input
+                        type="file"
+                        multiple
+                        accept="audio/*,video/*,.dat,.bin,.zip,.lxe,.lx5,.lx6"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          setRecordings((prev) => [...prev, ...files]);
+                          e.target.value = "";
+                        }}
+                        className="hidden"
+                        id="examiner-recordings-upload"
+                        disabled={saving || !!recordingsProgress}
+                      />
+                      <label htmlFor="examiner-recordings-upload">
+                        <Button variant="outline" asChild className="cursor-pointer w-full" disabled={saving || !!recordingsProgress}>
+                          <span>+ Add Recording Files</span>
+                        </Button>
+                      </label>
+
+                      {recordings.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-muted-foreground">Pending upload ({recordings.length}):</p>
+                          {recordings.map((f, i) => (
+                            <div key={i} className="flex items-center justify-between rounded border bg-muted/30 px-2 py-1 text-xs">
+                              <span className="truncate">{f.name}</span>
+                              <span className="text-muted-foreground ml-2 whitespace-nowrap">
+                                {(f.size / (1024 * 1024)).toFixed(1)} MB
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 ml-1"
+                                onClick={() => setRecordings((prev) => prev.filter((_, idx) => idx !== i))}
+                                disabled={saving || !!recordingsProgress}
+                              >
+                                ✕
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {uploadedRecordings.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold text-green-700">Uploaded to OneDrive ({uploadedRecordings.length}):</p>
+                          {uploadedRecordings.map((r, i) => (
+                            <div key={i} className="flex items-center justify-between rounded border border-green-200 bg-green-50 px-2 py-1 text-xs">
+                              <span className="truncate">✓ {r.fileName}</span>
+                              {r.webUrl && (
+                                <a href={r.webUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-2 whitespace-nowrap">
+                                  Open
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {recordingsProgress && (
+                        <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                            <span>
+                              Uploading {recordingsProgress.current}/{recordingsProgress.total}: {recordingsProgress.name}
+                            </span>
+                          </div>
+                          <p className="text-muted-foreground">Large files may take a while. Please don't close this tab.</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
                   <Button onClick={handleSubmitReport} disabled={saving} className="w-full">
                     {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : <><Upload className="mr-2 h-4 w-4" /> Submit Report for Review</>}
                   </Button>
