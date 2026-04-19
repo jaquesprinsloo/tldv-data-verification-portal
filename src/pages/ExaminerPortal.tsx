@@ -282,10 +282,65 @@ const ExaminerPortal = () => {
     return 'inconclusive';
   };
 
+  const uploadRecordingsToOneDrive = async (): Promise<typeof uploadedRecordings> => {
+    if (recordings.length === 0) return uploadedRecordings;
+
+    const examinationDate = extractedData?.examination?.date
+      ? new Date(extractedData.examination.date).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0];
+    const candidateName =
+      matchedCandidate?.candidate_name ||
+      `${extractedData?.candidate?.firstName || ""} ${extractedData?.candidate?.lastName || ""}`.trim() ||
+      "Unknown Candidate";
+    const bookingReference = matchedCandidate
+      ? (appointments as any[]).find((a: any) => a.id === matchedCandidate.appointment_id)?.booking_reference || "NoRef"
+      : "NoRef";
+    const examinerName = userName || user?.email || "Unassigned";
+
+    const results: typeof uploadedRecordings = [...uploadedRecordings];
+    for (let i = 0; i < recordings.length; i++) {
+      const f = recordings[i];
+      setRecordingsProgress({ current: i + 1, total: recordings.length, name: f.name });
+      const fileBase64 = await fileToBase64(f);
+      const { data, error } = await supabase.functions.invoke("upload-recording-to-onedrive", {
+        body: {
+          fileName: f.name,
+          fileBase64,
+          contentType: f.type || "application/octet-stream",
+          examinerName,
+          examinationDate,
+          candidateName,
+          bookingReference,
+        },
+      });
+      if (error || !data?.success) {
+        throw new Error(data?.error || error?.message || `Failed to upload ${f.name} to OneDrive`);
+      }
+      results.push({
+        fileName: data.fileName,
+        webUrl: data.webUrl,
+        itemId: data.itemId,
+        size: data.size,
+        folderPath: data.folderPath,
+      });
+    }
+    setUploadedRecordings(results);
+    setRecordings([]);
+    setRecordingsProgress(null);
+    return results;
+  };
+
   const handleSubmitReport = async () => {
     if (!extractedData || !file) return;
     setSaving(true);
     try {
+      // 1. Upload recordings to OneDrive first (so links are saved with the report)
+      let recordingLinks = uploadedRecordings;
+      if (recordings.length > 0) {
+        recordingLinks = await uploadRecordingsToOneDrive();
+      }
+
+      // 2. Upload the report PDF/DOCX to Supabase storage
       const uploadId = crypto.randomUUID();
       const fileName = `pending/${uploadId}/${file.name}`;
       const { error: uploadError } = await supabase.storage
@@ -324,20 +379,22 @@ const ExaminerPortal = () => {
         overall_result: mapOverallResult(extractedData.examQuestions),
         status: "pending",
         uploaded_by: user?.id,
+        onedrive_recordings: recordingLinks,
       };
 
-      const { error } = await supabase.from("pending_polygraph_uploads").insert([pendingPayload]);
+      const { error } = await supabase.from("pending_polygraph_uploads").insert([pendingPayload as any]);
       if (error) throw error;
 
       toastHook({
         title: "Report Submitted",
         description: matchedCandidate
-          ? `Report submitted for review. Matched to: ${matchedCandidate.candidate_name}`
-          : "Report submitted for review by Master Admin.",
+          ? `Report submitted for review. Matched to: ${matchedCandidate.candidate_name}${recordingLinks.length ? ` • ${recordingLinks.length} recording(s) saved to OneDrive` : ""}`
+          : `Report submitted for review by Master Admin.${recordingLinks.length ? ` ${recordingLinks.length} recording(s) saved to OneDrive.` : ""}`,
       });
       setFile(null);
       setExtractedData(null);
       setMatchedCandidate(null);
+      setUploadedRecordings([]);
       setActiveView("dashboard");
     } catch (err: any) {
       toastHook({ title: "Error", description: err.message, variant: "destructive" });
