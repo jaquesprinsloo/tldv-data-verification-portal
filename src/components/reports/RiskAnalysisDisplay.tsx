@@ -18,12 +18,22 @@ import {
   Fingerprint, TrendingDown, Ban, Check, X,
 } from "lucide-react";
 import { CalculationInfoPopover } from "./CalculationInfoPopover";
+import { AIRiskProfileView } from "./AIRiskProfileView";
 
 interface RiskAnalysisDisplayProps {
   polygraphReport: any;
   examQuestions: any[];
   riskAnalysis?: any;
 }
+
+// Detect the PreAppliCheck-shaped AI profile (5 named categories + tier).
+const isAIRiskProfile = (ra: any): boolean =>
+  !!ra &&
+  typeof ra === "object" &&
+  ra.employment && typeof ra.employment.score === "number" &&
+  ra.financial && ra.legal && ra.criminal && ra.integrity &&
+  typeof ra.totalScore === "number" &&
+  typeof ra.riskLevel === "string";
 
 // ─── Utility Functions ───────────────────────────────────────────────
 
@@ -638,6 +648,14 @@ const BranchDropdown = ({ branch }: { branch: CriminalBranch }) => {
 // ─── Main Component ──────────────────────────────────────────────────
 
 const RiskAnalysisDisplay = ({ polygraphReport, examQuestions, riskAnalysis }: RiskAnalysisDisplayProps) => {
+  // If the AI-generated PreAppliCheck-shaped profile is stored on the report,
+  // render the unified view that uses the same scoring tiers and visual
+  // language as PreAppliCheck (LOW 0-7, MEDIUM 8-17, HIGH 18-30, VERY HIGH 31+).
+  const aiProfile = riskAnalysis ?? polygraphReport?.risk_analysis;
+  if (isAIRiskProfile(aiProfile)) {
+    return <AIRiskProfileView profile={aiProfile} />;
+  }
+
   const employment = calculateEmploymentScore(polygraphReport);
   const financial = calculateFinancialScore(polygraphReport);
   const law = calculateLawScore(polygraphReport);
