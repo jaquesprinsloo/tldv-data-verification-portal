@@ -91,7 +91,7 @@ const CandexRiskRequests = () => {
         .select("*")
         .eq("request_id", selectedRequest.id);
       if (error) throw error;
-      return (data || []) as RiskCandidate[];
+      return ((data || []) as unknown) as RiskCandidate[];
     },
     enabled: !!selectedRequest?.id,
   });
@@ -144,7 +144,7 @@ const CandexRiskRequests = () => {
       const { error } = await supabase
         .from("candex_risk_request_candidates")
         .update({
-          check_results: workingResults,
+          check_results: workingResults as any,
           // Mirror legacy single-result fields so older UI bits keep working
           id_verified: workingResults.id_verification?.status === "clear",
           risk_assessment_result: allDone ? (anyFlagged ? "flagged" : "clear") : null,
