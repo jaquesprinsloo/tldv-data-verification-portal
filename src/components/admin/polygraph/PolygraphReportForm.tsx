@@ -494,6 +494,20 @@ const PolygraphReportForm = ({ reportId, initialData, onSaved, onCancel }: Polyg
         }
       }
 
+      // Regenerate the PreAppliCheck-style 5-category AI risk profile when the
+      // report is marked completed (drafts skip — data may still change).
+      if (status === "completed" && newReportId) {
+        try {
+          const { error: aiErr } = await supabase.functions.invoke(
+            "generate-polygraph-risk-profile",
+            { body: { report_id: newReportId } },
+          );
+          if (aiErr) console.error("Risk profile generation error (non-fatal):", aiErr);
+        } catch (aiCatch) {
+          console.error("Risk profile generation failed (non-fatal):", aiCatch);
+        }
+      }
+
       toast({
         title: status === "draft" ? "Draft Saved" : "Report Completed",
         description: status === "draft" 
