@@ -769,7 +769,11 @@ const ExaminerPortal = () => {
                     </CardContent>
                   </Card>
 
-                  <Button onClick={handleSubmitReport} disabled={saving} className="w-full">
+                  <Button
+                    onClick={handleSubmitReport}
+                    disabled={saving || (recordings.length + uploadedRecordings.length === 0)}
+                    className="w-full"
+                  >
                     {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</> : <><Upload className="mr-2 h-4 w-4" /> Submit Report for Review</>}
                   </Button>
                 </div>
