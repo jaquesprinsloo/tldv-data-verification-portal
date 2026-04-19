@@ -1233,7 +1233,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                             {riskUrl && (
                               <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={async () => {
                                 try {
-                                  // Download via Supabase SDK (avoids Chrome ad-blocker rules on supabase.co URLs)
                                   let blob: Blob | null = null;
                                   if (!riskUrl.startsWith("http")) {
                                     const { data, error } = await supabase.storage
@@ -1246,18 +1245,10 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                                     if (!res.ok) throw new Error("Fetch failed");
                                     blob = await res.blob();
                                   }
-                                  const blobUrl = URL.createObjectURL(blob);
-                                  const win = window.open(blobUrl, "_blank", "noopener,noreferrer");
-                                  if (!win) {
-                                    // Fallback: trigger a download instead
-                                    const a = document.createElement("a");
-                                    a.href = blobUrl;
-                                    a.download = riskUrl.split("/").pop() || "risk-assessment";
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    a.remove();
-                                  }
-                                  setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                                  // Force PDF mime so browsers render inline in <iframe>
+                                  const typed = new Blob([blob], { type: blob.type || "application/pdf" });
+                                  const blobUrl = URL.createObjectURL(typed);
+                                  setViewRiskUrl(blobUrl);
                                 } catch (err) {
                                   console.error("View document error:", err);
                                   toast.error("Could not load document. Try disabling your ad blocker for this site.");
@@ -1281,7 +1272,12 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         </Card>
 
         {/* View Risk Assessment Dialog (for completed tab) */}
-        <Dialog open={!!viewRiskUrl} onOpenChange={() => setViewRiskUrl(null)}>
+        <Dialog open={!!viewRiskUrl} onOpenChange={(open) => {
+          if (!open) {
+            if (viewRiskUrl?.startsWith("blob:")) URL.revokeObjectURL(viewRiskUrl);
+            setViewRiskUrl(null);
+          }
+        }}>
           <DialogContent className="max-w-3xl max-h-[85vh]">
             <DialogHeader>
               <DialogTitle>Risk Assessment Report</DialogTitle>
