@@ -105,17 +105,22 @@ You MUST return a JSON object using this exact tool call. Analyze the questionna
    - +1 for pending cases
    - +1 for family/friend criminal associations
 
-4. CRIMINAL ACTIVITY (count confirmed YES answers):
-   - Count every distinct "yes" to questions about theft, fraud, bribery, organized crime, undetected crimes, illegal drugs, etc.
-   - Each confirmed "yes" = 1 point
+4. CRIMINAL ACTIVITY (subcategory-based, computed deterministically — DO NOT score this yourself):
+   - The system scores +1 per subcategory branch with at least one "Yes" disclosure across:
+     Personal (max 4), Fraud (max 6), Bribery (max 3), Organized Crimes (max 4), Undetected Crimes (max 6), Illegal Drug Involvement (max 5).
+   - Your job: just acknowledge what the candidate disclosed in the keyFindings.
 
-5. INTEGRITY (0-1 points):
-   - 0: No integrity concerns from questionnaire
-   - 1: Contradictory answers, evasive responses, or disclosed integrity issues
+5. INTEGRITY (0-1 points, computed deterministically from polygraph):
+   - Until a polygraph examination is linked, integrity is "Pending" (0).
 
 Risk Tiers: LOW (0-7), MEDIUM (8-17), HIGH (18-30), VERY HIGH (31+)
 
-Analyze the data carefully. Filter out negative responses ("no", "none", "nil", "never", "not disclosed") — only flag actual positive disclosures.`;
+SUMMARY GUIDELINES (critical):
+- NEVER recommend "employ" or "do not employ". Instead, write an OBJECTIVE summary that proposes "considerations for employment" — practical risk-management measures (e.g. supervision, role restrictions, follow-up checks, support programs) tailored to the disclosures.
+- Look at the candidate's TIMELINE: distinguish recent disclosures from distant past. If a theft, drug use, or other issue occurred only at their first/early job many years ago and not since, note this as a mitigating factor suggesting learned behaviour change.
+- For drug use, distinguish "lifetime" from "past 2 years" — if no past-2-year use, note that recent abstinence is a mitigating factor.
+- Highlight mitigating factors (single isolated incident, long time since, no recent recurrence, contained to one employer) wherever supported by the data.
+- Filter out negative responses ("no", "none", "nil", "never", "not disclosed") — only flag actual positive disclosures.`;
 
     const userPrompt = `Candidate: ${app.candidate_name}
 ID Number: ${app.candidate_id_number || "Not provided"}
