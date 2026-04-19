@@ -56,6 +56,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [requestAccountId, setRequestAccountId] = useState("");
   const [requestStoreId, setRequestStoreId] = useState("");
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
+  const [selectedChecks, setSelectedChecks] = useState<RiskCheckKey[]>(DEFAULT_REQUESTED_CHECKS);
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [viewBookingConfirmation, setViewBookingConfirmation] = useState<BookingData | null>(null);
@@ -216,7 +217,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       if (!client?.id) return [];
       const { data } = await supabase
         .from("candex_risk_request_candidates")
-        .select("application_id, id_verified, risk_assessment_result, risk_assessment_url, request_id, candex_risk_requests(status)")
+        .select("application_id, id_verified, risk_assessment_result, risk_assessment_url, request_id, check_results, candex_risk_requests(status, requested_checks)")
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
       return data || [];
