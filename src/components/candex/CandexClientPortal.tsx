@@ -1232,20 +1232,36 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           <div className="flex gap-1 justify-end">
                             {riskUrl && (
                               <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={async () => {
-                                let url = riskUrl;
-                                if (!riskUrl.startsWith("http")) {
-                                  const { data, error } = await supabase.storage
-                                    .from("employee-documents")
-                                    .createSignedUrl(riskUrl, 3600);
-                                  if (error || !data?.signedUrl) {
-                                    toast.error("Could not load document");
-                                    return;
+                                try {
+                                  // Download via Supabase SDK (avoids Chrome ad-blocker rules on supabase.co URLs)
+                                  let blob: Blob | null = null;
+                                  if (!riskUrl.startsWith("http")) {
+                                    const { data, error } = await supabase.storage
+                                      .from("employee-documents")
+                                      .download(riskUrl);
+                                    if (error || !data) throw error || new Error("Download failed");
+                                    blob = data;
+                                  } else {
+                                    const res = await fetch(riskUrl);
+                                    if (!res.ok) throw new Error("Fetch failed");
+                                    blob = await res.blob();
                                   }
-                                  url = data.signedUrl;
+                                  const blobUrl = URL.createObjectURL(blob);
+                                  const win = window.open(blobUrl, "_blank", "noopener,noreferrer");
+                                  if (!win) {
+                                    // Fallback: trigger a download instead
+                                    const a = document.createElement("a");
+                                    a.href = blobUrl;
+                                    a.download = riskUrl.split("/").pop() || "risk-assessment";
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                  }
+                                  setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                                } catch (err) {
+                                  console.error("View document error:", err);
+                                  toast.error("Could not load document. Try disabling your ad blocker for this site.");
                                 }
-                                // Open in new tab — Chrome blocks cross-origin storage docs inside iframes
-                                const win = window.open(url, "_blank", "noopener,noreferrer");
-                                if (!win) toast.error("Pop-up blocked. Please allow pop-ups for this site.");
                               }}>
                                 <Eye className="h-4 w-4" />
                               </Button>
