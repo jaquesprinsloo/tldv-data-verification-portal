@@ -351,16 +351,15 @@ ${questionnaireText}`;
     riskProfile.riskLevel = getRiskLevelFromTotal(riskProfile.totalScore);
 
     const criminalFinding = deterministicCriminal.score > 0
-      ? `${deterministicCriminal.score} confirmed criminal activity disclosure${deterministicCriminal.score === 1 ? "" : "s"}`
+      ? `Criminal Activity score ${deterministicCriminal.score}/28 across ${deterministicCriminal.confirmedItems.length} disclosure${deterministicCriminal.confirmedItems.length === 1 ? "" : "s"}`
       : "No confirmed criminal activity disclosures";
     riskProfile.keyFindings = Array.from(new Set([
-      ...((riskProfile.keyFindings || []) as string[]).filter((finding: string) => !/no criminal activity|criminal activity disclosure/i.test(finding)),
+      ...((riskProfile.keyFindings || []) as string[]).filter((finding: string) => !/no criminal activity|criminal activity (disclosure|score)/i.test(finding)),
       criminalFinding,
     ]));
-
-    if (deterministicCriminal.score > 0) {
-      riskProfile.summary = `The questionnaire indicates ${deterministicCriminal.score} confirmed criminal activity disclosure${deterministicCriminal.score === 1 ? "" : "s"}, contributing directly to the overall pre-risk alert level.`;
-    }
+    // NOTE: Do NOT overwrite riskProfile.summary here — the AI summary is intentionally
+    // crafted with timeline-aware mitigating factors and "considerations for employment"
+    // guidance per the system prompt. Overwriting it would lose that nuance.
 
     // Update the application with risk data
     const updatedAnswers = {
