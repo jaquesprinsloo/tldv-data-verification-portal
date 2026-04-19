@@ -1272,7 +1272,12 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         </Card>
 
         {/* View Risk Assessment Dialog (for completed tab) */}
-        <Dialog open={!!viewRiskUrl} onOpenChange={() => setViewRiskUrl(null)}>
+        <Dialog open={!!viewRiskUrl} onOpenChange={(open) => {
+          if (!open) {
+            if (viewRiskUrl?.startsWith("blob:")) URL.revokeObjectURL(viewRiskUrl);
+            setViewRiskUrl(null);
+          }
+        }}>
           <DialogContent className="max-w-3xl max-h-[85vh]">
             <DialogHeader>
               <DialogTitle>Risk Assessment Report</DialogTitle>
