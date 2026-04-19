@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
 
     if (totalSize <= SIMPLE_LIMIT) {
       const res = await gatewayFetch(
-        `/v1.0/me/drive/root:/${encodedPath}:/content`,
+        `/me/drive/root:/${encodedPath}:/content`,
         {
           method: "PUT",
           headers: { "Content-Type": contentType || "application/octet-stream" },
@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
     } else {
       // Create upload session
       const sessionRes = await gatewayFetch(
-        `/v1.0/me/drive/root:/${encodedPath}:/createUploadSession`,
+        `/me/drive/root:/${encodedPath}:/createUploadSession`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
