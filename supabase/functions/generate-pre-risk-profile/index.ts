@@ -82,45 +82,24 @@ serve(async (req) => {
       });
     }
 
-    const systemPrompt = `You are a pre-employment risk analyst. Analyze a candidate's PreAppliCheck questionnaire and produce a structured risk profile.
+    const systemPrompt = `You are a pre-employment risk analyst. Return JSON via the required tool only.
 
-You MUST return a JSON object using this exact tool call. Analyze the questionnaire responses across these 5 categories:
+SCORING:
+- EMPLOYMENT (0-3): 0=stable >=3y, 1=2-3y, 2=1-2y, 3=<1y or dismissals
+- FINANCIAL (0-3): 0=none, 1=current ok, 2=historical debt, 3=blacklisted
+- LEGAL (0-5 additive): +1 each for arrest, conviction, bribery, pending cases, criminal associates
+- CRIMINAL: ignore (server-computed)
+- INTEGRITY: always 0 ("Pending")
 
-1. EMPLOYMENT (0-3 points):
-   - 0: Stable (avg tenure 3+ years, no disciplinary issues)
-   - 1: Fairly Stable (avg tenure 2-3 years)
-   - 2: Caution (avg tenure 1-2 years or disciplinary mentions)
-   - 3: Unstable (avg tenure <1 year, frequent job changes, dismissals)
+RULES:
+- Ignore empty/negative responses ("no","none","never")
+- Weight recent/repeated higher; old isolated incidents reduce risk
+- Distinguish lifetime vs last 2 years (especially for drugs)
 
-2. FINANCIAL PRESSURE (0-3 points):
-   - 0: No monthly accounts or debts mentioned
-   - 1: Has active accounts but paid up to date
-   - 2: Active accounts AND historical debt/arrears
-   - 3: Active accounts, historical debt, AND blacklisted/judgments
-
-3. LEGAL ENCOUNTERS (0-5 points, additive):
-   - +1 for personal arrest history
-   - +1 for bribe involvement
-   - +1 for conviction history
-   - +1 for pending cases
-   - +1 for family/friend criminal associations
-
-4. CRIMINAL ACTIVITY (subcategory-based, computed deterministically — DO NOT score this yourself):
-   - The system scores +1 per subcategory branch with at least one "Yes" disclosure across:
-     Personal (max 4), Fraud (max 6), Bribery (max 3), Organized Crimes (max 4), Undetected Crimes (max 6), Illegal Drug Involvement (max 5).
-   - Your job: just acknowledge what the candidate disclosed in the keyFindings.
-
-5. INTEGRITY (0-1 points, computed deterministically from polygraph):
-   - Until a polygraph examination is linked, integrity is "Pending" (0).
-
-Risk Tiers: LOW (0-7), MEDIUM (8-17), HIGH (18-30), VERY HIGH (31+)
-
-SUMMARY GUIDELINES (critical):
-- NEVER recommend "employ" or "do not employ". Instead, write an OBJECTIVE summary that proposes "considerations for employment" — practical risk-management measures (e.g. supervision, role restrictions, follow-up checks, support programs) tailored to the disclosures.
-- Look at the candidate's TIMELINE: distinguish recent disclosures from distant past. If a theft, drug use, or other issue occurred only at their first/early job many years ago and not since, note this as a mitigating factor suggesting learned behaviour change.
-- For drug use, distinguish "lifetime" from "past 2 years" — if no past-2-year use, note that recent abstinence is a mitigating factor.
-- Highlight mitigating factors (single isolated incident, long time since, no recent recurrence, contained to one employer) wherever supported by the data.
-- Filter out negative responses ("no", "none", "nil", "never", "not disclosed") — only flag actual positive disclosures.`;
+OUTPUT:
+- Fill all fields
+- "summary" = objective employment considerations (NEVER hire/no-hire)
+- "keyFindings" = short evidence-based bullets only`;
 
     const userPrompt = `Candidate: ${app.candidate_name}
 ID Number: ${app.candidate_id_number || "Not provided"}
@@ -137,7 +116,7 @@ ${questionnaireText}`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-2.5-flash-lite",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
