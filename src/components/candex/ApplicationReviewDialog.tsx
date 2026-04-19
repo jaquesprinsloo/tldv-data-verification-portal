@@ -8,6 +8,7 @@ import { Check, X, Shield, FileText, User, Smartphone, ClipboardList, AlertTrian
 import { format } from "date-fns";
 import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 import { CalculationInfoPopover } from "@/components/reports/CalculationInfoPopover";
+import { SpeakButton } from "@/components/shared/SpeakButton";
 
 interface ApplicationReviewDialogProps {
   application: any;
@@ -213,7 +214,13 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
               </div>
             </div>
             {preRiskProfile.summary && (
-              <p className="text-sm mt-3 opacity-80">{preRiskProfile.summary}</p>
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium uppercase tracking-wider opacity-70">Summary</p>
+                  <SpeakButton text={preRiskProfile.summary} label="Read aloud" />
+                </div>
+                <p className="text-sm opacity-80">{preRiskProfile.summary}</p>
+              </div>
             )}
           </CardContent>
         </Card>
