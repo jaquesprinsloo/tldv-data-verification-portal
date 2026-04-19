@@ -22,6 +22,13 @@ import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
 import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
+import {
+  RISK_CHECKS,
+  DEFAULT_REQUESTED_CHECKS,
+  RiskCheckCell,
+  type RiskCheckKey,
+  type RiskCheckResult,
+} from "./riskCheckTypes";
 import { format } from "date-fns";
 
 interface CandexClientPortalProps {
@@ -49,6 +56,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [requestAccountId, setRequestAccountId] = useState("");
   const [requestStoreId, setRequestStoreId] = useState("");
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
+  const [selectedChecks, setSelectedChecks] = useState<RiskCheckKey[]>(DEFAULT_REQUESTED_CHECKS);
   const [viewRiskUrl, setViewRiskUrl] = useState<string | null>(null);
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [viewBookingConfirmation, setViewBookingConfirmation] = useState<BookingData | null>(null);
@@ -209,7 +217,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       if (!client?.id) return [];
       const { data } = await supabase
         .from("candex_risk_request_candidates")
-        .select("application_id, id_verified, risk_assessment_result, risk_assessment_url, request_id, candex_risk_requests(status)")
+        .select("application_id, id_verified, risk_assessment_result, risk_assessment_url, request_id, check_results, candex_risk_requests(status, requested_checks)")
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
       return data || [];
@@ -566,6 +574,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       if (!client?.id || !requestAccountId || selectedCandidates.length === 0) {
         throw new Error("Please fill all fields and select candidates");
       }
+      if (selectedChecks.length === 0) {
+        throw new Error("Select at least one check to request");
+      }
       const { data: req, error: reqErr } = await supabase
         .from("candex_risk_requests" as any)
         .insert({
@@ -574,13 +585,18 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           requested_by: userId,
           requested_date: requestDate ? format(requestDate, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
           status: "pending",
+          requested_checks: selectedChecks,
         } as any)
         .select("id")
         .single();
       if (reqErr) throw reqErr;
+      // Seed each requested check as "pending" so the master profile has a clear list to process
+      const seeded: Record<string, RiskCheckResult> = {};
+      selectedChecks.forEach((k) => { seeded[k] = { status: "pending" }; });
       const candidates = selectedCandidates.map((appId) => ({
         request_id: (req as any).id,
         application_id: appId,
+        check_results: seeded,
       }));
       const { error: candErr } = await supabase.from("candex_risk_request_candidates" as any).insert(candidates as any);
       if (candErr) throw candErr;
@@ -589,9 +605,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       toast.success("Risk assessment request submitted");
       setRequestOpen(false);
       setSelectedCandidates([]);
+      setSelectedChecks(DEFAULT_REQUESTED_CHECKS);
       setRequestAccountId("");
       setRequestStoreId("");
       queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates-for-approved"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-pending-risk-count"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -986,22 +1004,25 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                     <TableHead>Candidate</TableHead>
                     <TableHead>ID Number</TableHead>
                     <TableHead>Date Approved</TableHead>
-                    <TableHead>ID Verified</TableHead>
-                    <TableHead>Risk Assessment</TableHead>
                     <TableHead>Pre Risk</TableHead>
+                    {RISK_CHECKS.map((c) => (
+                      <TableHead key={c.key} className="text-center text-[10px] uppercase tracking-wide px-1" title={c.label}>
+                        {c.short}
+                      </TableHead>
+                    ))}
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {approved.map((app) => {
                     const riskCandidate = riskCandidateData?.find((rc: any) => rc.application_id === app.id);
-                    const requestStatus = (riskCandidate as any)?.candex_risk_requests?.status;
-                    const isRequested = !!riskCandidate;
-                    const isCompleted = requestStatus === "completed";
-                    const isPending = isRequested && !isCompleted;
-                    const idVerified = riskCandidate?.id_verified;
-                    const riskResult = riskCandidate?.risk_assessment_result;
-                    const riskUrl = riskCandidate?.risk_assessment_url;
+                    const requestedChecks: RiskCheckKey[] =
+                      ((riskCandidate as any)?.candex_risk_requests?.requested_checks as RiskCheckKey[]) || [];
+                    const checkResults: Record<string, RiskCheckResult> =
+                      ((riskCandidate as any)?.check_results as Record<string, RiskCheckResult>) || {};
+                    // Legacy fallback: pre-existing rows used the old single id_verified / risk_assessment_result fields.
+                    const legacyIdVerified = riskCandidate?.id_verified;
+                    const legacyRisk = riskCandidate?.risk_assessment_result;
 
                     return (
                       <TableRow key={app.id}>
@@ -1011,34 +1032,29 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           {app.updated_at ? format(new Date(app.updated_at), "dd MMM yyyy") : "—"}
                         </TableCell>
                         <TableCell>
-                          {!isRequested ? (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">Not Requested</Badge>
-                          ) : isPending ? (
-                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-amber-200">Pending</Badge>
-                          ) : idVerified ? (
-                            <Badge className="text-xs bg-green-600 text-white"><CheckCircle className="h-3 w-3 mr-1" />Verified</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">Unverified</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {!isRequested ? (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">Not Requested</Badge>
-                          ) : isPending ? (
-                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">Requested</Badge>
-                          ) : isCompleted && riskResult === "clear" ? (
-                            <Badge className="text-xs bg-green-600 text-white"><CheckCircle className="h-3 w-3 mr-1" />No Risk Identified</Badge>
-                          ) : isCompleted && riskResult === "flagged" ? (
-                            <Badge className="text-xs bg-destructive text-destructive-foreground"><AlertTriangle className="h-3 w-3 mr-1" />Risk Identified</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">Completed</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
                           {app.risk_level ? (
                             <Badge className={`text-xs ${app.risk_level === "LOW" ? "bg-green-600 text-white" : "bg-destructive text-destructive-foreground"}`}>{app.risk_level}</Badge>
                           ) : "—"}
                         </TableCell>
+                        {RISK_CHECKS.map((c) => {
+                          const requested = requestedChecks.includes(c.key) ||
+                            (c.key === "id_verification" && !!riskCandidate && requestedChecks.length === 0) ||
+                            (c.key === "pre_crim" && !!riskCandidate && requestedChecks.length === 0);
+                          let result = checkResults[c.key];
+                          // Legacy bridge so old requests still show outcomes
+                          if (!result && requested) {
+                            if (c.key === "id_verification" && legacyIdVerified !== undefined && legacyIdVerified !== null) {
+                              result = { status: legacyIdVerified ? "clear" : "flagged" };
+                            } else if (c.key === "pre_crim" && legacyRisk) {
+                              result = { status: legacyRisk === "clear" ? "clear" : "flagged" };
+                            }
+                          }
+                          return (
+                            <TableCell key={c.key} className="text-center px-1">
+                              <RiskCheckCell requested={requested} result={result} label={c.label} />
+                            </TableCell>
+                          );
+                        })}
                         <TableCell className="text-right flex gap-1 justify-end">
                           <Button variant="ghost" size="sm" title="View PreAppliCheck" onClick={() => setViewPreAppliCheckApp(app)}>
                             <Eye className="h-4 w-4" />
@@ -1112,6 +1128,25 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                 </div>
               )}
               <div>
+                <Label>Checks to Request</Label>
+                <div className="border rounded-md mt-1 p-2 grid grid-cols-2 gap-1">
+                  {RISK_CHECKS.map((c) => (
+                    <label key={c.key} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
+                      <Checkbox
+                        checked={selectedChecks.includes(c.key)}
+                        onCheckedChange={() => setSelectedChecks((prev) =>
+                          prev.includes(c.key) ? prev.filter((k) => k !== c.key) : [...prev, c.key]
+                        )}
+                      />
+                      <span>{c.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Each ticked check is created as a pending item on the candidate's master profile for individual processing.
+                </p>
+              </div>
+              <div>
                 <Label>Select Candidates</Label>
                 <div className="border rounded-md mt-1 max-h-48 overflow-y-auto">
                   {approved.map((app) => (
@@ -1125,7 +1160,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={() => submitRiskRequest.mutate()} disabled={submitRiskRequest.isPending || !selectedCandidates.length || !requestAccountId}>
+              <Button onClick={() => submitRiskRequest.mutate()} disabled={submitRiskRequest.isPending || !selectedCandidates.length || !requestAccountId || selectedChecks.length === 0}>
                 <Send className="h-4 w-4 mr-1" /> Submit Request
               </Button>
             </DialogFooter>

@@ -12,7 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Eye, CheckCircle, XCircle, ShieldCheck, AlertTriangle, FileText, Upload, Clock, Users } from "lucide-react";
+import { Eye, CheckCircle, ShieldCheck, AlertTriangle, FileText, Upload, Clock, Users, XCircle } from "lucide-react";
+import {
+  RISK_CHECKS,
+  RiskCheckCell,
+  RiskCheckStatusBadge,
+  type RiskCheckKey,
+  type RiskCheckResult,
+  type RiskCheckStatus,
+} from "./riskCheckTypes";
 
 interface RiskRequest {
   id: string;
@@ -23,6 +31,7 @@ interface RiskRequest {
   status: string;
   notes: string | null;
   created_at: string;
+  requested_checks?: RiskCheckKey[];
 }
 
 interface RiskCandidate {
@@ -32,20 +41,19 @@ interface RiskCandidate {
   id_verified: boolean | null;
   risk_assessment_result: string | null;
   risk_assessment_url: string | null;
+  check_results?: Record<string, RiskCheckResult>;
+  deleted_at?: string | null;
+  deleted_by_name?: string | null;
 }
 
 const CandexRiskRequests = () => {
   const queryClient = useQueryClient();
   const [selectedRequest, setSelectedRequest] = useState<RiskRequest | null>(null);
-  const [processCandidate, setProcessCandidate] = useState<any>(null);
-  const [assessmentResult, setAssessmentResult] = useState<string>("");
-  const [assessmentNotes, setAssessmentNotes] = useState("");
-  const [idVerified, setIdVerified] = useState(false);
-  const [uploadingFile, setUploadingFile] = useState(false);
-  const [assessmentFile, setAssessmentFile] = useState<File | null>(null);
-  const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
+  const [processCandidate, setProcessCandidate] = useState<RiskCandidate | null>(null);
+  const [workingResults, setWorkingResults] = useState<Record<string, RiskCheckResult>>({});
+  const [uploadingKey, setUploadingKey] = useState<RiskCheckKey | null>(null);
 
-  // Fetch all risk requests with client info
+  // Fetch all risk requests
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ["candex-risk-requests-master"],
     queryFn: async () => {
@@ -58,7 +66,6 @@ const CandexRiskRequests = () => {
     },
   });
 
-  // Fetch clients for name lookup
   const { data: clients = [] } = useQuery({
     queryKey: ["candex-clients-lookup"],
     queryFn: async () => {
@@ -67,7 +74,6 @@ const CandexRiskRequests = () => {
     },
   });
 
-  // Fetch accounts for name lookup
   const { data: accounts = [] } = useQuery({
     queryKey: ["candex-accounts-lookup"],
     queryFn: async () => {
@@ -76,7 +82,6 @@ const CandexRiskRequests = () => {
     },
   });
 
-  // Fetch candidates for selected request
   const { data: requestCandidates = [] } = useQuery({
     queryKey: ["candex-risk-candidates", selectedRequest?.id],
     queryFn: async () => {
@@ -86,12 +91,11 @@ const CandexRiskRequests = () => {
         .select("*")
         .eq("request_id", selectedRequest.id);
       if (error) throw error;
-      return (data || []) as RiskCandidate[];
+      return ((data || []) as unknown) as RiskCandidate[];
     },
     enabled: !!selectedRequest?.id,
   });
 
-  // Fetch application details for candidates
   const { data: candidateApplications = [] } = useQuery({
     queryKey: ["candex-risk-apps", requestCandidates.map((c) => c.application_id).join(",")],
     queryFn: async () => {
@@ -107,93 +111,71 @@ const CandexRiskRequests = () => {
   });
 
   const getClientName = (clientId: string) => {
-    const client = clients.find((c) => c.id === clientId);
-    return client ? (client.company_name || client.name) : "Unknown Client";
+    const c = clients.find((x) => x.id === clientId);
+    return c ? (c.company_name || c.name) : "Unknown Client";
   };
-
   const getAccountName = (accountId: string | null) => {
     if (!accountId) return "—";
-    const account = accounts.find((a) => a.id === accountId);
-    return account ? `${account.name} (${account.code})` : "—";
+    const a = accounts.find((x) => x.id === accountId);
+    return a ? `${a.name} (${a.code})` : "—";
   };
-
-  const getAppDetails = (appId: string) => {
-    return candidateApplications.find((a) => a.id === appId);
-  };
+  const getAppDetails = (appId: string) => candidateApplications.find((a) => a.id === appId);
 
   const pendingRequests = requests.filter((r) => r.status === "pending");
   const inProgressRequests = requests.filter((r) => r.status === "in_progress");
   const completedRequests = requests.filter((r) => r.status === "completed");
 
-  // Handle file upload
-  const handleFileUpload = async (file: File) => {
-    setUploadingFile(true);
-    try {
-      const fileExt = file.name.split(".").pop();
-      const filePath = `risk-assessments/${processCandidate.id}_${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from("employee-documents")
-        .upload(filePath, file);
-      if (uploadError) throw uploadError;
-      // Store the path (not a public URL) since bucket is private
-      setUploadedFileUrl(filePath);
-      toast.success("File uploaded successfully");
-    } catch (e: any) {
-      toast.error("Upload failed: " + e.message);
-    } finally {
-      setUploadingFile(false);
-    }
-  };
+  const requestedChecksFor = (req?: RiskRequest | null): RiskCheckKey[] =>
+    (req?.requested_checks && req.requested_checks.length > 0)
+      ? req.requested_checks
+      : ["id_verification", "pre_crim"]; // legacy fallback for pre-existing requests
 
-  // Process a candidate's risk assessment
-  const processCandidateMutation = useMutation({
+  // Save per-check progress
+  const saveResults = useMutation({
     mutationFn: async () => {
       if (!processCandidate) return;
+      const requested = requestedChecksFor(selectedRequest);
+      const allDone = requested.every((k) => {
+        const s = workingResults[k]?.status;
+        return s === "clear" || s === "flagged";
+      });
+      const anyFlagged = requested.some((k) => workingResults[k]?.status === "flagged");
+
       const { error } = await supabase
         .from("candex_risk_request_candidates")
         .update({
-          id_verified: idVerified,
-          risk_assessment_result: assessmentResult,
-          risk_assessment_url: uploadedFileUrl,
+          check_results: workingResults as any,
+          // Mirror legacy single-result fields so older UI bits keep working
+          id_verified: workingResults.id_verification?.status === "clear",
+          risk_assessment_result: allDone ? (anyFlagged ? "flagged" : "clear") : null,
         })
         .eq("id", processCandidate.id);
       if (error) throw error;
 
-      // Also update the application status to "candexed" if result is provided
-      if (assessmentResult) {
-        const app = getAppDetails(processCandidate.application_id);
-        if (app) {
-          await supabase
-            .from("candex_applications")
-            .update({
-              status: "candexed",
-              risk_level: assessmentResult === "clear" ? "LOW" : "HIGH",
-            })
-            .eq("id", processCandidate.application_id);
-        }
+      // When every check on this candidate is processed, mirror onto the application
+      if (allDone) {
+        await supabase
+          .from("candex_applications")
+          .update({
+            status: "candexed",
+            risk_level: anyFlagged ? "HIGH" : "LOW",
+          })
+          .eq("id", processCandidate.application_id);
       }
     },
     onSuccess: () => {
-      toast.success("Candidate assessment updated");
+      toast.success("Assessment progress saved");
       setProcessCandidate(null);
-      setAssessmentResult("");
-      setAssessmentNotes("");
-      setIdVerified(false);
-      setAssessmentFile(null);
-      setUploadedFileUrl(null);
+      setWorkingResults({});
       queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates"] });
       queryClient.invalidateQueries({ queryKey: ["candex-risk-apps"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Update request status
   const updateRequestStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase
-        .from("candex_risk_requests")
-        .update({ status })
-        .eq("id", id);
+      const { error } = await supabase.from("candex_risk_requests").update({ status }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: (_, { status }) => {
@@ -204,6 +186,26 @@ const CandexRiskRequests = () => {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const handleFileUploadForCheck = async (file: File, checkKey: RiskCheckKey) => {
+    if (!processCandidate) return;
+    setUploadingKey(checkKey);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `risk-assessments/${processCandidate.id}_${checkKey}_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("employee-documents").upload(path, file);
+      if (upErr) throw upErr;
+      setWorkingResults((prev) => ({
+        ...prev,
+        [checkKey]: { ...(prev[checkKey] || { status: "pending" }), url: path },
+      }));
+      toast.success(`${RISK_CHECKS.find((c) => c.key === checkKey)?.short} document uploaded`);
+    } catch (e: any) {
+      toast.error("Upload failed: " + e.message);
+    } finally {
+      setUploadingKey(null);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -218,9 +220,17 @@ const CandexRiskRequests = () => {
     }
   };
 
-  const activeCandidates = requestCandidates.filter((c: any) => !c.deleted_at);
-  const allCandidatesProcessed = activeCandidates.length > 0 &&
-    activeCandidates.every((c) => c.risk_assessment_result);
+  const activeCandidates = requestCandidates.filter((c) => !c.deleted_at);
+  const requestedForSelected = requestedChecksFor(selectedRequest);
+  const allCandidatesProcessed =
+    activeCandidates.length > 0 &&
+    activeCandidates.every((c) => {
+      const cr = c.check_results || {};
+      return requestedForSelected.every((k) => {
+        const s = cr[k]?.status;
+        return s === "clear" || s === "flagged";
+      });
+    });
 
   if (isLoading) {
     return (
@@ -234,38 +244,31 @@ const CandexRiskRequests = () => {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
+      {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Pending Requests</CardTitle>
             <Clock className="h-5 w-5 text-amber-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{pendingRequests.length}</div>
-          </CardContent>
+          <CardContent><div className="text-3xl font-bold">{pendingRequests.length}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
             <ShieldCheck className="h-5 w-5 text-primary" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{inProgressRequests.length}</div>
-          </CardContent>
+          <CardContent><div className="text-3xl font-bold">{inProgressRequests.length}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Completed</CardTitle>
             <CheckCircle className="h-5 w-5 text-primary" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{completedRequests.length}</div>
-          </CardContent>
+          <CardContent><div className="text-3xl font-bold">{completedRequests.length}</div></CardContent>
         </Card>
       </div>
 
-      {/* Requests Table */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
@@ -282,21 +285,31 @@ const CandexRiskRequests = () => {
                   <TableHead>Client</TableHead>
                   <TableHead>Account</TableHead>
                   <TableHead>Requested Date</TableHead>
+                  <TableHead>Checks</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {requests.map((req) => (
-                  <TableRow key={req.id}>
-                    <TableCell className="font-medium">{getClientName(req.client_id)}</TableCell>
-                    <TableCell className="text-sm">{getAccountName(req.account_id)}</TableCell>
-                    <TableCell className="text-sm">
-                      {format(new Date(req.requested_date), "dd MMM yyyy")}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(req.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-1 justify-end">
+                {requests.map((req) => {
+                  const reqChecks = requestedChecksFor(req);
+                  return (
+                    <TableRow key={req.id}>
+                      <TableCell className="font-medium">{getClientName(req.client_id)}</TableCell>
+                      <TableCell className="text-sm">{getAccountName(req.account_id)}</TableCell>
+                      <TableCell className="text-sm">{format(new Date(req.requested_date), "dd MMM yyyy")}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {reqChecks.map((k) => {
+                            const c = RISK_CHECKS.find((x) => x.key === k);
+                            return c ? (
+                              <Badge key={k} variant="outline" className="text-[10px]">{c.short}</Badge>
+                            ) : null;
+                          })}
+                        </div>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(req.status)}</TableCell>
+                      <TableCell className="text-right">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -309,23 +322,22 @@ const CandexRiskRequests = () => {
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
 
-      {/* Request Detail Dialog */}
+      {/* Request Detail */}
       <Dialog open={!!selectedRequest} onOpenChange={(open) => { if (!open) setSelectedRequest(null); }}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-primary" />
-              Risk Assessment Request
+              <ShieldCheck className="h-5 w-5 text-primary" /> Risk Assessment Request
             </DialogTitle>
             <DialogDescription>
               From: {selectedRequest ? getClientName(selectedRequest.client_id) : ""} — {selectedRequest ? getAccountName(selectedRequest.account_id) : ""}
@@ -334,28 +346,48 @@ const CandexRiskRequests = () => {
 
           {selectedRequest && (
             <div className="space-y-4">
-              <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-4 text-sm flex-wrap">
                 <span className="text-muted-foreground">Requested:</span>
                 <span className="font-medium">{format(new Date(selectedRequest.requested_date), "dd MMM yyyy")}</span>
                 <span className="text-muted-foreground">Status:</span>
                 {getStatusBadge(selectedRequest.status)}
+                <span className="text-muted-foreground ml-2">Checks requested:</span>
+                <div className="flex flex-wrap gap-1">
+                  {requestedForSelected.map((k) => {
+                    const c = RISK_CHECKS.find((x) => x.key === k);
+                    return c ? (
+                      <Badge key={k} variant="outline" className="text-[10px]">{c.label}</Badge>
+                    ) : null;
+                  })}
+                </div>
               </div>
 
-              <div className="border rounded-lg">
+              <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Candidate</TableHead>
                       <TableHead>ID Number</TableHead>
-                      <TableHead>ID Verified</TableHead>
-                      <TableHead>Risk Result</TableHead>
+                      {requestedForSelected.map((k) => {
+                        const c = RISK_CHECKS.find((x) => x.key === k);
+                        return (
+                          <TableHead key={k} className="text-center text-[10px] uppercase tracking-wide px-1" title={c?.label}>
+                            {c?.short}
+                          </TableHead>
+                        );
+                      })}
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {requestCandidates.map((cand: any) => {
+                    {requestCandidates.map((cand) => {
                       const app = getAppDetails(cand.application_id);
                       const isDeleted = !!cand.deleted_at;
+                      const cr: Record<string, RiskCheckResult> = cand.check_results || {};
+                      const allDone = requestedForSelected.every((k) => {
+                        const s = cr[k]?.status;
+                        return s === "clear" || s === "flagged";
+                      });
                       return (
                         <TableRow key={cand.id} className={isDeleted ? "bg-destructive/5" : ""}>
                           <TableCell className="font-medium">
@@ -363,64 +395,39 @@ const CandexRiskRequests = () => {
                               <span>{app?.candidate_name || "—"}</span>
                               {isDeleted && (
                                 <Badge variant="destructive" className="text-[10px] w-fit">
-                                  Deleted by {cand.deleted_by_name || "user"} · {format(new Date(cand.deleted_at), "dd MMM yyyy HH:mm")}
+                                  Deleted by {cand.deleted_by_name || "user"}
                                 </Badge>
                               )}
                             </div>
                           </TableCell>
                           <TableCell className="text-sm">{app?.candidate_id_number || "—"}</TableCell>
-                          <TableCell>
-                            {cand.id_verified ? (
-                              <Badge className="bg-primary/15 text-primary text-xs gap-1">
-                                <CheckCircle className="h-3 w-3" /> Verified
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">Pending</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {cand.risk_assessment_result === "clear" ? (
-                              <Badge className="bg-primary/15 text-primary text-xs gap-1">
-                                <CheckCircle className="h-3 w-3" /> Clear
-                              </Badge>
-                            ) : cand.risk_assessment_result === "flagged" ? (
-                              <Badge variant="destructive" className="text-xs gap-1">
-                                <AlertTriangle className="h-3 w-3" /> Flagged
-                              </Badge>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">Awaiting</span>
-                            )}
-                          </TableCell>
+                          {requestedForSelected.map((k) => {
+                            const c = RISK_CHECKS.find((x) => x.key === k);
+                            return (
+                              <TableCell key={k} className="text-center px-1">
+                                <RiskCheckCell requested={true} result={cr[k]} label={c?.label || k} />
+                              </TableCell>
+                            );
+                          })}
                           <TableCell className="text-right">
                             {isDeleted ? (
                               <span className="text-xs text-muted-foreground italic">Locked</span>
-                            ) : !cand.risk_assessment_result ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setProcessCandidate(cand);
-                                  setIdVerified(cand.id_verified || false);
-                                  setAssessmentResult(cand.risk_assessment_result || "");
-                                  setUploadedFileUrl(cand.risk_assessment_url || null);
-                                  setAssessmentFile(null);
-                                }}
-                              >
-                                <FileText className="h-4 w-4 mr-1" /> Process
-                              </Button>
                             ) : (
                               <Button
-                                variant="ghost"
+                                variant={allDone ? "ghost" : "outline"}
                                 size="sm"
                                 onClick={() => {
                                   setProcessCandidate(cand);
-                                  setIdVerified(cand.id_verified || false);
-                                  setAssessmentResult(cand.risk_assessment_result || "");
-                                  setUploadedFileUrl(cand.risk_assessment_url || null);
-                                  setAssessmentFile(null);
+                                  // Seed working results from saved + ensure every requested check has an entry
+                                  const seed: Record<string, RiskCheckResult> = { ...(cand.check_results || {}) };
+                                  requestedForSelected.forEach((k) => {
+                                    if (!seed[k]) seed[k] = { status: "pending" };
+                                  });
+                                  setWorkingResults(seed);
                                 }}
                               >
-                                <Eye className="h-4 w-4" />
+                                {allDone ? <Eye className="h-4 w-4 mr-1" /> : <FileText className="h-4 w-4 mr-1" />}
+                                {allDone ? "Review" : "Process"}
                               </Button>
                             )}
                           </TableCell>
@@ -446,117 +453,121 @@ const CandexRiskRequests = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Process Candidate Dialog */}
-      <Dialog open={!!processCandidate} onOpenChange={(open) => { if (!open) setProcessCandidate(null); }}>
-        <DialogContent className="max-w-md">
+      {/* Per-Check Process Dialog */}
+      <Dialog open={!!processCandidate} onOpenChange={(open) => { if (!open) { setProcessCandidate(null); setWorkingResults({}); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Process Candidate Assessment</DialogTitle>
+            <DialogTitle>Process Candidate Checks</DialogTitle>
             <DialogDescription>
-              Verify the candidate's ID and assign a risk assessment result.
+              Set the outcome of each requested check and optionally upload supporting documents.
             </DialogDescription>
           </DialogHeader>
-          {processCandidate && (
-            <div className="space-y-4">
-              {(() => {
-                const app = getAppDetails(processCandidate.application_id);
-                return (
-                  <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
-                    <div><span className="text-muted-foreground">Name:</span> <span className="font-medium">{app?.candidate_name}</span></div>
-                    <div><span className="text-muted-foreground">ID Number:</span> <span className="font-medium">{app?.candidate_id_number}</span></div>
-                    <div><span className="text-muted-foreground">Email:</span> <span className="font-medium">{app?.candidate_email || "—"}</span></div>
-                    <div><span className="text-muted-foreground">Phone:</span> <span className="font-medium">{app?.candidate_phone || "—"}</span></div>
-                    {app?.risk_level && (
-                      <div><span className="text-muted-foreground">Pre-Risk:</span> <Badge variant={app.risk_level === "LOW" ? "default" : "destructive"} className="text-xs ml-1">{app.risk_level}</Badge></div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              <div className="flex items-center gap-3">
-                <Label className="flex-1">ID Verification</Label>
-                <div className="flex gap-2">
-                  <Button
-                    variant={idVerified ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setIdVerified(true)}
-                  >
-                    <CheckCircle className="h-4 w-4 mr-1" /> Verified
-                  </Button>
-                  <Button
-                    variant={!idVerified ? "destructive" : "outline"}
-                    size="sm"
-                    onClick={() => setIdVerified(false)}
-                  >
-                    <XCircle className="h-4 w-4 mr-1" /> Not Verified
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label>Risk Assessment Result</Label>
-                <Select value={assessmentResult} onValueChange={setAssessmentResult}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select result" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="clear">Clear</SelectItem>
-                    <SelectItem value="flagged">Flagged</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Notes (optional)</Label>
-                <Textarea
-                  value={assessmentNotes}
-                  onChange={(e) => setAssessmentNotes(e.target.value)}
-                  placeholder="Any additional notes..."
-                  className="mt-1"
-                />
-              </div>
-
-              <div>
-                <Label>Upload Risk Assessment Document</Label>
-                <div className="mt-1 space-y-2">
-                  {uploadedFileUrl ? (
-                    <div className="flex items-center gap-2 p-2 bg-primary/10 rounded-lg text-sm">
-                      <CheckCircle className="h-4 w-4 text-primary" />
-                      <span className="flex-1 truncate">{assessmentFile?.name || "Document uploaded"}</span>
-                      <Button variant="ghost" size="sm" onClick={() => { setUploadedFileUrl(null); setAssessmentFile(null); }}>
-                        <XCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                      <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground mb-2">Upload PDF, DOCX, or image</p>
-                      <Input
-                        type="file"
-                        accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
-                        className="max-w-xs mx-auto"
-                        disabled={uploadingFile}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setAssessmentFile(file);
-                            handleFileUpload(file);
-                          }
-                        }}
-                      />
-                      {uploadingFile && <p className="text-xs text-muted-foreground mt-2">Uploading...</p>}
+          {processCandidate && (() => {
+            const app = getAppDetails(processCandidate.application_id);
+            return (
+              <div className="space-y-4">
+                <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
+                  <div><span className="text-muted-foreground">Name:</span> <span className="font-medium">{app?.candidate_name}</span></div>
+                  <div><span className="text-muted-foreground">ID Number:</span> <span className="font-medium">{app?.candidate_id_number}</span></div>
+                  <div><span className="text-muted-foreground">Email:</span> <span className="font-medium">{app?.candidate_email || "—"}</span></div>
+                  {app?.risk_level && (
+                    <div>
+                      <span className="text-muted-foreground">Pre-Risk:</span>{" "}
+                      <Badge variant={app.risk_level === "LOW" ? "default" : "destructive"} className="text-xs ml-1">{app.risk_level}</Badge>
                     </div>
                   )}
                 </div>
+
+                <div className="space-y-3">
+                  {requestedForSelected.map((k) => {
+                    const c = RISK_CHECKS.find((x) => x.key === k)!;
+                    const current = workingResults[k] || { status: "pending" as RiskCheckStatus };
+                    const setStatus = (status: RiskCheckStatus) =>
+                      setWorkingResults((prev) => ({ ...prev, [k]: { ...(prev[k] || {}), status } }));
+                    return (
+                      <div key={k} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{c.label}</span>
+                            <RiskCheckStatusBadge status={current.status} />
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant={current.status === "clear" ? "default" : "outline"}
+                              className={current.status === "clear" ? "bg-green-600 hover:bg-green-700" : ""}
+                              onClick={() => setStatus("clear")}
+                            >
+                              <CheckCircle className="h-3.5 w-3.5 mr-1" /> Clear
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={current.status === "flagged" ? "destructive" : "outline"}
+                              onClick={() => setStatus("flagged")}
+                            >
+                              <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Flagged
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {current.url ? (
+                            <div className="flex items-center gap-2 flex-1 p-1.5 bg-primary/5 rounded text-xs">
+                              <FileText className="h-3.5 w-3.5 text-primary" />
+                              <span className="truncate flex-1">Document attached</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-1"
+                                onClick={() =>
+                                  setWorkingResults((prev) => ({
+                                    ...prev,
+                                    [k]: { ...(prev[k] || { status: "pending" }), url: null },
+                                  }))
+                                }
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 flex-1">
+                              <Upload className="h-3.5 w-3.5 text-muted-foreground" />
+                              <Input
+                                type="file"
+                                accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
+                                className="h-7 text-xs"
+                                disabled={uploadingKey === k}
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) handleFileUploadForCheck(f, k);
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <Textarea
+                          placeholder="Notes (optional)…"
+                          className="text-xs min-h-[50px]"
+                          value={current.notes || ""}
+                          onChange={(e) =>
+                            setWorkingResults((prev) => ({
+                              ...prev,
+                              [k]: { ...(prev[k] || { status: "pending" }), notes: e.target.value },
+                            }))
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setProcessCandidate(null)}>Cancel</Button>
-            <Button
-              onClick={() => processCandidateMutation.mutate()}
-              disabled={!assessmentResult || processCandidateMutation.isPending}
-            >
-              <ShieldCheck className="h-4 w-4 mr-1" /> Save Assessment
+            <Button variant="outline" onClick={() => { setProcessCandidate(null); setWorkingResults({}); }}>Cancel</Button>
+            <Button onClick={() => saveResults.mutate()} disabled={saveResults.isPending}>
+              <ShieldCheck className="h-4 w-4 mr-1" /> Save Progress
             </Button>
           </DialogFooter>
         </DialogContent>
