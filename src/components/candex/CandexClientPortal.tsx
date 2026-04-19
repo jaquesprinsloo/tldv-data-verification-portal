@@ -1128,6 +1128,25 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                 </div>
               )}
               <div>
+                <Label>Checks to Request</Label>
+                <div className="border rounded-md mt-1 p-2 grid grid-cols-2 gap-1">
+                  {RISK_CHECKS.map((c) => (
+                    <label key={c.key} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 cursor-pointer text-sm">
+                      <Checkbox
+                        checked={selectedChecks.includes(c.key)}
+                        onCheckedChange={() => setSelectedChecks((prev) =>
+                          prev.includes(c.key) ? prev.filter((k) => k !== c.key) : [...prev, c.key]
+                        )}
+                      />
+                      <span>{c.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Each ticked check is created as a pending item on the candidate's master profile for individual processing.
+                </p>
+              </div>
+              <div>
                 <Label>Select Candidates</Label>
                 <div className="border rounded-md mt-1 max-h-48 overflow-y-auto">
                   {approved.map((app) => (
@@ -1141,7 +1160,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={() => submitRiskRequest.mutate()} disabled={submitRiskRequest.isPending || !selectedCandidates.length || !requestAccountId}>
+              <Button onClick={() => submitRiskRequest.mutate()} disabled={submitRiskRequest.isPending || !selectedCandidates.length || !requestAccountId || selectedChecks.length === 0}>
                 <Send className="h-4 w-4 mr-1" /> Submit Request
               </Button>
             </DialogFooter>
