@@ -359,6 +359,7 @@ export type Database = {
       candex_risk_request_candidates: {
         Row: {
           application_id: string
+          check_results: Json
           created_at: string
           deleted_at: string | null
           deleted_by: string | null
@@ -371,6 +372,7 @@ export type Database = {
         }
         Insert: {
           application_id: string
+          check_results?: Json
           created_at?: string
           deleted_at?: string | null
           deleted_by?: string | null
@@ -383,6 +385,7 @@ export type Database = {
         }
         Update: {
           application_id?: string
+          check_results?: Json
           created_at?: string
           deleted_at?: string | null
           deleted_by?: string | null
@@ -418,6 +421,7 @@ export type Database = {
           id: string
           notes: string | null
           requested_by: string
+          requested_checks: Json
           requested_date: string
           status: string
           updated_at: string
@@ -429,6 +433,7 @@ export type Database = {
           id?: string
           notes?: string | null
           requested_by: string
+          requested_checks?: Json
           requested_date?: string
           status?: string
           updated_at?: string
@@ -440,6 +445,7 @@ export type Database = {
           id?: string
           notes?: string | null
           requested_by?: string
+          requested_checks?: Json
           requested_date?: string
           status?: string
           updated_at?: string
