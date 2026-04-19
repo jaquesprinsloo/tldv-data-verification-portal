@@ -105,17 +105,22 @@ You MUST return a JSON object using this exact tool call. Analyze the questionna
    - +1 for pending cases
    - +1 for family/friend criminal associations
 
-4. CRIMINAL ACTIVITY (count confirmed YES answers):
-   - Count every distinct "yes" to questions about theft, fraud, bribery, organized crime, undetected crimes, illegal drugs, etc.
-   - Each confirmed "yes" = 1 point
+4. CRIMINAL ACTIVITY (subcategory-based, computed deterministically — DO NOT score this yourself):
+   - The system scores +1 per subcategory branch with at least one "Yes" disclosure across:
+     Personal (max 4), Fraud (max 6), Bribery (max 3), Organized Crimes (max 4), Undetected Crimes (max 6), Illegal Drug Involvement (max 5).
+   - Your job: just acknowledge what the candidate disclosed in the keyFindings.
 
-5. INTEGRITY (0-1 points):
-   - 0: No integrity concerns from questionnaire
-   - 1: Contradictory answers, evasive responses, or disclosed integrity issues
+5. INTEGRITY (0-1 points, computed deterministically from polygraph):
+   - Until a polygraph examination is linked, integrity is "Pending" (0).
 
 Risk Tiers: LOW (0-7), MEDIUM (8-17), HIGH (18-30), VERY HIGH (31+)
 
-Analyze the data carefully. Filter out negative responses ("no", "none", "nil", "never", "not disclosed") — only flag actual positive disclosures.`;
+SUMMARY GUIDELINES (critical):
+- NEVER recommend "employ" or "do not employ". Instead, write an OBJECTIVE summary that proposes "considerations for employment" — practical risk-management measures (e.g. supervision, role restrictions, follow-up checks, support programs) tailored to the disclosures.
+- Look at the candidate's TIMELINE: distinguish recent disclosures from distant past. If a theft, drug use, or other issue occurred only at their first/early job many years ago and not since, note this as a mitigating factor suggesting learned behaviour change.
+- For drug use, distinguish "lifetime" from "past 2 years" — if no past-2-year use, note that recent abstinence is a mitigating factor.
+- Highlight mitigating factors (single isolated incident, long time since, no recent recurrence, contained to one employer) wherever supported by the data.
+- Filter out negative responses ("no", "none", "nil", "never", "not disclosed") — only flag actual positive disclosures.`;
 
     const userPrompt = `Candidate: ${app.candidate_name}
 ID Number: ${app.candidate_id_number || "Not provided"}
@@ -346,16 +351,15 @@ ${questionnaireText}`;
     riskProfile.riskLevel = getRiskLevelFromTotal(riskProfile.totalScore);
 
     const criminalFinding = deterministicCriminal.score > 0
-      ? `${deterministicCriminal.score} confirmed criminal activity disclosure${deterministicCriminal.score === 1 ? "" : "s"}`
+      ? `Criminal Activity score ${deterministicCriminal.score}/28 across ${deterministicCriminal.confirmedItems.length} disclosure${deterministicCriminal.confirmedItems.length === 1 ? "" : "s"}`
       : "No confirmed criminal activity disclosures";
     riskProfile.keyFindings = Array.from(new Set([
-      ...((riskProfile.keyFindings || []) as string[]).filter((finding: string) => !/no criminal activity|criminal activity disclosure/i.test(finding)),
+      ...((riskProfile.keyFindings || []) as string[]).filter((finding: string) => !/no criminal activity|criminal activity (disclosure|score)/i.test(finding)),
       criminalFinding,
     ]));
-
-    if (deterministicCriminal.score > 0) {
-      riskProfile.summary = `The questionnaire indicates ${deterministicCriminal.score} confirmed criminal activity disclosure${deterministicCriminal.score === 1 ? "" : "s"}, contributing directly to the overall pre-risk alert level.`;
-    }
+    // NOTE: Do NOT overwrite riskProfile.summary here — the AI summary is intentionally
+    // crafted with timeline-aware mitigating factors and "considerations for employment"
+    // guidance per the system prompt. Overwriting it would lose that nuance.
 
     // Update the application with risk data
     const updatedAnswers = {
@@ -537,51 +541,169 @@ function humanizeCriminalLabel(value: string): string {
     .join(" ");
 }
 
-function collectConfirmedCriminalItems(questionAnswers: Record<string, any> = {}): string[] {
-  const items: string[] = [];
-  const prefixes = ["fraud_", "bribery_", "organized_crimes_", "undetected_crimes_", "illegal_drugs_", "theft_at_work_"];
-
-  for (const [rootKey, rootValue] of Object.entries(questionAnswers)) {
-    const prefix = prefixes.find((candidate) => rootKey.startsWith(candidate));
-    if (!prefix || rootKey.endsWith("_dropdown")) continue;
-
-    if (prefix === "theft_at_work_") {
-      const theftData = rootValue as Record<string, any>;
-      if (!theftData || typeof theftData !== "object" || Array.isArray(theftData)) continue;
-
-      if (String(theftData.stolen || "").toLowerCase().includes("has stolen from work before")) items.push("Stolen from work before");
-      if (String(theftData.benefited || "").toLowerCase().includes("has benefited from theft at work")) items.push("Benefited from theft at work");
-      if (String(theftData.helped || "").toLowerCase().includes("has helped someone steal from work")) items.push("Helped someone steal from work");
-      if (String(theftData.approached || "").toLowerCase().includes("accepted to get involved")) items.push("Accepted involvement in theft at work");
-      if (String(theftData.witnessed || "").toLowerCase().includes("did not report")) items.push("Witnessed theft at work and did not report it");
-      continue;
-    }
-
-    if (!rootValue || typeof rootValue !== "object" || Array.isArray(rootValue)) continue;
-
-    for (const [fieldKey, fieldValue] of Object.entries(rootValue)) {
-      if (fieldKey.endsWith("_details")) continue;
-      if (String(fieldValue || "").trim().toLowerCase() !== "yes") continue;
-      items.push(humanizeCriminalLabel(fieldKey));
-    }
-  }
-
-  return Array.from(new Set(items));
-}
+// Subcategory definitions matching the candidate questionnaire structure.
+// Score = +1 per subcategory that has at least one "Yes" answer.
+const CRIMINAL_SUBCATEGORIES: Record<string, { prefix: string; label: string; subcats: { key: string; title: string }[]; max: number }> = {
+  fraud: {
+    prefix: "fraud_",
+    label: "Fraud",
+    max: 6,
+    subcats: [
+      { key: "refund_return", title: "Refund & Return" },
+      { key: "cash_skimming", title: "Cash Skimming" },
+      { key: "asset_misappropriation", title: "Asset Misappropriation" },
+      { key: "supplier_delivery", title: "Supplier & Delivery Fraud" },
+      { key: "information_misuse", title: "Information/Data Misuse" },
+      { key: "personal_information", title: "Personal Information" },
+    ],
+  },
+  bribery: {
+    prefix: "bribery_",
+    label: "Bribery",
+    max: 3,
+    subcats: [
+      { key: "law_enforcement", title: "Law Enforcement" },
+      { key: "work_colleagues", title: "Work Colleagues" },
+      { key: "employment", title: "Employment" },
+    ],
+  },
+  organized: {
+    prefix: "organized_crimes_",
+    label: "Organized Crimes",
+    max: 4,
+    subcats: [
+      { key: "theft_hijacking_robbery", title: "Theft, Hijacking, and Robbery Syndicates" },
+      { key: "financial_economic", title: "Financial and Economic" },
+      { key: "extortion", title: "Extortion" },
+      { key: "drug_trafficking", title: "Drug Trafficking" },
+    ],
+  },
+  undetected: {
+    prefix: "undetected_crimes_",
+    label: "Undetected Crimes",
+    max: 6,
+    subcats: [
+      { key: "financial_white_collar", title: "Financial & White-Collar Crimes" },
+      { key: "corruption_abuse", title: "Corruption & Abuse of Power" },
+      { key: "retail_commercial", title: "Retail & Commercial Crimes" },
+      { key: "cyber_digital", title: "Cyber & Digital Crimes" },
+      { key: "violent_serious", title: "Violent & Serious Crimes" },
+      { key: "insurance_claims_fraud", title: "Insurance & Claims Fraud" },
+    ],
+  },
+  drugs: {
+    prefix: "illegal_drugs_",
+    label: "Illegal Drug Involvement",
+    max: 5,
+    subcats: [
+      { key: "sold_drugs", title: "Sold Drugs" },
+      { key: "manufactured_drugs", title: "Manufactured Drugs" },
+      { key: "transportation_drugs", title: "Transportation of Drugs" },
+      { key: "drug_use_lifetime", title: "Drug use during lifetime" },
+      { key: "drug_use_past_2_years", title: "Drug use during the past two (2) years" },
+    ],
+  },
+};
 
 function calculateDeterministicCriminalProfile(questionAnswers: Record<string, any> = {}) {
-  const confirmedItems = collectConfirmedCriminalItems(questionAnswers);
-  const actualCount = confirmedItems.length;
-  const score = Math.min(actualCount, 30);
+  const breakdown: Record<string, { score: number; max: number; subcategoriesHit: { title: string; items: string[] }[] }> = {};
+  const confirmedItems: string[] = [];
+  let totalScore = 0;
+
+  // === PERSONAL (Theft at Work) — max 4 ===
+  // +1 each: stolen+benefited (counted as one, "stolen & benefited"),
+  // witnessed not reported, helped to steal, approached & accepted.
+  const personal = { score: 0, max: 4, subcategoriesHit: [] as { title: string; items: string[] }[] };
+  const theftRoot = Object.entries(questionAnswers).find(([k]) => k.startsWith("theft_at_work_"));
+  if (theftRoot) {
+    const theftData = (theftRoot[1] as Record<string, any>) || {};
+    const stolen = String(theftData.stolen || "").toLowerCase().includes("has stolen from work before");
+    const benefited = String(theftData.benefited || "").toLowerCase().includes("has benefited from theft at work");
+    const helped = String(theftData.helped || "").toLowerCase().includes("has helped someone steal from work");
+    const approachedAccepted = String(theftData.approached || "").toLowerCase().includes("accepted to get involved");
+    const witnessedUnreported = String(theftData.witnessed || "").toLowerCase().includes("did not report");
+
+    if (stolen && benefited) {
+      personal.score += 1;
+      personal.subcategoriesHit.push({ title: "Stolen from work & benefited", items: ["Stolen from work and benefited from it"] });
+      confirmedItems.push("Personal: stolen from work and benefited");
+    } else if (stolen) {
+      personal.score += 1;
+      personal.subcategoriesHit.push({ title: "Stolen from work", items: ["Stolen from work before"] });
+      confirmedItems.push("Personal: stolen from work");
+    }
+    if (witnessedUnreported) {
+      personal.score += 1;
+      personal.subcategoriesHit.push({ title: "Witnessed & did not report", items: ["Witnessed theft at work and did not report it"] });
+      confirmedItems.push("Personal: witnessed theft at work and did not report");
+    }
+    if (helped) {
+      personal.score += 1;
+      personal.subcategoriesHit.push({ title: "Helped to steal", items: ["Helped someone steal from work"] });
+      confirmedItems.push("Personal: helped someone steal from work");
+    }
+    if (approachedAccepted) {
+      personal.score += 1;
+      personal.subcategoriesHit.push({ title: "Approached & accepted involvement", items: ["Was approached and accepted involvement in theft at work"] });
+      confirmedItems.push("Personal: accepted involvement when approached");
+    }
+  }
+  personal.score = Math.min(personal.score, personal.max);
+  totalScore += personal.score;
+  breakdown.personal = { ...personal };
+
+  // === FRAUD / BRIBERY / ORGANIZED / UNDETECTED / DRUGS ===
+  // +1 per subcategory that has ≥1 "Yes". Fields are formatted as `${subcatKey}_${itemKey}`.
+  for (const [groupKey, group] of Object.entries(CRIMINAL_SUBCATEGORIES)) {
+    const groupBreakdown = { score: 0, max: group.max, subcategoriesHit: [] as { title: string; items: string[] }[] };
+
+    // Collect all root entries with this prefix and merge their data.
+    const merged: Record<string, any> = {};
+    for (const [rootKey, rootValue] of Object.entries(questionAnswers)) {
+      if (!rootKey.startsWith(group.prefix)) continue;
+      if (rootKey.endsWith("_dropdown")) continue;
+      if (!rootValue || typeof rootValue !== "object" || Array.isArray(rootValue)) continue;
+      Object.assign(merged, rootValue);
+    }
+
+    for (const subcat of group.subcats) {
+      const itemsHit: string[] = [];
+      for (const [fieldKey, fieldValue] of Object.entries(merged)) {
+        if (fieldKey.endsWith("_details")) continue;
+        if (!fieldKey.startsWith(`${subcat.key}_`)) continue;
+        if (String(fieldValue || "").trim().toLowerCase() !== "yes") continue;
+        const itemLabel = humanizeCriminalLabel(fieldKey.slice(subcat.key.length + 1));
+        itemsHit.push(itemLabel);
+      }
+      if (itemsHit.length > 0) {
+        groupBreakdown.score += 1;
+        groupBreakdown.subcategoriesHit.push({ title: subcat.title, items: itemsHit });
+        confirmedItems.push(`${group.label} – ${subcat.title}: ${itemsHit.join(", ")}`);
+      }
+    }
+
+    groupBreakdown.score = Math.min(groupBreakdown.score, group.max);
+    totalScore += groupBreakdown.score;
+    breakdown[groupKey] = groupBreakdown;
+  }
+
+  totalScore = Math.min(totalScore, 30);
+
+  const reasoningParts: string[] = [];
+  reasoningParts.push(`Personal: ${breakdown.personal.score}/${breakdown.personal.max}`);
+  for (const [groupKey, group] of Object.entries(CRIMINAL_SUBCATEGORIES)) {
+    reasoningParts.push(`${group.label}: ${breakdown[groupKey].score}/${group.max}`);
+  }
 
   return {
-    score,
-    label: score === 0 ? "No criminal activity disclosed" : `${actualCount} confirmed disclosure${actualCount === 1 ? "" : "s"}`,
+    score: totalScore,
+    label: totalScore === 0 ? "No criminal activity disclosed" : `${totalScore} subcategor${totalScore === 1 ? "y" : "ies"} flagged (max 28)`,
     reasoning:
-      score === 0
-        ? "No confirmed criminal activity disclosures were detected in the saved questionnaire answers."
-        : `The criminal activity score was calculated directly from ${actualCount} confirmed questionnaire disclosure${actualCount === 1 ? "" : "s"}.`,
+      totalScore === 0
+        ? "No confirmed criminal activity disclosures were detected across Personal, Fraud, Bribery, Organized Crimes, Undetected Crimes, or Illegal Drug Involvement."
+        : `Subcategory-based scoring (+1 per subcategory with any Yes answer). Breakdown — ${reasoningParts.join(" | ")}.`,
     confirmedItems,
+    breakdown,
   };
 }
 
