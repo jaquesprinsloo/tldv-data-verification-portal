@@ -482,6 +482,18 @@ const PendingPolygraphReview = () => {
         }
       }
 
+      // Generate the PreAppliCheck-style 5-category AI risk profile (replaces
+      // any heuristic risk_analysis that was stored from extraction).
+      try {
+        const { error: aiErr } = await supabase.functions.invoke(
+          "generate-polygraph-risk-profile",
+          { body: { report_id: newReportId } },
+        );
+        if (aiErr) console.error("Risk profile generation error (non-fatal):", aiErr);
+      } catch (aiCatch) {
+        console.error("Risk profile generation failed (non-fatal):", aiCatch);
+      }
+
       // Try to auto-link report to an appointment candidate by ID number or name
       let linkedCandidateName: string | null = null;
       try {
