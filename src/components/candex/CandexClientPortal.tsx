@@ -1233,25 +1233,33 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                             {riskUrl && (
                               <Button variant="ghost" size="sm" title="View Risk Assessment" onClick={async () => {
                                 try {
-                                  let blob: Blob | null = null;
-                                  if (!riskUrl.startsWith("http")) {
-                                    const { data, error } = await supabase.storage
-                                      .from("employee-documents")
-                                      .download(riskUrl);
-                                    if (error || !data) throw error || new Error("Download failed");
-                                    blob = data;
-                                  } else {
+                                  // Route through edge function (different URL path) to bypass some ad-blocker rules
+                                  const session = (await supabase.auth.getSession()).data.session;
+                                  const token = session?.access_token;
+                                  const projectUrl = (supabase as any).supabaseUrl as string;
+                                  const apiKey = (supabase as any).supabaseKey as string;
+
+                                  let blob: Blob;
+                                  if (riskUrl.startsWith("http")) {
                                     const res = await fetch(riskUrl);
-                                    if (!res.ok) throw new Error("Fetch failed");
+                                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                                    blob = await res.blob();
+                                  } else {
+                                    const fnUrl = `${projectUrl}/functions/v1/proxy-storage-file?bucket=employee-documents&path=${encodeURIComponent(riskUrl)}`;
+                                    const res = await fetch(fnUrl, {
+                                      headers: { Authorization: `Bearer ${token}`, apikey: apiKey },
+                                    });
+                                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
                                     blob = await res.blob();
                                   }
-                                  // Force PDF mime so browsers render inline in <iframe>
                                   const typed = new Blob([blob], { type: blob.type || "application/pdf" });
-                                  const blobUrl = URL.createObjectURL(typed);
-                                  setViewRiskUrl(blobUrl);
-                                } catch (err) {
+                                  setViewRiskUrl(URL.createObjectURL(typed));
+                                } catch (err: any) {
                                   console.error("View document error:", err);
-                                  toast.error("Could not load document. Try disabling your ad blocker for this site.");
+                                  const msg = err?.message?.includes("Failed to fetch") || err?.name === "TypeError"
+                                    ? "Request blocked by a browser extension (ad/tracker blocker). Please disable it for this site, or open the app in Incognito mode."
+                                    : "Could not load document.";
+                                  toast.error(msg);
                                 }
                               }}>
                                 <Eye className="h-4 w-4" />
