@@ -574,6 +574,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       if (!client?.id || !requestAccountId || selectedCandidates.length === 0) {
         throw new Error("Please fill all fields and select candidates");
       }
+      if (selectedChecks.length === 0) {
+        throw new Error("Select at least one check to request");
+      }
       const { data: req, error: reqErr } = await supabase
         .from("candex_risk_requests" as any)
         .insert({
@@ -582,13 +585,18 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           requested_by: userId,
           requested_date: requestDate ? format(requestDate, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
           status: "pending",
+          requested_checks: selectedChecks,
         } as any)
         .select("id")
         .single();
       if (reqErr) throw reqErr;
+      // Seed each requested check as "pending" so the master profile has a clear list to process
+      const seeded: Record<string, RiskCheckResult> = {};
+      selectedChecks.forEach((k) => { seeded[k] = { status: "pending" }; });
       const candidates = selectedCandidates.map((appId) => ({
         request_id: (req as any).id,
         application_id: appId,
+        check_results: seeded,
       }));
       const { error: candErr } = await supabase.from("candex_risk_request_candidates" as any).insert(candidates as any);
       if (candErr) throw candErr;
@@ -597,9 +605,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       toast.success("Risk assessment request submitted");
       setRequestOpen(false);
       setSelectedCandidates([]);
+      setSelectedChecks(DEFAULT_REQUESTED_CHECKS);
       setRequestAccountId("");
       setRequestStoreId("");
       queryClient.invalidateQueries({ queryKey: ["candex-risk-candidates-for-approved"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-pending-risk-count"] });
     },
     onError: (e: any) => toast.error(e.message),
   });
