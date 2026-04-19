@@ -688,11 +688,7 @@ const ExaminerPortal = () => {
                         <Upload className="h-4 w-4 text-primary" /> Polygraph Recordings (OneDrive)
                       </CardTitle>
                       <CardDescription>
-                        Upload audio, video and raw test data files. They are saved directly to OneDrive at{" "}
-                        <span className="font-mono text-xs">
-                          /PreAppliCheck/Examinations/{userName || "[Examiner]"}/{"{Date}_{Candidate}_{BookingRef}"}/
-                        </span>{" "}
-                        — they don't use app storage.
+                        Upload complete PF folder for this report.
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
