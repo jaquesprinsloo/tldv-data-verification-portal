@@ -44,6 +44,13 @@ const ExaminerPortal = () => {
   const [saving, setSaving] = useState(false);
   const [matchedCandidate, setMatchedCandidate] = useState<any>(null);
 
+  // Recordings (OneDrive) state
+  const [recordings, setRecordings] = useState<File[]>([]);
+  const [uploadedRecordings, setUploadedRecordings] = useState<
+    { fileName: string; webUrl: string | null; itemId: string | null; size: number; folderPath: string }[]
+  >([]);
+  const [recordingsProgress, setRecordingsProgress] = useState<{ current: number; total: number; name: string } | null>(null);
+
   // Animation state
   const hasSeenAnimation = sessionStorage.getItem('examiner_animation_played') === 'true';
   const [isAnimating, setIsAnimating] = useState(!hasSeenAnimation);
