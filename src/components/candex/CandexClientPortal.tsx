@@ -22,6 +22,13 @@ import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
 import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
+import {
+  RISK_CHECKS,
+  DEFAULT_REQUESTED_CHECKS,
+  RiskCheckCell,
+  type RiskCheckKey,
+  type RiskCheckResult,
+} from "./riskCheckTypes";
 import { format } from "date-fns";
 
 interface CandexClientPortalProps {
