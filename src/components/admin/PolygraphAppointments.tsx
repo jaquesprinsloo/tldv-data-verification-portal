@@ -235,7 +235,7 @@ True Lie Detectors & Vetting
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "requested": return <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">Requested</Badge>;
+      case "requested": return <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">Awaiting Confirmation</Badge>;
       case "scheduled": return <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">Scheduled</Badge>;
       case "assigned": return <Badge className="bg-green-600 text-white text-xs">Assigned</Badge>;
       case "completed": return <Badge className="bg-primary text-primary-foreground text-xs">Completed</Badge>;
