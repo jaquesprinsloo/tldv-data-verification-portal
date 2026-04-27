@@ -64,13 +64,18 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
+    const formattedSender = TWILIO_WHATSAPP_NUMBER
+      .replace(/^whatsapp:/i, "")
+      .replace(/\s+/g, "")
+      .replace(/[^\d+]/g, "");
+
     console.log(`Sending WhatsApp invitation to ${formattedPhone}`);
 
     // Send WhatsApp message via Twilio
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
     
     const formData = new URLSearchParams();
-    formData.append("From", `whatsapp:${TWILIO_WHATSAPP_NUMBER}`);
+    formData.append("From", `whatsapp:${formattedSender}`);
     formData.append("To", `whatsapp:${formattedPhone}`);
     formData.append("Body", message);
 
@@ -87,6 +92,9 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!twilioResponse.ok) {
       console.error("Twilio error:", twilioResult);
+      if (twilioResult.code === 63007) {
+        throw new Error("Twilio WhatsApp sender is not configured correctly. Use an approved Twilio WhatsApp sender number only, e.g. +14155238886 for sandbox, without the whatsapp: prefix.");
+      }
       throw new Error(twilioResult.message || "Failed to send WhatsApp message");
     }
 
