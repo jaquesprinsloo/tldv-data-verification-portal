@@ -6,12 +6,16 @@ const corsHeaders = {
 };
 
 interface WhatsAppInvitationRequest {
-  phoneNumber: string;
-  employeeNumber: string;
-  firstName: string;
-  lastName: string;
-  token: string;
-  otp: string;
+  // Generic mode (PreAppliCheck / candex)
+  phone?: string;
+  message?: string;
+  // Employee onboarding mode (legacy)
+  phoneNumber?: string;
+  employeeNumber?: string;
+  firstName?: string;
+  lastName?: string;
+  token?: string;
+  otp?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -30,14 +34,27 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Twilio credentials not configured");
     }
 
-    const { phoneNumber, employeeNumber, firstName, lastName, token, otp }: WhatsAppInvitationRequest = await req.json();
+    const body: WhatsAppInvitationRequest = await req.json();
+    const rawPhone = body.phone || body.phoneNumber;
 
-    if (!phoneNumber || !employeeNumber || !firstName || !token || !otp) {
-      throw new Error("Missing required fields");
+    if (!rawPhone) {
+      throw new Error("Missing phone number");
+    }
+
+    // Build the message: prefer caller-provided `message`, else build employee invite text
+    let message = body.message;
+    if (!message) {
+      const { employeeNumber, firstName, lastName, token, otp } = body;
+      if (!employeeNumber || !firstName || !token || !otp) {
+        throw new Error("Missing required fields for employee invitation");
+      }
+      const baseUrl = SUPABASE_URL?.replace("supabase.co", "lovable.app") || "https://tldv-employee-portal.lovable.app";
+      const registrationUrl = `${baseUrl}/employee/register?token=${token}`;
+      message = `Hello ${firstName} ${lastName ?? ""}!\n\nYou have been approved to join as an employee. Please complete your registration using the following details:\n\n📋 *Employee Number:* ${employeeNumber}\n🔑 *OTP Code:* ${otp}\n\nClick here to register: ${registrationUrl}\n\nThis invitation is valid for 7 days.\n\n- TLDV Team`;
     }
 
     // Format phone number for WhatsApp (ensure it has country code)
-    let formattedPhone = phoneNumber.replace(/\s+/g, "").replace(/[^\d+]/g, "");
+    let formattedPhone = rawPhone.replace(/\s+/g, "").replace(/[^\d+]/g, "");
     if (!formattedPhone.startsWith("+")) {
       // Assume South African number if no country code
       if (formattedPhone.startsWith("0")) {
@@ -46,24 +63,6 @@ const handler = async (req: Request): Promise<Response> => {
         formattedPhone = "+" + formattedPhone;
       }
     }
-
-    // Build the registration URL
-    const baseUrl = SUPABASE_URL?.replace("supabase.co", "lovable.app") || "https://tldv-employee-portal.lovable.app";
-    const registrationUrl = `${baseUrl}/employee/register?token=${token}`;
-
-    // Create the WhatsApp message
-    const message = `Hello ${firstName} ${lastName}!
-
-You have been approved to join as an employee. Please complete your registration using the following details:
-
-📋 *Employee Number:* ${employeeNumber}
-🔑 *OTP Code:* ${otp}
-
-Click here to register: ${registrationUrl}
-
-This invitation is valid for 7 days.
-
-- TLDV Team`;
 
     console.log(`Sending WhatsApp invitation to ${formattedPhone}`);
 
