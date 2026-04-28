@@ -638,7 +638,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       value={activeTab}
       onValueChange={(v) => {
         setActiveTab(v);
-        if (v === "approved") markPreAppliCheckedSeen();
+        if (v === "preAppliCheckedFinal") markPreAppliCheckedSeen();
       }}
       className="space-y-6"
     >
