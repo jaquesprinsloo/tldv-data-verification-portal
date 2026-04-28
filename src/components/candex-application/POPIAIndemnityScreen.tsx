@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Shield, FileText, Volume2 } from "lucide-react";
+import { Loader2, Shield, FileText, Volume2, Camera, RotateCcw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +23,7 @@ export interface DeviceData {
   language: string;
   screenResolution: string;
   timestamp: string;
+  selfieUrl?: string | null;
 }
 
 const FALLBACK_POPIA = "POPIA DECLARATION\n\nPlease contact the administrator – the POPIA document has not been configured yet.";
@@ -43,6 +44,13 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
   const [loading, setLoading] = useState(false);
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [selfieDataUrl, setSelfieDataUrl] = useState<string | null>(null);
+  const [cameraOn, setCameraOn] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { data: settings } = useQuery({
     queryKey: ["popia-indemnity-settings-public"],
@@ -88,6 +96,112 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
   const popiaText = settings?.popia_text || FALLBACK_POPIA;
   const indemnityText = settings?.indemnity_text || FALLBACK_INDEMNITY;
 
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setCameraOn(false);
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    setCameraError(null);
+    setSelfieDataUrl(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      setCameraOn(true);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      }, 0);
+    } catch (err: any) {
+      console.error("Camera error:", err);
+      setCameraError(
+        "Camera access was denied or unavailable. You can upload a photo of yourself instead."
+      );
+    }
+  }, []);
+
+  const captureSelfie = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    const w = video.videoWidth || 720;
+    const h = video.videoHeight || 720;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    // Mirror so the saved image matches what the user sees
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, w, h);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    setSelfieDataUrl(dataUrl);
+    stopCamera();
+  }, [stopCamera]);
+
+  const handleSelfieUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image is too large. Maximum size is 8MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setSelfieDataUrl(reader.result as string);
+    reader.onerror = () => toast.error("Failed to read image.");
+    reader.readAsDataURL(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
+  const retakeSelfie = useCallback(() => {
+    setSelfieDataUrl(null);
+    setCameraError(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, [stopCamera]);
+
+  const dataUrlToBlob = (dataUrl: string): Blob => {
+    const [header, base64] = dataUrl.split(",");
+    const mimeMatch = header.match(/data:(.*?);base64/);
+    const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  };
+
+  const uploadSelfie = async (): Promise<string | null> => {
+    if (!selfieDataUrl) return null;
+    const blob = dataUrlToBlob(selfieDataUrl);
+    const ext = blob.type === "image/png" ? "png" : "jpg";
+    const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("candex-selfies")
+      .upload(path, blob, { contentType: blob.type, upsert: false });
+    if (error) {
+      console.error("Selfie upload failed:", error);
+      throw new Error("Failed to upload selfie");
+    }
+    const { data } = supabase.storage.from("candex-selfies").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
   const getIPAddress = async (): Promise<string> => {
     try {
       const res = await fetch("https://api.ipify.org?format=json");
@@ -116,9 +230,17 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
       toast.error("Please accept both the POPIA Declaration and the Indemnity Consent.");
       return;
     }
+    if (!selfieDataUrl) {
+      toast.error("Please take or upload a selfie to verify your identity.");
+      return;
+    }
     setLoading(true);
     try {
-      const [ip, gps] = await Promise.all([getIPAddress(), getGPS()]);
+      const [ip, gps, selfieUrl] = await Promise.all([
+        getIPAddress(),
+        getGPS(),
+        uploadSelfie(),
+      ]);
       const deviceData: DeviceData = {
         ipAddress: ip,
         gpsLatitude: gps.lat,
@@ -128,10 +250,12 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
         language: navigator.language,
         screenResolution: `${window.screen.width}x${window.screen.height}`,
         timestamp: new Date().toISOString(),
+        selfieUrl,
       };
       onComplete(deviceData);
-    } catch {
-      toast.error("Failed to collect device data. Please try again.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to submit. Please try again.");
     } finally {
       setLoading(false);
     }
