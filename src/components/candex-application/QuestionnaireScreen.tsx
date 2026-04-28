@@ -286,6 +286,11 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
 
 
 
+  // Scroll to top whenever the section changes (Next, Previous, or dot navigation)
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  }, [currentSection]);
+
   useEffect(() => {
     const load = async () => {
       const [secRes, tblRes, qRes] = await Promise.all([
