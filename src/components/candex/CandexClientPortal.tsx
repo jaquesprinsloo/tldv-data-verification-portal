@@ -77,11 +77,13 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const { data: client } = useQuery({
     queryKey: ["candex-my-client", userId],
     queryFn: async () => {
-      const { data: existing } = await supabase
+      const { data: existingList } = await supabase
         .from("candex_clients")
         .select("*")
         .eq("created_by", userId)
-        .maybeSingle();
+        .order("created_at", { ascending: true })
+        .limit(1);
+      const existing = existingList?.[0];
       if (existing) return existing;
 
       const { data: profile } = await supabase
