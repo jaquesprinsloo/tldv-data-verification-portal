@@ -398,8 +398,102 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
               <p className="font-semibold text-red-400 mb-1">Electronic Signature Notice</p>
               <p className="text-zinc-400">
                 By clicking "Accept & Continue" below, your IP address, GPS coordinates, device information,
-                and the current timestamp will be recorded as your electronic signature.
+                a verification selfie, and the current timestamp will be recorded as your electronic signature.
               </p>
+            </div>
+
+            {/* ── SELFIE VERIFICATION ── */}
+            <div className="p-4 rounded-lg bg-zinc-900 border border-zinc-800 space-y-3">
+              <div className="flex items-center gap-2">
+                <Camera className="h-4 w-4 text-red-500" />
+                <p className="font-semibold text-white text-sm">Identity Verification Selfie</p>
+              </div>
+              <p className="text-xs text-zinc-400">
+                Please take a clear photo of your face, or upload a recent photo of yourself. This is used to
+                verify the identity of the person completing this application.
+              </p>
+
+              {selfieDataUrl ? (
+                <div className="space-y-3">
+                  <img
+                    src={selfieDataUrl}
+                    alt="Verification selfie preview"
+                    className="rounded-lg border border-zinc-700 w-full max-w-xs mx-auto"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={retakeSelfie}
+                    disabled={loading}
+                    className="w-full border-zinc-700 text-zinc-200 hover:bg-zinc-800 hover:text-white"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" /> Retake / Replace Photo
+                  </Button>
+                </div>
+              ) : cameraOn ? (
+                <div className="space-y-3">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="rounded-lg border border-zinc-700 w-full max-w-xs mx-auto"
+                    style={{ transform: "scaleX(-1)" }}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      onClick={captureSelfie}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      <Camera className="h-4 w-4 mr-2" /> Capture
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={stopCamera}
+                      className="border-zinc-700 text-zinc-200 hover:bg-zinc-800 hover:text-white"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      onClick={startCamera}
+                      disabled={loading}
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      <Camera className="h-4 w-4 mr-2" /> Take Selfie
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={loading}
+                      className="border-zinc-700 text-zinc-200 hover:bg-zinc-800 hover:text-white"
+                    >
+                      <Upload className="h-4 w-4 mr-2" /> Upload Photo
+                    </Button>
+                  </div>
+                  {cameraError && (
+                    <p className="text-xs text-red-400">{cameraError}</p>
+                  )}
+                </div>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="user"
+                onChange={handleSelfieUpload}
+                className="hidden"
+              />
+              <canvas ref={canvasRef} className="hidden" />
             </div>
 
             <div className="flex gap-4 text-xs text-zinc-500">
@@ -409,17 +503,20 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
               <span className={indemnityAccepted ? "text-green-500" : ""}>
                 ● Indemnity {indemnityAccepted ? "Accepted" : "Pending"}
               </span>
+              <span className={selfieDataUrl ? "text-green-500" : ""}>
+                ● Selfie {selfieDataUrl ? "Captured" : "Pending"}
+              </span>
             </div>
 
             <Button
               onClick={handleAccept}
-              disabled={!popiaAccepted || !indemnityAccepted || loading}
+              disabled={!popiaAccepted || !indemnityAccepted || !selfieDataUrl || loading}
               className="w-full bg-red-600 hover:bg-red-700 text-white disabled:opacity-40"
             >
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Collecting device data...
+                  Submitting verification...
                 </>
               ) : (
                 "Accept & Continue"
