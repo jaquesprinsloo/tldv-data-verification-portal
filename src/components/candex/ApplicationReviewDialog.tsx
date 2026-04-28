@@ -153,6 +153,8 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   // Polygraph appointment + report data, loaded when application is opened.
   const [polyAppointment, setPolyAppointment] = useState<any | null>(null);
   const [polyReport, setPolyReport] = useState<any | null>(null);
+  // Approved polygraph_reports row (contains the AI risk_analysis profile).
+  const [polyRiskReport, setPolyRiskReport] = useState<any | null>(null);
   const [polyLoading, setPolyLoading] = useState(false);
 
   const finalRiskReport = appAnswers?.finalRiskReport || null;
@@ -246,6 +248,20 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
             .limit(1)
             .maybeSingle();
           if (!cancelled) setPolyReport(rep || null);
+
+          // Approved polygraph_reports row carries the AI risk_analysis
+          // (5-category profile) used to render the polygraph summary in
+          // the same format as the PreAppliCheck pre-risk profile.
+          const { data: polyRisk } = await supabase
+            .from("polygraph_reports")
+            .select(
+              "id, overall_result, risk_level, risk_score, risk_analysis, examination_date, status",
+            )
+            .eq("id_number", idNum)
+            .order("examination_date", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (!cancelled) setPolyRiskReport(polyRisk || null);
         }
       } finally {
         if (!cancelled) setPolyLoading(false);
@@ -347,54 +363,60 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
     return "bg-red-500";
   };
 
-  const renderPreRiskProfile = () => {
-    if (!preRiskProfile) {
+  const renderPreRiskProfile = (
+    profileOverride?: any,
+    headerLabel: string = "Pre-Risk Alert Level",
+    emptyMessage: string = "Pre-Risk Alert Profile is being generated...",
+    emptySubtext: string = "This may take a few moments after submission.",
+  ) => {
+    const profile = profileOverride !== undefined ? profileOverride : preRiskProfile;
+    if (!profile) {
       return (
         <div className="text-center py-12">
           <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-muted-foreground">Pre-Risk Alert Profile is being generated...</p>
-          <p className="text-xs text-muted-foreground mt-1">This may take a few moments after submission.</p>
+          <p className="text-muted-foreground">{emptyMessage}</p>
+          <p className="text-xs text-muted-foreground mt-1">{emptySubtext}</p>
         </div>
       );
     }
 
     const categories = [
-      { key: "employment", label: "Employment History", max: 3, data: preRiskProfile.employment },
-      { key: "financial", label: "Financial Pressure", max: 3, data: preRiskProfile.financial },
-      { key: "legal", label: "Legal Encounters", max: 5, data: preRiskProfile.legal },
-      { key: "criminal", label: "Criminal Activity", max: 28, data: preRiskProfile.criminal },
-      { key: "integrity", label: "Integrity", max: 1, data: preRiskProfile.integrity },
+      { key: "employment", label: "Employment History", max: 3, data: profile.employment },
+      { key: "financial", label: "Financial Pressure", max: 3, data: profile.financial },
+      { key: "legal", label: "Legal Encounters", max: 5, data: profile.legal },
+      { key: "criminal", label: "Criminal Activity", max: 28, data: profile.criminal },
+      { key: "integrity", label: "Integrity", max: 1, data: profile.integrity },
     ];
 
     return (
       <div className="space-y-6">
         {/* Overall Risk Header */}
-        <Card className={`border-2 ${getRiskTierColor(preRiskProfile.riskLevel)}`}>
+        <Card className={`border-2 ${getRiskTierColor(profile.riskLevel)}`}>
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium uppercase tracking-wider opacity-70">Pre-Risk Alert Level</p>
-                <p className="text-2xl font-bold">{preRiskProfile.riskLevel} RISK</p>
+                <p className="text-xs font-medium uppercase tracking-wider opacity-70">{headerLabel}</p>
+                <p className="text-2xl font-bold">{profile.riskLevel} RISK</p>
               </div>
               <div className="text-right">
                 <p className="text-xs font-medium uppercase tracking-wider opacity-70">Total Score</p>
-                <p className="text-3xl font-bold">{preRiskProfile.totalScore}</p>
+                <p className="text-3xl font-bold">{profile.totalScore}</p>
               </div>
             </div>
-            {preRiskProfile.summary && (
+            {profile.summary && (
               <div className="mt-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-medium uppercase tracking-wider opacity-70">Summary</p>
-                  <SpeakButton text={preRiskProfile.summary} label="Read aloud" />
+                  <SpeakButton text={profile.summary} label="Read aloud" />
                 </div>
-                <p className="text-sm opacity-80">{preRiskProfile.summary}</p>
+                <p className="text-sm opacity-80">{profile.summary}</p>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Key Findings */}
-        {preRiskProfile.keyFindings?.length > 0 && (
+        {profile.keyFindings?.length > 0 && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -403,7 +425,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
             </CardHeader>
             <CardContent>
               <ul className="space-y-1.5">
-                {preRiskProfile.keyFindings.map((finding: string, i: number) => (
+                {profile.keyFindings.map((finding: string, i: number) => (
                   <li key={i} className="text-sm flex items-start gap-2">
                     <span className="text-muted-foreground mt-0.5">•</span>
                     {finding}
@@ -727,23 +749,17 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           </CardContent>
         </Card>
 
-        {polyReport ? (
+        {polyRiskReport?.risk_analysis ? (
           <>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-primary" /> Polygraph Result Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <InfoRow label="Examination Date" value={polyReport.examination_date ? format(new Date(polyReport.examination_date), "dd MMM yyyy") : null} />
-                <InfoRow label="Overall Result" value={polyReport.overall_result} />
-                <InfoRow label="Risk Level" value={polyReport.risk_level} />
-                <InfoRow label="Risk Score" value={polyReport.risk_score?.toString()} />
-                <InfoRow label="Status" value={polyReport.status} />
-              </CardContent>
-            </Card>
-            {(polyReport.converted_pdf_url || polyReport.original_file_url) && (
+            {/* Render the polygraph profile in the same format as the
+                PreAppliCheck pre-risk profile so the two summaries match. */}
+            {renderPreRiskProfile(
+              polyRiskReport.risk_analysis,
+              "Polygraph Risk Level",
+              "Polygraph risk profile is being generated...",
+              "Available shortly after the polygraph report is approved.",
+            )}
+            {(polyReport?.converted_pdf_url || polyReport?.original_file_url) && (
               <div className="flex justify-center pt-2">
                 <Button asChild>
                   <a href={polyReport.converted_pdf_url || polyReport.original_file_url} target="_blank" rel="noopener noreferrer">
@@ -754,6 +770,10 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
               </div>
             )}
           </>
+        ) : polyReport ? (
+          <div className="text-center py-6 border rounded-md bg-muted/30">
+            <p className="text-sm text-muted-foreground">Polygraph report uploaded — risk profile is being generated.</p>
+          </div>
         ) : (
           <div className="text-center py-6 border rounded-md bg-muted/30">
             <p className="text-sm text-muted-foreground">Polygraph report not yet uploaded.</p>
@@ -805,6 +825,50 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                   </li>
                 ))}
               </ul>
+            </CardContent>
+          </Card>
+        )}
+        {/* Pre-Risk vs Polygraph deviations — same questions answered in
+            both, so any divergence is a meaningful signal. */}
+        {(finalRiskReport.deviations?.length > 0 || finalRiskReport.categoryDeviations?.some?.((d: any) => d?.delta && d.delta !== 0)) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                Pre-Risk vs Polygraph Deviations
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {finalRiskReport.categoryDeviations?.length > 0 && (
+                <div className="space-y-1.5">
+                  {finalRiskReport.categoryDeviations
+                    .filter((d: any) => d?.delta != null && d.delta !== 0)
+                    .map((d: any, i: number) => {
+                      const arrow = d.delta > 0 ? "↑" : "↓";
+                      const color = d.delta > 0 ? "text-red-600" : "text-green-600";
+                      return (
+                        <div key={i} className="text-xs flex items-center gap-2">
+                          <span className="font-medium text-foreground w-40 shrink-0">{d.label}</span>
+                          <span className="text-muted-foreground">Pre-risk {d.preScore} → Polygraph {d.polygraphScore}</span>
+                          <span className={`font-bold ${color}`}>{arrow} {Math.abs(d.delta)}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+              {finalRiskReport.deviations?.length > 0 && (
+                <ul className="space-y-2 pt-1 border-t">
+                  {finalRiskReport.deviations.map((d: any, i: number) => (
+                    <li key={i} className="text-sm">
+                      <span className="font-medium">{d.category}:</span>{" "}
+                      <span>{d.change}</span>
+                      {d.impact && (
+                        <span className="block text-xs text-muted-foreground mt-0.5">↳ {d.impact}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         )}

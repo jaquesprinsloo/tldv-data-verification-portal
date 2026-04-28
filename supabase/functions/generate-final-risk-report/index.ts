@@ -191,6 +191,63 @@ serve(async (req) => {
       dossierParts.push("\n=== POLYGRAPH EXAMINATION ===\n(no report)");
     }
 
+    // Deterministic per-category deviation analysis between the
+    // PreAppliCheck pre-risk profile and the polygraph risk profile.
+    // The candidate answers the SAME questions in both — the polygraph
+    // is conducted in person after the online application — so any
+    // delta between the two profiles is a meaningful signal.
+    const polyAnalysis = polyReport?.risk_analysis || null;
+    const deviationCategories = [
+      { key: "employment", label: "Employment History" },
+      { key: "financial", label: "Financial Pressure" },
+      { key: "legal", label: "Legal Encounters" },
+      { key: "criminal", label: "Criminal Activity" },
+      { key: "integrity", label: "Integrity" },
+    ];
+    const deterministicDeviations: Array<{
+      category: string;
+      label: string;
+      preScore: number | null;
+      polygraphScore: number | null;
+      delta: number | null;
+      direction: "higher_in_polygraph" | "lower_in_polygraph" | "same" | "unknown";
+      preLabel: string | null;
+      polygraphLabel: string | null;
+    }> = [];
+    if (preRisk && polyAnalysis) {
+      for (const { key, label } of deviationCategories) {
+        const pre = preRisk[key] || {};
+        const pol = polyAnalysis[key] || {};
+        const preScore = typeof pre.score === "number" ? pre.score : null;
+        const polScore = typeof pol.score === "number" ? pol.score : null;
+        let direction: any = "unknown";
+        let delta: number | null = null;
+        if (preScore != null && polScore != null) {
+          delta = polScore - preScore;
+          if (delta > 0) direction = "higher_in_polygraph";
+          else if (delta < 0) direction = "lower_in_polygraph";
+          else direction = "same";
+        }
+        deterministicDeviations.push({
+          category: key,
+          label,
+          preScore,
+          polygraphScore: polScore,
+          delta,
+          direction,
+          preLabel: pre.label || null,
+          polygraphLabel: pol.label || null,
+        });
+      }
+
+      dossierParts.push("\n=== DETERMINISTIC PRE-RISK vs POLYGRAPH DEVIATIONS ===");
+      for (const d of deterministicDeviations) {
+        dossierParts.push(
+          `- ${d.label}: pre-risk score ${d.preScore ?? "N/A"} (${d.preLabel || "N/A"}) vs polygraph score ${d.polygraphScore ?? "N/A"} (${d.polygraphLabel || "N/A"}) — Δ ${d.delta ?? "N/A"} (${d.direction})`,
+        );
+      }
+    }
+
     const dossier = dossierParts.join("\n");
 
     // Compute baseline final risk tier deterministically (max of inputs).
@@ -200,9 +257,9 @@ serve(async (req) => {
     );
 
     const systemPrompt =
-      "You are a senior pre-employment risk analyst. Combine the PreAppliCheck pre-risk profile, the risk-assessment check results, and the polygraph examination findings into a single executive Final Risk Report. Be concise, factual, and decision-oriented. Return JSON via the required tool ONLY.";
+      "You are a senior pre-employment risk analyst. Combine the PreAppliCheck pre-risk profile, the risk-assessment check results, and the polygraph examination findings into a single executive Final Risk Report. The PreAppliCheck questionnaire and the in-person polygraph cover the SAME questions — the only difference is medium (online vs in-person under polygraph). Treat any disclosure made in the polygraph but NOT in the pre-risk profile as a material deviation worth flagging. Be concise, factual, decision-oriented, and return JSON via the required tool ONLY.";
 
-    const userPrompt = `Combine the following dossier into a single Final Risk Report.\n\nDOSSIER:\n${dossier}\n\nGuidance:\n- Final risk level must be at least: ${baselineTier} (you may escalate but not lower).\n- 'summary' = 3-6 sentence executive summary covering candidate background, check results, and polygraph outcome.\n- 'findings' = bullet list (5-10) of the most material findings across all sources.\n- 'recommendation' = 1-3 sentences. Use one of: PROCEED, PROCEED WITH CAUTION, DECLINE. Justify briefly.`;
+    const userPrompt = `Combine the following dossier into a single Final Risk Report.\n\nDOSSIER:\n${dossier}\n\nGuidance:\n- Final risk level must be at least: ${baselineTier} (you may escalate but not lower).\n- 'summary' = 3-6 sentence executive summary covering candidate background, check results, and polygraph outcome.\n- 'findings' = bullet list (5-10) of the most material findings across all sources.\n- 'deviations' = list every meaningful difference between the pre-risk (online application) profile and the polygraph (in-person) profile. For each, give: category, what changed, and why it matters (e.g. \"disclosed in polygraph but omitted in application\", \"score increased by N\", \"new admission of X\"). If no deviations, return [].\n- 'recommendation' = 1-3 sentences. Use one of: PROCEED, PROCEED WITH CAUTION, DECLINE. Justify briefly, calling out polygraph deviations if they affect the decision.`;
 
     const aiResp = await fetch(AI_URL, {
       method: "POST",
@@ -234,9 +291,22 @@ serve(async (req) => {
                     type: "array",
                     items: { type: "string" },
                   },
+                  deviations: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        category: { type: "string" },
+                        change: { type: "string" },
+                        impact: { type: "string" },
+                      },
+                      required: ["category", "change", "impact"],
+                      additionalProperties: false,
+                    },
+                  },
                   recommendation: { type: "string" },
                 },
-                required: ["riskLevel", "summary", "findings", "recommendation"],
+                required: ["riskLevel", "summary", "findings", "deviations", "recommendation"],
                 additionalProperties: false,
               },
             },
@@ -292,6 +362,8 @@ serve(async (req) => {
       riskLevel: enforcedTier,
       summary: String(parsed.summary || "").trim(),
       findings: Array.isArray(parsed.findings) ? parsed.findings : [],
+      deviations: Array.isArray(parsed.deviations) ? parsed.deviations : [],
+      categoryDeviations: deterministicDeviations,
       recommendation: String(parsed.recommendation || "").trim(),
       generatedAt: new Date().toISOString(),
       sources: {

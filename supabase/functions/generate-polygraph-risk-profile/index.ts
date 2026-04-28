@@ -77,28 +77,34 @@ serve(async (req) => {
       });
     }
 
-    const systemPrompt = `You are a pre-employment risk analyst. Input is structured polygraph findings. Return JSON via the required tool only.
+    // IMPORTANT: This system prompt is intentionally identical to
+    // generate-pre-risk-profile so the pre-risk and polygraph summaries
+    // are produced under the exact same criteria, tone, and shape. The
+    // PreAppliCheck questionnaire and the in-person polygraph cover the
+    // same questions; the only thing that changes is the data source.
+    const systemPrompt = `You are a pre-employment risk analyst. Return JSON via the required tool only.
 
 SCORING:
 - EMPLOYMENT (0-3): 0=stable >=3y, 1=2-3y, 2=1-2y, 3=<1y or dismissals
 - FINANCIAL (0-3): 0=none, 1=current ok, 2=historical debt, 3=blacklisted
 - LEGAL (0-5 additive): +1 each for arrest, conviction, bribery, pending cases, criminal associates
-- CRIMINAL + INTEGRITY: ignored (server-side)
+- CRIMINAL: ignore (server-computed)
+- INTEGRITY: always 0 ("Pending")
 
 RULES:
-- Use only confirmed disclosures
+- Ignore empty/negative responses ("no","none","never")
 - Weight recent/repeated higher; old isolated incidents reduce risk
-- Distinguish lifetime vs recent (especially substances)
+- Distinguish lifetime vs last 2 years (especially for drugs)
 
 OUTPUT:
-- Clear reasoning per category
-- "summary" = objective employment considerations only (NEVER hire/no-hire)
-- "keyFindings" = short evidence-based bullets`;
+- Fill all fields
+- "summary" = objective employment considerations (NEVER hire/no-hire)
+- "keyFindings" = short evidence-based bullets only`;
 
     const userPrompt = `Candidate: ${report.first_name} ${report.last_name}
 ID Number: ${report.id_number || "Not provided"}
 
-POLYGRAPH DISCLOSURES:
+QUESTIONNAIRE RESPONSES (collected in-person during polygraph examination):
 ${dossier}${precheckContext}`;
 
     const aiResponse = await fetch(
@@ -110,7 +116,7 @@ ${dossier}${precheckContext}`;
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "openai/gpt-5-mini",
+          model: "google/gemini-2.5-flash-lite",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
