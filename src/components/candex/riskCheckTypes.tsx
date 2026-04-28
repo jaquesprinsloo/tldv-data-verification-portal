@@ -9,7 +9,8 @@ export type RiskCheckKey =
   | "pdp"
   | "drivers_license"
   | "tertiary"
-  | "matric";
+  | "matric"
+  | "poly";
 
 export type RiskCheckStatus = "pending" | "clear" | "flagged";
 
@@ -28,6 +29,7 @@ export const RISK_CHECKS: { key: RiskCheckKey; label: string; short: string }[] 
   { key: "drivers_license", label: "Drivers License Verification", short: "DL" },
   { key: "tertiary", label: "Tertiary Qualification Verification", short: "Tertiary" },
   { key: "matric", label: "Matric Verification", short: "Matric" },
+  { key: "poly", label: "Polygraph Examination", short: "Poly" },
 ];
 
 export const DEFAULT_REQUESTED_CHECKS: RiskCheckKey[] = ["id_verification", "pre_crim"];

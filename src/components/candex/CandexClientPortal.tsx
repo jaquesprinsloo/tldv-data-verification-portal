@@ -17,7 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList, Download } from "lucide-react";
+import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList, Download, Sparkles } from "lucide-react";
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
@@ -227,21 +227,36 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     enabled: !!client?.id,
   });
 
-  const pendingReview = applications?.filter((a) => a.status === "submitted") || [];
-  const approved = applications?.filter((a) => a.status === "approved" || a.status === "candexed") || [];
+  // Review tab shows all submitted + rejected (rejected stays in Review with badge).
+  const pendingReview = applications?.filter((a) => a.status === "submitted" || a.status === "rejected") || [];
+  const submittedOnly = applications?.filter((a) => a.status === "submitted") || [];
+  // Reviewed tab = approved (and also candexed candidates still appear here as they progressed from approved).
+  const reviewed = applications?.filter((a) => a.status === "approved" || a.status === "candexed") || [];
+  // Risk Assessment Completed tab = candexed (have completed risk assessment).
+  const riskCompleted = applications?.filter((a) => a.status === "candexed") || [];
   const rejected = applications?.filter((a) => a.status === "rejected") || [];
-  const preAppliChecked = applications?.filter((a) => a.status === "candexed") || [];
   const inProgress = applications?.filter((a) => a.status === "in_progress") || [];
+  // PreAppliChecked tab (final) = candidates with a final risk report stored in answers.finalRiskReport
+  const preAppliCheckedFinal = applications?.filter((a: any) => a?.answers?.finalRiskReport) || [];
+
+  // Map of application_id -> appointment status (used to drive the Poly badge column).
+  const polyByAppId: Record<string, string> = {};
+  for (const apt of userAppointments as any[]) {
+    const status = apt?.status || "requested";
+    for (const pac of (apt?.polygraph_appointment_candidates || []) as any[]) {
+      if (pac?.application_id) polyByAppId[pac.application_id] = status;
+    }
+  }
   const totalApplications = applications?.length || 0;
 
   // ── Dashboard Stats ──
   const dashboardStats = {
     totalInvitations: invitations?.length || 0,
     totalApplications,
-    submitted: pendingReview.length,
-    approved: approved.length,
+    submitted: submittedOnly.length,
+    approved: reviewed.length,
     rejected: rejected.length,
-    preAppliChecked: preAppliChecked.length,
+    preAppliChecked: preAppliCheckedFinal.length,
     inProgress: inProgress.length,
   };
 
@@ -632,7 +647,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       value={activeTab}
       onValueChange={(v) => {
         setActiveTab(v);
-        if (v === "approved") markPreAppliCheckedSeen();
+        if (v === "preAppliCheckedFinal") markPreAppliCheckedSeen();
       }}
       className="space-y-6"
     >
@@ -643,23 +658,24 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         <TabsTrigger value="invite" className="flex-1 text-xs px-2">Invitations</TabsTrigger>
         <TabsTrigger value="review" className="relative flex-1 text-xs px-2">
           Review
-          {pendingReview.length > 0 && (
+          {submittedOnly.length > 0 && (
             <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
-              {pendingReview.length}
+              {submittedOnly.length}
             </Badge>
           )}
         </TabsTrigger>
-        <TabsTrigger value="approved" className="relative flex-1 text-xs px-2">
+        <TabsTrigger value="reviewed" className="flex-1 text-xs px-2">Reviewed</TabsTrigger>
+        <TabsTrigger value="preAppliChecked" className="flex-1 text-xs px-2 whitespace-nowrap">Risk Assessment Completed</TabsTrigger>
+        <TabsTrigger value="appointments" className="relative flex-1 text-xs px-2">
+          <CalendarIcon className="h-3.5 w-3.5 mr-1" /> Appointments
+        </TabsTrigger>
+        <TabsTrigger value="preAppliCheckedFinal" className="relative flex-1 text-xs px-2 whitespace-nowrap">
           PreAppliChecked
           {preAppliCheckedUnread > 0 && (
             <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px] animate-pulse">
               {preAppliCheckedUnread}
             </Badge>
           )}
-        </TabsTrigger>
-        <TabsTrigger value="preAppliChecked" className="flex-1 text-xs px-2 whitespace-nowrap">Risk Assessment Completed</TabsTrigger>
-        <TabsTrigger value="appointments" className="relative flex-1 text-xs px-2">
-          <CalendarIcon className="h-3.5 w-3.5 mr-1" /> Appointments
         </TabsTrigger>
       </TabsList>
 
@@ -992,27 +1008,27 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         />
       </TabsContent>
 
-      {/* ── APPROVED TAB ── */}
-      <TabsContent value="approved">
+      {/* ── REVIEWED TAB (was Approved) ── */}
+      <TabsContent value="reviewed">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Approved Candidates</CardTitle>
-            {approved.length > 0 && (
+            <CardTitle className="text-lg">Reviewed Candidates</CardTitle>
+            {reviewed.length > 0 && (
               <Button size="sm" onClick={() => setRequestOpen(true)}>
                 <ShieldCheck className="h-4 w-4 mr-1" /> Request Risk Assessment
               </Button>
             )}
           </CardHeader>
           <CardContent>
-            {!approved.length ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No approved candidates yet.</p>
+            {!reviewed.length ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No reviewed candidates yet.</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Candidate</TableHead>
                     <TableHead>ID Number</TableHead>
-                    <TableHead>Date Approved</TableHead>
+                    <TableHead>Date Reviewed</TableHead>
                     <TableHead>Pre Risk</TableHead>
                     {RISK_CHECKS.map((c) => (
                       <TableHead key={c.key} className="text-center text-[10px] uppercase tracking-wide px-1" title={c.label}>
@@ -1023,7 +1039,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {approved.map((app) => {
+                  {reviewed.map((app) => {
                     const riskCandidate = riskCandidateData?.find((rc: any) => rc.application_id === app.id);
                     const requestedChecks: RiskCheckKey[] =
                       ((riskCandidate as any)?.candex_risk_requests?.requested_checks as RiskCheckKey[]) || [];
@@ -1046,10 +1062,17 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           ) : "—"}
                         </TableCell>
                         {RISK_CHECKS.map((c) => {
-                          const requested = requestedChecks.includes(c.key) ||
+                          const polyStatus = polyByAppId[app.id];
+                          const requested =
+                            requestedChecks.includes(c.key) ||
                             (c.key === "id_verification" && !!riskCandidate && requestedChecks.length === 0) ||
-                            (c.key === "pre_crim" && !!riskCandidate && requestedChecks.length === 0);
+                            (c.key === "pre_crim" && !!riskCandidate && requestedChecks.length === 0) ||
+                            (c.key === "poly" && !!polyStatus);
                           let result = checkResults[c.key];
+                          if (c.key === "poly" && polyStatus) {
+                            const isCompleted = polyStatus === "completed";
+                            result = { status: isCompleted ? "clear" : "pending", notes: `Appointment ${polyStatus}` };
+                          }
                           // Legacy bridge so old requests still show outcomes
                           if (!result && requested) {
                             if (c.key === "id_verification" && legacyIdVerified !== undefined && legacyIdVerified !== null) {
@@ -1158,7 +1181,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               <div>
                 <Label>Select Candidates</Label>
                 <div className="border rounded-md mt-1 max-h-48 overflow-y-auto">
-                  {approved.map((app) => (
+                  {reviewed.map((app) => (
                     <label key={app.id} className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer text-sm">
                       <Checkbox checked={selectedCandidates.includes(app.id)} onCheckedChange={() => toggleCandidate(app.id)} />
                       <span>{app.candidate_name}</span>
@@ -1184,14 +1207,14 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
             <CardTitle className="text-lg flex items-center gap-2">
               <UserCheck className="h-5 w-5 text-primary" /> Risk Assessment Completed
             </CardTitle>
-            {preAppliChecked.length > 0 && (
+            {(riskCompleted.length > 0 || reviewed.length > 0) && (
               <Button size="sm" onClick={() => setAppointmentOpen(true)}>
                 <ClipboardList className="h-4 w-4 mr-1" /> Request Polygraph
               </Button>
             )}
           </CardHeader>
           <CardContent>
-            {!preAppliChecked.length ? (
+            {!riskCompleted.length ? (
               <p className="text-sm text-muted-foreground text-center py-8">No completed risk assessments yet.</p>
             ) : (
               <Table>
@@ -1205,7 +1228,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {preAppliChecked.map((app) => {
+                  {riskCompleted.map((app) => {
                     const riskCandidate = riskCandidateData?.find((rc: any) => rc.application_id === app.id);
                     const riskResult = riskCandidate?.risk_assessment_result;
                     const riskUrl = riskCandidate?.risk_assessment_url;
@@ -1307,7 +1330,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         <PolygraphAppointmentDialog
           open={appointmentOpen}
           onClose={() => setAppointmentOpen(false)}
-          candidates={preAppliChecked.map((a) => ({
+          candidates={reviewed.map((a) => ({
             id: a.id,
             candidate_name: a.candidate_name,
             candidate_id_number: a.candidate_id_number || null,
@@ -1409,6 +1432,77 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                             )}
                             <Button variant="ghost" size="sm" className="text-destructive" title="Delete appointment" onClick={() => { if (confirm("Delete this appointment? This cannot be undone.")) deleteAppointment.mutate(apt.id); }} disabled={deleteAppointment.isPending}>
                               <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      {/* ── PREAPPLICHECKED FINAL TAB ── */}
+      <TabsContent value="preAppliCheckedFinal">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" /> PreAppliChecked — Final Reports
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!preAppliCheckedFinal.length ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Final risk reports appear here once a polygraph report has been uploaded and the combined report has been generated.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Candidate</TableHead>
+                    <TableHead>ID Number</TableHead>
+                    <TableHead>Final Risk Level</TableHead>
+                    <TableHead>Requested Checks</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {preAppliCheckedFinal.map((app: any) => {
+                    const riskCandidate = riskCandidateData?.find((rc: any) => rc.application_id === app.id);
+                    const requestedChecks: RiskCheckKey[] =
+                      ((riskCandidate as any)?.candex_risk_requests?.requested_checks as RiskCheckKey[]) || [];
+                    const finalLevel = app?.answers?.finalRiskReport?.riskLevel;
+                    return (
+                      <TableRow key={app.id}>
+                        <TableCell className="font-medium">{app.candidate_name}</TableCell>
+                        <TableCell className="text-xs">{app.candidate_id_number || "—"}</TableCell>
+                        <TableCell>
+                          {finalLevel ? (
+                            <Badge className={`text-xs ${finalLevel === "LOW" ? "bg-green-600 text-white" : "bg-destructive text-destructive-foreground"}`}>
+                              {finalLevel}
+                            </Badge>
+                          ) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {requestedChecks.length === 0 ? (
+                              <span className="text-xs text-muted-foreground">None</span>
+                            ) : requestedChecks.map((k) => {
+                              const meta = RISK_CHECKS.find((c) => c.key === k);
+                              return <Badge key={k} variant="outline" className="text-[10px]">{meta?.short || k}</Badge>;
+                            })}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-1 justify-end">
+                            <Button variant="ghost" size="sm" title="View PreAppliCheck" onClick={() => setViewPreAppliCheckApp(app)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-primary" title="View Final Risk Report" onClick={() => setViewPreAppliCheckApp(app)}>
+                              <Sparkles className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
