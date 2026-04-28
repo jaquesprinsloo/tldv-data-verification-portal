@@ -51,7 +51,7 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    const logoUrl = "https://irvpnyxtdzwpnhtdpweu.supabase.co/storage/v1/object/public/email-assets/preapplicheck-logo.jpg";
+    const logoUrl = "https://irvpnyxtdzwpnhtdpweu.supabase.co/storage/v1/object/public/email-assets/preapplicheck-logo.png";
 
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">
