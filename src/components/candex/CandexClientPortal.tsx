@@ -17,7 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList, Download } from "lucide-react";
+import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList, Download, Sparkles } from "lucide-react";
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
@@ -227,21 +227,27 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     enabled: !!client?.id,
   });
 
-  const pendingReview = applications?.filter((a) => a.status === "submitted") || [];
-  const approved = applications?.filter((a) => a.status === "approved" || a.status === "candexed") || [];
+  // Review tab shows all submitted + rejected (rejected stays in Review with badge).
+  const pendingReview = applications?.filter((a) => a.status === "submitted" || a.status === "rejected") || [];
+  const submittedOnly = applications?.filter((a) => a.status === "submitted") || [];
+  // Reviewed tab = approved (and also candexed candidates still appear here as they progressed from approved).
+  const reviewed = applications?.filter((a) => a.status === "approved" || a.status === "candexed") || [];
+  // Risk Assessment Completed tab = candexed (have completed risk assessment).
+  const riskCompleted = applications?.filter((a) => a.status === "candexed") || [];
   const rejected = applications?.filter((a) => a.status === "rejected") || [];
-  const preAppliChecked = applications?.filter((a) => a.status === "candexed") || [];
   const inProgress = applications?.filter((a) => a.status === "in_progress") || [];
+  // PreAppliChecked tab (final) = candidates with a final risk report stored in answers.finalRiskReport
+  const preAppliCheckedFinal = applications?.filter((a: any) => a?.answers?.finalRiskReport) || [];
   const totalApplications = applications?.length || 0;
 
   // ── Dashboard Stats ──
   const dashboardStats = {
     totalInvitations: invitations?.length || 0,
     totalApplications,
-    submitted: pendingReview.length,
-    approved: approved.length,
+    submitted: submittedOnly.length,
+    approved: reviewed.length,
     rejected: rejected.length,
-    preAppliChecked: preAppliChecked.length,
+    preAppliChecked: preAppliCheckedFinal.length,
     inProgress: inProgress.length,
   };
 
@@ -643,23 +649,24 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         <TabsTrigger value="invite" className="flex-1 text-xs px-2">Invitations</TabsTrigger>
         <TabsTrigger value="review" className="relative flex-1 text-xs px-2">
           Review
-          {pendingReview.length > 0 && (
+          {submittedOnly.length > 0 && (
             <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
-              {pendingReview.length}
+              {submittedOnly.length}
             </Badge>
           )}
         </TabsTrigger>
-        <TabsTrigger value="approved" className="relative flex-1 text-xs px-2">
+        <TabsTrigger value="reviewed" className="flex-1 text-xs px-2">Reviewed</TabsTrigger>
+        <TabsTrigger value="preAppliChecked" className="flex-1 text-xs px-2 whitespace-nowrap">Risk Assessment Completed</TabsTrigger>
+        <TabsTrigger value="appointments" className="relative flex-1 text-xs px-2">
+          <CalendarIcon className="h-3.5 w-3.5 mr-1" /> Appointments
+        </TabsTrigger>
+        <TabsTrigger value="preAppliCheckedFinal" className="relative flex-1 text-xs px-2 whitespace-nowrap">
           PreAppliChecked
           {preAppliCheckedUnread > 0 && (
             <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px] animate-pulse">
               {preAppliCheckedUnread}
             </Badge>
           )}
-        </TabsTrigger>
-        <TabsTrigger value="preAppliChecked" className="flex-1 text-xs px-2 whitespace-nowrap">Risk Assessment Completed</TabsTrigger>
-        <TabsTrigger value="appointments" className="relative flex-1 text-xs px-2">
-          <CalendarIcon className="h-3.5 w-3.5 mr-1" /> Appointments
         </TabsTrigger>
       </TabsList>
 
