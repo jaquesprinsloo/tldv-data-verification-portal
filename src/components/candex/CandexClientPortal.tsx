@@ -1165,7 +1165,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               <div>
                 <Label>Select Candidates</Label>
                 <div className="border rounded-md mt-1 max-h-48 overflow-y-auto">
-                  {approved.map((app) => (
+                  {reviewed.map((app) => (
                     <label key={app.id} className="flex items-center gap-2 px-3 py-2 hover:bg-muted/50 cursor-pointer text-sm">
                       <Checkbox checked={selectedCandidates.includes(app.id)} onCheckedChange={() => toggleCandidate(app.id)} />
                       <span>{app.candidate_name}</span>
@@ -1191,14 +1191,14 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
             <CardTitle className="text-lg flex items-center gap-2">
               <UserCheck className="h-5 w-5 text-primary" /> Risk Assessment Completed
             </CardTitle>
-            {preAppliChecked.length > 0 && (
+            {(riskCompleted.length > 0 || reviewed.length > 0) && (
               <Button size="sm" onClick={() => setAppointmentOpen(true)}>
                 <ClipboardList className="h-4 w-4 mr-1" /> Request Polygraph
               </Button>
             )}
           </CardHeader>
           <CardContent>
-            {!preAppliChecked.length ? (
+            {!riskCompleted.length ? (
               <p className="text-sm text-muted-foreground text-center py-8">No completed risk assessments yet.</p>
             ) : (
               <Table>
@@ -1212,7 +1212,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {preAppliChecked.map((app) => {
+                  {riskCompleted.map((app) => {
                     const riskCandidate = riskCandidateData?.find((rc: any) => rc.application_id === app.id);
                     const riskResult = riskCandidate?.risk_assessment_result;
                     const riskUrl = riskCandidate?.risk_assessment_url;
@@ -1314,7 +1314,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         <PolygraphAppointmentDialog
           open={appointmentOpen}
           onClose={() => setAppointmentOpen(false)}
-          candidates={preAppliChecked.map((a) => ({
+          candidates={reviewed.map((a) => ({
             id: a.id,
             candidate_name: a.candidate_name,
             candidate_id_number: a.candidate_id_number || null,
