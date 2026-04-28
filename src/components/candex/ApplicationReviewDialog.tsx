@@ -640,23 +640,16 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           </CardContent>
         </Card>
 
-        {/* Shared assessment document — full card is the action button */}
+        {/* Shared assessment document — centered action button */}
         {sharedDocUrl && (
-          <a
-            href={sharedDocUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-4 transition hover:bg-primary/10 hover:border-primary"
-          >
-            <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5 text-primary" />
-              <div className="flex flex-col">
-                <span className="text-sm font-semibold text-foreground">View Risk Assessment</span>
-                <span className="text-xs text-muted-foreground">Opens the attached assessment document in a new window</span>
-              </div>
-            </div>
-            <ExternalLink className="h-4 w-4 text-primary group-hover:translate-x-0.5 transition" />
-          </a>
+          <div className="flex justify-center pt-2">
+            <Button asChild>
+              <a href={sharedDocUrl} target="_blank" rel="noopener noreferrer">
+                View Risk Assessment
+                <ExternalLink className="h-4 w-4 ml-2" />
+              </a>
+            </Button>
+          </div>
         )}
       </div>
     );
