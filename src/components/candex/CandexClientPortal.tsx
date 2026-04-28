@@ -238,6 +238,15 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const inProgress = applications?.filter((a) => a.status === "in_progress") || [];
   // PreAppliChecked tab (final) = candidates with a final risk report stored in answers.finalRiskReport
   const preAppliCheckedFinal = applications?.filter((a: any) => a?.answers?.finalRiskReport) || [];
+
+  // Map of application_id -> appointment status (used to drive the Poly badge column).
+  const polyByAppId: Record<string, string> = {};
+  for (const apt of userAppointments as any[]) {
+    const status = apt?.status || "requested";
+    for (const pac of (apt?.polygraph_appointment_candidates || []) as any[]) {
+      if (pac?.application_id) polyByAppId[pac.application_id] = status;
+    }
+  }
   const totalApplications = applications?.length || 0;
 
   // ── Dashboard Stats ──
@@ -1053,10 +1062,17 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           ) : "—"}
                         </TableCell>
                         {RISK_CHECKS.map((c) => {
-                          const requested = requestedChecks.includes(c.key) ||
+                          const polyStatus = polyByAppId[app.id];
+                          const requested =
+                            requestedChecks.includes(c.key) ||
                             (c.key === "id_verification" && !!riskCandidate && requestedChecks.length === 0) ||
-                            (c.key === "pre_crim" && !!riskCandidate && requestedChecks.length === 0);
+                            (c.key === "pre_crim" && !!riskCandidate && requestedChecks.length === 0) ||
+                            (c.key === "poly" && !!polyStatus);
                           let result = checkResults[c.key];
+                          if (c.key === "poly" && polyStatus) {
+                            const isCompleted = polyStatus === "completed";
+                            result = { status: isCompleted ? "clear" : "pending", notes: `Appointment ${polyStatus}` };
+                          }
                           // Legacy bridge so old requests still show outcomes
                           if (!result && requested) {
                             if (c.key === "id_verification" && legacyIdVerified !== undefined && legacyIdVerified !== null) {
