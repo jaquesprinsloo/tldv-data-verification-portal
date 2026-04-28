@@ -828,6 +828,50 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
             </CardContent>
           </Card>
         )}
+        {/* Pre-Risk vs Polygraph deviations — same questions answered in
+            both, so any divergence is a meaningful signal. */}
+        {(finalRiskReport.deviations?.length > 0 || finalRiskReport.categoryDeviations?.some?.((d: any) => d?.delta && d.delta !== 0)) && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                Pre-Risk vs Polygraph Deviations
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {finalRiskReport.categoryDeviations?.length > 0 && (
+                <div className="space-y-1.5">
+                  {finalRiskReport.categoryDeviations
+                    .filter((d: any) => d?.delta != null && d.delta !== 0)
+                    .map((d: any, i: number) => {
+                      const arrow = d.delta > 0 ? "↑" : "↓";
+                      const color = d.delta > 0 ? "text-red-600" : "text-green-600";
+                      return (
+                        <div key={i} className="text-xs flex items-center gap-2">
+                          <span className="font-medium text-foreground w-40 shrink-0">{d.label}</span>
+                          <span className="text-muted-foreground">Pre-risk {d.preScore} → Polygraph {d.polygraphScore}</span>
+                          <span className={`font-bold ${color}`}>{arrow} {Math.abs(d.delta)}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+              {finalRiskReport.deviations?.length > 0 && (
+                <ul className="space-y-2 pt-1 border-t">
+                  {finalRiskReport.deviations.map((d: any, i: number) => (
+                    <li key={i} className="text-sm">
+                      <span className="font-medium">{d.category}:</span>{" "}
+                      <span>{d.change}</span>
+                      {d.impact && (
+                        <span className="block text-xs text-muted-foreground mt-0.5">↳ {d.impact}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        )}
         {finalRiskReport.recommendation && (
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm">Recommendation</CardTitle></CardHeader>
