@@ -183,7 +183,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
         const { data, error } = await supabase
           .from("candex_risk_request_candidates")
           .select(
-            "id, application_id, request_id, id_verified, risk_assessment_result, risk_assessment_url, check_results, created_at, candex_risk_requests(id, status, requested_checks, requested_date, notes, created_at)"
+            "id, application_id, request_id, id_verified, risk_assessment_result, risk_assessment_url, check_results, created_at, updated_at, candex_risk_requests(id, status, requested_checks, requested_date, notes, created_at, updated_at)"
           )
           .eq("application_id", application.id)
           .is("deleted_at", null)
@@ -527,40 +527,76 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
     const parentRequest = (riskAssessment as any).candex_risk_requests || {};
     const requestedChecks: RiskCheckKey[] = (parentRequest.requested_checks as RiskCheckKey[]) || [];
     const checkResults: Record<string, RiskCheckResult> = riskAssessment.check_results || {};
-    const overallResult = (riskAssessment.risk_assessment_result || "").toLowerCase();
     const sharedDocUrl = riskAssessment.risk_assessment_url as string | null;
 
-    const overallBadge =
-      overallResult === "flagged" ? (
-        <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> Flagged</Badge>
-      ) : overallResult === "clear" ? (
-        <Badge className="gap-1 bg-green-600 text-white"><Check className="h-3 w-3" /> Clear</Badge>
-      ) : (
-        <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800 border-amber-200">
-          <Loader2 className="h-3 w-3" /> {parentRequest.status || "Pending"}
-        </Badge>
-      );
+    // Derive overall outcome from per-check results: any flagged => flagged,
+    // all requested checks clear => clear, otherwise pending.
+    const statuses = requestedChecks.map((k) => checkResults[k]?.status);
+    const hasFlagged = statuses.includes("flagged");
+    const allClear =
+      requestedChecks.length > 0 && statuses.every((s) => s === "clear");
+    const overallState: "flagged" | "clear" | "pending" = hasFlagged
+      ? "flagged"
+      : allClear
+      ? "clear"
+      : "pending";
+
+    const requestStatus = String(parentRequest.status || "").toLowerCase();
+    const isCompleted =
+      requestStatus === "completed" ||
+      requestStatus === "fulfilled" ||
+      overallState !== "pending";
+    const completedAt = isCompleted ? parentRequest.updated_at : null;
+
+    const bannerClasses =
+      overallState === "flagged"
+        ? "bg-destructive text-destructive-foreground border-destructive"
+        : overallState === "clear"
+        ? "bg-green-600 text-white border-green-700"
+        : "bg-amber-100 text-amber-900 border-amber-200";
+    const bannerLabel =
+      overallState === "flagged"
+        ? "Flagged"
+        : overallState === "clear"
+        ? "Clear"
+        : "Pending";
+    const BannerIcon =
+      overallState === "flagged" ? AlertTriangle : overallState === "clear" ? Check : Loader2;
 
     return (
       <div className="space-y-4">
-        {/* Overall summary */}
+        {/* Overall outcome banner */}
+        <div
+          className={`flex items-center gap-3 rounded-md border px-4 py-3 ${bannerClasses}`}
+        >
+          <BannerIcon className="h-5 w-5 shrink-0" />
+          <div className="flex flex-col">
+            <span className="text-xs uppercase tracking-wider opacity-80">Overall Outcome</span>
+            <span className="text-base font-semibold">{bannerLabel}</span>
+          </div>
+        </div>
+
+        {/* Summary */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-primary" /> Risk Assessment Summary
-              </span>
-              {overallBadge}
+            <CardTitle className="text-sm flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" /> Risk Assessment Summary
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-0">
               <InfoRow
-                label="Requested On"
+                label="Checks Requested On"
                 value={parentRequest.requested_date ? format(new Date(parentRequest.requested_date), "dd MMM yyyy") : null}
               />
-              <InfoRow label="Request Status" value={parentRequest.status} />
-              <InfoRow label="Checks Requested" value={requestedChecks.length ? String(requestedChecks.length) : "0"} />
+              <InfoRow
+                label="Completed On"
+                value={completedAt ? format(new Date(completedAt), "dd MMM yyyy") : "Not yet completed"}
+              />
+              <InfoRow
+                label="Number of Checks Requested"
+                value={requestedChecks.length ? String(requestedChecks.length) : "0"}
+              />
               <InfoRow label="ID Verified" value={riskAssessment.id_verified ? "Yes" : "No"} />
               {parentRequest.notes && <InfoRow label="Notes" value={parentRequest.notes} />}
             </div>
@@ -579,7 +615,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
               requestedChecks.map((checkKey) => {
                 const meta = RISK_CHECKS.find((c) => c.key === checkKey);
                 const result = checkResults[checkKey];
-                const url = result?.url || sharedDocUrl;
                 return (
                   <div
                     key={checkKey}
@@ -598,16 +633,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                     </div>
                     <div className="flex items-center gap-2">
                       <RiskCheckStatusBadge status={result?.status} />
-                      {url && (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                        >
-                          <ExternalLink className="h-3 w-3" /> View
-                        </a>
-                      )}
                     </div>
                   </div>
                 );
@@ -616,25 +641,23 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           </CardContent>
         </Card>
 
-        {/* Shared assessment document */}
+        {/* Shared assessment document — full card is the action button */}
         {sharedDocUrl && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" /> Attached Assessment Document
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <a
-                href={sharedDocUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-              >
-                <ExternalLink className="h-4 w-4" /> Open assessment document
-              </a>
-            </CardContent>
-          </Card>
+          <a
+            href={sharedDocUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-4 transition hover:bg-primary/10 hover:border-primary"
+          >
+            <div className="flex items-center gap-3">
+              <FileText className="h-5 w-5 text-primary" />
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-foreground">View Risk Assessment</span>
+                <span className="text-xs text-muted-foreground">Opens the attached assessment document in a new window</span>
+              </div>
+            </div>
+            <ExternalLink className="h-4 w-4 text-primary group-hover:translate-x-0.5 transition" />
+          </a>
         )}
       </div>
     );
