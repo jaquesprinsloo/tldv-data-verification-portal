@@ -4,11 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Check, X, Shield, FileText, User, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity } from "lucide-react";
+import { Check, X, Shield, FileText, User, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity, ShieldCheck, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 import { CalculationInfoPopover } from "@/components/reports/CalculationInfoPopover";
 import { SpeakButton } from "@/components/shared/SpeakButton";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { RISK_CHECKS, RiskCheckKey, RiskCheckResult, RiskCheckStatusBadge } from "./riskCheckTypes";
 
 interface ApplicationReviewDialogProps {
   application: any;
@@ -139,6 +142,45 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   const popiaAccepted = appAnswers?.popiaAccepted;
   const indemnityAccepted = appAnswers?.indemnityAccepted;
   const preRiskProfile = resolvePreRiskProfile(appAnswers?.preRiskProfile, questionnaireQuestions);
+
+  // Risk assessment data — loaded from candex_risk_request_candidates joined to its parent request.
+  const [riskAssessment, setRiskAssessment] = useState<any | null>(null);
+  const [riskLoading, setRiskLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !application?.id) {
+      setRiskAssessment(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setRiskLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("candex_risk_request_candidates")
+          .select(
+            "id, application_id, request_id, id_verified, risk_assessment_result, risk_assessment_url, check_results, created_at, candex_risk_requests(id, status, requested_checks, requested_date, notes, created_at)"
+          )
+          .eq("application_id", application.id)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (cancelled) return;
+        if (error) {
+          console.error("[ApplicationReviewDialog] risk assessment fetch error", error);
+          setRiskAssessment(null);
+        } else {
+          setRiskAssessment(data);
+        }
+      } finally {
+        if (!cancelled) setRiskLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, application?.id]);
 
   // QuestionnaireScreen invokes onComplete via Promise; we never call it in read-only mode.
   const noopComplete = async () => true;
@@ -386,6 +428,140 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
     );
   };
 
+  const renderRiskAssessment = () => {
+    if (riskLoading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      );
+    }
+
+    if (!riskAssessment) {
+      return (
+        <div className="text-center py-12">
+          <ShieldCheck className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground">No risk assessment requested for this application yet.</p>
+        </div>
+      );
+    }
+
+    const parentRequest = (riskAssessment as any).candex_risk_requests || {};
+    const requestedChecks: RiskCheckKey[] = (parentRequest.requested_checks as RiskCheckKey[]) || [];
+    const checkResults: Record<string, RiskCheckResult> = riskAssessment.check_results || {};
+    const overallResult = (riskAssessment.risk_assessment_result || "").toLowerCase();
+    const sharedDocUrl = riskAssessment.risk_assessment_url as string | null;
+
+    const overallBadge =
+      overallResult === "flagged" ? (
+        <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> Flagged</Badge>
+      ) : overallResult === "clear" ? (
+        <Badge className="gap-1 bg-green-600 text-white"><Check className="h-3 w-3" /> Clear</Badge>
+      ) : (
+        <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800 border-amber-200">
+          <Loader2 className="h-3 w-3" /> {parentRequest.status || "Pending"}
+        </Badge>
+      );
+
+    return (
+      <div className="space-y-4">
+        {/* Overall summary */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-primary" /> Risk Assessment Summary
+              </span>
+              {overallBadge}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-0">
+              <InfoRow
+                label="Requested On"
+                value={parentRequest.requested_date ? format(new Date(parentRequest.requested_date), "dd MMM yyyy") : null}
+              />
+              <InfoRow label="Request Status" value={parentRequest.status} />
+              <InfoRow label="Checks Requested" value={requestedChecks.length ? String(requestedChecks.length) : "0"} />
+              <InfoRow label="ID Verified" value={riskAssessment.id_verified ? "Yes" : "No"} />
+              {parentRequest.notes && <InfoRow label="Notes" value={parentRequest.notes} />}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Per-check breakdown */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Requested Checks & Results</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {requestedChecks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No specific checks were requested.</p>
+            ) : (
+              requestedChecks.map((checkKey) => {
+                const meta = RISK_CHECKS.find((c) => c.key === checkKey);
+                const result = checkResults[checkKey];
+                const url = result?.url || sharedDocUrl;
+                return (
+                  <div
+                    key={checkKey}
+                    className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{meta?.label || checkKey}</span>
+                      {result?.notes && (
+                        <span className="text-xs text-muted-foreground mt-0.5">{result.notes}</span>
+                      )}
+                      {result?.processed_at && (
+                        <span className="text-[11px] text-muted-foreground mt-0.5">
+                          Processed {format(new Date(result.processed_at), "dd MMM yyyy HH:mm")}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RiskCheckStatusBadge status={result?.status} />
+                      {url && (
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" /> View
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Shared assessment document */}
+        {sharedDocUrl && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" /> Attached Assessment Document
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <a
+                href={sharedDocUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+              >
+                <ExternalLink className="h-4 w-4" /> Open assessment document
+              </a>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -400,7 +576,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           </div>
         ) : (
           <Tabs defaultValue="questionnaire" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="questionnaire" className="text-xs">
                 <ClipboardList className="h-3.5 w-3.5 mr-1" /> Questionnaire
               </TabsTrigger>
@@ -418,6 +594,9 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                 {preRiskProfile?.riskLevel && preRiskProfile.riskLevel !== "LOW" && (
                   <Badge variant="destructive" className="absolute -top-2 -right-2 h-4 w-4 p-0 flex items-center justify-center text-[8px]">!</Badge>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="risk-assessment" className="relative text-xs">
+                <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Risk Assessment
               </TabsTrigger>
             </TabsList>
 
@@ -563,6 +742,11 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
             {/* ── PRE-RISK ALERT PROFILE TAB ── */}
             <TabsContent value="risk">
               {renderPreRiskProfile()}
+            </TabsContent>
+
+            {/* ── RISK ASSESSMENT TAB ── */}
+            <TabsContent value="risk-assessment">
+              {renderRiskAssessment()}
             </TabsContent>
           </Tabs>
         )}
