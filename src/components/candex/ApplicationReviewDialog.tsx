@@ -147,6 +147,30 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   const [riskAssessment, setRiskAssessment] = useState<any | null>(null);
   const [riskLoading, setRiskLoading] = useState(false);
 
+  // POPIA / Indemnity document text shown next to the candidate's acceptance.
+  const [popiaDocs, setPopiaDocs] = useState<{ popia_text?: string; indemnity_text?: string } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("popia_indemnity_settings" as any)
+        .select("popia_text, indemnity_text")
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        console.error("[ApplicationReviewDialog] popia/indemnity fetch error", error);
+        setPopiaDocs(null);
+      } else {
+        setPopiaDocs(data as any);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open || !application?.id) {
       setRiskAssessment(null);
@@ -190,6 +214,60 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
       <span className="text-muted-foreground text-sm w-40 shrink-0">{label}</span>
       <span className="text-sm font-medium text-right">{value || "—"}</span>
     </div>
+  );
+
+  // Reusable digital signature block — used inside the POPIA, Indemnity and Signature tabs.
+  const renderSignatureBlock = (accepted: boolean | undefined, docLabel: string) => (
+    <Card className="mt-4">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Smartphone className="h-4 w-4 text-primary" /> Digital Signature
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div
+          className={`flex items-center gap-1.5 px-4 py-3 rounded-lg text-sm font-medium ${
+            accepted ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+          }`}
+        >
+          {accepted ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+          {docLabel} {accepted ? "Accepted" : "Not Accepted"}
+        </div>
+
+        {deviceData ? (
+          <div className="mt-3 space-y-0">
+            {deviceData.selfieUrl && (
+              <div className="mb-3 flex flex-col items-center gap-2 p-3 rounded-lg border bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Identity Verification Selfie
+                </p>
+                <a href={deviceData.selfieUrl} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={deviceData.selfieUrl}
+                    alt="Applicant verification selfie"
+                    className="rounded-lg border max-w-[180px] w-full"
+                  />
+                </a>
+              </div>
+            )}
+            <InfoRow label="IP Address" value={deviceData.ipAddress} />
+            <InfoRow label="GPS Latitude" value={deviceData.gpsLatitude?.toString()} />
+            <InfoRow label="GPS Longitude" value={deviceData.gpsLongitude?.toString()} />
+            <InfoRow
+              label="Timestamp"
+              value={
+                deviceData.timestamp
+                  ? format(new Date(deviceData.timestamp), "dd MMM yyyy HH:mm:ss")
+                  : null
+              }
+            />
+            <InfoRow label="Platform" value={deviceData.platform} />
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground mt-3">No signature data captured.</p>
+        )}
+      </CardContent>
+    </Card>
   );
 
   const getRiskTierColor = (level: string) => {
@@ -662,17 +740,14 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className={`flex items-center gap-1.5 px-4 py-3 rounded-lg text-sm font-medium ${popiaAccepted ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                    {popiaAccepted ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                    POPIA Declaration {popiaAccepted ? "Accepted" : "Not Accepted"}
+                  <div className="max-h-[40vh] overflow-y-auto rounded-md border bg-muted/30 p-4">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {popiaDocs?.popia_text || "POPIA document is not configured yet."}
+                    </div>
                   </div>
-                  {deviceData?.timestamp && (
-                    <p className="text-xs text-muted-foreground mt-3">
-                      Accepted on: {format(new Date(deviceData.timestamp), "dd MMM yyyy 'at' HH:mm:ss")}
-                    </p>
-                  )}
                 </CardContent>
               </Card>
+              {renderSignatureBlock(popiaAccepted, "POPIA Declaration")}
             </TabsContent>
 
             {/* ── INDEMNITY TAB ── */}
@@ -680,21 +755,18 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-primary" /> Indemnity Acceptance
+                    <FileText className="h-4 w-4 text-primary" /> Indemnity & Consent
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className={`flex items-center gap-1.5 px-4 py-3 rounded-lg text-sm font-medium ${indemnityAccepted ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                    {indemnityAccepted ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                    Indemnity {indemnityAccepted ? "Accepted" : "Not Accepted"}
+                  <div className="max-h-[40vh] overflow-y-auto rounded-md border bg-muted/30 p-4">
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {popiaDocs?.indemnity_text || "Indemnity document is not configured yet."}
+                    </div>
                   </div>
-                  {deviceData?.timestamp && (
-                    <p className="text-xs text-muted-foreground mt-3">
-                      Accepted on: {format(new Date(deviceData.timestamp), "dd MMM yyyy 'at' HH:mm:ss")}
-                    </p>
-                  )}
                 </CardContent>
               </Card>
+              {renderSignatureBlock(indemnityAccepted, "Indemnity")}
             </TabsContent>
 
             {/* ── SIGNATURE TAB ── */}
