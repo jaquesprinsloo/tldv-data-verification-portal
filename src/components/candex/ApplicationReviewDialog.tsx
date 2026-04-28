@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Check, X, Shield, FileText, User, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity, ShieldCheck, ExternalLink } from "lucide-react";
+import { Check, X, Shield, FileText, User, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity, ShieldCheck, ExternalLink, Brain, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 import { CalculationInfoPopover } from "@/components/reports/CalculationInfoPopover";
@@ -150,6 +150,13 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   // POPIA / Indemnity document text shown next to the candidate's acceptance.
   const [popiaDocs, setPopiaDocs] = useState<{ popia_text?: string; indemnity_text?: string } | null>(null);
 
+  // Polygraph appointment + report data, loaded when application is opened.
+  const [polyAppointment, setPolyAppointment] = useState<any | null>(null);
+  const [polyReport, setPolyReport] = useState<any | null>(null);
+  const [polyLoading, setPolyLoading] = useState(false);
+
+  const finalRiskReport = appAnswers?.finalRiskReport || null;
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -205,6 +212,47 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
       cancelled = true;
     };
   }, [open, application?.id]);
+
+  // Load any polygraph appointment + uploaded report linked to this application.
+  useEffect(() => {
+    if (!open || !application?.id) {
+      setPolyAppointment(null);
+      setPolyReport(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setPolyLoading(true);
+      try {
+        const { data: pacRows } = await supabase
+          .from("polygraph_appointment_candidates")
+          .select("id, appointment_id, candidate_name, candidate_id_number, polygraph_appointments(*)")
+          .eq("application_id", application.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (cancelled) return;
+        const pac = pacRows?.[0] as any;
+        const apt = pac?.polygraph_appointments;
+        setPolyAppointment(apt || null);
+
+        // Try matching an uploaded polygraph report by ID number.
+        const idNum = application?.candidate_id_number || pac?.candidate_id_number;
+        if (idNum) {
+          const { data: rep } = await supabase
+            .from("pending_polygraph_uploads")
+            .select("*")
+            .eq("id_number", idNum)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (!cancelled) setPolyReport(rep || null);
+        }
+      } finally {
+        if (!cancelled) setPolyLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, application?.id, application?.candidate_id_number]);
 
   // QuestionnaireScreen invokes onComplete via Promise; we never call it in read-only mode.
   const noopComplete = async () => true;
@@ -641,15 +689,130 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
         </Card>
 
         {/* Shared assessment document — centered action button */}
-        {sharedDocUrl && (
-          <div className="flex justify-center pt-2">
-            <Button asChild>
-              <a href={sharedDocUrl} target="_blank" rel="noopener noreferrer">
-                View Risk Assessment
-                <ExternalLink className="h-4 w-4 ml-2" />
-              </a>
-            </Button>
+      </div>
+    );
+  };
+
+  const renderPolygraphResults = () => {
+    if (polyLoading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      );
+    }
+    if (!polyAppointment) {
+      return (
+        <div className="text-center py-12">
+          <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground">No polygraph examination scheduled for this candidate.</p>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Brain className="h-4 w-4 text-primary" /> Polygraph Appointment
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <InfoRow label="Status" value={polyAppointment.status} />
+            <InfoRow label="Booking Reference" value={polyAppointment.booking_reference} />
+            <InfoRow label="Scheduled Date" value={polyAppointment.scheduled_date ? format(new Date(polyAppointment.scheduled_date), "dd MMM yyyy") : null} />
+            <InfoRow label="Scheduled Time" value={polyAppointment.scheduled_time} />
+            <InfoRow label="Venue" value={polyAppointment.venue_type} />
+            <InfoRow label="Venue Address" value={polyAppointment.venue_address} />
+          </CardContent>
+        </Card>
+
+        {polyReport ? (
+          <>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" /> Polygraph Result Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <InfoRow label="Examination Date" value={polyReport.examination_date ? format(new Date(polyReport.examination_date), "dd MMM yyyy") : null} />
+                <InfoRow label="Overall Result" value={polyReport.overall_result} />
+                <InfoRow label="Risk Level" value={polyReport.risk_level} />
+                <InfoRow label="Risk Score" value={polyReport.risk_score?.toString()} />
+                <InfoRow label="Status" value={polyReport.status} />
+              </CardContent>
+            </Card>
+            {(polyReport.converted_pdf_url || polyReport.original_file_url) && (
+              <div className="flex justify-center pt-2">
+                <Button asChild>
+                  <a href={polyReport.converted_pdf_url || polyReport.original_file_url} target="_blank" rel="noopener noreferrer">
+                    View Polygraph Report
+                    <ExternalLink className="h-4 w-4 ml-2" />
+                  </a>
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-6 border rounded-md bg-muted/30">
+            <p className="text-sm text-muted-foreground">Polygraph report not yet uploaded.</p>
           </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderFinalReport = () => {
+    if (!finalRiskReport) {
+      return (
+        <div className="text-center py-12">
+          <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground">Final risk report will be generated automatically once the polygraph report is uploaded.</p>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-4">
+        <Card className={`border-2 ${getRiskTierColor(finalRiskReport.riskLevel)}`}>
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider opacity-70">Final Risk Level</p>
+                <p className="text-2xl font-bold">{finalRiskReport.riskLevel}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-medium uppercase tracking-wider opacity-70">Generated</p>
+                <p className="text-sm">{finalRiskReport.generatedAt ? format(new Date(finalRiskReport.generatedAt), "dd MMM yyyy") : "—"}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        {finalRiskReport.summary && (
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Executive Summary</CardTitle></CardHeader>
+            <CardContent><p className="text-sm whitespace-pre-wrap">{finalRiskReport.summary}</p></CardContent>
+          </Card>
+        )}
+        {finalRiskReport.findings?.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Key Findings</CardTitle></CardHeader>
+            <CardContent>
+              <ul className="space-y-1.5">
+                {finalRiskReport.findings.map((f: string, i: number) => (
+                  <li key={i} className="text-sm flex items-start gap-2">
+                    <span className="text-muted-foreground mt-0.5">•</span>{f}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+        {finalRiskReport.recommendation && (
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm">Recommendation</CardTitle></CardHeader>
+            <CardContent><p className="text-sm whitespace-pre-wrap">{finalRiskReport.recommendation}</p></CardContent>
+          </Card>
         )}
       </div>
     );
@@ -669,7 +832,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           </div>
         ) : (
           <Tabs defaultValue="questionnaire" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="questionnaire" className="text-xs">
                 <ClipboardList className="h-3.5 w-3.5 mr-1" /> Questionnaire
               </TabsTrigger>
@@ -690,6 +853,15 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
               </TabsTrigger>
               <TabsTrigger value="risk-assessment" className="relative text-xs">
                 <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Risk Assessment
+              </TabsTrigger>
+              <TabsTrigger value="polygraph" className="relative text-xs">
+                <Brain className="h-3.5 w-3.5 mr-1" /> Polygraph
+              </TabsTrigger>
+              <TabsTrigger value="final" className="relative text-xs">
+                <Sparkles className="h-3.5 w-3.5 mr-1" /> Final
+                {finalRiskReport && (
+                  <Badge className="absolute -top-2 -right-2 h-4 w-4 p-0 flex items-center justify-center text-[8px] bg-primary">★</Badge>
+                )}
               </TabsTrigger>
             </TabsList>
 
@@ -834,6 +1006,16 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
             {/* ── RISK ASSESSMENT TAB ── */}
             <TabsContent value="risk-assessment">
               {renderRiskAssessment()}
+            </TabsContent>
+
+            {/* ── POLYGRAPH TAB ── */}
+            <TabsContent value="polygraph">
+              {renderPolygraphResults()}
+            </TabsContent>
+
+            {/* ── FINAL REPORT TAB ── */}
+            <TabsContent value="final">
+              {renderFinalReport()}
             </TabsContent>
           </Tabs>
         )}
