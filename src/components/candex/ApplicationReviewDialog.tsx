@@ -749,23 +749,17 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           </CardContent>
         </Card>
 
-        {polyReport ? (
+        {polyRiskReport?.risk_analysis ? (
           <>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-primary" /> Polygraph Result Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <InfoRow label="Examination Date" value={polyReport.examination_date ? format(new Date(polyReport.examination_date), "dd MMM yyyy") : null} />
-                <InfoRow label="Overall Result" value={polyReport.overall_result} />
-                <InfoRow label="Risk Level" value={polyReport.risk_level} />
-                <InfoRow label="Risk Score" value={polyReport.risk_score?.toString()} />
-                <InfoRow label="Status" value={polyReport.status} />
-              </CardContent>
-            </Card>
-            {(polyReport.converted_pdf_url || polyReport.original_file_url) && (
+            {/* Render the polygraph profile in the same format as the
+                PreAppliCheck pre-risk profile so the two summaries match. */}
+            {renderPreRiskProfile(
+              polyRiskReport.risk_analysis,
+              "Polygraph Risk Level",
+              "Polygraph risk profile is being generated...",
+              "Available shortly after the polygraph report is approved.",
+            )}
+            {(polyReport?.converted_pdf_url || polyReport?.original_file_url) && (
               <div className="flex justify-center pt-2">
                 <Button asChild>
                   <a href={polyReport.converted_pdf_url || polyReport.original_file_url} target="_blank" rel="noopener noreferrer">
@@ -776,6 +770,10 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
               </div>
             )}
           </>
+        ) : polyReport ? (
+          <div className="text-center py-6 border rounded-md bg-muted/30">
+            <p className="text-sm text-muted-foreground">Polygraph report uploaded — risk profile is being generated.</p>
+          </div>
         ) : (
           <div className="text-center py-6 border rounded-md bg-muted/30">
             <p className="text-sm text-muted-foreground">Polygraph report not yet uploaded.</p>
