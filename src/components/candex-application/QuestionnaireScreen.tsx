@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Loader2, CheckCircle, Plus, Trash2, CalendarIcon, PlayCircle, Video, X, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
 import type { Json } from "@/integrations/supabase/types";
 
 // Global registry: each VideoPlayButton registers its stop function

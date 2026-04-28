@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Home, ChevronDown } from "lucide-react";
 import { User } from "@supabase/supabase-js";
-import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
 import preapplicheckShield from "@/assets/preapplicheck-shield.jpg";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";

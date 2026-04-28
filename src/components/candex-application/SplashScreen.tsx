@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
 
 interface SplashScreenProps {
   onComplete: () => void;
