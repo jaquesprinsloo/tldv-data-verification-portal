@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
 import SplashScreen from "@/components/candex-application/SplashScreen";
 import IntroVideoScreen from "@/components/candex-application/IntroVideoScreen";
 import POPIAIndemnityScreen, { type DeviceData } from "@/components/candex-application/POPIAIndemnityScreen";

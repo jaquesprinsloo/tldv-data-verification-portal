@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { PlayCircle, SkipForward, CheckCircle } from "lucide-react";
-import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
 
 interface IntroVideoScreenProps {
   onComplete: () => void;

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { NotificationsDialog } from "@/components/admin/NotificationsDialog";
 import DebugDiagnosticsDialog from "@/components/admin/DebugDiagnosticsDialog";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
-import preapplicheckLogo from "@/assets/preapplicheck-logo.jpg";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
 import { useQuery } from "@tanstack/react-query";
 import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
 import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
