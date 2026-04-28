@@ -12,6 +12,7 @@ import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
 import { useQuery } from "@tanstack/react-query";
 import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
 import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
+import { useBadgeLastSeen } from "@/hooks/useBadgeLastSeen";
 import { toast } from "sonner";
 
 interface PortalCard {
@@ -54,49 +55,62 @@ const AdminPortalDashboard = () => {
 
   const hasFullAccess = isMasterAdmin || permissionsMasterAdmin;
 
+  // Per-user "last seen" trackers so badges clear once the admin opens the relevant portal,
+  // even if the underlying records are still in their pending state.
+  const { lastSeen: requestsLastSeen, markSeen: markRequestsSeen } =
+    useBadgeLastSeen(currentUserId, "request-inbox");
+  const { lastSeen: pendingPolygraphLastSeen, markSeen: markPendingPolygraphSeen } =
+    useBadgeLastSeen(currentUserId, "pending-polygraph-review");
+  const { lastSeen: dataMgmtLastSeen, markSeen: markDataMgmtSeen } =
+    useBadgeLastSeen(currentUserId, "data-employee-management");
+
   const { data: pendingRequests } = useQuery({
-    queryKey: ['pending-requests-count'],
+    queryKey: ['pending-requests-count', requestsLastSeen],
     queryFn: async () => {
       const { count } = await supabase
         .from('profile_requests')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .gt('created_at', requestsLastSeen);
       return count || 0;
     },
     enabled: isMasterAdmin
   });
 
   const { data: pendingPolygraphCount } = useQuery({
-    queryKey: ['pending-polygraph-count'],
+    queryKey: ['pending-polygraph-count', pendingPolygraphLastSeen],
     queryFn: async () => {
       const { count } = await supabase
         .from('pending_polygraph_uploads')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .gt('created_at', pendingPolygraphLastSeen);
       return count || 0;
     },
     enabled: isMasterAdmin
   });
 
   const { data: approvedCandidatesCount } = useQuery({
-    queryKey: ['approved-candidates-count'],
+    queryKey: ['approved-candidates-count', dataMgmtLastSeen],
     queryFn: async () => {
       const { count } = await supabase
         .from('polygraph_candidates')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'approved')
-        .or('invitation_sent.is.null,invitation_sent.eq.false');
+        .or('invitation_sent.is.null,invitation_sent.eq.false')
+        .gt('created_at', dataMgmtLastSeen);
       return count || 0;
     },
   });
 
   const { data: pendingSubmissionsCount } = useQuery({
-    queryKey: ['pending-submissions-count'],
+    queryKey: ['pending-submissions-count', dataMgmtLastSeen],
     queryFn: async () => {
       const { count } = await supabase
         .from('submissions')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .gt('created_at', dataMgmtLastSeen);
       return count || 0;
     },
   });
@@ -322,6 +336,15 @@ const AdminPortalDashboard = () => {
   const handlePortalClick = (portal: PortalCard) => {
     if (isStillLoadingAccess) {
       return;
+    }
+
+    // Clear the per-user badge as soon as the admin opens the portal.
+    if (portal.key === "request-inbox") {
+      markRequestsSeen();
+    } else if (portal.key === "pending-polygraph-review") {
+      markPendingPolygraphSeen();
+    } else if (portal.key === "data-employee-management") {
+      markDataMgmtSeen();
     }
 
     if (hasFullAccess) {
