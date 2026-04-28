@@ -153,6 +153,8 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   // Polygraph appointment + report data, loaded when application is opened.
   const [polyAppointment, setPolyAppointment] = useState<any | null>(null);
   const [polyReport, setPolyReport] = useState<any | null>(null);
+  // Approved polygraph_reports row (contains the AI risk_analysis profile).
+  const [polyRiskReport, setPolyRiskReport] = useState<any | null>(null);
   const [polyLoading, setPolyLoading] = useState(false);
 
   const finalRiskReport = appAnswers?.finalRiskReport || null;
@@ -246,6 +248,20 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
             .limit(1)
             .maybeSingle();
           if (!cancelled) setPolyReport(rep || null);
+
+          // Approved polygraph_reports row carries the AI risk_analysis
+          // (5-category profile) used to render the polygraph summary in
+          // the same format as the PreAppliCheck pre-risk profile.
+          const { data: polyRisk } = await supabase
+            .from("polygraph_reports")
+            .select(
+              "id, overall_result, risk_level, risk_score, risk_analysis, examination_date, status",
+            )
+            .eq("id_number", idNum)
+            .order("examination_date", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (!cancelled) setPolyRiskReport(polyRisk || null);
         }
       } finally {
         if (!cancelled) setPolyLoading(false);
