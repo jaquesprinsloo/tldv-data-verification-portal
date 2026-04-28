@@ -597,7 +597,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                 label="Number of Checks Requested"
                 value={requestedChecks.length ? String(requestedChecks.length) : "0"}
               />
-              <InfoRow label="ID Verified" value={riskAssessment.id_verified ? "Yes" : "No"} />
               {parentRequest.notes && <InfoRow label="Notes" value={parentRequest.notes} />}
             </div>
           </CardContent>
