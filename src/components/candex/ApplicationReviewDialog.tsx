@@ -363,54 +363,60 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
     return "bg-red-500";
   };
 
-  const renderPreRiskProfile = () => {
-    if (!preRiskProfile) {
+  const renderPreRiskProfile = (
+    profileOverride?: any,
+    headerLabel: string = "Pre-Risk Alert Level",
+    emptyMessage: string = "Pre-Risk Alert Profile is being generated...",
+    emptySubtext: string = "This may take a few moments after submission.",
+  ) => {
+    const profile = profileOverride !== undefined ? profileOverride : preRiskProfile;
+    if (!profile) {
       return (
         <div className="text-center py-12">
           <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-muted-foreground">Pre-Risk Alert Profile is being generated...</p>
-          <p className="text-xs text-muted-foreground mt-1">This may take a few moments after submission.</p>
+          <p className="text-muted-foreground">{emptyMessage}</p>
+          <p className="text-xs text-muted-foreground mt-1">{emptySubtext}</p>
         </div>
       );
     }
 
     const categories = [
-      { key: "employment", label: "Employment History", max: 3, data: preRiskProfile.employment },
-      { key: "financial", label: "Financial Pressure", max: 3, data: preRiskProfile.financial },
-      { key: "legal", label: "Legal Encounters", max: 5, data: preRiskProfile.legal },
-      { key: "criminal", label: "Criminal Activity", max: 28, data: preRiskProfile.criminal },
-      { key: "integrity", label: "Integrity", max: 1, data: preRiskProfile.integrity },
+      { key: "employment", label: "Employment History", max: 3, data: profile.employment },
+      { key: "financial", label: "Financial Pressure", max: 3, data: profile.financial },
+      { key: "legal", label: "Legal Encounters", max: 5, data: profile.legal },
+      { key: "criminal", label: "Criminal Activity", max: 28, data: profile.criminal },
+      { key: "integrity", label: "Integrity", max: 1, data: profile.integrity },
     ];
 
     return (
       <div className="space-y-6">
         {/* Overall Risk Header */}
-        <Card className={`border-2 ${getRiskTierColor(preRiskProfile.riskLevel)}`}>
+        <Card className={`border-2 ${getRiskTierColor(profile.riskLevel)}`}>
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium uppercase tracking-wider opacity-70">Pre-Risk Alert Level</p>
-                <p className="text-2xl font-bold">{preRiskProfile.riskLevel} RISK</p>
+                <p className="text-xs font-medium uppercase tracking-wider opacity-70">{headerLabel}</p>
+                <p className="text-2xl font-bold">{profile.riskLevel} RISK</p>
               </div>
               <div className="text-right">
                 <p className="text-xs font-medium uppercase tracking-wider opacity-70">Total Score</p>
-                <p className="text-3xl font-bold">{preRiskProfile.totalScore}</p>
+                <p className="text-3xl font-bold">{profile.totalScore}</p>
               </div>
             </div>
-            {preRiskProfile.summary && (
+            {profile.summary && (
               <div className="mt-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-medium uppercase tracking-wider opacity-70">Summary</p>
-                  <SpeakButton text={preRiskProfile.summary} label="Read aloud" />
+                  <SpeakButton text={profile.summary} label="Read aloud" />
                 </div>
-                <p className="text-sm opacity-80">{preRiskProfile.summary}</p>
+                <p className="text-sm opacity-80">{profile.summary}</p>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Key Findings */}
-        {preRiskProfile.keyFindings?.length > 0 && (
+        {profile.keyFindings?.length > 0 && (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -419,7 +425,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
             </CardHeader>
             <CardContent>
               <ul className="space-y-1.5">
-                {preRiskProfile.keyFindings.map((finding: string, i: number) => (
+                {profile.keyFindings.map((finding: string, i: number) => (
                   <li key={i} className="text-sm flex items-start gap-2">
                     <span className="text-muted-foreground mt-0.5">•</span>
                     {finding}
