@@ -999,27 +999,27 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         />
       </TabsContent>
 
-      {/* ── APPROVED TAB ── */}
-      <TabsContent value="approved">
+      {/* ── REVIEWED TAB (was Approved) ── */}
+      <TabsContent value="reviewed">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Approved Candidates</CardTitle>
-            {approved.length > 0 && (
+            <CardTitle className="text-lg">Reviewed Candidates</CardTitle>
+            {reviewed.length > 0 && (
               <Button size="sm" onClick={() => setRequestOpen(true)}>
                 <ShieldCheck className="h-4 w-4 mr-1" /> Request Risk Assessment
               </Button>
             )}
           </CardHeader>
           <CardContent>
-            {!approved.length ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No approved candidates yet.</p>
+            {!reviewed.length ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No reviewed candidates yet.</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Candidate</TableHead>
                     <TableHead>ID Number</TableHead>
-                    <TableHead>Date Approved</TableHead>
+                    <TableHead>Date Reviewed</TableHead>
                     <TableHead>Pre Risk</TableHead>
                     {RISK_CHECKS.map((c) => (
                       <TableHead key={c.key} className="text-center text-[10px] uppercase tracking-wide px-1" title={c.label}>
@@ -1030,7 +1030,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {approved.map((app) => {
+                  {reviewed.map((app) => {
                     const riskCandidate = riskCandidateData?.find((rc: any) => rc.application_id === app.id);
                     const requestedChecks: RiskCheckKey[] =
                       ((riskCandidate as any)?.candex_risk_requests?.requested_checks as RiskCheckKey[]) || [];
