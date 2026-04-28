@@ -250,6 +250,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     mutationFn: async () => {
       if (!client?.id) throw new Error("No client found");
       const templateId = clientTemplateId;
+      if (!templateId) {
+        throw new Error("No questionnaire template assigned to your account. Please assign a template before sending invitations.");
+      }
       const candidateName = `${inviteForm.name} ${inviteForm.surname}`.trim();
       const candidateEmail = inviteForm.email.trim().toLowerCase() || null;
       const candidatePhone = inviteForm.phone.trim() || null;
