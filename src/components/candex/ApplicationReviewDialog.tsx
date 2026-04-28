@@ -529,6 +529,21 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                 <CardContent>
                   {deviceData ? (
                     <div className="space-y-0">
+                      {deviceData.selfieUrl && (
+                        <div className="mb-4 flex flex-col items-center gap-2 p-3 rounded-lg border bg-muted/30">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Identity Verification Selfie
+                          </p>
+                          <a href={deviceData.selfieUrl} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={deviceData.selfieUrl}
+                              alt="Applicant verification selfie"
+                              className="rounded-lg border max-w-[220px] w-full"
+                            />
+                          </a>
+                          <p className="text-[11px] text-muted-foreground">Click to open full size</p>
+                        </div>
+                      )}
                       <InfoRow label="IP Address" value={deviceData.ipAddress} />
                       <InfoRow label="GPS Latitude" value={deviceData.gpsLatitude?.toString()} />
                       <InfoRow label="GPS Longitude" value={deviceData.gpsLongitude?.toString()} />
