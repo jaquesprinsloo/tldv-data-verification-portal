@@ -406,11 +406,16 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
             <div className="p-4 rounded-lg bg-zinc-900 border border-zinc-800 space-y-3">
               <div className="flex items-center gap-2">
                 <Camera className="h-4 w-4 text-red-500" />
-                <p className="font-semibold text-white text-sm">Identity Verification Selfie</p>
+                <p className="font-semibold text-white text-sm">
+                  Identity Verification Selfie <span className="text-red-500">*</span>
+                </p>
+                <span className="ml-auto text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-600/20 text-red-400 border border-red-600/40">
+                  Required
+                </span>
               </div>
               <p className="text-xs text-zinc-400">
-                Please take a clear photo of your face, or upload a recent photo of yourself. This is used to
-                verify the identity of the person completing this application.
+                You must take a clear photo of your face, or upload a recent photo of yourself, in order to
+                continue. This is used to verify the identity of the person completing this application.
               </p>
 
               {selfieDataUrl ? (
