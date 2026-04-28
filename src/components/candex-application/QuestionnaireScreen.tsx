@@ -3938,6 +3938,7 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
   const handleNext = () => {
     if (!validateCurrentSection()) return;
     setCurrentSection((p) => p + 1);
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
   };
 
   const handleSubmit = async () => {
