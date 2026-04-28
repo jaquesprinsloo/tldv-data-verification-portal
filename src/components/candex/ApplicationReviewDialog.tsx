@@ -183,7 +183,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
         const { data, error } = await supabase
           .from("candex_risk_request_candidates")
           .select(
-            "id, application_id, request_id, id_verified, risk_assessment_result, risk_assessment_url, check_results, created_at, updated_at, candex_risk_requests(id, status, requested_checks, requested_date, notes, created_at, updated_at)"
+            "id, application_id, request_id, id_verified, risk_assessment_result, risk_assessment_url, check_results, created_at, candex_risk_requests(id, status, requested_checks, requested_date, notes, created_at, updated_at)"
           )
           .eq("application_id", application.id)
           .is("deleted_at", null)
