@@ -553,6 +553,32 @@ const PendingPolygraphReview = () => {
                 console.log("Linked polygraph report to candidate:", matched.candidate_name);
               }
             }
+
+            // Auto-generate the combined Final Risk Report on the application.
+            if (matched.application_id) {
+              try {
+                const { error: finalErr } = await supabase.functions.invoke(
+                  "generate-final-risk-report",
+                  {
+                    body: {
+                      application_id: matched.application_id,
+                      polygraph_report_id: newReportId,
+                    },
+                  },
+                );
+                if (finalErr) {
+                  console.error(
+                    "Final risk report generation error (non-fatal):",
+                    finalErr,
+                  );
+                }
+              } catch (finalCatch) {
+                console.error(
+                  "Final risk report generation failed (non-fatal):",
+                  finalCatch,
+                );
+              }
+            }
           }
         }
       } catch (linkError) {
