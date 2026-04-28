@@ -329,6 +329,10 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   // ── Send bulk invitations ──
   const sendBulkInvites = async () => {
     if (!client?.id || bulkCandidates.length === 0) return;
+    if (!clientTemplateId) {
+      toast.error("No questionnaire template assigned to your account. Please assign a template before sending invitations.");
+      return;
+    }
     setBulkSending(true);
     let successCount = 0;
     let failCount = 0;
