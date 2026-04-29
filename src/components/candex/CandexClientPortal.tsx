@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const PUBLISHED_URL = "https://portal.tldv.co.za";
 import { supabase } from "@/integrations/supabase/client";
@@ -254,6 +254,24 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     },
     enabled: !!client?.id,
   });
+
+  // Live-sync polygraph appointments so master-admin scheduling updates appear instantly
+  useEffect(() => {
+    if (!client?.id) return;
+    const channel = supabase
+      .channel(`polygraph-appts-${client.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "polygraph_appointments", filter: `client_id=eq.${client.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["user-polygraph-appointments", client.id] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [client?.id, queryClient]);
 
   // Get stores (sub-accounts) for the selected request account
   const { data: requestStores = [] } = useQuery({

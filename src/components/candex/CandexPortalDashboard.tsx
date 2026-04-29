@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Activity,
   AlertTriangle,
@@ -13,6 +14,8 @@ import {
   Sparkles,
   TrendingUp,
   Users,
+  Clock,
+  CalendarDays,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------
@@ -126,6 +129,50 @@ const CandexPortalDashboard = ({
   const apps = applications || [];
   const invs = invitations || [];
   const appts = appointments || [];
+
+  /* ── Live countdown tick (refreshes every minute) ─────────────── */
+  const [now, setNow] = useState<Date>(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  /* ── Scheduled appointments (have a real date) ────────────────── */
+  const scheduledAppts = useMemo(() => {
+    return appts
+      .filter((a: any) => !!a?.scheduled_date)
+      .map((a: any) => {
+        const dateStr = a.scheduled_date as string;
+        const timeStr = (a.scheduled_time as string) || "09:00:00";
+        const when = new Date(`${dateStr}T${timeStr}`);
+        return { ...a, _when: when };
+      })
+      .sort((a: any, b: any) => a._when.getTime() - b._when.getTime());
+  }, [appts]);
+
+  const upcomingScheduled = useMemo(
+    () => scheduledAppts.filter((a: any) => a._when.getTime() >= now.getTime() - 60 * 60 * 1000),
+    [scheduledAppts, now],
+  );
+
+  const nextAppt = upcomingScheduled[0];
+  const countdown = useMemo(() => {
+    if (!nextAppt) return null;
+    const diffMs = nextAppt._when.getTime() - now.getTime();
+    const within48h = diffMs > 0 && diffMs <= 48 * 60 * 60 * 1000;
+    if (!within48h) return null;
+    const totalMin = Math.floor(diffMs / 60_000);
+    const days = Math.floor(totalMin / (60 * 24));
+    const hours = Math.floor((totalMin - days * 60 * 24) / 60);
+    const minutes = totalMin - days * 60 * 24 - hours * 60;
+    return { days, hours, minutes };
+  }, [nextAppt, now]);
+
+  const apptDateSet = useMemo(() => {
+    const s = new Set<string>();
+    scheduledAppts.forEach((a: any) => s.add(a.scheduled_date));
+    return s;
+  }, [scheduledAppts]);
 
   /* ── Pipeline counts ─────────────────────────────────────────── */
   const pipeline = useMemo(() => {
@@ -534,7 +581,7 @@ const CandexPortalDashboard = ({
         </Card>
       </div>
 
-      {/* ── Appointments mini-strip ────────────────────────────────── */}
+      {/* ── Appointments + Live Calendar ───────────────────────────── */}
       {appts.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
@@ -544,24 +591,130 @@ const CandexPortalDashboard = ({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {appts.slice(0, 6).map((a: any) => (
-                <div
-                  key={a.id}
-                  className="rounded-lg border border-border/60 p-3 bg-muted/30"
-                >
-                  <p className="text-xs font-medium truncate">
-                    {a.requested_date
-                      ? new Date(a.requested_date).toLocaleDateString()
-                      : "Date TBC"}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground capitalize">
-                    {a.status?.replace(/_/g, " ") || "requested"} ·{" "}
-                    {a.polygraph_appointment_candidates?.length || 0} candidate
-                    {(a.polygraph_appointment_candidates?.length || 0) === 1 ? "" : "s"}
-                  </p>
+            {/* 48-hour countdown banner */}
+            {countdown && nextAppt && (
+              <div className="mb-4 rounded-lg border border-rose-200 bg-gradient-to-r from-rose-50 to-orange-50 dark:from-rose-950/30 dark:to-orange-950/30 p-4">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Clock className="h-5 w-5 text-rose-600 flex-shrink-0 animate-pulse" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-rose-700 dark:text-rose-400 uppercase tracking-wide">
+                        Next Appointment In
+                      </p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {nextAppt._when.toLocaleString(undefined, {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 tabular-nums">
+                    {[
+                      { label: "DAYS", value: countdown.days },
+                      { label: "HRS", value: countdown.hours },
+                      { label: "MIN", value: countdown.minutes },
+                    ].map((u) => (
+                      <div
+                        key={u.label}
+                        className="bg-white dark:bg-zinc-900 border border-rose-200 dark:border-rose-900 rounded-md px-3 py-1.5 text-center min-w-[56px] shadow-sm"
+                      >
+                        <p className="text-lg font-bold text-rose-600 leading-none">
+                          {String(u.value).padStart(2, "0")}
+                        </p>
+                        <p className="text-[9px] text-muted-foreground font-medium mt-0.5">
+                          {u.label}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
+              </div>
+            )}
+
+            <div className="grid lg:grid-cols-[1fr_auto] gap-6">
+              {/* Upcoming list */}
+              <div className="space-y-2 min-w-0">
+                {upcomingScheduled.length === 0 && appts.length > 0 && (
+                  <p className="text-xs text-muted-foreground py-4">
+                    No scheduled appointments yet — awaiting confirmation from the master profile.
+                  </p>
+                )}
+                {upcomingScheduled.slice(0, 6).map((a: any) => {
+                  const isNext = a.id === nextAppt?.id;
+                  return (
+                    <div
+                      key={a.id}
+                      className={`rounded-lg border p-3 transition ${
+                        isNext
+                          ? "border-rose-300 bg-rose-50/50 dark:bg-rose-950/20"
+                          : "border-border/60 bg-muted/30"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">
+                            {a._when.toLocaleDateString(undefined, {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                            {a.scheduled_time && (
+                              <span className="text-muted-foreground font-normal ml-2">
+                                @ {a.scheduled_time.slice(0, 5)}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground capitalize mt-0.5">
+                            {a.status?.replace(/_/g, " ") || "scheduled"} ·{" "}
+                            {a.polygraph_appointment_candidates?.length || 0} candidate
+                            {(a.polygraph_appointment_candidates?.length || 0) === 1 ? "" : "s"}
+                            {a.venue_address ? ` · ${a.venue_address}` : ""}
+                          </p>
+                        </div>
+                        {isNext && (
+                          <Badge className="bg-rose-600 hover:bg-rose-600 text-white text-[10px]">
+                            NEXT
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Live calendar */}
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-2 self-start">
+                <div className="flex items-center gap-2 px-2 pt-1 pb-2">
+                  <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Schedule
+                  </span>
+                </div>
+                <Calendar
+                  mode="single"
+                  selected={nextAppt?._when}
+                  modifiers={{
+                    booked: (date) => {
+                      const iso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                      return apptDateSet.has(iso);
+                    },
+                  }}
+                  modifiersClassNames={{
+                    booked:
+                      "bg-rose-600 text-white font-bold hover:bg-rose-700 hover:text-white focus:bg-rose-600 focus:text-white rounded-md",
+                  }}
+                  className="p-2 pointer-events-auto"
+                />
+                <div className="px-2 pb-2 pt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span className="inline-block h-2 w-2 rounded-sm bg-rose-600" />
+                  <span>Scheduled appointment</span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
