@@ -120,13 +120,6 @@ const CanDexPreScreening = () => {
               Main Portal
             </button>
           </div>
-          <div className="flex items-center justify-center mb-6">
-            <img
-              src={preapplicheckLogo}
-              alt="PreAppliCheck"
-              className="h-48 sm:h-72 md:h-[28rem] w-auto object-contain"
-            />
-          </div>
         </div>
       )}
 
