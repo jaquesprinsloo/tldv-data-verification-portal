@@ -36,6 +36,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   RISK_CHECKS,
@@ -58,6 +59,21 @@ interface BulkCandidate {
   id_number: string;
 }
 
+// Sidebar wrapper that opens on hover and collapses on leave.
+const HoverSidebar = ({ children, className }: { children: React.ReactNode; className?: string }) => {
+  const { setOpen, isMobile } = useSidebar();
+  return (
+    <div
+      onMouseEnter={() => { if (!isMobile) setOpen(true); }}
+      onMouseLeave={() => { if (!isMobile) setOpen(false); }}
+    >
+      <Sidebar collapsible="icon" className={className}>
+        {children}
+      </Sidebar>
+    </div>
+  );
+};
+
 const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -77,6 +93,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [viewBookingConfirmation, setViewBookingConfirmation] = useState<BookingData | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
+  // Per-session "seen" tabs — dismisses sidebar count badge after the user clicks the tab once.
+  const [seenTabs, setSeenTabs] = useState<Record<string, boolean>>({});
 
   // Per-admin unread count for newly-approved PreAppliCheck applications.
   // Toast is off here (dashboard hook already surfaces it) — this just drives the tab badge.
@@ -676,9 +694,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   ];
 
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider defaultOpen={false}>
       <div className="flex w-full min-h-[calc(100vh-180px)] gap-4">
-        <Sidebar collapsible="icon" className="border-r bg-gradient-to-b from-slate-50 via-white to-slate-50">
+        <HoverSidebar className="border-r bg-gradient-to-b from-zinc-50 via-white to-zinc-50">
           <SidebarContent>
             <SidebarGroup>
               <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
@@ -695,22 +713,23 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           asChild
                           isActive={isActive}
                           tooltip={item.label}
-                          className={isActive ? "bg-gradient-to-r from-blue-600/10 to-rose-600/10 text-foreground font-semibold border-l-2 border-rose-600" : ""}
+                          className={isActive ? "bg-gradient-to-r from-zinc-900/10 via-zinc-700/5 to-red-600/15 text-foreground font-semibold border-l-2 border-red-600" : ""}
                         >
                           <button
                             type="button"
                             onClick={() => {
                               setActiveTab(item.value);
+                              setSeenTabs((s) => ({ ...s, [item.value]: true }));
                               if (item.value === "preAppliCheckedFinal") markPreAppliCheckedSeen();
                             }}
                             className="flex items-center gap-2 w-full text-left"
                           >
                             <Icon className="h-4 w-4 shrink-0" />
                             <span className="flex-1 truncate text-sm">{item.label}</span>
-                            {item.badge && item.badge > 0 ? (
+                            {item.badge && item.badge > 0 && !seenTabs[item.value] ? (
                               <Badge
                                 variant="destructive"
-                                className={`h-5 min-w-5 px-1.5 text-[10px] ${item.pulse ? "animate-pulse" : ""}`}
+                                className={`h-5 min-w-5 px-1.5 text-[10px] bg-red-600 hover:bg-red-600 ${item.pulse ? "animate-pulse" : ""}`}
                               >
                                 {item.badge}
                               </Badge>
@@ -767,11 +786,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarFooter>
-        </Sidebar>
+        </HoverSidebar>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-4">
-            <SidebarTrigger />
+            <SidebarTrigger className="md:hidden" />
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
               {navItems.find((n) => n.value === activeTab)?.label || "Workflow"}
             </p>

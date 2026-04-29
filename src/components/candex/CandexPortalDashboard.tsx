@@ -251,39 +251,40 @@ const CandexPortalDashboard = ({
       label: "Invitations Sent",
       value: pipeline.invitations,
       icon: Send,
-      tint: "from-blue-500/10 to-blue-500/0",
-      iconColor: "text-blue-600",
+      tint: "from-zinc-900/10 to-zinc-900/0",
+      iconColor: "text-zinc-900",
     },
     {
       label: "Awaiting Review",
       value: apps.filter((a) => a.status === "submitted").length,
       icon: Hourglass,
-      tint: "from-amber-500/10 to-amber-500/0",
-      iconColor: "text-amber-600",
+      tint: "from-zinc-700/10 to-zinc-700/0",
+      iconColor: "text-zinc-700",
     },
     {
       label: "Risk Assessments",
       value: pipeline.candexed,
       icon: ShieldCheck,
-      tint: "from-violet-500/10 to-violet-500/0",
-      iconColor: "text-violet-600",
+      tint: "from-red-700/10 to-red-700/0",
+      iconColor: "text-red-700",
     },
     {
       label: "PreAppliChecked",
       value: pipeline.finalReports,
       icon: Sparkles,
-      tint: "from-rose-500/10 to-rose-500/0",
-      iconColor: "text-rose-600",
+      tint: "from-red-600/15 to-red-600/0",
+      iconColor: "text-red-600",
     },
   ];
 
   /* ── Funnel render helper ─────────────────────────────────────── */
+  // TLDV / PreAppliCheck palette: black → zinc → red
   const funnelStages = [
-    { label: "Invitations", value: pipeline.invitations, color: "from-blue-600 to-blue-500" },
-    { label: "Submitted", value: pipeline.submitted, color: "from-indigo-600 to-indigo-500" },
-    { label: "Reviewed", value: pipeline.reviewed, color: "from-violet-600 to-violet-500" },
-    { label: "Risk Assessed", value: pipeline.candexed, color: "from-fuchsia-600 to-fuchsia-500" },
-    { label: "PreAppliChecked", value: pipeline.finalReports, color: "from-rose-600 to-rose-500" },
+    { label: "Invitations", value: pipeline.invitations, color: "from-zinc-900 to-zinc-700" },
+    { label: "Submitted", value: pipeline.submitted, color: "from-zinc-800 to-zinc-600" },
+    { label: "Reviewed", value: pipeline.reviewed, color: "from-zinc-700 via-zinc-600 to-red-700" },
+    { label: "Risk Assessed", value: pipeline.candexed, color: "from-red-800 to-red-600" },
+    { label: "PreAppliChecked", value: pipeline.finalReports, color: "from-red-600 to-red-500" },
   ];
   const funnelMax = Math.max(1, ...funnelStages.map((s) => s.value));
 
@@ -295,13 +296,11 @@ const CandexPortalDashboard = ({
         <div className="absolute inset-0 opacity-[0.07] [background-image:linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.5)_1px,transparent_1px)] [background-size:32px_32px]" />
         <div className="relative px-6 py-6 md:px-10 md:py-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
-            <div className="bg-white/95 rounded-xl p-3 shadow-lg shrink-0">
-              <img
-                src={preapplicheckLogo}
-                alt="PreAppliCheck"
-                className="h-14 md:h-16 w-auto object-contain"
-              />
-            </div>
+            <img
+              src={preapplicheckLogo}
+              alt="PreAppliCheck"
+              className="h-16 md:h-20 w-auto object-contain shrink-0 drop-shadow-[0_4px_20px_rgba(239,68,68,0.35)]"
+            />
             <div>
               <p className="text-[10px] uppercase tracking-[0.25em] text-red-300/90">
                 {clientName ? `Welcome back, ${clientName}` : "Welcome back"}
