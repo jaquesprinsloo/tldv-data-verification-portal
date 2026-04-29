@@ -109,28 +109,26 @@ const CanDexPreScreening = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="container mx-auto px-4 sm:px-6 pt-4">
-        <div className="flex items-start justify-between mb-4">
-          <button
-            onClick={() => navigate("/admin/portal")}
-            className="bg-white border-[3px] border-red-600 text-foreground px-6 py-2 rounded-lg hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] transition-all duration-500 flex items-center gap-2 font-medium"
-          >
-            <Home className="h-4 w-4" />
-            Main Portal
-          </button>
+      {isMasterAdmin && (
+        <div className="container mx-auto px-4 sm:px-6 pt-4">
+          <div className="flex items-start justify-between mb-4">
+            <button
+              onClick={() => navigate("/admin/portal")}
+              className="bg-white border-[3px] border-red-600 text-foreground px-6 py-2 rounded-lg hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] transition-all duration-500 flex items-center gap-2 font-medium"
+            >
+              <Home className="h-4 w-4" />
+              Main Portal
+            </button>
+          </div>
+          <div className="flex items-center justify-center mb-6">
+            <img
+              src={preapplicheckLogo}
+              alt="PreAppliCheck"
+              className="h-48 sm:h-72 md:h-[28rem] w-auto object-contain"
+            />
+          </div>
         </div>
-        <div className="flex items-center justify-center mb-6">
-          <img
-            src={preapplicheckLogo}
-            alt="PreAppliCheck"
-            className={
-              isMasterAdmin
-                ? "h-48 sm:h-72 md:h-[28rem] w-auto object-contain"
-                : "h-24 sm:h-32 md:h-40 w-auto object-contain"
-            }
-          />
-        </div>
-      </div>
+      )}
 
       <main className="container mx-auto px-4 sm:px-6 pb-8">
 

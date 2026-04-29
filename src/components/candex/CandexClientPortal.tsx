@@ -17,7 +17,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList, Download, Sparkles, LayoutDashboard, Inbox, FileSearch, ClipboardCheck, ShieldAlert, CalendarCheck2, Award } from "lucide-react";
+import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList, Download, Sparkles, LayoutDashboard, Inbox, FileSearch, ClipboardCheck, ShieldAlert, CalendarCheck2, Award, Home } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
@@ -26,6 +27,7 @@ import CandexPortalDashboard from "./CandexPortalDashboard";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -58,6 +60,7 @@ interface BulkCandidate {
 
 const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteMode, setInviteMode] = useState<"single" | "bulk">("single");
   const [inviteMethod, setInviteMethod] = useState<"email" | "whatsapp">("email");
@@ -744,6 +747,26 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               </SidebarGroup>
             )}
           </SidebarContent>
+          <SidebarFooter className="border-t border-border/60 p-2">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Main Portal"
+                  className="bg-gradient-to-r from-black via-zinc-900 to-red-700 text-white hover:from-zinc-900 hover:to-red-600 hover:text-white border border-red-600/40 shadow-md hover:shadow-[0_0_30px_rgba(239,68,68,0.45)] transition-all duration-300"
+                >
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin/portal")}
+                    className="flex items-center gap-2 w-full text-left"
+                  >
+                    <Home className="h-4 w-4 shrink-0" />
+                    <span className="flex-1 truncate text-sm font-medium">Main Portal</span>
+                  </button>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarFooter>
         </Sidebar>
 
         <div className="flex-1 min-w-0">
