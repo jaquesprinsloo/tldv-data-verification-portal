@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Activity,
   AlertTriangle,
@@ -422,11 +421,12 @@ const CandexPortalDashboard = ({
                           {count} · {pct}%
                         </span>
                       </div>
-                      <Progress
-                        value={pct}
-                        className="h-2"
-                        indicatorClassName={RISK_COLORS[level]}
-                      />
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={`h-full ${RISK_COLORS[level]} transition-all duration-700`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     </div>
                   );
                 })}
