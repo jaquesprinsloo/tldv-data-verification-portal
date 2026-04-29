@@ -760,26 +760,28 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
             </SidebarGroup>
 
             {clientAccountId && (
-              <SidebarGroup>
-                <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                  Account
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <div className="px-3 py-2 rounded-md bg-muted/40 mx-2">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <p className="text-xs font-medium truncate">
-                        {accounts?.find(a => a.id === clientAccountId)?.name || "Assigned Account"}
-                      </p>
+              <ExpandedOnly>
+                <SidebarGroup>
+                  <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                    Account
+                  </SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <div className="px-3 py-2 rounded-md bg-muted/40 mx-2">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <p className="text-xs font-medium truncate">
+                          {accounts?.find(a => a.id === clientAccountId)?.name || "Assigned Account"}
+                        </p>
+                      </div>
+                      {stores.length > 0 && (
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {stores.length} sub-account{stores.length === 1 ? "" : "s"}
+                        </p>
+                      )}
                     </div>
-                    {stores.length > 0 && (
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        {stores.length} sub-account{stores.length === 1 ? "" : "s"}
-                      </p>
-                    )}
-                  </div>
-                </SidebarGroupContent>
-              </SidebarGroup>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              </ExpandedOnly>
             )}
             <SidebarLogoMark />
           </SidebarContent>
