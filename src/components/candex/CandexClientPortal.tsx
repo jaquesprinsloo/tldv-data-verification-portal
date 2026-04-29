@@ -17,11 +17,24 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList, Download, Sparkles } from "lucide-react";
+import { Send, Eye, CheckCircle, ShieldCheck, Mail, Phone, CalendarIcon, AlertTriangle, Check, X, UserCheck, Trash2, RefreshCw, Users, FileUp, Plus, BarChart3, Building2, Store, ClipboardList, Download, Sparkles, LayoutDashboard, Inbox, FileSearch, ClipboardCheck, ShieldAlert, CalendarCheck2, Award } from "lucide-react";
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
 import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
+import CandexPortalDashboard from "./CandexPortalDashboard";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import {
   RISK_CHECKS,
   DEFAULT_REQUESTED_CHECKS,
