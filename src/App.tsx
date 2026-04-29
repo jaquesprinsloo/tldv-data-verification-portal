@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { InstallAppButton } from "@/components/shared/InstallAppButton";
 import Home from "./pages/Home";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
-import EmployeeAuth from "./pages/EmployeeAuth";
 import EmployeeRegister from "./pages/EmployeeRegister";
 import EmployeeLogin from "./pages/EmployeeLogin";
 import AdminLogin from "./pages/AdminLogin";
