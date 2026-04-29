@@ -1536,13 +1536,16 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
         </Card>
       </TabsContent>
 
-      {/* Booking Confirmation View */}
-      <BookingConfirmationView
-        open={!!viewBookingConfirmation}
-        onClose={() => setViewBookingConfirmation(null)}
-        data={viewBookingConfirmation}
-      />
-    </Tabs>
+          {/* Booking Confirmation View */}
+          <BookingConfirmationView
+            open={!!viewBookingConfirmation}
+            onClose={() => setViewBookingConfirmation(null)}
+            data={viewBookingConfirmation}
+          />
+          </Tabs>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 };
 
