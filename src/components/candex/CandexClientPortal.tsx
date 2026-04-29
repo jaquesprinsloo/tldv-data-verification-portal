@@ -78,6 +78,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [viewBookingConfirmation, setViewBookingConfirmation] = useState<BookingData | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
+  // Per-session "seen" tabs — dismisses sidebar count badge after the user clicks the tab once.
+  const [seenTabs, setSeenTabs] = useState<Record<string, boolean>>({});
 
   // Per-admin unread count for newly-approved PreAppliCheck applications.
   // Toast is off here (dashboard hook already surfaces it) — this just drives the tab badge.
