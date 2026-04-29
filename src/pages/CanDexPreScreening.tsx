@@ -120,7 +120,15 @@ const CanDexPreScreening = () => {
           </button>
         </div>
         <div className="flex items-center justify-center mb-6">
-          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-48 sm:h-72 md:h-[28rem] w-auto object-contain" />
+          <img
+            src={preapplicheckLogo}
+            alt="PreAppliCheck"
+            className={
+              isMasterAdmin
+                ? "h-48 sm:h-72 md:h-[28rem] w-auto object-contain"
+                : "h-24 sm:h-32 md:h-40 w-auto object-contain"
+            }
+          />
         </div>
       </div>
 
