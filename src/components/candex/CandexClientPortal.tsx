@@ -75,6 +75,21 @@ const HoverSidebar = ({ children, className }: { children: React.ReactNode; clas
   );
 };
 
+// Logo block under the Account card — only renders when the sidebar is expanded.
+const SidebarLogoMark = () => {
+  const { state, isMobile } = useSidebar();
+  if (!isMobile && state === "collapsed") return null;
+  return (
+    <div className="px-4 pt-4 pb-2 flex items-center justify-center">
+      <img
+        src={preapplicheckLogoMark}
+        alt="PreAppliCheck"
+        className="w-full max-w-[180px] h-auto object-contain opacity-95 drop-shadow-[0_4px_16px_rgba(239,68,68,0.18)]"
+      />
+    </div>
+  );
+};
+
 const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
