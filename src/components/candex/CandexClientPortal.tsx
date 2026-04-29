@@ -59,6 +59,21 @@ interface BulkCandidate {
   id_number: string;
 }
 
+// Sidebar wrapper that opens on hover and collapses on leave.
+const HoverSidebar = ({ children, className }: { children: React.ReactNode; className?: string }) => {
+  const { setOpen, isMobile } = useSidebar();
+  return (
+    <div
+      onMouseEnter={() => { if (!isMobile) setOpen(true); }}
+      onMouseLeave={() => { if (!isMobile) setOpen(false); }}
+    >
+      <Sidebar collapsible="icon" className={className}>
+        {children}
+      </Sidebar>
+    </div>
+  );
+};
+
 const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
