@@ -694,9 +694,9 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   ];
 
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider defaultOpen={false}>
       <div className="flex w-full min-h-[calc(100vh-180px)] gap-4">
-        <Sidebar collapsible="icon" className="border-r bg-gradient-to-b from-slate-50 via-white to-slate-50">
+        <HoverSidebar className="border-r bg-gradient-to-b from-zinc-50 via-white to-zinc-50">
           <SidebarContent>
             <SidebarGroup>
               <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
@@ -713,22 +713,23 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                           asChild
                           isActive={isActive}
                           tooltip={item.label}
-                          className={isActive ? "bg-gradient-to-r from-blue-600/10 to-rose-600/10 text-foreground font-semibold border-l-2 border-rose-600" : ""}
+                          className={isActive ? "bg-gradient-to-r from-zinc-900/10 via-zinc-700/5 to-red-600/15 text-foreground font-semibold border-l-2 border-red-600" : ""}
                         >
                           <button
                             type="button"
                             onClick={() => {
                               setActiveTab(item.value);
+                              setSeenTabs((s) => ({ ...s, [item.value]: true }));
                               if (item.value === "preAppliCheckedFinal") markPreAppliCheckedSeen();
                             }}
                             className="flex items-center gap-2 w-full text-left"
                           >
                             <Icon className="h-4 w-4 shrink-0" />
                             <span className="flex-1 truncate text-sm">{item.label}</span>
-                            {item.badge && item.badge > 0 ? (
+                            {item.badge && item.badge > 0 && !seenTabs[item.value] ? (
                               <Badge
                                 variant="destructive"
-                                className={`h-5 min-w-5 px-1.5 text-[10px] ${item.pulse ? "animate-pulse" : ""}`}
+                                className={`h-5 min-w-5 px-1.5 text-[10px] bg-red-600 hover:bg-red-600 ${item.pulse ? "animate-pulse" : ""}`}
                               >
                                 {item.badge}
                               </Badge>
