@@ -24,6 +24,7 @@ import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
 import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
 import CandexPortalDashboard from "./CandexPortalDashboard";
+import preapplicheckLogoMark from "@/assets/preapplicheck-logo-mark.png";
 import {
   Sidebar,
   SidebarContent,
