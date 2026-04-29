@@ -655,122 +655,129 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     setSelectedCandidates((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
   };
 
+  // Sidebar workflow nav items
+  const navItems: Array<{
+    value: string;
+    label: string;
+    icon: any;
+    badge?: number;
+    pulse?: boolean;
+  }> = [
+    { value: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { value: "invite", label: "Invitations", icon: Inbox, badge: invitations?.length || 0 },
+    { value: "review", label: "Review", icon: FileSearch, badge: submittedOnly.length },
+    { value: "reviewed", label: "Reviewed", icon: ClipboardCheck, badge: reviewed.length },
+    { value: "preAppliChecked", label: "Risk Assessment Completed", icon: ShieldAlert, badge: riskCompleted.length },
+    { value: "appointments", label: "Appointments", icon: CalendarCheck2, badge: userAppointments?.length || 0 },
+    { value: "preAppliCheckedFinal", label: "PreAppliChecked", icon: Award, badge: preAppliCheckedUnread, pulse: true },
+  ];
+
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(v) => {
-        setActiveTab(v);
-        if (v === "preAppliCheckedFinal") markPreAppliCheckedSeen();
-      }}
-      className="space-y-6"
-    >
-      <TabsList className="flex w-full max-w-3xl mx-auto gap-1">
-        <TabsTrigger value="dashboard" className="flex-1 text-xs px-2">
-          <BarChart3 className="h-3.5 w-3.5 mr-1" /> Dashboard
-        </TabsTrigger>
-        <TabsTrigger value="invite" className="flex-1 text-xs px-2">Invitations</TabsTrigger>
-        <TabsTrigger value="review" className="relative flex-1 text-xs px-2">
-          Review
-          {submittedOnly.length > 0 && (
-            <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">
-              {submittedOnly.length}
-            </Badge>
-          )}
-        </TabsTrigger>
-        <TabsTrigger value="reviewed" className="flex-1 text-xs px-2">Reviewed</TabsTrigger>
-        <TabsTrigger value="preAppliChecked" className="flex-1 text-xs px-2 whitespace-nowrap">Risk Assessment Completed</TabsTrigger>
-        <TabsTrigger value="appointments" className="relative flex-1 text-xs px-2">
-          <CalendarIcon className="h-3.5 w-3.5 mr-1" /> Appointments
-        </TabsTrigger>
-        <TabsTrigger value="preAppliCheckedFinal" className="relative flex-1 text-xs px-2 whitespace-nowrap">
-          PreAppliChecked
-          {preAppliCheckedUnread > 0 && (
-            <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px] animate-pulse">
-              {preAppliCheckedUnread}
-            </Badge>
-          )}
-        </TabsTrigger>
-      </TabsList>
+    <SidebarProvider defaultOpen>
+      <div className="flex w-full min-h-[calc(100vh-180px)] gap-4">
+        <Sidebar collapsible="icon" className="border-r bg-gradient-to-b from-slate-50 via-white to-slate-50">
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                Workflow
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.value;
+                    return (
+                      <SidebarMenuItem key={item.value}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={item.label}
+                          className={isActive ? "bg-gradient-to-r from-blue-600/10 to-rose-600/10 text-foreground font-semibold border-l-2 border-rose-600" : ""}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab(item.value);
+                              if (item.value === "preAppliCheckedFinal") markPreAppliCheckedSeen();
+                            }}
+                            className="flex items-center gap-2 w-full text-left"
+                          >
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="flex-1 truncate text-sm">{item.label}</span>
+                            {item.badge && item.badge > 0 ? (
+                              <Badge
+                                variant="destructive"
+                                className={`h-5 min-w-5 px-1.5 text-[10px] ${item.pulse ? "animate-pulse" : ""}`}
+                              >
+                                {item.badge}
+                              </Badge>
+                            ) : null}
+                          </button>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
 
-      {/* ── DASHBOARD TAB ── */}
-      <TabsContent value="dashboard">
-        <div className="space-y-6">
-          {/* Account info */}
-          {clientAccountId && (
-            <Card className="border-primary/20">
-              <CardContent className="py-3 flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">
-                  Account: {accounts?.find(a => a.id === clientAccountId)?.name || "Assigned Account"}
-                </span>
-                {stores.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 text-xs">{stores.length} Sub-Accounts</Badge>
-                )}
-              </CardContent>
-            </Card>
-          )}
+            {clientAccountId && (
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  Account
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <div className="px-3 py-2 rounded-md bg-muted/40 mx-2">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <p className="text-xs font-medium truncate">
+                        {accounts?.find(a => a.id === clientAccountId)?.name || "Assigned Account"}
+                      </p>
+                    </div>
+                    {stores.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {stores.length} sub-account{stores.length === 1 ? "" : "s"}
+                      </p>
+                    )}
+                  </div>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            )}
+          </SidebarContent>
+        </Sidebar>
 
-          {/* Overall Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-            {[
-              { label: "Total Invitations", value: dashboardStats.totalInvitations, color: "text-blue-600" },
-              { label: "In Progress", value: dashboardStats.inProgress, color: "text-amber-600" },
-              { label: "Submitted", value: dashboardStats.submitted, color: "text-orange-600" },
-              { label: "Approved", value: dashboardStats.approved, color: "text-green-600" },
-              { label: "Rejected", value: dashboardStats.rejected, color: "text-red-600" },
-              { label: "PreAppliChecked", value: dashboardStats.preAppliChecked, color: "text-primary" },
-              { label: "Total Applications", value: dashboardStats.totalApplications, color: "text-foreground" },
-            ].map((stat) => (
-              <Card key={stat.label}>
-                <CardContent className="py-4 text-center">
-                  <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">{stat.label}</p>
-                </CardContent>
-              </Card>
-            ))}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-4">
+            <SidebarTrigger />
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+              {navItems.find((n) => n.value === activeTab)?.label || "Workflow"}
+            </p>
           </div>
 
-          {/* Per Sub-Account Breakdown */}
-          {stores.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Store className="h-4 w-4" /> Sub-Account Breakdown
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Sub-Account</TableHead>
-                      <TableHead className="text-center">Code</TableHead>
-                      <TableHead className="text-center">Invitations</TableHead>
-                      <TableHead className="text-center">Applications</TableHead>
-                      <TableHead className="text-center">Approved</TableHead>
-                      <TableHead className="text-center">Checked</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {stores.map((store) => (
-                      <TableRow key={store.id}>
-                        <TableCell className="font-medium">{store.store_name}</TableCell>
-                        <TableCell className="text-center text-xs text-muted-foreground">{store.store_code}</TableCell>
-                        <TableCell className="text-center">—</TableCell>
-                        <TableCell className="text-center">—</TableCell>
-                        <TableCell className="text-center">—</TableCell>
-                        <TableCell className="text-center">—</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Sub-account level tracking will be available once invitations are linked to specific sub-accounts.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </TabsContent>
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => {
+              setActiveTab(v);
+              if (v === "preAppliCheckedFinal") markPreAppliCheckedSeen();
+            }}
+            className="space-y-6"
+          >
+            {/* Hidden TabsList — required for Tabs primitive but visually hidden (sidebar drives nav) */}
+            <TabsList className="sr-only">
+              {navItems.map((n) => (
+                <TabsTrigger key={n.value} value={n.value}>{n.label}</TabsTrigger>
+              ))}
+            </TabsList>
+
+            {/* ── DASHBOARD TAB ── */}
+            <TabsContent value="dashboard">
+              <CandexPortalDashboard
+                clientName={(client as any)?.name}
+                invitations={invitations}
+                applications={applications}
+                appointments={userAppointments as any[]}
+              />
+            </TabsContent>
 
       {/* ── INVITE TAB ── */}
       <TabsContent value="invite">
