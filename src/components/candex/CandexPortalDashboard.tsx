@@ -278,12 +278,13 @@ const CandexPortalDashboard = ({
   ];
 
   /* ── Funnel render helper ─────────────────────────────────────── */
+  // TLDV / PreAppliCheck palette: black → zinc → red
   const funnelStages = [
-    { label: "Invitations", value: pipeline.invitations, color: "from-blue-600 to-blue-500" },
-    { label: "Submitted", value: pipeline.submitted, color: "from-indigo-600 to-indigo-500" },
-    { label: "Reviewed", value: pipeline.reviewed, color: "from-violet-600 to-violet-500" },
-    { label: "Risk Assessed", value: pipeline.candexed, color: "from-fuchsia-600 to-fuchsia-500" },
-    { label: "PreAppliChecked", value: pipeline.finalReports, color: "from-rose-600 to-rose-500" },
+    { label: "Invitations", value: pipeline.invitations, color: "from-zinc-900 to-zinc-700" },
+    { label: "Submitted", value: pipeline.submitted, color: "from-zinc-800 to-zinc-600" },
+    { label: "Reviewed", value: pipeline.reviewed, color: "from-zinc-700 via-zinc-600 to-red-700" },
+    { label: "Risk Assessed", value: pipeline.candexed, color: "from-red-800 to-red-600" },
+    { label: "PreAppliChecked", value: pipeline.finalReports, color: "from-red-600 to-red-500" },
   ];
   const funnelMax = Math.max(1, ...funnelStages.map((s) => s.value));
 
