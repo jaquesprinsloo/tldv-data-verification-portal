@@ -60,6 +60,7 @@ interface BulkCandidate {
 
 const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteMode, setInviteMode] = useState<"single" | "bulk">("single");
   const [inviteMethod, setInviteMethod] = useState<"email" | "whatsapp">("email");
