@@ -120,6 +120,11 @@ const CandexRiskRequests = () => {
     enabled: requestCandidates.length > 0,
   });
 
+  // AI cost per candidate (estimated, displayed in ZAR)
+  const applicationIds = requestCandidates.map((c) => c.application_id);
+  const { data: aiCostMap } = useApplicationAiCosts(applicationIds);
+  const { data: usdZarRate = 18.5 } = useUsdZarRate();
+
   const getClientName = (clientId: string) => {
     const c = clients.find((x) => x.id === clientId);
     return c ? (c.company_name || c.name) : "Unknown Client";
