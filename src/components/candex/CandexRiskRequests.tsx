@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Eye, CheckCircle, ShieldCheck, AlertTriangle, FileText, Upload, Clock, Users, XCircle, Layers } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useApplicationAiCosts, useUsdZarRate, formatZar, formatUsd } from "@/hooks/useAiCost";
 import {
   RISK_CHECKS,
   RiskCheckCell,
