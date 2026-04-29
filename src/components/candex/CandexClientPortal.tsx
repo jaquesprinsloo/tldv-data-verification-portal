@@ -84,7 +84,7 @@ const SidebarLogoMark = () => {
       <img
         src={preapplicheckLogoMark}
         alt="PreAppliCheck"
-        className="w-full max-w-[180px] h-auto object-contain opacity-95 drop-shadow-[0_4px_16px_rgba(239,68,68,0.18)]"
+        className="w-full max-w-[180px] h-auto object-contain"
       />
     </div>
   );
