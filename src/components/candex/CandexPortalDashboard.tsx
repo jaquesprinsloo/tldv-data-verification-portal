@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
 import {
   Activity,
   AlertTriangle,
@@ -289,25 +290,35 @@ const CandexPortalDashboard = ({
   return (
     <div className="space-y-6">
       {/* ── Hero band ─────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-[#0a1d4a] via-[#1e3a8a] to-[#b91c1c] text-white shadow-xl">
-        <div className="absolute inset-0 opacity-30 [background:radial-gradient(circle_at_top_right,white_0%,transparent_55%)]" />
-        <div className="relative px-6 py-7 md:px-10 md:py-9 flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-white/70">
-              {clientName ? `Welcome back, ${clientName}` : "Welcome back"}
-            </p>
-            <h1 className="mt-2 text-3xl md:text-4xl font-bold tracking-tight">
-              PreAppliCheck Command Centre
-            </h1>
-            <p className="mt-2 text-white/80 max-w-xl text-sm">
-              Live overview of every candidate moving through pre-employment
-              vetting — from invitation to final risk report.
-            </p>
+      <div className="relative overflow-hidden rounded-2xl border border-red-900/40 bg-gradient-to-br from-black via-zinc-900 to-[#7f1d1d] text-white shadow-2xl">
+        <div className="absolute inset-0 opacity-40 [background:radial-gradient(circle_at_top_right,#ef4444_0%,transparent_55%)]" />
+        <div className="absolute inset-0 opacity-[0.07] [background-image:linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.5)_1px,transparent_1px)] [background-size:32px_32px]" />
+        <div className="relative px-6 py-6 md:px-10 md:py-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <div className="bg-white/95 rounded-xl p-3 shadow-lg shrink-0">
+              <img
+                src={preapplicheckLogo}
+                alt="PreAppliCheck"
+                className="h-14 md:h-16 w-auto object-contain"
+              />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.25em] text-red-300/90">
+                {clientName ? `Welcome back, ${clientName}` : "Welcome back"}
+              </p>
+              <h1 className="mt-1 text-2xl md:text-3xl font-bold tracking-tight">
+                PreAppliCheck Command Centre
+              </h1>
+              <p className="mt-1 text-white/70 max-w-xl text-xs md:text-sm">
+                Live overview of every candidate moving through pre-employment
+                vetting — from invitation to final risk report.
+              </p>
+            </div>
           </div>
 
           {/* Live ticker pill */}
-          <div className="rounded-xl bg-white/10 backdrop-blur border border-white/20 px-4 py-3 min-w-[280px] max-w-md">
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-white/70 mb-1">
+          <div className="rounded-xl bg-white/10 backdrop-blur border border-red-300/20 px-4 py-3 min-w-[280px] max-w-md">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-red-200/90 mb-1">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
