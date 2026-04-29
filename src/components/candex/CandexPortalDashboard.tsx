@@ -130,6 +130,50 @@ const CandexPortalDashboard = ({
   const invs = invitations || [];
   const appts = appointments || [];
 
+  /* ── Live countdown tick (refreshes every minute) ─────────────── */
+  const [now, setNow] = useState<Date>(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  /* ── Scheduled appointments (have a real date) ────────────────── */
+  const scheduledAppts = useMemo(() => {
+    return appts
+      .filter((a: any) => !!a?.scheduled_date)
+      .map((a: any) => {
+        const dateStr = a.scheduled_date as string;
+        const timeStr = (a.scheduled_time as string) || "09:00:00";
+        const when = new Date(`${dateStr}T${timeStr}`);
+        return { ...a, _when: when };
+      })
+      .sort((a: any, b: any) => a._when.getTime() - b._when.getTime());
+  }, [appts]);
+
+  const upcomingScheduled = useMemo(
+    () => scheduledAppts.filter((a: any) => a._when.getTime() >= now.getTime() - 60 * 60 * 1000),
+    [scheduledAppts, now],
+  );
+
+  const nextAppt = upcomingScheduled[0];
+  const countdown = useMemo(() => {
+    if (!nextAppt) return null;
+    const diffMs = nextAppt._when.getTime() - now.getTime();
+    const within48h = diffMs > 0 && diffMs <= 48 * 60 * 60 * 1000;
+    if (!within48h) return null;
+    const totalMin = Math.floor(diffMs / 60_000);
+    const days = Math.floor(totalMin / (60 * 24));
+    const hours = Math.floor((totalMin - days * 60 * 24) / 60);
+    const minutes = totalMin - days * 60 * 24 - hours * 60;
+    return { days, hours, minutes };
+  }, [nextAppt, now]);
+
+  const apptDateSet = useMemo(() => {
+    const s = new Set<string>();
+    scheduledAppts.forEach((a: any) => s.add(a.scheduled_date));
+    return s;
+  }, [scheduledAppts]);
+
   /* ── Pipeline counts ─────────────────────────────────────────── */
   const pipeline = useMemo(() => {
     const submitted = apps.filter((a) => a.status === "submitted").length;
