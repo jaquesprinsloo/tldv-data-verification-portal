@@ -296,11 +296,6 @@ const CandexPortalDashboard = ({
         <div className="absolute inset-0 opacity-[0.07] [background-image:linear-gradient(rgba(255,255,255,0.5)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.5)_1px,transparent_1px)] [background-size:32px_32px]" />
         <div className="relative px-6 py-6 md:px-10 md:py-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
-            <img
-              src={preapplicheckLogo}
-              alt="PreAppliCheck"
-              className="h-16 md:h-20 w-auto object-contain shrink-0 drop-shadow-[0_4px_20px_rgba(239,68,68,0.35)]"
-            />
             <div>
               <p className="text-[10px] uppercase tracking-[0.25em] text-red-300/90">
                 {clientName ? `Welcome back, ${clientName}` : "Welcome back"}
