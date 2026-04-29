@@ -790,7 +790,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-4">
-            <SidebarTrigger />
+            <SidebarTrigger className="md:hidden" />
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
               {navItems.find((n) => n.value === activeTab)?.label || "Workflow"}
             </p>
