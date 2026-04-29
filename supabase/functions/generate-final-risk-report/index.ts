@@ -19,6 +19,45 @@ const corsHeaders = {
 
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+const AI_PRICING: Record<string, { in: number; out: number }> = {
+  "google/gemini-2.5-flash-lite": { in: 0.10, out: 0.40 },
+  "google/gemini-2.5-flash": { in: 0.30, out: 2.50 },
+  "google/gemini-2.5-pro": { in: 1.25, out: 10.0 },
+  "google/gemini-3-flash-preview": { in: 0.30, out: 2.50 },
+  "openai/gpt-5-nano": { in: 0.05, out: 0.40 },
+  "openai/gpt-5-mini": { in: 0.25, out: 2.00 },
+  "openai/gpt-5": { in: 1.25, out: 10.0 },
+};
+
+async function logAiUsage(
+  supabase: any,
+  params: {
+    application_id: string | null;
+    function_name: string;
+    model: string;
+    usage: { prompt_tokens?: number; completion_tokens?: number } | undefined;
+    metadata?: Record<string, any>;
+  }
+) {
+  try {
+    const inTok = params.usage?.prompt_tokens ?? 0;
+    const outTok = params.usage?.completion_tokens ?? 0;
+    const price = AI_PRICING[params.model] ?? { in: 0, out: 0 };
+    const usd = (inTok * price.in + outTok * price.out) / 1_000_000;
+    await supabase.from("candex_ai_usage").insert({
+      application_id: params.application_id,
+      function_name: params.function_name,
+      model: params.model,
+      input_tokens: inTok,
+      output_tokens: outTok,
+      usd_cost: usd,
+      metadata: params.metadata || {},
+    });
+  } catch (e) {
+    console.error("logAiUsage failed:", e);
+  }
+}
+
 function tierFromScore(total: number): "LOW" | "MEDIUM" | "HIGH" | "VERY HIGH" {
   if (total >= 31) return "VERY HIGH";
   if (total >= 18) return "HIGH";
@@ -332,6 +371,12 @@ serve(async (req) => {
     }
 
     const aiJson = await aiResp.json();
+    await logAiUsage(supabase, {
+      application_id,
+      function_name: "generate-final-risk-report",
+      model: "google/gemini-2.5-pro",
+      usage: aiJson.usage,
+    });
     const toolCall = aiJson?.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall?.function?.arguments) {
       console.error("No tool call in AI response:", JSON.stringify(aiJson));

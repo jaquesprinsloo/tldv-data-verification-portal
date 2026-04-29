@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Eye, CheckCircle, ShieldCheck, AlertTriangle, FileText, Upload, Clock, Users, XCircle, Layers } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useApplicationAiCosts, useUsdZarRate, formatZar, formatUsd } from "@/hooks/useAiCost";
 import {
   RISK_CHECKS,
   RiskCheckCell,
@@ -117,6 +119,11 @@ const CandexRiskRequests = () => {
     },
     enabled: requestCandidates.length > 0,
   });
+
+  // AI cost per candidate (estimated, displayed in ZAR)
+  const applicationIds = requestCandidates.map((c) => c.application_id);
+  const { data: aiCostMap } = useApplicationAiCosts(applicationIds);
+  const { data: usdZarRate = 18.5 } = useUsdZarRate();
 
   const getClientName = (clientId: string) => {
     const c = clients.find((x) => x.id === clientId);
@@ -613,6 +620,30 @@ const CandexRiskRequests = () => {
                           <TableCell className="font-medium">
                             <div className="flex flex-col gap-1">
                               <span>{app?.candidate_name || "—"}</span>
+                              {(() => {
+                                const usd = aiCostMap?.get(cand.application_id) ?? 0;
+                                if (usd <= 0) return null;
+                                return (
+                                  <TooltipProvider delayDuration={150}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[10px] w-fit font-normal text-muted-foreground border-muted-foreground/30"
+                                        >
+                                          AI ~ {formatZar(usd, usdZarRate)}
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="right" className="text-xs">
+                                        <div>Estimated AI cost for this check</div>
+                                        <div className="text-muted-foreground mt-1">
+                                          {formatUsd(usd)} @ R{usdZarRate.toFixed(2)}/USD
+                                        </div>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                );
+                              })()}
                               {isDeleted && (
                                 <Badge variant="destructive" className="text-[10px] w-fit">
                                   Deleted by {cand.deleted_by_name || "user"}
