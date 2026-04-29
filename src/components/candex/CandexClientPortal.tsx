@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const PUBLISHED_URL = "https://portal.tldv.co.za";
 import { supabase } from "@/integrations/supabase/client";
