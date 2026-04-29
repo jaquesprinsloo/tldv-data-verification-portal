@@ -325,6 +325,12 @@ ${questionnaireText}`;
     }
 
     const aiData = await aiResponse.json();
+    await logAiUsage(supabase, {
+      application_id,
+      function_name: "generate-pre-risk-profile",
+      model: "google/gemini-2.5-flash-lite",
+      usage: aiData.usage,
+    });
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) {
       return new Response(JSON.stringify({ error: "AI did not return structured data" }), {
