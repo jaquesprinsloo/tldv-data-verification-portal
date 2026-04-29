@@ -781,6 +781,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                 </SidebarGroupContent>
               </SidebarGroup>
             )}
+            <SidebarLogoMark />
           </SidebarContent>
           <SidebarFooter className="border-t border-border/60 p-2">
             <SidebarMenu>
