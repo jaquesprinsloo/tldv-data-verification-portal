@@ -118,6 +118,50 @@ export type Database = {
         }
         Relationships: []
       }
+      candex_ai_usage: {
+        Row: {
+          application_id: string | null
+          created_at: string
+          function_name: string
+          id: string
+          input_tokens: number
+          metadata: Json | null
+          model: string
+          output_tokens: number
+          usd_cost: number
+        }
+        Insert: {
+          application_id?: string | null
+          created_at?: string
+          function_name: string
+          id?: string
+          input_tokens?: number
+          metadata?: Json | null
+          model: string
+          output_tokens?: number
+          usd_cost?: number
+        }
+        Update: {
+          application_id?: string | null
+          created_at?: string
+          function_name?: string
+          id?: string
+          input_tokens?: number
+          metadata?: Json | null
+          model?: string
+          output_tokens?: number
+          usd_cost?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candex_ai_usage_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "candex_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candex_applications: {
         Row: {
           answers: Json | null
