@@ -75,6 +75,13 @@ const HoverSidebar = ({ children, className }: { children: React.ReactNode; clas
   );
 };
 
+// Renders children only when the sidebar is expanded (or on mobile).
+const ExpandedOnly = ({ children }: { children: React.ReactNode }) => {
+  const { state, isMobile } = useSidebar();
+  if (!isMobile && state === "collapsed") return null;
+  return <>{children}</>;
+};
+
 // Logo block under the Account card — only renders when the sidebar is expanded.
 const SidebarLogoMark = () => {
   const { state, isMobile } = useSidebar();
