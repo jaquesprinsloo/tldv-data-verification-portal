@@ -336,6 +336,17 @@ function mapFriends(friends: any[]) {
 function buildTransformed(normalized: any, candidatePhotoUrl: string | null) {
   const c = normalized.candidate || {};
   const e = normalized.examination || {};
+  // Map textual overallResult into a synthetic examQuestion finding so
+  // downstream consumers (which derive pass/fail from examQuestions) work
+  // even though the lean extractor doesn't return per-question rows.
+  const rawResult = String(e.overallResult || "").toLowerCase().trim();
+  let synthFinding: string | null = null;
+  if (rawResult === "ndi" || rawResult === "passed" || rawResult === "no deception indicated") synthFinding = "NSR";
+  else if (rawResult === "di" || rawResult === "failed" || rawResult === "deception indicated" || rawResult === "sr") synthFinding = "SR";
+  else if (rawResult === "inc" || rawResult === "inconclusive") synthFinding = "INC";
+  const examQuestions = synthFinding
+    ? [{ question: "Overall examination outcome", finding: synthFinding }]
+    : [];
   return {
     candidate: {
       firstName: c.firstName || "",
@@ -369,7 +380,7 @@ function buildTransformed(normalized: any, candidatePhotoUrl: string | null) {
       details: { frequency: a.frequency, raw: a.detail },
       notes: a.detail || "",
     })),
-    examQuestions: [],
+    examQuestions,
     result: {
       overallResult: String(e.overallResult || "").toLowerCase(),
       examinerNotes: normalized.notes || "",
