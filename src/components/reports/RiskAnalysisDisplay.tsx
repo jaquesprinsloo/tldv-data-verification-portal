@@ -448,7 +448,13 @@ const calculateCriminalActivityScore = (report: any): CriminalResult => {
     ];
 
     const branches = branchDefs.map(def => {
-      const items = (detailedActivity[def.key] || []).map((item: any) => ({
+      const rawItems = detailedActivity[def.key];
+      const itemsArray = Array.isArray(rawItems)
+        ? rawItems
+        : rawItems && typeof rawItems === "object"
+          ? Object.values(rawItems)
+          : [];
+      const items = itemsArray.map((item: any) => ({
         question: item.Question || item.question || "",
         confirmed: item.Answer === true || item.answer === true,
       }));
