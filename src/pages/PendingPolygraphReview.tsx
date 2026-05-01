@@ -337,6 +337,17 @@ const PendingPolygraphReview = () => {
     try {
       const ext = editedData.extracted_data || {};
 
+      // Normalize risk_level to match DB check constraint: LOW | MEDIUM | HIGH | VERY HIGH
+      const normalizeRiskLevel = (val: any): string | null => {
+        if (!val) return null;
+        const v = String(val).trim().toUpperCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+        if (["LOW", "MEDIUM", "HIGH", "VERY HIGH"].includes(v)) return v;
+        if (v === "UNACCEPTABLE" || v === "VERYHIGH" || v === "CRITICAL") return "VERY HIGH";
+        if (v === "MED" || v === "MODERATE") return "MEDIUM";
+        return null;
+      };
+      const normalizedRiskLevel = normalizeRiskLevel(editedData.risk_level);
+
       // Determine vetting types from extraction
       const vettingTypes: string[] = [];
       const vt = ext.examination?.vettingTypes || {};
@@ -361,7 +372,7 @@ const PendingPolygraphReview = () => {
         report_pdf_url: selectedUpload.converted_pdf_url || selectedUpload.original_file_url,
         uploaded_by: selectedUpload.uploaded_by,
         risk_score: editedData.risk_score,
-        risk_level: editedData.risk_level,
+        risk_level: normalizedRiskLevel,
         risk_analysis: editedData.risk_analysis,
         vetting_types: vettingTypes.length > 0 ? vettingTypes : null,
         examiner_notes: ext.result?.examinerNotes || null,
