@@ -76,6 +76,21 @@ async function extractTextFromPdf(pdfBase64: string): Promise<string> {
   }
 }
 
+// Best-effort regex extraction for a South African contact number from the
+// raw report text. Used as a fallback when the AI does not return one.
+function extractContactNumberFallback(text: string): string {
+  if (!text) return "";
+  // Look for an explicit "Contact"/"Cell"/"Mobile"/"Tel"/"Phone" label first
+  const labeled = text.match(
+    /(?:contact(?:\s*(?:number|no\.?|#))?|cell(?:phone)?|mobile|tel(?:ephone)?|phone)\s*[:\-]?\s*([+()\d][\d\s().\-]{8,20}\d)/i,
+  );
+  const candidate = labeled?.[1] ?? null;
+  if (candidate) return candidate.replace(/\s+/g, " ").trim();
+  // Fallback: any 10-digit ZA number (starts with 0) or +27 number
+  const generic = text.match(/(?:\+27[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{4})|(?:\b0\d{2}[\s\-]?\d{3}[\s\-]?\d{4}\b)/);
+  return generic ? generic[0].replace(/\s+/g, " ").trim() : "";
+}
+
 // ─── AI calls ─────────────────────────────────────────────────────────
 
 async function callAI(body: any, apiKey: string) {
