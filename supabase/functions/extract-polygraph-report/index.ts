@@ -76,6 +76,21 @@ async function extractTextFromPdf(pdfBase64: string): Promise<string> {
   }
 }
 
+// Best-effort regex extraction for a South African contact number from the
+// raw report text. Used as a fallback when the AI does not return one.
+function extractContactNumberFallback(text: string): string {
+  if (!text) return "";
+  // Look for an explicit "Contact"/"Cell"/"Mobile"/"Tel"/"Phone" label first
+  const labeled = text.match(
+    /(?:contact(?:\s*(?:number|no\.?|#))?|cell(?:phone)?|mobile|tel(?:ephone)?|phone)\s*[:\-]?\s*([+()\d][\d\s().\-]{8,20}\d)/i,
+  );
+  const candidate = labeled?.[1] ?? null;
+  if (candidate) return candidate.replace(/\s+/g, " ").trim();
+  // Fallback: any 10-digit ZA number (starts with 0) or +27 number
+  const generic = text.match(/(?:\+27[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{4})|(?:\b0\d{2}[\s\-]?\d{3}[\s\-]?\d{4}\b)/);
+  return generic ? generic[0].replace(/\s+/g, " ").trim() : "";
+}
+
 // ─── AI calls ─────────────────────────────────────────────────────────
 
 async function callAI(body: any, apiKey: string) {
@@ -336,6 +351,17 @@ function mapFriends(friends: any[]) {
 function buildTransformed(normalized: any, candidatePhotoUrl: string | null) {
   const c = normalized.candidate || {};
   const e = normalized.examination || {};
+  // Map textual overallResult into a synthetic examQuestion finding so
+  // downstream consumers (which derive pass/fail from examQuestions) work
+  // even though the lean extractor doesn't return per-question rows.
+  const rawResult = String(e.overallResult || "").toLowerCase().trim();
+  let synthFinding: string | null = null;
+  if (rawResult === "ndi" || rawResult === "passed" || rawResult === "no deception indicated") synthFinding = "NSR";
+  else if (rawResult === "di" || rawResult === "failed" || rawResult === "deception indicated" || rawResult === "sr") synthFinding = "SR";
+  else if (rawResult === "inc" || rawResult === "inconclusive") synthFinding = "INC";
+  const examQuestions = synthFinding
+    ? [{ question: "Overall examination outcome", finding: synthFinding }]
+    : [];
   return {
     candidate: {
       firstName: c.firstName || "",
@@ -369,7 +395,7 @@ function buildTransformed(normalized: any, candidatePhotoUrl: string | null) {
       details: { frequency: a.frequency, raw: a.detail },
       notes: a.detail || "",
     })),
-    examQuestions: [],
+    examQuestions,
     result: {
       overallResult: String(e.overallResult || "").toLowerCase(),
       examinerNotes: normalized.notes || "",
@@ -479,6 +505,16 @@ Return via tool only.`;
 
     const normalized = getToolArgs(a2) || rawFacts; // fall back to raw if normalize fails
     console.log("Call A2 done.");
+
+    // Regex fallback for contact number if AI missed it
+    if (!normalized.candidate) normalized.candidate = {};
+    if (!normalized.candidate.contactNumber || !String(normalized.candidate.contactNumber).trim()) {
+      const fallback = extractContactNumberFallback(docText);
+      if (fallback) {
+        console.log(`Contact number recovered via regex fallback: ${fallback}`);
+        normalized.candidate.contactNumber = fallback;
+      }
+    }
 
     // 4. Photo from extracted DOCX images (if any)
     let candidatePhotoUrl: string | null = null;
