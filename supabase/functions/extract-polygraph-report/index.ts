@@ -506,6 +506,16 @@ Return via tool only.`;
     const normalized = getToolArgs(a2) || rawFacts; // fall back to raw if normalize fails
     console.log("Call A2 done.");
 
+    // Regex fallback for contact number if AI missed it
+    if (!normalized.candidate) normalized.candidate = {};
+    if (!normalized.candidate.contactNumber || !String(normalized.candidate.contactNumber).trim()) {
+      const fallback = extractContactNumberFallback(docText);
+      if (fallback) {
+        console.log(`Contact number recovered via regex fallback: ${fallback}`);
+        normalized.candidate.contactNumber = fallback;
+      }
+    }
+
     // 4. Photo from extracted DOCX images (if any)
     let candidatePhotoUrl: string | null = null;
     if (extractedImages && extractedImages.length > 0) {
