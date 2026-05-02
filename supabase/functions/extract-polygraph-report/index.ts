@@ -115,7 +115,14 @@ async function callAI(body: any, apiKey: string) {
     err.status = r.status;
     throw err;
   }
-  return r.json();
+  const json = await r.json();
+  // Detect truncation — if the model ran out of tokens we'll get partial JSON
+  // for the tool call which silently drops fields.
+  const finish = json?.choices?.[0]?.finish_reason;
+  if (finish === "length") {
+    console.warn("AI response was truncated (finish_reason=length). Some fields may be missing.");
+  }
+  return json;
 }
 
 function getToolArgs(aiResp: any): any | null {
@@ -144,6 +151,10 @@ const EXTRACT_TOOL = {
             physicalAddress: { type: "string" },
             positionAppliedFor: { type: "string" },
             storeLocation: { type: "string" },
+            dateOfBirth: { type: "string", description: "YYYY-MM-DD if stated" },
+            gender: { type: "string" },
+            nationality: { type: "string" },
+            homeLanguage: { type: "string" },
           },
         },
         examination: {
@@ -152,18 +163,75 @@ const EXTRACT_TOOL = {
             date: { type: "string", description: "YYYY-MM-DD if possible" },
             examinerName: { type: "string" },
             overallResult: { type: "string", description: "NDI, INC, DI, passed, failed, inconclusive, or empty" },
+            vettingType: {
+              type: "string",
+              description: "Pre-employment, Specific Issue, Periodic, Post-incident, etc.",
+            },
+            location: { type: "string" },
+            referenceNumber: { type: "string" },
+          },
+        },
+        suitability: {
+          type: "object",
+          description: "Pre-test suitability questionnaire answers if present in the report",
+          properties: {
+            healthStatus: { type: "string" },
+            enoughSleep: { type: "string", description: "Yes/No/empty" },
+            hospitalizedRecently: { type: "string" },
+            hospitalizedDetails: { type: "string" },
+            medicationTaken: { type: "string" },
+            medicationDetails: { type: "string" },
+            heartConditions: { type: "string" },
+            breathingTrouble: { type: "string" },
+            psychologicalDisorders: { type: "string" },
+            diabetic: { type: "string" },
+            recentDrugUse: { type: "string" },
+            drugUseDetails: { type: "string" },
+            recentAlcoholUse: { type: "string" },
+            alcoholDetails: { type: "string" },
+            smoker: { type: "string" },
+            smokingDetails: { type: "string" },
+            pregnant: { type: "string" },
+            suitableForExam: { type: "string" },
+            suitabilityComment: { type: "string" },
+          },
+        },
+        examQuestions: {
+          type: "array",
+          description: "Each relevant test question with the polygraph finding (NSR, SR, or INC)",
+          items: {
+            type: "object",
+            required: ["question", "finding"],
+            properties: {
+              question: { type: "string" },
+              finding: { type: "string", enum: ["NSR", "SR", "INC", "NDI", "DI"] },
+              notes: { type: "string" },
+            },
           },
         },
         admissions: {
           type: "array",
+          description: "Every disclosed wrongdoing, no matter how minor. Include theft, fraud, bribery, drug use, violence, dishonesty, etc.",
           items: {
             type: "object",
             required: ["type", "detail"],
             properties: {
-              type: { type: "string", enum: ["theft", "fraud", "violence", "drug_use", "bribery", "other"] },
+              type: { type: "string", enum: ["theft", "fraud", "violence", "drug_use", "bribery", "dishonesty", "organized_crime", "other"] },
               detail: { type: "string" },
               when: { type: "string" },
               frequency: { type: "string" },
+              amount: { type: "number", description: "ZAR value if stated" },
+            },
+          },
+        },
+        education: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              institution: { type: "string" },
+              qualification: { type: "string" },
+              year: { type: "string" },
             },
           },
         },
@@ -176,6 +244,9 @@ const EXTRACT_TOOL = {
               company: { type: "string" },
               position: { type: "string" },
               duration: { type: "string", description: "e.g. '2 years 6 months'" },
+              startDate: { type: "string" },
+              endDate: { type: "string" },
+              salary: { type: "string" },
               reasonForLeaving: { type: "string" },
               disciplinary: { type: "string", description: "Warning/dismissal/none" },
             },
@@ -183,6 +254,7 @@ const EXTRACT_TOOL = {
         },
         financial: {
           type: "array",
+          description: "Every disclosed financial issue. Capture amounts as numbers without thousand separators.",
           items: {
             type: "object",
             properties: {
@@ -190,6 +262,7 @@ const EXTRACT_TOOL = {
               detail: { type: "string" },
               status: { type: "string", description: "current | historical | resolved" },
               amount: { type: "number" },
+              creditor: { type: "string" },
             },
           },
         },
@@ -201,6 +274,7 @@ const EXTRACT_TOOL = {
               issue: { type: "string", description: "arrest | conviction | bribery | pending_case | fine | court" },
               detail: { type: "string" },
               status: { type: "string" },
+              date: { type: "string" },
             },
           },
         },
@@ -212,12 +286,13 @@ const EXTRACT_TOOL = {
               name: { type: "string" },
               lastUse: { type: "string" },
               pattern: { type: "string", description: "lifetime | past_2_years | recent | one-off" },
+              frequency: { type: "string" },
             },
           },
         },
         family: {
           type: "array",
-          description: "Family members with disclosed criminal history only",
+          description: "Family members mentioned in the report. Include relationship and any criminal history.",
           items: {
             type: "object",
             properties: {
@@ -229,12 +304,24 @@ const EXTRACT_TOOL = {
         },
         friends: {
           type: "array",
-          description: "Friends with disclosed criminal history only",
+          description: "Friends/associates with disclosed criminal history",
           items: {
             type: "object",
             properties: {
               name: { type: "string" },
               criminalHistory: { type: "string" },
+            },
+          },
+        },
+        nextOfKin: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              relationship: { type: "string" },
+              contactNumber: { type: "string" },
+              address: { type: "string" },
             },
           },
         },
@@ -244,6 +331,7 @@ const EXTRACT_TOOL = {
           items: { type: "string" },
         },
         notes: { type: "string", description: "Examiner notes / post-exam admissions / overall summary" },
+        postExamAdmissions: { type: "string", description: "Anything the candidate admitted AFTER the exam, verbatim if possible" },
       },
     },
   },
