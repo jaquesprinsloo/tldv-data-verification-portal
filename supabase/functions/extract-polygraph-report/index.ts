@@ -594,16 +594,23 @@ serve(async (req) => {
     }
 
     // 2. Call A1 — Extraction (Gemini 2.5 Pro + tool)
-    const extractSystem = `Extract structured facts from a polygraph report. Return via tool only. No inference.
+    const extractSystem = `You are extracting structured facts from a South African polygraph report. Return via the tool only. Be EXHAUSTIVE — do not skip sections.
 
-RULES:
-- Extract only explicit admissions or findings stated in the document
-- Keep wording concise and verbatim from the document where possible
-- Normalize dates (YYYY-MM-DD) and durations ("X years Y months") if possible
-- Ignore boilerplate / disclaimers
-- Unknown -> empty string. Do NOT guess.
-- For "deception" array: include any SR (Significant Reaction), INC (Inconclusive), or post-exam admission of deception
-- For "family" / "friends": only include those with disclosed criminal history`;
+CRITICAL RULES:
+- Read the ENTIRE document. Tables (separated by "--- TABLE ---") contain most of the data — process every row.
+- Extract every prior employer in the employment history table — do not stop after the first 2-3.
+- Extract every disclosed admission, no matter how small (theft of stationery counts).
+- Extract every test question with its result (NSR / SR / INC) into examQuestions[].
+- Capture the pre-exam suitability questionnaire (sleep, meds, drugs, alcohol, smoking, health) into suitability{}.
+- Capture vetting type (Pre-employment / Specific Issue / Periodic / Post-incident) and exam location.
+- Capture financial amounts as raw numbers WITHOUT thousand separators (e.g. 15000 not "R15,000" not "15.000").
+- Normalize dates to YYYY-MM-DD where possible; durations as "X years Y months".
+- Verbatim wording where reasonable; ignore boilerplate / disclaimers / page footers.
+- Unknown -> empty string. Do NOT guess or infer beyond what the document states.
+- For deception[]: include any SR, INC, or post-exam admission of deception, plus the question text.
+- family[] / friends[]: only entries where criminal history or relevance is disclosed.
+- nextOfKin[]: only if explicitly listed in the report.
+- postExamAdmissions: capture verbatim what the candidate admitted AFTER the exam (often labelled "Post-test admissions" or "Subject admitted").`;
 
     const userContent: any = useImageFallback
       ? [
