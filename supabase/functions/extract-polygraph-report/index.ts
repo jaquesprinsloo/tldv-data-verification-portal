@@ -51,12 +51,22 @@ async function extractTextFromDocx(docxBase64: string): Promise<string> {
     const zip = await JSZip.loadAsync(base64ToBytes(docxBase64));
     const xml = await zip.file("word/document.xml")?.async("string");
     if (!xml) return "";
+    // Preserve table structure: cell boundaries become " | ",
+    // row boundaries become newlines, paragraph boundaries become newlines.
+    // This gives the AI enough structure to read tabular polygraph reports
+    // (Suitability, Employment, Financial, etc. are almost always tables).
     return xml
+      .replace(/<w:tab\/>/g, "\t")
+      .replace(/<w:br\/>/g, "\n")
       .replace(/<\/w:p>/g, "\n")
+      .replace(/<\/w:tc>/g, " | ")
       .replace(/<\/w:tr>/g, "\n")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .replace(/\n\s*\n/g, "\n\n")
+      .replace(/<w:tbl[^>]*>/g, "\n--- TABLE ---\n")
+      .replace(/<\/w:tbl>/g, "\n--- END TABLE ---\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/ \| \n/g, "\n")
       .trim();
   } catch (e) {
     console.error("docx extract error:", e);
