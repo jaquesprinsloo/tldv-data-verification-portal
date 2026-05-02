@@ -1,46 +1,44 @@
-import { useEffect, useState } from "react";
-import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
+import { useEffect, useRef, useState } from "react";
 
 interface SplashScreenProps {
   onComplete: () => void;
 }
 
 export default function SplashScreen({ onComplete }: SplashScreenProps) {
-  const [phase, setPhase] = useState<"enter" | "visible" | "exit">("enter");
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
-    const enterTimer = setTimeout(() => setPhase("visible"), 100);
-    const exitTimer = setTimeout(() => setPhase("exit"), 4000);
-    const completeTimer = setTimeout(onComplete, 5000);
-    return () => {
-      clearTimeout(enterTimer);
-      clearTimeout(exitTimer);
-      clearTimeout(completeTimer);
-    };
-  }, [onComplete]);
+    // Safety fallback in case video never fires `ended`
+    const safety = setTimeout(() => {
+      setFadeOut(true);
+    }, 8000);
+    return () => clearTimeout(safety);
+  }, []);
+
+  useEffect(() => {
+    if (!fadeOut) return;
+    const t = setTimeout(onComplete, 900);
+    return () => clearTimeout(t);
+  }, [fadeOut, onComplete]);
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center overflow-hidden">
-      <div
-        className={`relative z-10 transition-all duration-1000 ease-out ${
-          phase === "enter"
-            ? "opacity-0 scale-75"
-            : phase === "exit"
-            ? "opacity-0 scale-110"
-            : "opacity-100 scale-100"
+    <div className="fixed inset-0 bg-black flex items-center justify-center overflow-hidden">
+      <video
+        ref={videoRef}
+        src="/intro/logo-animation.mp4"
+        autoPlay
+        muted
+        playsInline
+        preload="auto"
+        onEnded={() => setFadeOut(true)}
+        className={`w-full h-full object-contain transition-opacity duration-700 ${
+          fadeOut ? "opacity-0" : "opacity-100"
         }`}
-      >
-        <img
-          src={preapplicheckLogo}
-          alt="PreAppliCheck"
-          className="w-[500px] max-w-[90vw]"
-        />
-      </div>
-
-      {/* Skip hint */}
+      />
       <button
-        onClick={onComplete}
-        className="absolute bottom-8 text-black/30 text-xs hover:text-black/60 transition-colors"
+        onClick={() => setFadeOut(true)}
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/30 text-xs hover:text-white/60 transition-colors"
       >
         Tap to skip
       </button>
