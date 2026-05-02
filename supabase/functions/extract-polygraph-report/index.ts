@@ -449,6 +449,7 @@ function mapFriends(friends: any[]) {
 function buildTransformed(normalized: any, candidatePhotoUrl: string | null) {
   const c = normalized.candidate || {};
   const e = normalized.examination || {};
+  const s = normalized.suitability || {};
   // Map textual overallResult into a synthetic examQuestion finding so
   // downstream consumers (which derive pass/fail from examQuestions) work
   // even though the lean extractor doesn't return per-question rows.
@@ -457,9 +458,24 @@ function buildTransformed(normalized: any, candidatePhotoUrl: string | null) {
   if (rawResult === "ndi" || rawResult === "passed" || rawResult === "no deception indicated") synthFinding = "NSR";
   else if (rawResult === "di" || rawResult === "failed" || rawResult === "deception indicated" || rawResult === "sr") synthFinding = "SR";
   else if (rawResult === "inc" || rawResult === "inconclusive") synthFinding = "INC";
-  const examQuestions = synthFinding
-    ? [{ question: "Overall examination outcome", finding: synthFinding }]
-    : [];
+  // Prefer per-question results from the AI; only fall back to the synthetic
+  // overall finding if the AI didn't return any question-level data.
+  const aiQuestions = Array.isArray(normalized.examQuestions) ? normalized.examQuestions : [];
+  const examQuestions = aiQuestions.length > 0
+    ? aiQuestions.map((q: any) => ({
+        question: q.question || "",
+        finding: String(q.finding || "").toUpperCase(),
+        notes: q.notes || "",
+      }))
+    : (synthFinding ? [{ question: "Overall examination outcome", finding: synthFinding }] : []);
+  // Bucket question results for the polygraphResults shape
+  const SR: any[] = [], INC: any[] = [], NSR: any[] = [];
+  for (const q of examQuestions) {
+    const f = String(q.finding || "").toUpperCase();
+    if (f === "SR" || f === "DI") SR.push(q);
+    else if (f === "INC") INC.push(q);
+    else if (f === "NSR" || f === "NDI") NSR.push(q);
+  }
   return {
     candidate: {
       firstName: c.firstName || "",
@@ -470,45 +486,78 @@ function buildTransformed(normalized: any, candidatePhotoUrl: string | null) {
       physicalAddress: c.physicalAddress || "",
       positionApplyingFor: c.positionAppliedFor || "",
       storeLocation: c.storeLocation || "",
+      dateOfBirth: c.dateOfBirth || "",
+      gender: c.gender || "",
+      nationality: c.nationality || "",
+      homeLanguage: c.homeLanguage || "",
     },
     examination: {
       date: e.date || new Date().toISOString().split("T")[0],
       examinerName: e.examinerName || "",
-      vettingTypes: {},
+      vettingType: e.vettingType || "",
+      location: e.location || "",
+      referenceNumber: e.referenceNumber || "",
+      vettingTypes: e.vettingType ? { [e.vettingType]: true } : {},
     },
     suitability: {
-      healthStatus: "",
-      enoughSleep: null, hospitalizedRecently: null, hospitalizedDetails: "",
-      medicationTaken: null, medicationDetails: "",
-      heartConditions: null, breathingTrouble: null, psychologicalDisorders: null,
-      diabetic: null, recentDrugUse: null, drugUseDetails: "",
-      recentAlcoholUse: null, alcoholDetails: "",
-      smoker: null, smokingDetails: "", pregnant: null,
-      suitableForExam: null, suitabilityComment: "",
+      healthStatus: s.healthStatus || "",
+      enoughSleep: s.enoughSleep || null,
+      hospitalizedRecently: s.hospitalizedRecently || null,
+      hospitalizedDetails: s.hospitalizedDetails || "",
+      medicationTaken: s.medicationTaken || null,
+      medicationDetails: s.medicationDetails || "",
+      heartConditions: s.heartConditions || null,
+      breathingTrouble: s.breathingTrouble || null,
+      psychologicalDisorders: s.psychologicalDisorders || null,
+      diabetic: s.diabetic || null,
+      recentDrugUse: s.recentDrugUse || null,
+      drugUseDetails: s.drugUseDetails || "",
+      recentAlcoholUse: s.recentAlcoholUse || null,
+      alcoholDetails: s.alcoholDetails || "",
+      smoker: s.smoker || null,
+      smokingDetails: s.smokingDetails || "",
+      pregnant: s.pregnant || null,
+      suitableForExam: s.suitableForExam || null,
+      suitabilityComment: s.suitabilityComment || "",
     },
     admissions: (normalized.admissions || []).map((a: any) => ({
       category: a.type || "",
       confirmed: true,
       timeWindow: a.when || "",
-      details: { frequency: a.frequency, raw: a.detail },
+      details: { frequency: a.frequency, raw: a.detail, amount: a.amount },
       notes: a.detail || "",
     })),
     examQuestions,
     result: {
       overallResult: String(e.overallResult || "").toLowerCase(),
       examinerNotes: normalized.notes || "",
+      postExamAdmissions: normalized.postExamAdmissions || "",
     },
     disclosure: {},
-    educationHistory: [],
+    educationHistory: (normalized.education || []).map((ed: any) => ({
+      Institution: ed.institution || "",
+      Qualification: ed.qualification || "",
+      Year: ed.year || "",
+    })),
     employmentHistory: mapEmploymentToHistory(normalized.employment),
     familyCriminalHistory: mapFamily(normalized.family),
     friendCriminalHistory: mapFriends(normalized.friends),
-    nextOfKin: [],
+    nextOfKin: (normalized.nextOfKin || []).map((n: any) => ({
+      Name: n.name || "",
+      Relationship: n.relationship || "",
+      ContactNumber: n.contactNumber || "",
+      Address: n.address || "",
+    })),
     financialCircumstances: mapFinancial(normalized.financial),
     permitsLicensing: {},
     personalLawEncounters: mapLegal(normalized.legal),
-    polygraphResults: { QuestionResults: [], SRQuestions: [], INCQuestions: [], NSRQuestions: [] },
-    postExamAdmissions: normalized.notes || "",
+    polygraphResults: {
+      QuestionResults: examQuestions,
+      SRQuestions: SR,
+      INCQuestions: INC,
+      NSRQuestions: NSR,
+    },
+    postExamAdmissions: normalized.postExamAdmissions || normalized.notes || "",
     riskAnalysis: {}, // intentionally empty — risk profile is generated by generate-polygraph-risk-profile
     detailedCriminalActivity: mapAdmissionsToCriminal(normalized.admissions, normalized.substances).DetailedCriminalActivity,
     candidatePhotoUrl,
@@ -563,9 +612,10 @@ RULES:
         ]
       : `Extract structured polygraph facts from this report text using the tool.\n\n--- DOCUMENT ---\n${docText}`;
 
-    console.log("Call A1 (extract) starting…");
+    console.log(`Call A1 (extract) starting… docText=${docText.length} chars`);
     const a1 = await callAI({
       model: "google/gemini-2.5-pro",
+      max_tokens: 16000,
       messages: [
         { role: "system", content: extractSystem },
         { role: "user", content: userContent },
@@ -592,7 +642,8 @@ Return via tool only.`;
 
     console.log("Call A2 (normalize) starting…");
     const a2 = await callAI({
-      model: "google/gemini-2.5-flash-lite",
+      model: "google/gemini-2.5-flash",
+      max_tokens: 16000,
       messages: [
         { role: "system", content: normalizeSystem },
         { role: "user", content: `Normalize these extracted facts:\n\n${JSON.stringify(rawFacts, null, 2)}` },
