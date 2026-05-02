@@ -51,12 +51,22 @@ async function extractTextFromDocx(docxBase64: string): Promise<string> {
     const zip = await JSZip.loadAsync(base64ToBytes(docxBase64));
     const xml = await zip.file("word/document.xml")?.async("string");
     if (!xml) return "";
+    // Preserve table structure: cell boundaries become " | ",
+    // row boundaries become newlines, paragraph boundaries become newlines.
+    // This gives the AI enough structure to read tabular polygraph reports
+    // (Suitability, Employment, Financial, etc. are almost always tables).
     return xml
+      .replace(/<w:tab\/>/g, "\t")
+      .replace(/<w:br\/>/g, "\n")
       .replace(/<\/w:p>/g, "\n")
+      .replace(/<\/w:tc>/g, " | ")
       .replace(/<\/w:tr>/g, "\n")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .replace(/\n\s*\n/g, "\n\n")
+      .replace(/<w:tbl[^>]*>/g, "\n--- TABLE ---\n")
+      .replace(/<\/w:tbl>/g, "\n--- END TABLE ---\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/ \| \n/g, "\n")
       .trim();
   } catch (e) {
     console.error("docx extract error:", e);
@@ -105,7 +115,14 @@ async function callAI(body: any, apiKey: string) {
     err.status = r.status;
     throw err;
   }
-  return r.json();
+  const json = await r.json();
+  // Detect truncation — if the model ran out of tokens we'll get partial JSON
+  // for the tool call which silently drops fields.
+  const finish = json?.choices?.[0]?.finish_reason;
+  if (finish === "length") {
+    console.warn("AI response was truncated (finish_reason=length). Some fields may be missing.");
+  }
+  return json;
 }
 
 function getToolArgs(aiResp: any): any | null {
@@ -134,6 +151,10 @@ const EXTRACT_TOOL = {
             physicalAddress: { type: "string" },
             positionAppliedFor: { type: "string" },
             storeLocation: { type: "string" },
+            dateOfBirth: { type: "string", description: "YYYY-MM-DD if stated" },
+            gender: { type: "string" },
+            nationality: { type: "string" },
+            homeLanguage: { type: "string" },
           },
         },
         examination: {
@@ -142,18 +163,75 @@ const EXTRACT_TOOL = {
             date: { type: "string", description: "YYYY-MM-DD if possible" },
             examinerName: { type: "string" },
             overallResult: { type: "string", description: "NDI, INC, DI, passed, failed, inconclusive, or empty" },
+            vettingType: {
+              type: "string",
+              description: "Pre-employment, Specific Issue, Periodic, Post-incident, etc.",
+            },
+            location: { type: "string" },
+            referenceNumber: { type: "string" },
+          },
+        },
+        suitability: {
+          type: "object",
+          description: "Pre-test suitability questionnaire answers if present in the report",
+          properties: {
+            healthStatus: { type: "string" },
+            enoughSleep: { type: "string", description: "Yes/No/empty" },
+            hospitalizedRecently: { type: "string" },
+            hospitalizedDetails: { type: "string" },
+            medicationTaken: { type: "string" },
+            medicationDetails: { type: "string" },
+            heartConditions: { type: "string" },
+            breathingTrouble: { type: "string" },
+            psychologicalDisorders: { type: "string" },
+            diabetic: { type: "string" },
+            recentDrugUse: { type: "string" },
+            drugUseDetails: { type: "string" },
+            recentAlcoholUse: { type: "string" },
+            alcoholDetails: { type: "string" },
+            smoker: { type: "string" },
+            smokingDetails: { type: "string" },
+            pregnant: { type: "string" },
+            suitableForExam: { type: "string" },
+            suitabilityComment: { type: "string" },
+          },
+        },
+        examQuestions: {
+          type: "array",
+          description: "Each relevant test question with the polygraph finding (NSR, SR, or INC)",
+          items: {
+            type: "object",
+            required: ["question", "finding"],
+            properties: {
+              question: { type: "string" },
+              finding: { type: "string", enum: ["NSR", "SR", "INC", "NDI", "DI"] },
+              notes: { type: "string" },
+            },
           },
         },
         admissions: {
           type: "array",
+          description: "Every disclosed wrongdoing, no matter how minor. Include theft, fraud, bribery, drug use, violence, dishonesty, etc.",
           items: {
             type: "object",
             required: ["type", "detail"],
             properties: {
-              type: { type: "string", enum: ["theft", "fraud", "violence", "drug_use", "bribery", "other"] },
+              type: { type: "string", enum: ["theft", "fraud", "violence", "drug_use", "bribery", "dishonesty", "organized_crime", "other"] },
               detail: { type: "string" },
               when: { type: "string" },
               frequency: { type: "string" },
+              amount: { type: "number", description: "ZAR value if stated" },
+            },
+          },
+        },
+        education: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              institution: { type: "string" },
+              qualification: { type: "string" },
+              year: { type: "string" },
             },
           },
         },
@@ -166,6 +244,9 @@ const EXTRACT_TOOL = {
               company: { type: "string" },
               position: { type: "string" },
               duration: { type: "string", description: "e.g. '2 years 6 months'" },
+              startDate: { type: "string" },
+              endDate: { type: "string" },
+              salary: { type: "string" },
               reasonForLeaving: { type: "string" },
               disciplinary: { type: "string", description: "Warning/dismissal/none" },
             },
@@ -173,6 +254,7 @@ const EXTRACT_TOOL = {
         },
         financial: {
           type: "array",
+          description: "Every disclosed financial issue. Capture amounts as numbers without thousand separators.",
           items: {
             type: "object",
             properties: {
@@ -180,6 +262,7 @@ const EXTRACT_TOOL = {
               detail: { type: "string" },
               status: { type: "string", description: "current | historical | resolved" },
               amount: { type: "number" },
+              creditor: { type: "string" },
             },
           },
         },
@@ -191,6 +274,7 @@ const EXTRACT_TOOL = {
               issue: { type: "string", description: "arrest | conviction | bribery | pending_case | fine | court" },
               detail: { type: "string" },
               status: { type: "string" },
+              date: { type: "string" },
             },
           },
         },
@@ -202,12 +286,13 @@ const EXTRACT_TOOL = {
               name: { type: "string" },
               lastUse: { type: "string" },
               pattern: { type: "string", description: "lifetime | past_2_years | recent | one-off" },
+              frequency: { type: "string" },
             },
           },
         },
         family: {
           type: "array",
-          description: "Family members with disclosed criminal history only",
+          description: "Family members mentioned in the report. Include relationship and any criminal history.",
           items: {
             type: "object",
             properties: {
@@ -219,12 +304,24 @@ const EXTRACT_TOOL = {
         },
         friends: {
           type: "array",
-          description: "Friends with disclosed criminal history only",
+          description: "Friends/associates with disclosed criminal history",
           items: {
             type: "object",
             properties: {
               name: { type: "string" },
               criminalHistory: { type: "string" },
+            },
+          },
+        },
+        nextOfKin: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              relationship: { type: "string" },
+              contactNumber: { type: "string" },
+              address: { type: "string" },
             },
           },
         },
@@ -234,6 +331,7 @@ const EXTRACT_TOOL = {
           items: { type: "string" },
         },
         notes: { type: "string", description: "Examiner notes / post-exam admissions / overall summary" },
+        postExamAdmissions: { type: "string", description: "Anything the candidate admitted AFTER the exam, verbatim if possible" },
       },
     },
   },
@@ -351,6 +449,7 @@ function mapFriends(friends: any[]) {
 function buildTransformed(normalized: any, candidatePhotoUrl: string | null) {
   const c = normalized.candidate || {};
   const e = normalized.examination || {};
+  const s = normalized.suitability || {};
   // Map textual overallResult into a synthetic examQuestion finding so
   // downstream consumers (which derive pass/fail from examQuestions) work
   // even though the lean extractor doesn't return per-question rows.
@@ -359,9 +458,24 @@ function buildTransformed(normalized: any, candidatePhotoUrl: string | null) {
   if (rawResult === "ndi" || rawResult === "passed" || rawResult === "no deception indicated") synthFinding = "NSR";
   else if (rawResult === "di" || rawResult === "failed" || rawResult === "deception indicated" || rawResult === "sr") synthFinding = "SR";
   else if (rawResult === "inc" || rawResult === "inconclusive") synthFinding = "INC";
-  const examQuestions = synthFinding
-    ? [{ question: "Overall examination outcome", finding: synthFinding }]
-    : [];
+  // Prefer per-question results from the AI; only fall back to the synthetic
+  // overall finding if the AI didn't return any question-level data.
+  const aiQuestions = Array.isArray(normalized.examQuestions) ? normalized.examQuestions : [];
+  const examQuestions = aiQuestions.length > 0
+    ? aiQuestions.map((q: any) => ({
+        question: q.question || "",
+        finding: String(q.finding || "").toUpperCase(),
+        notes: q.notes || "",
+      }))
+    : (synthFinding ? [{ question: "Overall examination outcome", finding: synthFinding }] : []);
+  // Bucket question results for the polygraphResults shape
+  const SR: any[] = [], INC: any[] = [], NSR: any[] = [];
+  for (const q of examQuestions) {
+    const f = String(q.finding || "").toUpperCase();
+    if (f === "SR" || f === "DI") SR.push(q);
+    else if (f === "INC") INC.push(q);
+    else if (f === "NSR" || f === "NDI") NSR.push(q);
+  }
   return {
     candidate: {
       firstName: c.firstName || "",
@@ -372,45 +486,78 @@ function buildTransformed(normalized: any, candidatePhotoUrl: string | null) {
       physicalAddress: c.physicalAddress || "",
       positionApplyingFor: c.positionAppliedFor || "",
       storeLocation: c.storeLocation || "",
+      dateOfBirth: c.dateOfBirth || "",
+      gender: c.gender || "",
+      nationality: c.nationality || "",
+      homeLanguage: c.homeLanguage || "",
     },
     examination: {
       date: e.date || new Date().toISOString().split("T")[0],
       examinerName: e.examinerName || "",
-      vettingTypes: {},
+      vettingType: e.vettingType || "",
+      location: e.location || "",
+      referenceNumber: e.referenceNumber || "",
+      vettingTypes: e.vettingType ? { [e.vettingType]: true } : {},
     },
     suitability: {
-      healthStatus: "",
-      enoughSleep: null, hospitalizedRecently: null, hospitalizedDetails: "",
-      medicationTaken: null, medicationDetails: "",
-      heartConditions: null, breathingTrouble: null, psychologicalDisorders: null,
-      diabetic: null, recentDrugUse: null, drugUseDetails: "",
-      recentAlcoholUse: null, alcoholDetails: "",
-      smoker: null, smokingDetails: "", pregnant: null,
-      suitableForExam: null, suitabilityComment: "",
+      healthStatus: s.healthStatus || "",
+      enoughSleep: s.enoughSleep || null,
+      hospitalizedRecently: s.hospitalizedRecently || null,
+      hospitalizedDetails: s.hospitalizedDetails || "",
+      medicationTaken: s.medicationTaken || null,
+      medicationDetails: s.medicationDetails || "",
+      heartConditions: s.heartConditions || null,
+      breathingTrouble: s.breathingTrouble || null,
+      psychologicalDisorders: s.psychologicalDisorders || null,
+      diabetic: s.diabetic || null,
+      recentDrugUse: s.recentDrugUse || null,
+      drugUseDetails: s.drugUseDetails || "",
+      recentAlcoholUse: s.recentAlcoholUse || null,
+      alcoholDetails: s.alcoholDetails || "",
+      smoker: s.smoker || null,
+      smokingDetails: s.smokingDetails || "",
+      pregnant: s.pregnant || null,
+      suitableForExam: s.suitableForExam || null,
+      suitabilityComment: s.suitabilityComment || "",
     },
     admissions: (normalized.admissions || []).map((a: any) => ({
       category: a.type || "",
       confirmed: true,
       timeWindow: a.when || "",
-      details: { frequency: a.frequency, raw: a.detail },
+      details: { frequency: a.frequency, raw: a.detail, amount: a.amount },
       notes: a.detail || "",
     })),
     examQuestions,
     result: {
       overallResult: String(e.overallResult || "").toLowerCase(),
       examinerNotes: normalized.notes || "",
+      postExamAdmissions: normalized.postExamAdmissions || "",
     },
     disclosure: {},
-    educationHistory: [],
+    educationHistory: (normalized.education || []).map((ed: any) => ({
+      Institution: ed.institution || "",
+      Qualification: ed.qualification || "",
+      Year: ed.year || "",
+    })),
     employmentHistory: mapEmploymentToHistory(normalized.employment),
     familyCriminalHistory: mapFamily(normalized.family),
     friendCriminalHistory: mapFriends(normalized.friends),
-    nextOfKin: [],
+    nextOfKin: (normalized.nextOfKin || []).map((n: any) => ({
+      Name: n.name || "",
+      Relationship: n.relationship || "",
+      ContactNumber: n.contactNumber || "",
+      Address: n.address || "",
+    })),
     financialCircumstances: mapFinancial(normalized.financial),
     permitsLicensing: {},
     personalLawEncounters: mapLegal(normalized.legal),
-    polygraphResults: { QuestionResults: [], SRQuestions: [], INCQuestions: [], NSRQuestions: [] },
-    postExamAdmissions: normalized.notes || "",
+    polygraphResults: {
+      QuestionResults: examQuestions,
+      SRQuestions: SR,
+      INCQuestions: INC,
+      NSRQuestions: NSR,
+    },
+    postExamAdmissions: normalized.postExamAdmissions || normalized.notes || "",
     riskAnalysis: {}, // intentionally empty — risk profile is generated by generate-polygraph-risk-profile
     detailedCriminalActivity: mapAdmissionsToCriminal(normalized.admissions, normalized.substances).DetailedCriminalActivity,
     candidatePhotoUrl,
@@ -447,16 +594,23 @@ serve(async (req) => {
     }
 
     // 2. Call A1 — Extraction (Gemini 2.5 Pro + tool)
-    const extractSystem = `Extract structured facts from a polygraph report. Return via tool only. No inference.
+    const extractSystem = `You are extracting structured facts from a South African polygraph report. Return via the tool only. Be EXHAUSTIVE — do not skip sections.
 
-RULES:
-- Extract only explicit admissions or findings stated in the document
-- Keep wording concise and verbatim from the document where possible
-- Normalize dates (YYYY-MM-DD) and durations ("X years Y months") if possible
-- Ignore boilerplate / disclaimers
-- Unknown -> empty string. Do NOT guess.
-- For "deception" array: include any SR (Significant Reaction), INC (Inconclusive), or post-exam admission of deception
-- For "family" / "friends": only include those with disclosed criminal history`;
+CRITICAL RULES:
+- Read the ENTIRE document. Tables (separated by "--- TABLE ---") contain most of the data — process every row.
+- Extract every prior employer in the employment history table — do not stop after the first 2-3.
+- Extract every disclosed admission, no matter how small (theft of stationery counts).
+- Extract every test question with its result (NSR / SR / INC) into examQuestions[].
+- Capture the pre-exam suitability questionnaire (sleep, meds, drugs, alcohol, smoking, health) into suitability{}.
+- Capture vetting type (Pre-employment / Specific Issue / Periodic / Post-incident) and exam location.
+- Capture financial amounts as raw numbers WITHOUT thousand separators (e.g. 15000 not "R15,000" not "15.000").
+- Normalize dates to YYYY-MM-DD where possible; durations as "X years Y months".
+- Verbatim wording where reasonable; ignore boilerplate / disclaimers / page footers.
+- Unknown -> empty string. Do NOT guess or infer beyond what the document states.
+- For deception[]: include any SR, INC, or post-exam admission of deception, plus the question text.
+- family[] / friends[]: only entries where criminal history or relevance is disclosed.
+- nextOfKin[]: only if explicitly listed in the report.
+- postExamAdmissions: capture verbatim what the candidate admitted AFTER the exam (often labelled "Post-test admissions" or "Subject admitted").`;
 
     const userContent: any = useImageFallback
       ? [
@@ -465,9 +619,10 @@ RULES:
         ]
       : `Extract structured polygraph facts from this report text using the tool.\n\n--- DOCUMENT ---\n${docText}`;
 
-    console.log("Call A1 (extract) starting…");
+    console.log(`Call A1 (extract) starting… docText=${docText.length} chars`);
     const a1 = await callAI({
       model: "google/gemini-2.5-pro",
+      max_tokens: 16000,
       messages: [
         { role: "system", content: extractSystem },
         { role: "user", content: userContent },
@@ -494,7 +649,8 @@ Return via tool only.`;
 
     console.log("Call A2 (normalize) starting…");
     const a2 = await callAI({
-      model: "google/gemini-2.5-flash-lite",
+      model: "google/gemini-2.5-flash",
+      max_tokens: 16000,
       messages: [
         { role: "system", content: normalizeSystem },
         { role: "user", content: `Normalize these extracted facts:\n\n${JSON.stringify(rawFacts, null, 2)}` },
