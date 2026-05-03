@@ -23,6 +23,19 @@ const CandexApplication = () => {
   const [personalDetails, setPersonalDetails] = useState<PersonalDetails | null>(null);
 
   useEffect(() => {
+    // Kick off the splash video download in parallel with the invitation
+    // lookup so it's already buffered by the time SplashScreen mounts.
+    try {
+      const link = document.createElement("link");
+      link.rel = "preload";
+      link.as = "video";
+      link.href = "/intro/logo-animation.mp4";
+      link.type = "video/mp4";
+      document.head.appendChild(link);
+    } catch {
+      /* ignore */
+    }
+
     const loadInvitation = async () => {
       if (!token) { setStep("invalid"); return; }
 
