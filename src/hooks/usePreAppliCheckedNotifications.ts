@@ -2,23 +2,32 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const STORAGE_PREFIX = "preappli:lastSeenApprovedAt:";
+// We track *which* approved application IDs the user has already seen.
+// Using IDs (not a timestamp) means once a notification has been cleared,
+// later edits to the same row (risk_level updates, etc.) cannot re-trigger
+// the badge — only genuinely new approvals will.
+const STORAGE_PREFIX = "preappli:seenApprovedIds:";
 
 const getStorageKey = (userId: string) => `${STORAGE_PREFIX}${userId}`;
 
-const readLastSeen = (userId: string): string => {
-  if (!userId) return new Date(0).toISOString();
+const readSeenIds = (userId: string): Set<string> => {
+  if (!userId) return new Set();
   try {
-    return localStorage.getItem(getStorageKey(userId)) || new Date(0).toISOString();
+    const raw = localStorage.getItem(getStorageKey(userId));
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? new Set(arr.filter((v) => typeof v === "string")) : new Set();
   } catch {
-    return new Date(0).toISOString();
+    return new Set();
   }
 };
 
-const writeLastSeen = (userId: string, iso: string) => {
+const writeSeenIds = (userId: string, ids: Set<string>) => {
   if (!userId) return;
   try {
-    localStorage.setItem(getStorageKey(userId), iso);
+    // Cap to last 5000 ids to keep storage bounded.
+    const arr = Array.from(ids).slice(-5000);
+    localStorage.setItem(getStorageKey(userId), JSON.stringify(arr));
   } catch {
     /* ignore */
   }
@@ -38,27 +47,26 @@ export function usePreAppliCheckedNotifications(
 ) {
   const { showToast = false } = options;
   const [unreadCount, setUnreadCount] = useState(0);
-  const [lastSeen, setLastSeen] = useState<string>(() => readLastSeen(userId || ""));
 
   const refetch = useCallback(async () => {
     if (!userId) {
       setUnreadCount(0);
       return;
     }
-    const since = readLastSeen(userId);
-    const { count } = await supabase
+    const seen = readSeenIds(userId);
+    const { data } = await supabase
       .from("candex_applications")
-      .select("*", { count: "exact", head: true })
+      .select("id")
       .in("status", ["approved", "candexed"])
-      .is("deleted_at", null)
-      .gt("updated_at", since);
-    setUnreadCount(count || 0);
+      .is("deleted_at", null);
+    const rows = (data || []) as { id: string }[];
+    const unread = rows.filter((r) => !seen.has(r.id)).length;
+    setUnreadCount(unread);
   }, [userId]);
 
   // Initial + dependency-driven refetch
   useEffect(() => {
     if (!userId) return;
-    setLastSeen(readLastSeen(userId));
     refetch();
   }, [userId, refetch]);
 
@@ -96,13 +104,20 @@ export function usePreAppliCheckedNotifications(
     };
   }, [userId, refetch, showToast]);
 
-  const markSeen = useCallback(() => {
+  const markSeen = useCallback(async () => {
     if (!userId) return;
-    const now = new Date().toISOString();
-    writeLastSeen(userId, now);
-    setLastSeen(now);
+    // Snapshot all currently-approved application IDs as "seen" so future
+    // edits to these rows cannot re-trigger the badge.
+    const { data } = await supabase
+      .from("candex_applications")
+      .select("id")
+      .in("status", ["approved", "candexed"])
+      .is("deleted_at", null);
+    const seen = readSeenIds(userId);
+    (data || []).forEach((r: any) => r?.id && seen.add(r.id));
+    writeSeenIds(userId, seen);
     setUnreadCount(0);
   }, [userId]);
 
-  return { unreadCount, markSeen, refetch, lastSeen };
+  return { unreadCount, markSeen, refetch };
 }
