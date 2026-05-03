@@ -32,16 +32,10 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
         playsInline
         preload="auto"
         onEnded={() => setFadeOut(true)}
-        className={`w-full h-full object-contain transition-opacity duration-700 ${
+        className={`w-full h-full object-cover transition-opacity duration-700 ${
           fadeOut ? "opacity-0" : "opacity-100"
         }`}
       />
-      <button
-        onClick={() => setFadeOut(true)}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/30 text-xs hover:text-white/60 transition-colors"
-      >
-        Tap to skip
-      </button>
     </div>
   );
 }
