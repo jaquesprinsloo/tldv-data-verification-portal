@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { PlayCircle, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 interface IntroVideoScreenProps {
   onComplete: () => void;
@@ -17,14 +17,13 @@ export default function IntroVideoScreen({
 }: IntroVideoScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showOutro, setShowOutro] = useState(false);
-  const [needsTap, setNeedsTap] = useState(false);
 
   // If no video is configured, show the continue prompt immediately.
   useEffect(() => {
     if (!videoUrl) setShowOutro(true);
   }, [videoUrl]);
 
-  // Try to autoplay; if blocked, prompt the user to tap.
+  // Try to autoplay (muted fallback if browser blocks unmuted autoplay).
   useEffect(() => {
     if (!videoUrl) return;
     const v = videoRef.current;
@@ -32,9 +31,14 @@ export default function IntroVideoScreen({
     const tryPlay = async () => {
       try {
         await v.play();
-        setNeedsTap(false);
       } catch {
-        setNeedsTap(true);
+        // Fallback: force muted and retry so the video always starts.
+        try {
+          v.muted = true;
+          await v.play();
+        } catch {
+          /* ignore */
+        }
       }
     };
     void tryPlay();
@@ -57,6 +61,10 @@ export default function IntroVideoScreen({
           autoPlay
           playsInline
           preload="auto"
+          controls={false}
+          disablePictureInPicture
+          controlsList="nodownload noplaybackrate noremoteplayback nofullscreen"
+          onContextMenu={(e) => e.preventDefault()}
           onTimeUpdate={handleTimeUpdate}
           onEnded={() => setShowOutro(true)}
           className={`w-full h-full object-contain transition-opacity duration-1000 ${
@@ -65,19 +73,6 @@ export default function IntroVideoScreen({
         />
       ) : (
         <div className="text-zinc-600 text-sm">{title}</div>
-      )}
-
-      {/* Tap-to-play overlay if autoplay is blocked */}
-      {videoUrl && needsTap && !showOutro && (
-        <button
-          onClick={() => {
-            videoRef.current?.play().then(() => setNeedsTap(false)).catch(() => {});
-          }}
-          className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60 text-white"
-        >
-          <PlayCircle className="h-20 w-20 text-red-500" />
-          <span className="text-sm">Tap to play</span>
-        </button>
       )}
 
       {/* Outro overlay */}
@@ -97,9 +92,6 @@ export default function IntroVideoScreen({
           Continue
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
-        {description && (
-          <p className="text-zinc-500 text-xs max-w-md">{description}</p>
-        )}
       </div>
     </div>
   );
