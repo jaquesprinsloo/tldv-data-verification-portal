@@ -16,6 +16,20 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
     return () => clearTimeout(safety);
   }, []);
 
+  // Try to play with audio; if the browser blocks unmuted autoplay,
+  // fall back to a muted autoplay so the logo animation still plays.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = false;
+    v.play().catch(() => {
+      v.muted = true;
+      v.play().catch(() => {
+        /* ignore — safety timeout will advance */
+      });
+    });
+  }, []);
+
   useEffect(() => {
     if (!fadeOut) return;
     const t = setTimeout(onComplete, 900);
@@ -27,12 +41,10 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
       <video
         ref={videoRef}
         src="/intro/logo-animation.mp4"
-        autoPlay
-        muted
         playsInline
         preload="auto"
         onEnded={() => setFadeOut(true)}
-        className={`w-full h-full object-cover transition-opacity duration-700 ${
+        className={`w-full h-full object-contain transition-opacity duration-700 ${
           fadeOut ? "opacity-0" : "opacity-100"
         }`}
       />
