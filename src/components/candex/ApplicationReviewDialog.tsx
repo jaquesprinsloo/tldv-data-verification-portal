@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Check, X, Shield, FileText, User, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity, ShieldCheck, ExternalLink, Brain, Sparkles } from "lucide-react";
+import { Check, X, Shield, FileText, User, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity, ShieldCheck, ExternalLink, Brain } from "lucide-react";
 import { format } from "date-fns";
 import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 import { CalculationInfoPopover } from "@/components/reports/CalculationInfoPopover";
@@ -156,8 +156,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   // Approved polygraph_reports row (contains the AI risk_analysis profile).
   const [polyRiskReport, setPolyRiskReport] = useState<any | null>(null);
   const [polyLoading, setPolyLoading] = useState(false);
-
-  const finalRiskReport = appAnswers?.finalRiskReport || null;
 
   useEffect(() => {
     if (!open) return;
