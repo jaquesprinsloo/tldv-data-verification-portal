@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Volume2 } from "lucide-react";
 
 interface IntroVideoScreenProps {
   onComplete: () => void;
@@ -17,6 +17,7 @@ export default function IntroVideoScreen({
 }: IntroVideoScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showOutro, setShowOutro] = useState(false);
+  const [needsUnmute, setNeedsUnmute] = useState(false);
 
   // If no video is configured, show the continue prompt immediately.
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function IntroVideoScreen({
       v.play().catch(() => {
         /* ignore */
       });
+      setNeedsUnmute(true);
     });
 
     // If autoplay was blocked and the video started muted, unmute on the
@@ -45,6 +47,7 @@ export default function IntroVideoScreen({
         v.volume = 1;
         void v.play().catch(() => {});
       }
+      setNeedsUnmute(false);
       window.removeEventListener("pointerdown", unmuteOnInteract);
       window.removeEventListener("keydown", unmuteOnInteract);
       window.removeEventListener("touchstart", unmuteOnInteract);
@@ -87,6 +90,25 @@ export default function IntroVideoScreen({
         />
       ) : (
         <div className="text-zinc-600 text-sm">{title}</div>
+      )}
+
+      {/* Tap-to-unmute prompt when browser blocked unmuted autoplay */}
+      {needsUnmute && !showOutro && (
+        <button
+          type="button"
+          onClick={() => {
+            const v = videoRef.current;
+            if (!v) return;
+            v.muted = false;
+            v.volume = 1;
+            void v.play().catch(() => {});
+            setNeedsUnmute(false);
+          }}
+          className="absolute top-6 right-6 z-10 flex items-center gap-2 rounded-full bg-red-600 hover:bg-red-700 px-5 py-3 text-white shadow-lg animate-pulse"
+        >
+          <Volume2 className="h-5 w-5" />
+          <span className="text-sm font-medium">Tap to enable sound</span>
+        </button>
       )}
 
       {/* Outro overlay */}
