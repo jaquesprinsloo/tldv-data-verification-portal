@@ -538,17 +538,6 @@ const PendingPolygraphReview = () => {
           if (matched) {
             linkedCandidateName = matched.candidate_name;
 
-            // Update the candex_application with the polygraph report link
-            if (matched.application_id) {
-              await supabase
-                .from("candex_applications")
-                .update({
-                  status: "polygraph_completed",
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", matched.application_id);
-            }
-
             // Store the report link in a risk request candidate record or update existing
             if (matched.application_id) {
               const reportUrl = selectedUpload.converted_pdf_url || selectedUpload.original_file_url;
@@ -562,32 +551,6 @@ const PendingPolygraphReview = () => {
               if (existingRiskCandidate && existingRiskCandidate.length > 0) {
                 // Could store polygraph report url in a note or separate field if needed
                 console.log("Linked polygraph report to candidate:", matched.candidate_name);
-              }
-            }
-
-            // Auto-generate the combined Final Risk Report on the application.
-            if (matched.application_id) {
-              try {
-                const { error: finalErr } = await supabase.functions.invoke(
-                  "generate-final-risk-report",
-                  {
-                    body: {
-                      application_id: matched.application_id,
-                      polygraph_report_id: newReportId,
-                    },
-                  },
-                );
-                if (finalErr) {
-                  console.error(
-                    "Final risk report generation error (non-fatal):",
-                    finalErr,
-                  );
-                }
-              } catch (finalCatch) {
-                console.error(
-                  "Final risk report generation failed (non-fatal):",
-                  finalCatch,
-                );
               }
             }
           }
