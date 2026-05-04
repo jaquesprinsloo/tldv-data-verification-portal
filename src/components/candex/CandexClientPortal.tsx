@@ -22,7 +22,6 @@ import { useNavigate } from "react-router-dom";
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
-import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
 import CandexPortalDashboard from "./CandexPortalDashboard";
 import preapplicheckLogoMark from "@/assets/preapplicheck-logo-mark.png";
 import {
@@ -118,11 +117,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [activeTab, setActiveTab] = useState("dashboard");
   // Per-session "seen" tabs — dismisses sidebar count badge after the user clicks the tab once.
   const [seenTabs, setSeenTabs] = useState<Record<string, boolean>>({});
-
-  // Per-admin unread count for newly-approved PreAppliCheck applications.
-  // Toast is off here (dashboard hook already surfaces it) — this just drives the tab badge.
-  const { unreadCount: preAppliCheckedUnread, markSeen: markPreAppliCheckedSeen } =
-    usePreAppliCheckedNotifications(userId, { showToast: false });
 
   // Bulk invite state
   const [bulkCandidates, setBulkCandidates] = useState<BulkCandidate[]>([]);
@@ -311,9 +305,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const riskCompleted = applications?.filter((a) => a.status === "candexed") || [];
   const rejected = applications?.filter((a) => a.status === "rejected") || [];
   const inProgress = applications?.filter((a) => a.status === "in_progress") || [];
-  // PreAppliChecked tab (final) = candidates with a final risk report stored in answers.finalRiskReport
-  const preAppliCheckedFinal = applications?.filter((a: any) => a?.answers?.finalRiskReport) || [];
-
   // Map of application_id -> appointment status (used to drive the Poly badge column).
   const polyByAppId: Record<string, string> = {};
   for (const apt of userAppointments as any[]) {
@@ -331,7 +322,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     submitted: submittedOnly.length,
     approved: reviewed.length,
     rejected: rejected.length,
-    preAppliChecked: preAppliCheckedFinal.length,
     inProgress: inProgress.length,
   };
 
@@ -731,7 +721,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     { value: "reviewed", label: "Reviewed", icon: ClipboardCheck, badge: reviewed.length },
     { value: "preAppliChecked", label: "Risk Assessment Completed", icon: ShieldAlert, badge: riskCompleted.length },
     { value: "appointments", label: "Appointments", icon: CalendarCheck2, badge: userAppointments?.length || 0 },
-    { value: "preAppliCheckedFinal", label: "PreAppliChecked", icon: Award, badge: preAppliCheckedUnread, pulse: true },
   ];
 
   return (
