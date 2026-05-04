@@ -969,11 +969,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
             <TabsContent value="polygraph">
               {renderPolygraphResults()}
             </TabsContent>
-
-            {/* ── FINAL REPORT TAB ── */}
-            <TabsContent value="final">
-              {renderFinalReport()}
-            </TabsContent>
           </Tabs>
         )}
 
