@@ -750,7 +750,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                             onClick={() => {
                               setActiveTab(item.value);
                               setSeenTabs((s) => ({ ...s, [item.value]: true }));
-                              if (item.value === "preAppliCheckedFinal") markPreAppliCheckedSeen();
                             }}
                             className="flex items-center gap-2 w-full text-left"
                           >
@@ -833,7 +832,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
             value={activeTab}
             onValueChange={(v) => {
               setActiveTab(v);
-              if (v === "preAppliCheckedFinal") markPreAppliCheckedSeen();
             }}
             className="space-y-6"
           >
