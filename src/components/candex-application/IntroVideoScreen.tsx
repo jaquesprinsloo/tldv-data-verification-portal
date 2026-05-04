@@ -23,25 +23,40 @@ export default function IntroVideoScreen({
     if (!videoUrl) setShowOutro(true);
   }, [videoUrl]);
 
-  // Try to autoplay (muted fallback if browser blocks unmuted autoplay).
+  // Try to autoplay with sound; fall back to muted if the browser blocks it.
   useEffect(() => {
     if (!videoUrl) return;
     const v = videoRef.current;
     if (!v) return;
-    const tryPlay = async () => {
-      try {
-        await v.play();
-      } catch {
-        // Fallback: force muted and retry so the video always starts.
-        try {
-          v.muted = true;
-          await v.play();
-        } catch {
-          /* ignore */
-        }
+    v.muted = false;
+    v.volume = 1;
+    v.play().catch(() => {
+      v.muted = true;
+      v.play().catch(() => {
+        /* ignore */
+      });
+    });
+
+    // If autoplay was blocked and the video started muted, unmute on the
+    // first user interaction anywhere on the page.
+    const unmuteOnInteract = () => {
+      if (v.muted) {
+        v.muted = false;
+        v.volume = 1;
+        void v.play().catch(() => {});
       }
+      window.removeEventListener("pointerdown", unmuteOnInteract);
+      window.removeEventListener("keydown", unmuteOnInteract);
+      window.removeEventListener("touchstart", unmuteOnInteract);
     };
-    void tryPlay();
+    window.addEventListener("pointerdown", unmuteOnInteract);
+    window.addEventListener("keydown", unmuteOnInteract);
+    window.addEventListener("touchstart", unmuteOnInteract);
+    return () => {
+      window.removeEventListener("pointerdown", unmuteOnInteract);
+      window.removeEventListener("keydown", unmuteOnInteract);
+      window.removeEventListener("touchstart", unmuteOnInteract);
+    };
   }, [videoUrl]);
 
   const handleTimeUpdate = () => {
@@ -58,7 +73,6 @@ export default function IntroVideoScreen({
         <video
           ref={videoRef}
           src={videoUrl}
-          autoPlay
           playsInline
           preload="auto"
           controls={false}
