@@ -795,7 +795,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           </div>
         ) : (
           <Tabs defaultValue="questionnaire" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-8">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="questionnaire" className="text-xs">
                 <ClipboardList className="h-3.5 w-3.5 mr-1" /> Questionnaire
               </TabsTrigger>
@@ -819,12 +819,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
               </TabsTrigger>
               <TabsTrigger value="polygraph" className="relative text-xs">
                 <Brain className="h-3.5 w-3.5 mr-1" /> Polygraph
-              </TabsTrigger>
-              <TabsTrigger value="final" className="relative text-xs">
-                <Sparkles className="h-3.5 w-3.5 mr-1" /> Final
-                {finalRiskReport && (
-                  <Badge className="absolute -top-2 -right-2 h-4 w-4 p-0 flex items-center justify-center text-[8px] bg-primary">★</Badge>
-                )}
               </TabsTrigger>
             </TabsList>
 
