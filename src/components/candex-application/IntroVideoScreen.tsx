@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Volume2 } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
 
 interface IntroVideoScreenProps {
   onComplete: () => void;
@@ -17,50 +17,24 @@ export default function IntroVideoScreen({
 }: IntroVideoScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showOutro, setShowOutro] = useState(false);
-  const [needsUnmute, setNeedsUnmute] = useState(false);
+  const [started, setStarted] = useState(false);
 
   // If no video is configured, show the continue prompt immediately.
   useEffect(() => {
     if (!videoUrl) setShowOutro(true);
   }, [videoUrl]);
 
-  // Try to autoplay with sound; fall back to muted if the browser blocks it.
-  useEffect(() => {
-    if (!videoUrl) return;
+  const handlePlay = () => {
     const v = videoRef.current;
     if (!v) return;
     v.muted = false;
     v.volume = 1;
-    v.play().catch(() => {
-      v.muted = true;
-      v.play().catch(() => {
+    v.play()
+      .then(() => setStarted(true))
+      .catch(() => {
         /* ignore */
       });
-      setNeedsUnmute(true);
-    });
-
-    // If autoplay was blocked and the video started muted, unmute on the
-    // first user interaction anywhere on the page.
-    const unmuteOnInteract = () => {
-      if (v.muted) {
-        v.muted = false;
-        v.volume = 1;
-        void v.play().catch(() => {});
-      }
-      setNeedsUnmute(false);
-      window.removeEventListener("pointerdown", unmuteOnInteract);
-      window.removeEventListener("keydown", unmuteOnInteract);
-      window.removeEventListener("touchstart", unmuteOnInteract);
-    };
-    window.addEventListener("pointerdown", unmuteOnInteract);
-    window.addEventListener("keydown", unmuteOnInteract);
-    window.addEventListener("touchstart", unmuteOnInteract);
-    return () => {
-      window.removeEventListener("pointerdown", unmuteOnInteract);
-      window.removeEventListener("keydown", unmuteOnInteract);
-      window.removeEventListener("touchstart", unmuteOnInteract);
-    };
-  }, [videoUrl]);
+  };
 
   const handleTimeUpdate = () => {
     const v = videoRef.current;
@@ -92,22 +66,17 @@ export default function IntroVideoScreen({
         <div className="text-zinc-600 text-sm">{title}</div>
       )}
 
-      {/* Tap-to-unmute prompt when browser blocked unmuted autoplay */}
-      {needsUnmute && !showOutro && (
+      {/* Play button overlay shown until user starts the video */}
+      {videoUrl && !started && !showOutro && (
         <button
           type="button"
-          onClick={() => {
-            const v = videoRef.current;
-            if (!v) return;
-            v.muted = false;
-            v.volume = 1;
-            void v.play().catch(() => {});
-            setNeedsUnmute(false);
-          }}
-          className="absolute top-6 right-6 z-10 flex items-center gap-2 rounded-full bg-red-600 hover:bg-red-700 px-5 py-3 text-white shadow-lg animate-pulse"
+          onClick={handlePlay}
+          aria-label="Play video"
+          className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 hover:bg-black/50 transition-colors"
         >
-          <Volume2 className="h-5 w-5" />
-          <span className="text-sm font-medium">Tap to enable sound</span>
+          <span className="flex h-24 w-24 items-center justify-center rounded-full bg-red-600 hover:bg-red-700 text-white shadow-[0_0_40px_rgba(239,68,68,0.7)] animate-pulse">
+            <Play className="h-10 w-10 ml-1" fill="currentColor" />
+          </span>
         </button>
       )}
 
