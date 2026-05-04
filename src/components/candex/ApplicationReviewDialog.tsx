@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Check, X, Shield, FileText, User, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity, ShieldCheck, ExternalLink, Brain, Sparkles } from "lucide-react";
+import { Check, X, Shield, FileText, User, Smartphone, ClipboardList, AlertTriangle, Loader2, Fingerprint, Briefcase, DollarSign, Scale, Activity, ShieldCheck, ExternalLink, Brain } from "lucide-react";
 import { format } from "date-fns";
 import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 import { CalculationInfoPopover } from "@/components/reports/CalculationInfoPopover";
@@ -156,8 +156,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   // Approved polygraph_reports row (contains the AI risk_analysis profile).
   const [polyRiskReport, setPolyRiskReport] = useState<any | null>(null);
   const [polyLoading, setPolyLoading] = useState(false);
-
-  const finalRiskReport = appAnswers?.finalRiskReport || null;
 
   useEffect(() => {
     if (!open) return;
@@ -783,105 +781,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
     );
   };
 
-  const renderFinalReport = () => {
-    if (!finalRiskReport) {
-      return (
-        <div className="text-center py-12">
-          <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-muted-foreground">Final risk report will be generated automatically once the polygraph report is uploaded.</p>
-        </div>
-      );
-    }
-    return (
-      <div className="space-y-4">
-        <Card className={`border-2 ${getRiskTierColor(finalRiskReport.riskLevel)}`}>
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider opacity-70">Final Risk Level</p>
-                <p className="text-2xl font-bold">{finalRiskReport.riskLevel}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-medium uppercase tracking-wider opacity-70">Generated</p>
-                <p className="text-sm">{finalRiskReport.generatedAt ? format(new Date(finalRiskReport.generatedAt), "dd MMM yyyy") : "—"}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        {finalRiskReport.summary && (
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Executive Summary</CardTitle></CardHeader>
-            <CardContent><p className="text-sm whitespace-pre-wrap">{finalRiskReport.summary}</p></CardContent>
-          </Card>
-        )}
-        {finalRiskReport.findings?.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Key Findings</CardTitle></CardHeader>
-            <CardContent>
-              <ul className="space-y-1.5">
-                {finalRiskReport.findings.map((f: string, i: number) => (
-                  <li key={i} className="text-sm flex items-start gap-2">
-                    <span className="text-muted-foreground mt-0.5">•</span>{f}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
-        {/* Pre-Risk vs Polygraph deviations — same questions answered in
-            both, so any divergence is a meaningful signal. */}
-        {(finalRiskReport.deviations?.length > 0 || finalRiskReport.categoryDeviations?.some?.((d: any) => d?.delta && d.delta !== 0)) && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                Pre-Risk vs Polygraph Deviations
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {finalRiskReport.categoryDeviations?.length > 0 && (
-                <div className="space-y-1.5">
-                  {finalRiskReport.categoryDeviations
-                    .filter((d: any) => d?.delta != null && d.delta !== 0)
-                    .map((d: any, i: number) => {
-                      const arrow = d.delta > 0 ? "↑" : "↓";
-                      const color = d.delta > 0 ? "text-red-600" : "text-green-600";
-                      return (
-                        <div key={i} className="text-xs flex items-center gap-2">
-                          <span className="font-medium text-foreground w-40 shrink-0">{d.label}</span>
-                          <span className="text-muted-foreground">Pre-risk {d.preScore} → Polygraph {d.polygraphScore}</span>
-                          <span className={`font-bold ${color}`}>{arrow} {Math.abs(d.delta)}</span>
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
-              {finalRiskReport.deviations?.length > 0 && (
-                <ul className="space-y-2 pt-1 border-t">
-                  {finalRiskReport.deviations.map((d: any, i: number) => (
-                    <li key={i} className="text-sm">
-                      <span className="font-medium">{d.category}:</span>{" "}
-                      <span>{d.change}</span>
-                      {d.impact && (
-                        <span className="block text-xs text-muted-foreground mt-0.5">↳ {d.impact}</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        )}
-        {finalRiskReport.recommendation && (
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">Recommendation</CardTitle></CardHeader>
-            <CardContent><p className="text-sm whitespace-pre-wrap">{finalRiskReport.recommendation}</p></CardContent>
-          </Card>
-        )}
-      </div>
-    );
-  };
-
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -896,7 +795,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           </div>
         ) : (
           <Tabs defaultValue="questionnaire" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-8">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="questionnaire" className="text-xs">
                 <ClipboardList className="h-3.5 w-3.5 mr-1" /> Questionnaire
               </TabsTrigger>
@@ -920,12 +819,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
               </TabsTrigger>
               <TabsTrigger value="polygraph" className="relative text-xs">
                 <Brain className="h-3.5 w-3.5 mr-1" /> Polygraph
-              </TabsTrigger>
-              <TabsTrigger value="final" className="relative text-xs">
-                <Sparkles className="h-3.5 w-3.5 mr-1" /> Final
-                {finalRiskReport && (
-                  <Badge className="absolute -top-2 -right-2 h-4 w-4 p-0 flex items-center justify-center text-[8px] bg-primary">★</Badge>
-                )}
               </TabsTrigger>
             </TabsList>
 
@@ -1075,11 +968,6 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
             {/* ── POLYGRAPH TAB ── */}
             <TabsContent value="polygraph">
               {renderPolygraphResults()}
-            </TabsContent>
-
-            {/* ── FINAL REPORT TAB ── */}
-            <TabsContent value="final">
-              {renderFinalReport()}
             </TabsContent>
           </Tabs>
         )}

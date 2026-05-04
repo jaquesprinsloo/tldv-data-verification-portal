@@ -22,7 +22,6 @@ import { useNavigate } from "react-router-dom";
 import ApplicationReviewDialog from "./ApplicationReviewDialog";
 import PolygraphAppointmentDialog from "./PolygraphAppointmentDialog";
 import BookingConfirmationView, { type BookingData } from "@/components/shared/BookingConfirmationView";
-import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
 import CandexPortalDashboard from "./CandexPortalDashboard";
 import preapplicheckLogoMark from "@/assets/preapplicheck-logo-mark.png";
 import {
@@ -118,11 +117,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [activeTab, setActiveTab] = useState("dashboard");
   // Per-session "seen" tabs — dismisses sidebar count badge after the user clicks the tab once.
   const [seenTabs, setSeenTabs] = useState<Record<string, boolean>>({});
-
-  // Per-admin unread count for newly-approved PreAppliCheck applications.
-  // Toast is off here (dashboard hook already surfaces it) — this just drives the tab badge.
-  const { unreadCount: preAppliCheckedUnread, markSeen: markPreAppliCheckedSeen } =
-    usePreAppliCheckedNotifications(userId, { showToast: false });
 
   // Bulk invite state
   const [bulkCandidates, setBulkCandidates] = useState<BulkCandidate[]>([]);
@@ -311,9 +305,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const riskCompleted = applications?.filter((a) => a.status === "candexed") || [];
   const rejected = applications?.filter((a) => a.status === "rejected") || [];
   const inProgress = applications?.filter((a) => a.status === "in_progress") || [];
-  // PreAppliChecked tab (final) = candidates with a final risk report stored in answers.finalRiskReport
-  const preAppliCheckedFinal = applications?.filter((a: any) => a?.answers?.finalRiskReport) || [];
-
   // Map of application_id -> appointment status (used to drive the Poly badge column).
   const polyByAppId: Record<string, string> = {};
   for (const apt of userAppointments as any[]) {
@@ -331,7 +322,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     submitted: submittedOnly.length,
     approved: reviewed.length,
     rejected: rejected.length,
-    preAppliChecked: preAppliCheckedFinal.length,
     inProgress: inProgress.length,
   };
 
@@ -731,7 +721,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     { value: "reviewed", label: "Reviewed", icon: ClipboardCheck, badge: reviewed.length },
     { value: "preAppliChecked", label: "Risk Assessment Completed", icon: ShieldAlert, badge: riskCompleted.length },
     { value: "appointments", label: "Appointments", icon: CalendarCheck2, badge: userAppointments?.length || 0 },
-    { value: "preAppliCheckedFinal", label: "PreAppliChecked", icon: Award, badge: preAppliCheckedUnread, pulse: true },
   ];
 
   return (
@@ -761,7 +750,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                             onClick={() => {
                               setActiveTab(item.value);
                               setSeenTabs((s) => ({ ...s, [item.value]: true }));
-                              if (item.value === "preAppliCheckedFinal") markPreAppliCheckedSeen();
                             }}
                             className="flex items-center gap-2 w-full text-left"
                           >
@@ -844,7 +832,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
             value={activeTab}
             onValueChange={(v) => {
               setActiveTab(v);
-              if (v === "preAppliCheckedFinal") markPreAppliCheckedSeen();
             }}
             className="space-y-6"
           >
@@ -1538,77 +1525,6 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                             )}
                             <Button variant="ghost" size="sm" className="text-destructive" title="Delete appointment" onClick={() => { if (confirm("Delete this appointment? This cannot be undone.")) deleteAppointment.mutate(apt.id); }} disabled={deleteAppointment.isPending}>
                               <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </TabsContent>
-
-      {/* ── PREAPPLICHECKED FINAL TAB ── */}
-      <TabsContent value="preAppliCheckedFinal">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" /> PreAppliChecked — Final Reports
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!preAppliCheckedFinal.length ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Final risk reports appear here once a polygraph report has been uploaded and the combined report has been generated.
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Candidate</TableHead>
-                    <TableHead>ID Number</TableHead>
-                    <TableHead>Final Risk Level</TableHead>
-                    <TableHead>Requested Checks</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {preAppliCheckedFinal.map((app: any) => {
-                    const riskCandidate = riskCandidateData?.find((rc: any) => rc.application_id === app.id);
-                    const requestedChecks: RiskCheckKey[] =
-                      ((riskCandidate as any)?.candex_risk_requests?.requested_checks as RiskCheckKey[]) || [];
-                    const finalLevel = app?.answers?.finalRiskReport?.riskLevel;
-                    return (
-                      <TableRow key={app.id}>
-                        <TableCell className="font-medium">{app.candidate_name}</TableCell>
-                        <TableCell className="text-xs">{app.candidate_id_number || "—"}</TableCell>
-                        <TableCell>
-                          {finalLevel ? (
-                            <Badge className={`text-xs ${finalLevel === "LOW" ? "bg-green-600 text-white" : "bg-destructive text-destructive-foreground"}`}>
-                              {finalLevel}
-                            </Badge>
-                          ) : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {requestedChecks.length === 0 ? (
-                              <span className="text-xs text-muted-foreground">None</span>
-                            ) : requestedChecks.map((k) => {
-                              const meta = RISK_CHECKS.find((c) => c.key === k);
-                              return <Badge key={k} variant="outline" className="text-[10px]">{meta?.short || k}</Badge>;
-                            })}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-1 justify-end">
-                            <Button variant="ghost" size="sm" title="View PreAppliCheck" onClick={() => setViewPreAppliCheckApp(app)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="text-primary" title="View Final Risk Report" onClick={() => setViewPreAppliCheckApp(app)}>
-                              <Sparkles className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>

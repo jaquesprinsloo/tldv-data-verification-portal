@@ -180,14 +180,12 @@ const CandexPortalDashboard = ({
     const inProgress = apps.filter((a) => a.status === "in_progress").length;
     const approved = apps.filter((a) => a.status === "approved" || a.status === "candexed").length;
     const candexed = apps.filter((a) => a.status === "candexed").length;
-    const finalReports = apps.filter((a) => a?.answers?.finalRiskReport).length;
     const rejected = apps.filter((a) => a.status === "rejected").length;
     return {
       invitations: invs.length,
       submitted: submitted + inProgress,
       reviewed: approved,
       candexed,
-      finalReports,
       rejected,
     };
   }, [apps, invs]);
@@ -198,7 +196,6 @@ const CandexPortalDashboard = ({
     let total = 0;
     for (const a of apps) {
       const level =
-        a?.answers?.finalRiskReport?.riskLevel ||
         a?.answers?.preRiskProfile?.riskLevel ||
         a?.risk_level;
       if (!level) continue;
@@ -275,15 +272,6 @@ const CandexPortalDashboard = ({
           color: "text-emerald-600",
         });
       }
-      if (app?.answers?.finalRiskReport) {
-        items.push({
-          kind: "final",
-          label: `Final risk report ready — ${app.candidate_name || "Candidate"}`,
-          when: app.updated_at,
-          icon: Sparkles,
-          color: "text-primary",
-        });
-      }
     }
     return items
       .filter((i) => i.when)
@@ -314,13 +302,6 @@ const CandexPortalDashboard = ({
       tint: "from-red-700/10 to-red-700/0",
       iconColor: "text-red-700",
     },
-    {
-      label: "PreAppliChecked",
-      value: pipeline.finalReports,
-      icon: Sparkles,
-      tint: "from-red-600/15 to-red-600/0",
-      iconColor: "text-red-600",
-    },
   ];
 
   /* ── Funnel render helper ─────────────────────────────────────── */
@@ -330,7 +311,6 @@ const CandexPortalDashboard = ({
     { label: "Submitted", value: pipeline.submitted, color: "from-zinc-800 to-zinc-600" },
     { label: "Reviewed", value: pipeline.reviewed, color: "from-zinc-700 via-zinc-600 to-red-700" },
     { label: "Risk Assessed", value: pipeline.candexed, color: "from-red-800 to-red-600" },
-    { label: "PreAppliChecked", value: pipeline.finalReports, color: "from-red-600 to-red-500" },
   ];
   const funnelMax = Math.max(1, ...funnelStages.map((s) => s.value));
 
