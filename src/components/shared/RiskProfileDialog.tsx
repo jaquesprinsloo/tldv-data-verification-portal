@@ -17,7 +17,7 @@ import {
   AlertDialogTitle as AlertTitle,
 } from "@/components/ui/alert-dialog";
 import { Shield, FileText, User, AlertTriangle, Download, X, GraduationCap, HeartPulse, Users, UserCheck, ChevronDown, Lock } from "lucide-react";
-import RiskAnalysisDisplay from "@/components/reports/RiskAnalysisDisplay";
+import PolygraphSummaryView from "@/components/reports/PolygraphSummaryView";
 import { FamilyTreeDisplay, FamilyMemberNode } from "@/components/shared/FamilyTreeDisplay";
 import type { FamilyMember } from "@/components/shared/FamilyTreeDisplay";
 import { toast } from "sonner";
@@ -636,22 +636,21 @@ export const RiskProfileDialog = ({
             <TabsList className="grid w-full grid-cols-3 h-auto">
               <TabsTrigger value="personal" className="text-xs md:text-sm py-2 px-1 md:px-3">Personal Info</TabsTrigger>
               <TabsTrigger value="report" className="text-xs md:text-sm py-2 px-1 md:px-3">Full Report</TabsTrigger>
-              <TabsTrigger value="risk" className="text-xs md:text-sm py-2 px-1 md:px-3">Risk Profile</TabsTrigger>
+              <TabsTrigger value="summary" className="text-xs md:text-sm py-2 px-1 md:px-3">Summary</TabsTrigger>
             </TabsList>
 
-            {/* Risk Analysis Tab */}
-            <TabsContent value="risk" className="space-y-4 mt-4">
+            {/* Summary Tab — pass/fail + key findings */}
+            <TabsContent value="summary" className="space-y-4 mt-4">
               {data?.polygraphReport ? (
-                <RiskAnalysisDisplay 
-                  polygraphReport={data.polygraphReport}
+                <PolygraphSummaryView
+                  report={data.polygraphReport}
                   examQuestions={data.examQuestions || []}
-                  riskAnalysis={data.polygraphReport.risk_analysis}
                 />
               ) : (
                 <Card>
                   <CardContent className="py-8 text-center text-muted-foreground">
                     <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No risk analysis available</p>
+                    <p>No polygraph report available</p>
                   </CardContent>
                 </Card>
               )}
