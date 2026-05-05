@@ -13,7 +13,7 @@ import BatchListSection from "./BatchListSection";
 import { generatePolygraphTemplate } from "@/utils/polygraphTemplateGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import RiskAnalysisDisplay from "./RiskAnalysisDisplay";
+import PolygraphSummaryView from "./PolygraphSummaryView";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -729,8 +729,9 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                   <div className="space-y-6">
                     {/* Risk Analysis Display with extracted data for background summary */}
                     {extractedData && (
-                      <RiskAnalysisDisplay 
-                        polygraphReport={{
+                      <PolygraphSummaryView
+                        report={{
+                          overall_result: extractedData.overallResult || extractedData.overall_result || null,
                           employment_history: extractedData.employmentHistory,
                           financial_circumstances: extractedData.financialCircumstances,
                           family_criminal_history: extractedData.familyCriminalHistory,
@@ -738,19 +739,15 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
                           personal_law_encounters: extractedData.personalLawEncounters,
                           extracted_disclosure: {
                             ...extractedData.disclosure,
-                            admissions: extractedData.admissions,
                             DetailedCriminalActivity: extractedData.detailedCriminalActivity,
                           },
                           extracted_data: {
-                            admissions: extractedData.admissions,
-                            DetailedCriminalActivity: extractedData.detailedCriminalActivity,
+                            detailedCriminalActivity: extractedData.detailedCriminalActivity,
                           },
-                          risk_analysis: extractedData.riskAnalysis,
                         }}
                         examQuestions={(extractedData.examQuestions || []).map((q: any) => ({
                           finding: q.finding || q.Finding || '',
                         }))}
-                        riskAnalysis={extractedData.riskAnalysis}
                       />
                     )}
 
