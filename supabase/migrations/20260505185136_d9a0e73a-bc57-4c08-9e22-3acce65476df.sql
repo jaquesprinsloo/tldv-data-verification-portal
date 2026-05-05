@@ -1,0 +1,1 @@
+UPDATE public.candex_applications SET status = 'approved' WHERE status = 'polygraph_completed';
