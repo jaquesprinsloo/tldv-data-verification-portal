@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, Check, X, Eye, FileText, Loader2, Clock, AlertTriangle, Download, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AdminHeader from "@/components/admin/AdminHeader";
-import RiskAnalysisDisplay from "@/components/reports/RiskAnalysisDisplay";
+import PolygraphSummaryView from "@/components/reports/PolygraphSummaryView";
 import { format } from "date-fns";
 
 interface PendingUpload {
@@ -493,18 +493,6 @@ const PendingPolygraphReview = () => {
         }
       }
 
-      // Generate the PreAppliCheck-style 5-category AI risk profile (replaces
-      // any heuristic risk_analysis that was stored from extraction).
-      try {
-        const { error: aiErr } = await supabase.functions.invoke(
-          "generate-polygraph-risk-profile",
-          { body: { report_id: newReportId } },
-        );
-        if (aiErr) console.error("Risk profile generation error (non-fatal):", aiErr);
-      } catch (aiCatch) {
-        console.error("Risk profile generation failed (non-fatal):", aiCatch);
-      }
-
       // Try to auto-link report to an appointment candidate by ID number or name
       let linkedCandidateName: string | null = null;
       try {
@@ -918,8 +906,9 @@ const PendingPolygraphReview = () => {
                   </div>
                 </div>
                 {editedData && (
-                  <RiskAnalysisDisplay 
-                    polygraphReport={{
+                  <PolygraphSummaryView
+                    report={{
+                      overall_result: editedData.overall_result,
                       employment_history: editedData.employment_history || [],
                       financial_circumstances: editedData.financial_circumstances || {},
                       family_criminal_history: editedData.family_criminal_history || [],
@@ -927,14 +916,10 @@ const PendingPolygraphReview = () => {
                       personal_law_encounters: editedData.personal_law_encounters || {},
                       extracted_disclosure: {
                         ...(editedData.extracted_disclosure || {}),
-                        admissions: editedData.extracted_data?.admissions,
                         DetailedCriminalActivity: editedData.extracted_data?.detailedCriminalActivity || editedData.extracted_data?.DetailedCriminalActivity,
                       },
                       extracted_data: editedData.extracted_data || {},
-                      risk_analysis: editedData.risk_analysis,
                     }}
-                    examQuestions={[]}
-                    riskAnalysis={editedData.risk_analysis}
                   />
                 )}
               </TabsContent>
