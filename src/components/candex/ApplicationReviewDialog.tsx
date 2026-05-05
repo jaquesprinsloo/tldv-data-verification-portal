@@ -12,6 +12,7 @@ import { SpeakButton } from "@/components/shared/SpeakButton";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { RISK_CHECKS, RiskCheckKey, RiskCheckResult, RiskCheckStatusBadge } from "./riskCheckTypes";
+import PolygraphSummaryView from "@/components/reports/PolygraphSummaryView";
 
 interface ApplicationReviewDialogProps {
   application: any;
@@ -747,16 +748,9 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           </CardContent>
         </Card>
 
-        {polyRiskReport?.risk_analysis ? (
+        {polyRiskReport ? (
           <>
-            {/* Render the polygraph profile in the same format as the
-                PreAppliCheck pre-risk profile so the two summaries match. */}
-            {renderPreRiskProfile(
-              polyRiskReport.risk_analysis,
-              "Polygraph Risk Level",
-              "Polygraph risk profile is being generated...",
-              "Available shortly after the polygraph report is approved.",
-            )}
+            <PolygraphSummaryView report={polyRiskReport} />
             {(polyReport?.converted_pdf_url || polyReport?.original_file_url) && (
               <div className="flex justify-center pt-2">
                 <Button asChild>
@@ -770,7 +764,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           </>
         ) : polyReport ? (
           <div className="text-center py-6 border rounded-md bg-muted/30">
-            <p className="text-sm text-muted-foreground">Polygraph report uploaded — risk profile is being generated.</p>
+            <p className="text-sm text-muted-foreground">Polygraph report uploaded — awaiting approval.</p>
           </div>
         ) : (
           <div className="text-center py-6 border rounded-md bg-muted/30">
