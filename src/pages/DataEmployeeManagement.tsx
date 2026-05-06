@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { markBadgeLastSeenForUser } from "@/hooks/useBadgeLastSeen";
 import AdminHeader from "@/components/admin/AdminHeader";
 import SubmissionsTable, { type FilterType } from "@/components/admin/SubmissionsTable";
 import StatsOverview from "@/components/admin/StatsOverview";
@@ -104,6 +105,7 @@ const AdminDashboard = () => {
         }
 
         setUser(user);
+        markBadgeLastSeenForUser(user.id, "data-employee-management");
       } catch (error) {
         console.error("Auth error:", error);
         navigate("/admin/login");
