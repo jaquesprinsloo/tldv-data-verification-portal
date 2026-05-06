@@ -8,6 +8,7 @@ import preapplicheckShield from "@/assets/preapplicheck-shield.jpg";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
+import { markPreAppliCheckedNotificationsSeenForUser } from "@/hooks/usePreAppliCheckedNotifications";
 import CandexStatistics from "@/components/candex/CandexStatistics";
 import CandexBuilder from "@/components/candex/CandexBuilder";
 import CandexClients from "@/components/candex/CandexClients";
@@ -46,6 +47,7 @@ const CanDexPreScreening = () => {
         const isMaster = roleData.some(r => r.role === "master_admin");
         setIsMasterAdmin(isMaster);
         setUser(session.user);
+        await markPreAppliCheckedNotificationsSeenForUser(session.user.id);
       } catch (error) {
         console.error("Auth error:", error);
         navigate("/admin/login");
