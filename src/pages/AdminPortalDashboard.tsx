@@ -119,7 +119,8 @@ const AdminPortalDashboard = () => {
 
   // Per-admin unread count for newly-approved PreAppliCheck applications.
   // Toast surfaces here (the dashboard) so admins are alerted regardless of which portal they're in next.
-  const { unreadCount: preAppliCheckedUnread } = usePreAppliCheckedNotifications(currentUserId, { showToast: true });
+  const { unreadCount: preAppliCheckedUnread, markSeen: markPreAppliCheckedSeen } =
+    usePreAppliCheckedNotifications(currentUserId, { showToast: true });
 
   // Fetch saved card order
   const { data: savedOrder } = useQuery({
@@ -345,6 +346,8 @@ const AdminPortalDashboard = () => {
       markPendingPolygraphSeen();
     } else if (portal.key === "data-employee-management") {
       markDataMgmtSeen();
+    } else if (portal.key === "candex-pre-screening") {
+      markPreAppliCheckedSeen();
     }
 
     if (hasFullAccess) {
