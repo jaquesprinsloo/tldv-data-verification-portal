@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import AdminHeader from "@/components/admin/AdminHeader";
 import { RequestInbox } from "@/components/admin/RequestInbox";
+import { markBadgeLastSeenForUser } from "@/hooks/useBadgeLastSeen";
 
 const RequestInboxPage = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ const RequestInboxPage = () => {
       }
 
       setUser(session.user);
+      markBadgeLastSeenForUser(session.user.id, "request-inbox");
 
       const { data: roleData } = await supabase
         .from("user_roles")
