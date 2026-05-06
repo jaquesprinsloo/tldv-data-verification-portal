@@ -33,6 +33,20 @@ const writeSeenIds = (userId: string, ids: Set<string>) => {
   }
 };
 
+export const markPreAppliCheckedNotificationsSeenForUser = async (
+  userId: string | null | undefined
+) => {
+  if (!userId) return;
+  const { data } = await supabase
+    .from("candex_applications")
+    .select("id")
+    .in("status", ["approved", "candexed"])
+    .is("deleted_at", null);
+  const seen = readSeenIds(userId);
+  (data || []).forEach((r: any) => r?.id && seen.add(r.id));
+  writeSeenIds(userId, seen);
+};
+
 /**
  * Tracks newly-approved PreAppliCheck applications (status `approved` or `candexed`)
  * since the user last opened the PreAppliChecked tab.
@@ -105,17 +119,7 @@ export function usePreAppliCheckedNotifications(
   }, [userId, refetch, showToast]);
 
   const markSeen = useCallback(async () => {
-    if (!userId) return;
-    // Snapshot all currently-approved application IDs as "seen" so future
-    // edits to these rows cannot re-trigger the badge.
-    const { data } = await supabase
-      .from("candex_applications")
-      .select("id")
-      .in("status", ["approved", "candexed"])
-      .is("deleted_at", null);
-    const seen = readSeenIds(userId);
-    (data || []).forEach((r: any) => r?.id && seen.add(r.id));
-    writeSeenIds(userId, seen);
+    await markPreAppliCheckedNotificationsSeenForUser(userId);
     setUnreadCount(0);
   }, [userId]);
 

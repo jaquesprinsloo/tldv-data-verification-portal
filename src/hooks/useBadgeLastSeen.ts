@@ -26,6 +26,13 @@ const writeLastSeen = (userId: string, badgeKey: string, iso: string) => {
   }
 };
 
+export const markBadgeLastSeenForUser = (userId: string | null | undefined, badgeKey: string) => {
+  if (!userId) return new Date().toISOString();
+  const now = new Date().toISOString();
+  writeLastSeen(userId, badgeKey, now);
+  return now;
+};
+
 /**
  * Per-user "last seen" tracker for dashboard badges.
  *
@@ -46,9 +53,7 @@ export function useBadgeLastSeen(
   }, [userId, badgeKey]);
 
   const markSeen = useCallback(() => {
-    if (!userId) return;
-    const now = new Date().toISOString();
-    writeLastSeen(userId, badgeKey, now);
+    const now = markBadgeLastSeenForUser(userId, badgeKey);
     setLastSeen(now);
   }, [userId, badgeKey]);
 

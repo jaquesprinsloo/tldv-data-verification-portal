@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, Check, X, Eye, FileText, Loader2, Clock, AlertTriangle, Download, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { markBadgeLastSeenForUser } from "@/hooks/useBadgeLastSeen";
 import AdminHeader from "@/components/admin/AdminHeader";
 import PolygraphSummaryView from "@/components/reports/PolygraphSummaryView";
 import { format } from "date-fns";
@@ -107,6 +108,7 @@ const PendingPolygraphReview = () => {
         navigate("/admin/login");
         return;
       }
+      markBadgeLastSeenForUser(user.id, "pending-polygraph-review");
       
       const { data: isMasterAdmin } = await supabase.rpc("is_master_admin", { _user_id: user.id });
       if (!isMasterAdmin) {
