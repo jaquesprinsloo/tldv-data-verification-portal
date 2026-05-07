@@ -331,6 +331,19 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   }
   const totalApplications = applications?.length || 0;
 
+  useEffect(() => {
+    if (!sideBadgeStorageKey) {
+      setSeenTabAt({});
+      return;
+    }
+    try {
+      const parsed = JSON.parse(localStorage.getItem(sideBadgeStorageKey) || "{}");
+      setSeenTabAt(parsed && typeof parsed === "object" ? parsed : {});
+    } catch {
+      setSeenTabAt({});
+    }
+  }, [sideBadgeStorageKey]);
+
   // ── Dashboard Stats ──
   const dashboardStats = {
     totalInvitations: invitations?.length || 0,
@@ -732,11 +745,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     pulse?: boolean;
   }> = [
     { value: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { value: "invite", label: "Invitations", icon: Inbox, badge: invitations?.length || 0 },
-    { value: "review", label: "Review", icon: FileSearch, badge: submittedOnly.length },
-    { value: "reviewed", label: "Reviewed", icon: ClipboardCheck, badge: reviewed.length },
-    { value: "preAppliChecked", label: "Risk Assessment Completed", icon: ShieldAlert, badge: riskCompleted.length },
-    { value: "appointments", label: "Appointments", icon: CalendarCheck2, badge: userAppointments?.length || 0 },
+    { value: "invite", label: "Invitations", icon: Inbox, badge: countUnseenRows("invite", invitations || []) },
+    { value: "review", label: "Review", icon: FileSearch, badge: countUnseenRows("review", submittedOnly) },
+    { value: "reviewed", label: "Reviewed", icon: ClipboardCheck, badge: countUnseenRows("reviewed", reviewed) },
+    { value: "preAppliChecked", label: "Risk Assessment Completed", icon: ShieldAlert, badge: countUnseenRows("preAppliChecked", riskCompleted) },
+    { value: "appointments", label: "Appointments", icon: CalendarCheck2, badge: countUnseenRows("appointments", userAppointments || []) },
   ];
 
   return (
@@ -765,13 +778,13 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                             type="button"
                             onClick={() => {
                               setActiveTab(item.value);
-                              setSeenTabs((s) => ({ ...s, [item.value]: true }));
+                              markSideTabSeen(item.value);
                             }}
                             className="flex items-center gap-2 w-full text-left"
                           >
                             <Icon className="h-4 w-4 shrink-0" />
                             <span className="flex-1 truncate text-sm">{item.label}</span>
-                            {item.badge && item.badge > 0 && !seenTabs[item.value] ? (
+                            {item.badge && item.badge > 0 ? (
                               <Badge
                                 variant="destructive"
                                 className={`h-5 min-w-5 px-1.5 text-[10px] bg-red-600 hover:bg-red-600 ${item.pulse ? "animate-pulse" : ""}`}
