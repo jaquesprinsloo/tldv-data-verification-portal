@@ -59,6 +59,13 @@ interface BulkCandidate {
   id_number: string;
 }
 
+type SidebarBadgeRecord = {
+  updated_at?: string | null;
+  submitted_at?: string | null;
+  sent_at?: string | null;
+  created_at?: string | null;
+};
+
 // Sidebar wrapper that opens on hover and collapses on leave.
 const HoverSidebar = ({ children, className }: { children: React.ReactNode; className?: string }) => {
   const { setOpen, isMobile } = useSidebar();
@@ -306,8 +313,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const rejected = applications?.filter((a) => a.status === "rejected") || [];
   const inProgress = applications?.filter((a) => a.status === "in_progress") || [];
   const sideBadgeStorageKey = client?.id ? `preappli:sideNavSeen:${userId}:${client.id}` : null;
-  const getRecordTime = (row: any) => row?.updated_at || row?.submitted_at || row?.sent_at || row?.created_at || "";
-  const countUnseenRows = (tab: string, rows: any[] = []) => {
+  const getRecordTime = (row: SidebarBadgeRecord) => row?.updated_at || row?.submitted_at || row?.sent_at || row?.created_at || "";
+  const countUnseenRows = (tab: string, rows: SidebarBadgeRecord[] = []) => {
     const seenAt = seenTabAt[tab] || new Date(0).toISOString();
     return rows.filter((row) => getRecordTime(row) > seenAt).length;
   };
