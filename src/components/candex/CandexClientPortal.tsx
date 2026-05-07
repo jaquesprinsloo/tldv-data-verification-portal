@@ -59,6 +59,13 @@ interface BulkCandidate {
   id_number: string;
 }
 
+type SidebarBadgeRecord = {
+  updated_at?: string | null;
+  submitted_at?: string | null;
+  sent_at?: string | null;
+  created_at?: string | null;
+};
+
 // Sidebar wrapper that opens on hover and collapses on leave.
 const HoverSidebar = ({ children, className }: { children: React.ReactNode; className?: string }) => {
   const { setOpen, isMobile } = useSidebar();
@@ -115,8 +122,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [viewBookingConfirmation, setViewBookingConfirmation] = useState<BookingData | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
-  // Per-session "seen" tabs — dismisses sidebar count badge after the user clicks the tab once.
-  const [seenTabs, setSeenTabs] = useState<Record<string, boolean>>({});
+  // Persisted per-user/client "seen" timestamps so sidebar badges stay cleared after reloads/navigation.
+  const [seenTabAt, setSeenTabAt] = useState<Record<string, string>>({});
 
   // Bulk invite state
   const [bulkCandidates, setBulkCandidates] = useState<BulkCandidate[]>([]);
@@ -305,6 +312,22 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const riskCompleted = applications?.filter((a) => a.status === "candexed") || [];
   const rejected = applications?.filter((a) => a.status === "rejected") || [];
   const inProgress = applications?.filter((a) => a.status === "in_progress") || [];
+  const sideBadgeStorageKey = client?.id ? `preappli:sideNavSeen:${userId}:${client.id}` : null;
+  const getRecordTime = (row: SidebarBadgeRecord) => row?.updated_at || row?.submitted_at || row?.sent_at || row?.created_at || "";
+  const countUnseenRows = (tab: string, rows: SidebarBadgeRecord[] = []) => {
+    const seenAt = seenTabAt[tab] || new Date(0).toISOString();
+    return rows.filter((row) => getRecordTime(row) > seenAt).length;
+  };
+  const markSideTabSeen = (tab: string) => {
+    if (!sideBadgeStorageKey || tab === "dashboard") return;
+    const next = { ...seenTabAt, [tab]: new Date().toISOString() };
+    setSeenTabAt(next);
+    try {
+      localStorage.setItem(sideBadgeStorageKey, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  };
   // Map of application_id -> appointment status (used to drive the Poly badge column).
   const polyByAppId: Record<string, string> = {};
   for (const apt of userAppointments as any[]) {
@@ -314,6 +337,19 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     }
   }
   const totalApplications = applications?.length || 0;
+
+  useEffect(() => {
+    if (!sideBadgeStorageKey) {
+      setSeenTabAt({});
+      return;
+    }
+    try {
+      const parsed = JSON.parse(localStorage.getItem(sideBadgeStorageKey) || "{}");
+      setSeenTabAt(parsed && typeof parsed === "object" ? parsed : {});
+    } catch {
+      setSeenTabAt({});
+    }
+  }, [sideBadgeStorageKey]);
 
   // ── Dashboard Stats ──
   const dashboardStats = {
@@ -716,11 +752,11 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     pulse?: boolean;
   }> = [
     { value: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { value: "invite", label: "Invitations", icon: Inbox, badge: invitations?.length || 0 },
-    { value: "review", label: "Review", icon: FileSearch, badge: submittedOnly.length },
-    { value: "reviewed", label: "Reviewed", icon: ClipboardCheck, badge: reviewed.length },
-    { value: "preAppliChecked", label: "Risk Assessment Completed", icon: ShieldAlert, badge: riskCompleted.length },
-    { value: "appointments", label: "Appointments", icon: CalendarCheck2, badge: userAppointments?.length || 0 },
+    { value: "invite", label: "Invitations", icon: Inbox, badge: countUnseenRows("invite", invitations || []) },
+    { value: "review", label: "Review", icon: FileSearch, badge: countUnseenRows("review", submittedOnly) },
+    { value: "reviewed", label: "Reviewed", icon: ClipboardCheck, badge: countUnseenRows("reviewed", reviewed) },
+    { value: "preAppliChecked", label: "Risk Assessment Completed", icon: ShieldAlert, badge: countUnseenRows("preAppliChecked", riskCompleted) },
+    { value: "appointments", label: "Appointments", icon: CalendarCheck2, badge: countUnseenRows("appointments", userAppointments || []) },
   ];
 
   return (
@@ -749,13 +785,13 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                             type="button"
                             onClick={() => {
                               setActiveTab(item.value);
-                              setSeenTabs((s) => ({ ...s, [item.value]: true }));
+                              markSideTabSeen(item.value);
                             }}
                             className="flex items-center gap-2 w-full text-left"
                           >
                             <Icon className="h-4 w-4 shrink-0" />
                             <span className="flex-1 truncate text-sm">{item.label}</span>
-                            {item.badge && item.badge > 0 && !seenTabs[item.value] ? (
+                            {item.badge && item.badge > 0 ? (
                               <Badge
                                 variant="destructive"
                                 className={`h-5 min-w-5 px-1.5 text-[10px] bg-red-600 hover:bg-red-600 ${item.pulse ? "animate-pulse" : ""}`}
