@@ -115,8 +115,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [appointmentOpen, setAppointmentOpen] = useState(false);
   const [viewBookingConfirmation, setViewBookingConfirmation] = useState<BookingData | null>(null);
   const [activeTab, setActiveTab] = useState("dashboard");
-  // Per-session "seen" tabs — dismisses sidebar count badge after the user clicks the tab once.
-  const [seenTabs, setSeenTabs] = useState<Record<string, boolean>>({});
+  // Persisted per-user/client "seen" timestamps so sidebar badges stay cleared after reloads/navigation.
+  const [seenTabAt, setSeenTabAt] = useState<Record<string, string>>({});
 
   // Bulk invite state
   const [bulkCandidates, setBulkCandidates] = useState<BulkCandidate[]>([]);
@@ -305,6 +305,22 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const riskCompleted = applications?.filter((a) => a.status === "candexed") || [];
   const rejected = applications?.filter((a) => a.status === "rejected") || [];
   const inProgress = applications?.filter((a) => a.status === "in_progress") || [];
+  const sideBadgeStorageKey = client?.id ? `preappli:sideNavSeen:${userId}:${client.id}` : null;
+  const getRecordTime = (row: any) => row?.updated_at || row?.submitted_at || row?.sent_at || row?.created_at || "";
+  const countUnseenRows = (tab: string, rows: any[] = []) => {
+    const seenAt = seenTabAt[tab] || new Date(0).toISOString();
+    return rows.filter((row) => getRecordTime(row) > seenAt).length;
+  };
+  const markSideTabSeen = (tab: string) => {
+    if (!sideBadgeStorageKey || tab === "dashboard") return;
+    const next = { ...seenTabAt, [tab]: new Date().toISOString() };
+    setSeenTabAt(next);
+    try {
+      localStorage.setItem(sideBadgeStorageKey, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  };
   // Map of application_id -> appointment status (used to drive the Poly badge column).
   const polyByAppId: Record<string, string> = {};
   for (const apt of userAppointments as any[]) {
