@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { CalendarIcon, MapPin, Users, Eye, LogOut, FileText, Upload, Loader2, ArrowLeft, ShieldCheck, CheckCircle, XCircle, AlertTriangle, Bug } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
