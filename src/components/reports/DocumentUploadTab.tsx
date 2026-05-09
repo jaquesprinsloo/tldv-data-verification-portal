@@ -31,20 +31,6 @@ export const DocumentUploadTab = ({ accountId, onUploadComplete }: DocumentUploa
     }
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const result = reader.result as string;
-        // Remove the data:application/pdf;base64, prefix
-        const base64 = result.split(",")[1];
-        resolve(base64);
-      };
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
   const handleUpload = async () => {
     if (!selectedFile) {
       toast.error("Please select a file to upload");
