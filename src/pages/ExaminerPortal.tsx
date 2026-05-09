@@ -566,53 +566,36 @@ const ExaminerPortal = () => {
                 <label htmlFor="examiner-report-upload">
                   <Button variant="outline" asChild className="cursor-pointer"><span>Select PDF or Word File</span></Button>
                 </label>
-                {file && !uploading && !extractedData && (
+                {file && (
                   <div className="mt-4">
                     <p className="text-sm font-medium">{file.name}</p>
-                    <Button onClick={handleExtract} className="mt-2">Extract Report Data</Button>
-                  </div>
-                )}
-                {uploading && (
-                  <div className="mt-6 space-y-3 max-w-md mx-auto">
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                      <span className="text-sm font-medium">Extracting data...</span>
-                    </div>
-                    <Progress value={extractionProgress} className="h-3" />
-                    <p className="text-center text-sm font-semibold text-primary">{Math.round(extractionProgress)}%</p>
+                    <p className="text-xs text-muted-foreground mt-1">Select the candidate this report belongs to below.</p>
                   </div>
                 )}
               </div>
 
-              {extractedData && (
+              {file && (
                 <div className="space-y-4">
-                  {matchedCandidate ? (
-                    <div className="p-4 rounded-lg border border-green-300 bg-green-50">
-                      <p className="text-sm font-semibold text-green-700">✓ Auto-matched to scheduled candidate</p>
-                      <p className="text-sm text-green-600">{matchedCandidate.candidate_name} {matchedCandidate.candidate_id_number ? `(${matchedCandidate.candidate_id_number})` : ""}</p>
-                    </div>
-                  ) : (
-                    <div className="p-4 rounded-lg border border-amber-300 bg-amber-50">
-                      <p className="text-sm font-semibold text-amber-700">⚠ No automatic match found</p>
-                      <p className="text-sm text-amber-600">The report will be submitted for manual review by the Master Admin.</p>
-                    </div>
-                  )}
                   <Card className="bg-muted/50">
-                    <CardHeader><CardTitle className="text-base">Extracted Candidate Data</CardTitle></CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div><span className="text-muted-foreground">Name:</span><span className="ml-2 font-medium">{extractedData.candidate?.firstName} {extractedData.candidate?.lastName}</span></div>
-                        <div><span className="text-muted-foreground">ID Number:</span><span className="ml-2 font-medium">{extractedData.candidate?.idNumber || "—"}</span></div>
-                        <div><span className="text-muted-foreground">Contact:</span><span className="ml-2 font-medium">{extractedData.candidate?.contactNumber || "—"}</span></div>
-                        <div><span className="text-muted-foreground">Result:</span><span className="ml-2 font-medium">
-                          {(() => {
-                            const result = mapOverallResult(extractedData.examQuestions);
-                            if (result === 'passed') return <Badge className="bg-green-600 text-white">Passed (NSR)</Badge>;
-                            if (result === 'failed') return <Badge className="bg-destructive text-destructive-foreground">Failed (SR)</Badge>;
-                            return <Badge variant="secondary">Inconclusive</Badge>;
-                          })()}
-                        </span></div>
-                      </div>
+                    <CardHeader>
+                      <CardTitle className="text-base">Link to Candidate</CardTitle>
+                      <CardDescription>Select the scheduled candidate this report belongs to. Master Admin will extract and review the report data.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <Label>Candidate</Label>
+                      <Select value={selectedCandidateId} onValueChange={setSelectedCandidateId}>
+                        <SelectTrigger><SelectValue placeholder="Select a candidate..." /></SelectTrigger>
+                        <SelectContent>
+                          {(allExaminerCandidates as any[]).map((c: any) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.candidate_name}{c.candidate_id_number ? ` (${c.candidate_id_number})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {pickedCandidate && (
+                        <p className="text-xs text-green-700 mt-2">✓ Linked to {pickedCandidate.candidate_name}</p>
+                      )}
                     </CardContent>
                   </Card>
 
