@@ -315,6 +315,8 @@ const PendingPolygraphReview = () => {
   };
 
   const handleApprove = async () => {
+    // placeholder marker for handleExtractData inserted below
+    void 0;
     if (!selectedUpload) return;
 
     // Validate required fields
