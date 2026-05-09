@@ -1170,10 +1170,17 @@ const PendingPolygraphReview = () => {
               </Button>
               <Button
                 onClick={handleApprove}
-                disabled={processing || extracting || !selectedUpload?.extracted_data}
+                disabled={
+                  processing ||
+                  extracting ||
+                  !selectedUpload?.extracted_data ||
+                  !selectedCandidateLink
+                }
                 title={
                   !selectedUpload?.extracted_data
                     ? "Extract the report data before approving"
+                    : !selectedCandidateLink
+                    ? "Link to a candidate (or choose Standalone) before approving"
                     : undefined
                 }
               >
