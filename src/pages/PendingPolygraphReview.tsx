@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Check, X, Eye, FileText, Loader2, Clock, AlertTriangle, Download, Save } from "lucide-react";
+import { ArrowLeft, Check, X, Eye, FileText, Loader2, Clock, AlertTriangle, Download, Save, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { markBadgeLastSeenForUser } from "@/hooks/useBadgeLastSeen";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -77,6 +77,7 @@ const PendingPolygraphReview = () => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [processing, setProcessing] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   
   // Editable fields
   const [editedData, setEditedData] = useState<any>({});
