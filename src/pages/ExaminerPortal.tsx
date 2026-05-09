@@ -217,19 +217,19 @@ const ExaminerPortal = () => {
     setFile(selectedFile);
   };
 
-  const selectedCandidate = (allExaminerCandidates as any[]).find((c: any) => c.id === selectedCandidateId) || null;
-  const selectedCandidateAppointment = selectedCandidate
-    ? (appointments as any[]).find((a: any) => a.id === selectedCandidate.appointment_id)
+  const pickedCandidate = (allExaminerCandidates as any[]).find((c: any) => c.id === selectedCandidateId) || null;
+  const pickedCandidateAppointment = pickedCandidate
+    ? (appointments as any[]).find((a: any) => a.id === pickedCandidate.appointment_id)
     : null;
 
   const uploadRecordingsToOneDrive = async (): Promise<typeof uploadedRecordings> => {
     if (recordings.length === 0) return uploadedRecordings;
 
-    const examinationDate = selectedCandidateAppointment?.scheduled_date
-      ? new Date(selectedCandidateAppointment.scheduled_date).toISOString().split("T")[0]
+    const examinationDate = pickedCandidateAppointment?.scheduled_date
+      ? new Date(pickedCandidateAppointment.scheduled_date).toISOString().split("T")[0]
       : new Date().toISOString().split("T")[0];
-    const candidateName = selectedCandidate?.candidate_name || "Unknown Candidate";
-    const bookingReference = selectedCandidateAppointment?.booking_reference || "NoRef";
+    const candidateName = pickedCandidate?.candidate_name || "Unknown Candidate";
+    const bookingReference = pickedCandidateAppointment?.booking_reference || "NoRef";
     const examinerName = userName || user?.email || "Unassigned";
 
     const results: typeof uploadedRecordings = [...uploadedRecordings];
@@ -293,15 +293,15 @@ const ExaminerPortal = () => {
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from("polygraph-reports").getPublicUrl(fileName);
 
-      const accountId: string | null = selectedCandidateAppointment?.account_id || null;
-      const storeId: string | null = selectedCandidateAppointment?.store_id || null;
+      const accountId: string | null = pickedCandidateAppointment?.account_id || null;
+      const storeId: string | null = pickedCandidateAppointment?.store_id || null;
 
       // Parse first/last name from candidate_name as a hint for the reviewer
-      const nameParts = (selectedCandidate?.candidate_name || "").trim().split(/\s+/);
+      const nameParts = (pickedCandidate?.candidate_name || "").trim().split(/\s+/);
       const firstName = nameParts[0] || null;
       const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
-      const examinationDate = selectedCandidateAppointment?.scheduled_date
-        ? new Date(selectedCandidateAppointment.scheduled_date).toISOString().split("T")[0]
+      const examinationDate = pickedCandidateAppointment?.scheduled_date
+        ? new Date(pickedCandidateAppointment.scheduled_date).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0];
 
       const pendingPayload = {
@@ -313,7 +313,7 @@ const ExaminerPortal = () => {
         extracted_data: null,
         first_name: firstName,
         last_name: lastName,
-        id_number: selectedCandidate?.candidate_id_number || null,
+        id_number: pickedCandidate?.candidate_id_number || null,
         examination_date: examinationDate,
         status: "pending",
         uploaded_by: user?.id,
@@ -325,7 +325,7 @@ const ExaminerPortal = () => {
 
       toastHook({
         title: "Report Submitted",
-        description: `Report linked to ${selectedCandidate?.candidate_name} submitted for Master Admin review.${recordingLinks.length ? ` ${recordingLinks.length} recording(s) saved to OneDrive.` : ""}`,
+        description: `Report linked to ${pickedCandidate?.candidate_name} submitted for Master Admin review.${recordingLinks.length ? ` ${recordingLinks.length} recording(s) saved to OneDrive.` : ""}`,
       });
       setFile(null);
       setSelectedCandidateId("");
