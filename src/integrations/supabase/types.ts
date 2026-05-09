@@ -640,287 +640,6 @@ export type Database = {
           },
         ]
       }
-      employee_documents: {
-        Row: {
-          created_at: string
-          description: string | null
-          document_type: string
-          employee_id: string
-          file_name: string
-          file_url: string
-          id: string
-          uploaded_at: string
-          uploaded_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          document_type: string
-          employee_id: string
-          file_name: string
-          file_url: string
-          id?: string
-          uploaded_at?: string
-          uploaded_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          document_type?: string
-          employee_id?: string
-          file_name?: string
-          file_url?: string
-          id?: string
-          uploaded_at?: string
-          uploaded_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employee_documents_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      employee_invitations: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          email: string
-          employee_id: string
-          expires_at: string
-          failed_attempts: number
-          id: string
-          invitation_method: string | null
-          locked_until: string | null
-          otp: string | null
-          token: string
-          used: boolean
-          used_at: string | null
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          email: string
-          employee_id: string
-          expires_at?: string
-          failed_attempts?: number
-          id?: string
-          invitation_method?: string | null
-          locked_until?: string | null
-          otp?: string | null
-          token: string
-          used?: boolean
-          used_at?: string | null
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          email?: string
-          employee_id?: string
-          expires_at?: string
-          failed_attempts?: number
-          id?: string
-          invitation_method?: string | null
-          locked_until?: string | null
-          otp?: string | null
-          token?: string
-          used?: boolean
-          used_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employee_invitations_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      employee_store_assignments: {
-        Row: {
-          assigned_at: string
-          created_at: string
-          employee_id: string
-          id: string
-          store_id: string
-        }
-        Insert: {
-          assigned_at?: string
-          created_at?: string
-          employee_id: string
-          id?: string
-          store_id: string
-        }
-        Update: {
-          assigned_at?: string
-          created_at?: string
-          employee_id?: string
-          id?: string
-          store_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employee_store_assignments_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employee_store_assignments_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      employees: {
-        Row: {
-          created_at: string
-          designation: Database["public"]["Enums"]["designation_type"] | null
-          dismissal_document_url: string | null
-          dismissal_reason: string | null
-          dismissed_at: string | null
-          email: string | null
-          employee_number: string
-          employment_status: Database["public"]["Enums"]["employment_status"]
-          id: string
-          id_number: string
-          last_reminder_sent: string | null
-          last_submission_date: string | null
-          next_renewal_date: string | null
-          store_id: string | null
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          designation?: Database["public"]["Enums"]["designation_type"] | null
-          dismissal_document_url?: string | null
-          dismissal_reason?: string | null
-          dismissed_at?: string | null
-          email?: string | null
-          employee_number: string
-          employment_status?: Database["public"]["Enums"]["employment_status"]
-          id?: string
-          id_number: string
-          last_reminder_sent?: string | null
-          last_submission_date?: string | null
-          next_renewal_date?: string | null
-          store_id?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          designation?: Database["public"]["Enums"]["designation_type"] | null
-          dismissal_document_url?: string | null
-          dismissal_reason?: string | null
-          dismissed_at?: string | null
-          email?: string | null
-          employee_number?: string
-          employment_status?: Database["public"]["Enums"]["employment_status"]
-          id?: string
-          id_number?: string
-          last_reminder_sent?: string | null
-          last_submission_date?: string | null
-          next_renewal_date?: string | null
-          store_id?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employees_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "employees_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      examinations: {
-        Row: {
-          admission_after_exam: string | null
-          admission_before_exam: string | null
-          created_at: string
-          employee_id: string | null
-          examination_date: string
-          examination_type: Database["public"]["Enums"]["examination_type"]
-          examiner_id: string | null
-          id: string
-          notes: string | null
-          report_url: string | null
-          result: Database["public"]["Enums"]["examination_result"]
-          store_id: string
-          updated_at: string
-        }
-        Insert: {
-          admission_after_exam?: string | null
-          admission_before_exam?: string | null
-          created_at?: string
-          employee_id?: string | null
-          examination_date: string
-          examination_type: Database["public"]["Enums"]["examination_type"]
-          examiner_id?: string | null
-          id?: string
-          notes?: string | null
-          report_url?: string | null
-          result?: Database["public"]["Enums"]["examination_result"]
-          store_id: string
-          updated_at?: string
-        }
-        Update: {
-          admission_after_exam?: string | null
-          admission_before_exam?: string | null
-          created_at?: string
-          employee_id?: string | null
-          examination_date?: string
-          examination_type?: Database["public"]["Enums"]["examination_type"]
-          examiner_id?: string | null
-          id?: string
-          notes?: string | null
-          report_url?: string | null
-          result?: Database["public"]["Enums"]["examination_result"]
-          store_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "examinations_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "examinations_examiner_id_fkey"
-            columns: ["examiner_id"]
-            isOneToOne: false
-            referencedRelation: "examiners"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "examinations_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       examiners: {
         Row: {
           created_at: string
@@ -950,45 +669,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      invoice_examinations: {
-        Row: {
-          created_at: string
-          examination_id: string
-          id: string
-          invoice_id: string
-          line_amount: number | null
-        }
-        Insert: {
-          created_at?: string
-          examination_id: string
-          id?: string
-          invoice_id: string
-          line_amount?: number | null
-        }
-        Update: {
-          created_at?: string
-          examination_id?: string
-          id?: string
-          invoice_id?: string
-          line_amount?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invoice_examinations_examination_id_fkey"
-            columns: ["examination_id"]
-            isOneToOne: false
-            referencedRelation: "examinations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invoice_examinations_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       invoices: {
         Row: {
@@ -1057,47 +737,6 @@ export type Database = {
             columns: ["store_id"]
             isOneToOne: false
             referencedRelation: "stores"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      next_of_kin: {
-        Row: {
-          address: string
-          contact_number: string
-          created_at: string
-          first_name: string
-          id: string
-          last_name: string
-          relationship: string | null
-          submission_id: string
-        }
-        Insert: {
-          address: string
-          contact_number: string
-          created_at?: string
-          first_name: string
-          id?: string
-          last_name: string
-          relationship?: string | null
-          submission_id: string
-        }
-        Update: {
-          address?: string
-          contact_number?: string
-          created_at?: string
-          first_name?: string
-          id?: string
-          last_name?: string
-          relationship?: string | null
-          submission_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "next_of_kin_submission_id_fkey"
-            columns: ["submission_id"]
-            isOneToOne: false
-            referencedRelation: "submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -1562,97 +1201,6 @@ export type Database = {
           },
         ]
       }
-      polygraph_candidates: {
-        Row: {
-          approved_at: string | null
-          approved_by: string | null
-          contact_number: string | null
-          created_at: string
-          email: string | null
-          employee_id: string | null
-          first_name: string
-          id: string
-          id_number: string
-          invitation_sent: boolean | null
-          invitation_sent_at: string | null
-          invitation_token: string | null
-          last_name: string
-          physical_address: string | null
-          position: string | null
-          rejection_reason: string | null
-          report_id: string
-          status: Database["public"]["Enums"]["polygraph_candidate_status"]
-          store_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          approved_at?: string | null
-          approved_by?: string | null
-          contact_number?: string | null
-          created_at?: string
-          email?: string | null
-          employee_id?: string | null
-          first_name: string
-          id?: string
-          id_number: string
-          invitation_sent?: boolean | null
-          invitation_sent_at?: string | null
-          invitation_token?: string | null
-          last_name: string
-          physical_address?: string | null
-          position?: string | null
-          rejection_reason?: string | null
-          report_id: string
-          status?: Database["public"]["Enums"]["polygraph_candidate_status"]
-          store_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          approved_at?: string | null
-          approved_by?: string | null
-          contact_number?: string | null
-          created_at?: string
-          email?: string | null
-          employee_id?: string | null
-          first_name?: string
-          id?: string
-          id_number?: string
-          invitation_sent?: boolean | null
-          invitation_sent_at?: string | null
-          invitation_token?: string | null
-          last_name?: string
-          physical_address?: string | null
-          position?: string | null
-          rejection_reason?: string | null
-          report_id?: string
-          status?: Database["public"]["Enums"]["polygraph_candidate_status"]
-          store_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "polygraph_candidates_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "polygraph_candidates_report_id_fkey"
-            columns: ["report_id"]
-            isOneToOne: false
-            referencedRelation: "polygraph_reports"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "polygraph_candidates_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       polygraph_exam_questions: {
         Row: {
           created_at: string
@@ -1952,50 +1500,6 @@ export type Database = {
         }
         Relationships: []
       }
-      popia_acceptances: {
-        Row: {
-          accepted_at: string
-          created_at: string
-          declaration_text: string
-          device_info: Json | null
-          employee_id: string
-          gps_latitude: number | null
-          gps_longitude: number | null
-          id: string
-          ip_address: string
-        }
-        Insert: {
-          accepted_at?: string
-          created_at?: string
-          declaration_text: string
-          device_info?: Json | null
-          employee_id: string
-          gps_latitude?: number | null
-          gps_longitude?: number | null
-          id?: string
-          ip_address: string
-        }
-        Update: {
-          accepted_at?: string
-          created_at?: string
-          declaration_text?: string
-          device_info?: Json | null
-          employee_id?: string
-          gps_latitude?: number | null
-          gps_longitude?: number | null
-          id?: string
-          ip_address?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "popia_acceptances_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       popia_indemnity_settings: {
         Row: {
           id: string
@@ -2047,39 +1551,6 @@ export type Database = {
           sort_order?: number
           updated_at?: string
           updated_by?: string | null
-        }
-        Relationships: []
-      }
-      profile_requests: {
-        Row: {
-          created_at: string
-          id: string
-          message: string
-          request_type: Database["public"]["Enums"]["request_type"]
-          sender_user_id: string
-          status: Database["public"]["Enums"]["request_status"]
-          subject: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          message: string
-          request_type: Database["public"]["Enums"]["request_type"]
-          sender_user_id: string
-          status?: Database["public"]["Enums"]["request_status"]
-          subject: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          message?: string
-          request_type?: Database["public"]["Enums"]["request_type"]
-          sender_user_id?: string
-          status?: Database["public"]["Enums"]["request_status"]
-          subject?: string
-          updated_at?: string
         }
         Relationships: []
       }
@@ -2138,15 +1609,7 @@ export type Database = {
           requested_via?: string
           status?: Database["public"]["Enums"]["renewal_request_status"]
         }
-        Relationships: [
-          {
-            foreignKeyName: "renewal_requests_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       report_access_log: {
         Row: {
@@ -2202,75 +1665,7 @@ export type Database = {
           request_id?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "request_replies_request_id_fkey"
-            columns: ["request_id"]
-            isOneToOne: false
-            referencedRelation: "profile_requests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      risk_assessments: {
-        Row: {
-          assessment_date: string
-          assessor_name: string | null
-          created_at: string
-          criminal_check_status: string | null
-          employee_id: string | null
-          id: string
-          id_verification_status: string | null
-          notes: string | null
-          report_url: string | null
-          result: Database["public"]["Enums"]["risk_assessment_result"]
-          store_id: string
-          updated_at: string
-        }
-        Insert: {
-          assessment_date: string
-          assessor_name?: string | null
-          created_at?: string
-          criminal_check_status?: string | null
-          employee_id?: string | null
-          id?: string
-          id_verification_status?: string | null
-          notes?: string | null
-          report_url?: string | null
-          result?: Database["public"]["Enums"]["risk_assessment_result"]
-          store_id: string
-          updated_at?: string
-        }
-        Update: {
-          assessment_date?: string
-          assessor_name?: string | null
-          created_at?: string
-          criminal_check_status?: string | null
-          employee_id?: string | null
-          id?: string
-          id_verification_status?: string | null
-          notes?: string | null
-          report_url?: string | null
-          result?: Database["public"]["Enums"]["risk_assessment_result"]
-          store_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "risk_assessments_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "risk_assessments_store_id_fkey"
-            columns: ["store_id"]
-            isOneToOne: false
-            referencedRelation: "stores"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       stores: {
         Row: {
@@ -2350,149 +1745,7 @@ export type Database = {
           submission_data?: Json
           submission_date?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "submission_history_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      submissions: {
-        Row: {
-          city: string | null
-          complex_name: string | null
-          contact_number: string | null
-          created_at: string
-          document_verification_details: Json | null
-          document_verification_status: string | null
-          email: string
-          email_verified: boolean | null
-          employee_id: string
-          employee_number: string
-          first_name: string
-          flag_reason: string | null
-          flagged: boolean | null
-          floor_number: string | null
-          geofence_distance_meters: number | null
-          geofence_verified: boolean | null
-          geolocation_lat: number | null
-          geolocation_lng: number | null
-          house_number: string | null
-          id: string
-          id_number: string
-          id_photo_url: string | null
-          id_verification_details: Json | null
-          id_verification_status: string | null
-          last_name: string
-          physical_address: string
-          postal_code: string | null
-          proof_of_residence_url: string | null
-          province: string | null
-          status: Database["public"]["Enums"]["submission_status"] | null
-          street_name: string | null
-          submission_timestamp: string
-          suburb: string | null
-          updated_at: string
-          verification_method: string | null
-          verification_token: string | null
-          verification_token_expires_at: string | null
-          verified_at: string | null
-          whatsapp_verified: boolean | null
-        }
-        Insert: {
-          city?: string | null
-          complex_name?: string | null
-          contact_number?: string | null
-          created_at?: string
-          document_verification_details?: Json | null
-          document_verification_status?: string | null
-          email: string
-          email_verified?: boolean | null
-          employee_id: string
-          employee_number: string
-          first_name: string
-          flag_reason?: string | null
-          flagged?: boolean | null
-          floor_number?: string | null
-          geofence_distance_meters?: number | null
-          geofence_verified?: boolean | null
-          geolocation_lat?: number | null
-          geolocation_lng?: number | null
-          house_number?: string | null
-          id?: string
-          id_number: string
-          id_photo_url?: string | null
-          id_verification_details?: Json | null
-          id_verification_status?: string | null
-          last_name: string
-          physical_address: string
-          postal_code?: string | null
-          proof_of_residence_url?: string | null
-          province?: string | null
-          status?: Database["public"]["Enums"]["submission_status"] | null
-          street_name?: string | null
-          submission_timestamp?: string
-          suburb?: string | null
-          updated_at?: string
-          verification_method?: string | null
-          verification_token?: string | null
-          verification_token_expires_at?: string | null
-          verified_at?: string | null
-          whatsapp_verified?: boolean | null
-        }
-        Update: {
-          city?: string | null
-          complex_name?: string | null
-          contact_number?: string | null
-          created_at?: string
-          document_verification_details?: Json | null
-          document_verification_status?: string | null
-          email?: string
-          email_verified?: boolean | null
-          employee_id?: string
-          employee_number?: string
-          first_name?: string
-          flag_reason?: string | null
-          flagged?: boolean | null
-          floor_number?: string | null
-          geofence_distance_meters?: number | null
-          geofence_verified?: boolean | null
-          geolocation_lat?: number | null
-          geolocation_lng?: number | null
-          house_number?: string | null
-          id?: string
-          id_number?: string
-          id_photo_url?: string | null
-          id_verification_details?: Json | null
-          id_verification_status?: string | null
-          last_name?: string
-          physical_address?: string
-          postal_code?: string | null
-          proof_of_residence_url?: string | null
-          province?: string | null
-          status?: Database["public"]["Enums"]["submission_status"] | null
-          street_name?: string | null
-          submission_timestamp?: string
-          suburb?: string | null
-          updated_at?: string
-          verification_method?: string | null
-          verification_token?: string | null
-          verification_token_expires_at?: string | null
-          verified_at?: string | null
-          whatsapp_verified?: boolean | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "submissions_employee_id_fkey"
-            columns: ["employee_id"]
-            isOneToOne: true
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_permissions: {
         Row: {
@@ -2570,41 +1823,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      add_next_of_kin:
-        | {
-            Args: {
-              _address: string
-              _contact_number: string
-              _first_name: string
-              _last_name: string
-              _submission_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              _address: string
-              _contact_number: string
-              _first_name: string
-              _last_name: string
-              _relationship?: string
-              _submission_id: string
-            }
-            Returns: string
-          }
-      approve_polygraph_candidate: {
-        Args: { _candidate_id: string }
-        Returns: {
-          contact_number: string
-          email: string
-          employee_id: string
-          employee_number: string
-          first_name: string
-          last_name: string
-          otp: string
-          token: string
-        }[]
-      }
       assign_user_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2612,39 +1830,14 @@ export type Database = {
         }
         Returns: boolean
       }
-      can_access_submission: {
-        Args: { _employee_id: string }
-        Returns: boolean
-      }
-      check_submission_rate_limit: {
-        Args: { _employee_number: string }
-        Returns: boolean
-      }
       check_user_access: {
         Args: { _permission_key: string; _user_id: string }
         Returns: boolean
       }
-      cleanup_expired_invitation_locks: { Args: never; Returns: undefined }
       cleanup_old_audit_trail: { Args: never; Returns: undefined }
       constant_time_compare: {
         Args: { a: string; b: string }
         Returns: boolean
-      }
-      create_verified_submission: {
-        Args: { submission_data: Json }
-        Returns: string
-      }
-      get_employees_by_store: {
-        Args: { _store_id: string }
-        Returns: {
-          designation: Database["public"]["Enums"]["designation_type"]
-          employee_id: string
-          employee_number: string
-          employment_status: Database["public"]["Enums"]["employment_status"]
-          full_name: string
-          id_number: string
-          is_primary_assignment: boolean
-        }[]
       }
       get_master_admin_email: { Args: never; Returns: string }
       get_user_roles: {
@@ -2653,10 +1846,6 @@ export type Database = {
       }
       has_account_access: {
         Args: { _account_id: string; _user_id: string }
-        Returns: boolean
-      }
-      has_employee_access: {
-        Args: { _employee_id: string; _user_id: string }
         Returns: boolean
       }
       has_permission: {
@@ -2675,10 +1864,6 @@ export type Database = {
         Returns: boolean
       }
       is_master_admin: { Args: { _user_id: string }; Returns: boolean }
-      link_employee_to_user: {
-        Args: { _employee_id: string; _user_id: string }
-        Returns: boolean
-      }
       mark_candex_invitation_opened: {
         Args: { _token: string }
         Returns: boolean
@@ -2689,55 +1874,6 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
-      }
-      validate_invitation_token:
-        | {
-            Args: {
-              _employee_number: string
-              _id_number: string
-              _token: string
-            }
-            Returns: {
-              email: string
-              employee_id: string
-              is_valid: boolean
-            }[]
-          }
-        | {
-            Args: {
-              _employee_number: string
-              _id_number: string
-              _otp: string
-              _token: string
-            }
-            Returns: {
-              email: string
-              employee_id: string
-              is_valid: boolean
-            }[]
-          }
-      validate_invitation_token_and_create_user: {
-        Args: {
-          _email: string
-          _employee_number: string
-          _id_number: string
-          _otp: string
-          _password: string
-          _token: string
-        }
-        Returns: {
-          email: string
-          employee_id: string
-          is_valid: boolean
-          user_created: boolean
-        }[]
-      }
-      verify_employee_credentials: {
-        Args: { _employee_number: string; _id_number: string }
-        Returns: {
-          employee_id: string
-          is_valid: boolean
-        }[]
       }
     }
     Enums: {
@@ -2755,17 +1891,7 @@ export type Database = {
         | "buyer"
         | "sales_person"
         | "cashier"
-      employment_status:
-        | "active"
-        | "dismissed"
-        | "suspended"
-        | "resigned"
-        | "retrenched"
-        | "employed"
-        | "absconded"
       exam_question_finding: "SR" | "NSR" | "INC" | "PNC"
-      examination_result: "pass" | "fail" | "inconclusive" | "pending"
-      examination_type: "periodic_screening" | "pre_employment" | "specific"
       polygraph_candidate_status: "pending_review" | "approved" | "rejected"
       polygraph_overall_result: "passed" | "failed" | "inconclusive"
       polygraph_report_status: "draft" | "completed" | "approved"
@@ -2921,18 +2047,7 @@ export const Constants = {
         "sales_person",
         "cashier",
       ],
-      employment_status: [
-        "active",
-        "dismissed",
-        "suspended",
-        "resigned",
-        "retrenched",
-        "employed",
-        "absconded",
-      ],
       exam_question_finding: ["SR", "NSR", "INC", "PNC"],
-      examination_result: ["pass", "fail", "inconclusive", "pending"],
-      examination_type: ["periodic_screening", "pre_employment", "specific"],
       polygraph_candidate_status: ["pending_review", "approved", "rejected"],
       polygraph_overall_result: ["passed", "failed", "inconclusive"],
       polygraph_report_status: ["draft", "completed", "approved"],
