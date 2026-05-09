@@ -134,24 +134,6 @@ const PolygraphAppointments = () => {
         .eq("id", selectedAppointment.id);
       if (error) throw error;
 
-      // Send confirmation email
-      try {
-        const client = clients.find((c) => c.id === (selectedAppointment as any).client_id);
-        const clientEmail = (client as any)?.contact_email;
-        const venueInfo = selectedVenue
-          ? `${selectedVenue.venue_name}, ${selectedVenue.address}`
-          : (selectedAppointment as any).venue_address || "To be confirmed";
-        if (clientEmail) {
-          await supabase.functions.invoke("send-request-notification", {
-            body: {
-              subject: `Polygraph Appointment Confirmed - ${bookingRef}`,
-              message: `Your polygraph appointment has been confirmed.\n\nBooking Reference: ${bookingRef}\nDate: ${format(scheduleDate, "dd MMMM yyyy")}\nTime: ${scheduleTime}\nVenue: ${venueInfo}\n\nPlease ensure all candidates are available at the scheduled time.`,
-            },
-          });
-        }
-      } catch (e) {
-        console.error("Failed to send confirmation email:", e);
-      }
     },
     onSuccess: () => {
       toast.success("Appointment scheduled and confirmation sent");
