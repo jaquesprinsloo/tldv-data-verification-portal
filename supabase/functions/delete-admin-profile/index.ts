@@ -86,16 +86,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Detach employees linked to this user (preserve employee data, just unlink user_id)
-    const { error: employeeUnlinkError } = await supabaseAdmin
-      .from("employees")
-      .update({ user_id: null })
-      .eq("user_id", userId);
-
-    if (employeeUnlinkError) {
-      console.error("Error unlinking employees:", employeeUnlinkError);
-    }
-
     // Delete user roles (this doesn't affect data they uploaded)
     const { error: rolesError } = await supabaseAdmin
       .from("user_roles")
