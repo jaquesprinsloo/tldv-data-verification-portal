@@ -315,7 +315,6 @@ const PendingPolygraphReview = () => {
   };
 
   const handleApprove = async () => {
-    void 0;
     if (!selectedUpload) return;
 
     // Validate required fields
