@@ -329,26 +329,6 @@ serve(async (req) => {
         extracted_data: extractedData,
       });
       if (error) createError = error;
-    } else if (pendingUpload.document_type === "polygraph_report") {
-      const { error } = await supabase.from("examinations").insert({
-        store_id: finalStoreId,
-        examination_type: "periodic_screening",
-        examination_date: extractedData.examination_date || new Date().toISOString().split("T")[0],
-        result: extractedData.result === "pass" ? "pass" : extractedData.result === "fail" ? "fail" : "pending",
-        report_url: pendingUpload.file_url,
-        notes: `Uploaded from pending review. Examiner: ${extractedData.examiner_name || "Unknown"}`,
-      });
-      if (error) createError = error;
-    } else if (pendingUpload.document_type === "risk_assessment") {
-      const { error } = await supabase.from("risk_assessments").insert({
-        store_id: finalStoreId,
-        assessment_date: extractedData.assessment_date || new Date().toISOString().split("T")[0],
-        result: extractedData.result === "clear" ? "clear" : extractedData.result === "flagged" ? "flagged" : "pending",
-        report_url: pendingUpload.file_url,
-        assessor_name: extractedData.assessor_name || "Unknown",
-        notes: "Uploaded from pending review",
-      });
-      if (error) createError = error;
     }
 
     if (createError) {
