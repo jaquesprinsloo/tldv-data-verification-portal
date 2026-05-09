@@ -1104,7 +1104,22 @@ const PendingPolygraphReview = () => {
           </ScrollArea>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={handleSaveChanges} disabled={processing}>
+            <Button
+              variant="default"
+              onClick={handleExtractData}
+              disabled={extracting || processing}
+              className="bg-primary"
+            >
+              {extracting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-2" />
+              )}
+              {selectedUpload?.extracted_data
+                ? "Re-extract Data with AI"
+                : "Extract Data with AI"}
+            </Button>
+            <Button variant="outline" onClick={handleSaveChanges} disabled={processing || extracting}>
               {processing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               <Save className="h-4 w-4 mr-2" />
               Save Changes
@@ -1113,12 +1128,20 @@ const PendingPolygraphReview = () => {
               <Button
                 variant="destructive"
                 onClick={() => setRejectDialogOpen(true)}
-                disabled={processing}
+                disabled={processing || extracting}
               >
                 <X className="h-4 w-4 mr-2" />
                 Reject
               </Button>
-              <Button onClick={handleApprove} disabled={processing}>
+              <Button
+                onClick={handleApprove}
+                disabled={processing || extracting || !selectedUpload?.extracted_data}
+                title={
+                  !selectedUpload?.extracted_data
+                    ? "Extract the report data before approving"
+                    : undefined
+                }
+              >
                 {processing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 <Check className="h-4 w-4 mr-2" />
                 Approve
