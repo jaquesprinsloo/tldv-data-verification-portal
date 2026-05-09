@@ -65,6 +65,14 @@ interface Account {
   name: string;
 }
 
+interface AppointmentCandidate {
+  id: string;
+  candidate_name: string;
+  candidate_id_number: string | null;
+  appointment_id: string;
+  application_id: string | null;
+}
+
 const PendingPolygraphReview = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -87,6 +95,9 @@ const PendingPolygraphReview = () => {
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState("");
   const [selectedExaminerId, setSelectedExaminerId] = useState("");
+  const [appointmentCandidates, setAppointmentCandidates] = useState<AppointmentCandidate[]>([]);
+  // "" = not chosen yet (blocks approval); "none" = explicit standalone; otherwise candidate id
+  const [selectedCandidateLink, setSelectedCandidateLink] = useState<string>("");
 
   useEffect(() => {
     checkAuth();
@@ -181,13 +192,18 @@ const PendingPolygraphReview = () => {
   };
 
   const fetchDropdownData = async () => {
-    const [accountsRes, examinersRes] = await Promise.all([
+    const [accountsRes, examinersRes, candidatesRes] = await Promise.all([
       supabase.from("accounts").select("id, name").order("name"),
       supabase.from("examiners").select("id, name").eq("is_active", true).order("name"),
+      supabase
+        .from("polygraph_appointment_candidates")
+        .select("id, candidate_name, candidate_id_number, appointment_id, application_id")
+        .order("created_at", { ascending: false }),
     ]);
 
     if (accountsRes.data) setAccounts(accountsRes.data);
     if (examinersRes.data) setExaminers(examinersRes.data);
+    if (candidatesRes.data) setAppointmentCandidates(candidatesRes.data as AppointmentCandidate[]);
   };
 
   const fetchStoresByAccount = async (accountId: string) => {
@@ -230,6 +246,23 @@ const PendingPolygraphReview = () => {
     setSelectedAccountId(upload.account_id || "");
     setSelectedStoreId(upload.store_id || "");
     setSelectedExaminerId(upload.examiner_id || "");
+
+    // Suggest a candidate match by ID number / name; reviewer must still confirm.
+    const idNum = (upload.id_number || "").trim();
+    const fn = (upload.first_name || "").trim().toLowerCase();
+    const ln = (upload.last_name || "").trim().toLowerCase();
+    const suggested =
+      (idNum &&
+        appointmentCandidates.find(
+          (c) => (c.candidate_id_number || "").trim() === idNum,
+        )) ||
+      (fn && ln &&
+        appointmentCandidates.find((c) => {
+          const n = (c.candidate_name || "").toLowerCase();
+          return n.includes(fn) && n.includes(ln);
+        })) ||
+      null;
+    setSelectedCandidateLink(suggested ? suggested.id : "");
     setReviewDialogOpen(true);
   };
 
