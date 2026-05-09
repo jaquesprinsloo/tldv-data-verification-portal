@@ -995,6 +995,30 @@ const PendingPolygraphReview = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label>Link to Candidate Application *</Label>
+                    <Select
+                      value={selectedCandidateLink}
+                      onValueChange={setSelectedCandidateLink}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select candidate to link this report to" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Standalone (no link)</SelectItem>
+                        {appointmentCandidates.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.candidate_name}
+                            {c.candidate_id_number ? ` — ${c.candidate_id_number}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Required. Choose the appointment candidate this report belongs to, or
+                      explicitly mark it as standalone.
+                    </p>
+                  </div>
                   <div className="space-y-2">
                     <Label>Examination Date</Label>
                     <Input
