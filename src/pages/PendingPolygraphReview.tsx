@@ -406,22 +406,6 @@ const PendingPolygraphReview = () => {
 
       const newReportId = reportData.id;
 
-      // Create candidate profile
-      const candidatePayload = {
-        report_id: newReportId,
-        first_name: editedData.first_name,
-        last_name: editedData.last_name,
-        id_number: editedData.id_number,
-        email: editedData.email || null,
-        contact_number: editedData.contact_number || null,
-        physical_address: editedData.physical_address || null,
-        position: editedData.position_applying_for || null,
-        store_id: selectedStoreId,
-        status: "pending_review" as const,
-      };
-
-      await supabase.from("polygraph_candidates").insert([candidatePayload]);
-
       // Save suitability data if available from extraction
       const suitabilityExtracted = ext.suitability;
       if (suitabilityExtracted) {

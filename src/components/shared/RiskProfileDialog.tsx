@@ -25,7 +25,6 @@ import { toast } from "sonner";
 interface RiskProfileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  employeeId?: string;
   reportId?: string;
   candidateName?: string;
 }
@@ -369,7 +368,6 @@ const PersonCard = ({ person, label, showContact }: { person: any; label: string
 export const RiskProfileDialog = ({ 
   open, 
   onOpenChange, 
-  employeeId, 
   reportId,
   candidateName 
 }: RiskProfileDialogProps) => {
@@ -378,42 +376,18 @@ export const RiskProfileDialog = ({
   const [openSection, setOpenSection] = useState<string | null>("personal");
 
   useEffect(() => {
-    if (open && (employeeId || reportId)) {
+    if (open && reportId) {
       fetchProfileData();
     }
-  }, [open, employeeId, reportId]);
+  }, [open, reportId]);
 
   const fetchProfileData = async () => {
     setLoading(true);
     try {
-      let polygraphReportId = reportId;
-      let employee = null;
-      let submission = null;
-      let popia = null;
-
-      if (employeeId) {
-        const [empResult, subResult, popiaResult] = await Promise.all([
-          supabase.from("employees").select("*").eq("id", employeeId).single(),
-          supabase.from("submissions").select("*").eq("employee_id", employeeId).maybeSingle(),
-          supabase.from("popia_acceptances").select("*").eq("employee_id", employeeId).order("accepted_at", { ascending: false }).limit(1).maybeSingle(),
-        ]);
-
-        employee = empResult.data;
-        submission = subResult.data;
-        popia = popiaResult.data;
-
-        if (!polygraphReportId) {
-          const { data: candidate } = await supabase
-            .from("polygraph_candidates")
-            .select("report_id")
-            .eq("employee_id", employeeId)
-            .maybeSingle();
-          
-          if (candidate) {
-            polygraphReportId = candidate.report_id;
-          }
-        }
-      }
+      const polygraphReportId = reportId;
+      const employee = null;
+      const submission = null;
+      const popia = null;
 
       let polygraphReport = null;
       let examQuestions: any[] = [];
