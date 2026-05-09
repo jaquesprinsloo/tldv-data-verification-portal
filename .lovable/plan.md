@@ -1,59 +1,57 @@
+## Goal
 
-Root cause:
-- PreAppliCheck and the debug tool are not globally missing from the app. They are rendered on the Main Portal page (`/admin/portal`) inside `src/pages/AdminPortalDashboard.tsx`.
-- After an update or when reopening the app, users can land on `/` instead. The `Home.tsx` page does not redirect signed-in admins to `/admin/portal`, and its “Access Portal” button currently goes to `/admin/data-employee-management` instead of the Main Portal.
-- Because of that, users bypass the page that contains the PreAppliCheck card and the bug/diagnostics button, so it looks like they disappeared.
-- This is made worse by update/reload timing: after a publish, auth restores asynchronously, and pages using direct one-off auth checks can leave people on the wrong entry screen rather than consistently pushing them back to the portal.
+Polygraph reports should upload **without** running AI extraction. The reviewer opens the upload, reads the raw PDF, then clicks **"Extract Data"** to run AI extraction on demand, reviews the result, and finally clicks **Approve**.
 
-What I would change:
-1. Fix the entry path
-- Update `src/pages/Home.tsx` so authenticated admin/master admin users are sent straight to `/admin/portal`.
-- Change the “Access Portal” button to open `/admin/portal`, not Data & Employee Management.
+PreAppliCheck Pre-Risk extraction (on candidate submission) stays exactly as-is.
 
-2. Stabilize post-update auth behavior
-- Add an auth-state listener on `Home.tsx` similar to existing patterns elsewhere so the page reacts when the session is restored after refresh/update.
-- Keep a loading state until auth + role resolution completes, instead of briefly showing the wrong landing screen.
+## What changes
 
-3. Make the portal the single source of truth
-- Treat `AdminPortalDashboard.tsx` as the canonical landing page for admin/master admin.
-- Keep PreAppliCheck and the debug tool visible there regardless of granular permission flicker while auth is resolving.
+### 1. Upload paths — stop auto-extracting
 
-4. Verify related navigation inconsistencies
-- Review and correct any outdated back-navigation paths such as the `/admin/dashboard` route reference in `src/pages/PolygraphVetting.tsx`, since the actual portal route is `/admin/portal`.
-- Check other pages for buttons that bypass the main portal unintentionally.
+| Where | Today | After |
+|---|---|---|
+| **Reports → Polygraph Reports** (single upload) | Upload → AI extracts → save to `polygraph_reports` | Upload → row created in `pending_polygraph_uploads` with file only, no AI. Goes to Pending Review queue. |
+| **Reports → Batch Upload** | Each file → AI extracts → `pending_polygraph_uploads` | Each file → `pending_polygraph_uploads` with file only, no AI. |
+| **Reports → Document Upload** (generic) | AI runs `process-pending-upload` (matches store, extracts) | Upload only — file saved, no AI. Reviewer assigns store manually. |
+| **Examiner Portal upload** | AI extracts on upload | Upload only, no AI. |
 
-Files to update:
-- `src/pages/Home.tsx`
-- likely `src/pages/PolygraphVetting.tsx`
-- possibly any other admin pages with stale dashboard route references
+### 2. Pending Polygraph Review screen — add "Extract Data" button
 
-Expected result:
-- After updates, hard refreshes, or reopening the PWA/app, admin and master profiles will consistently land in the Main Portal where the PreAppliCheck card and System Diagnostics button live.
-- The features will no longer appear to “disappear” just because the app reopened on the wrong route.
+In `PendingPolygraphReview.tsx` review dialog:
+- Header shows raw PDF viewer + file metadata (no extracted fields populated yet).
+- New **"Extract Data with AI"** button (visible when `extracted_data` is null).
+- Clicking it calls `extract-polygraph-report`, saves results back to the row, populates the editable fields below.
+- Button changes to **"Re-extract"** afterwards (in case reviewer wants to retry).
+- **Approve** button stays the same — it copies the (now-extracted, possibly edited) data into `polygraph_reports`. No AI runs at approval time.
 
-Technical details:
-```text
-Current flow:
-login/update/reopen
-  -> "/"
-  -> Home.tsx
-  -> button sends user to data-management page
-  -> user never sees AdminPortalDashboard
-  -> PreAppliCheck/debug appear missing
+### 3. Functions removed
 
-Target flow:
-login/update/reopen
-  -> auth restores
-  -> role resolves
-  -> "/admin/portal"
-  -> AdminPortalDashboard
-  -> PreAppliCheck + debug visible
-```
+- `process-pending-upload` (no longer called) — delete edge function.
+- `extract-invoice-data` (out of scope per earlier confirmation) — delete edge function and remove invoice AI extraction UI.
+- `approve-pending-upload` keeps working for non-polygraph docs but no longer invokes AI.
 
-Validation after implementation:
-- Sign in as master admin and confirm app opens on `/admin/portal`
-- Refresh after a publish/update and confirm the same behavior
-- Reopen the installed app/PWA and confirm portal still opens first
-- Confirm PreAppliCheck card is present
-- Confirm bug icon / diagnostics dialog is visible
-- Confirm examiner-only profiles still route to `/examiner`
+### 4. Functions kept
+
+- `extract-polygraph-report` — now only called from the reviewer's dialog button.
+- `generate-pre-risk-profile` — unchanged, still runs at PreAppliCheck submission.
+
+## Files affected
+
+**Edit:**
+- `src/components/reports/PolygraphReportsSection.tsx` — remove extraction call from upload; insert into `pending_polygraph_uploads` instead.
+- `src/components/reports/BatchUploadSection.tsx` — remove extraction call from upload loop.
+- `src/components/reports/DocumentUploadTab.tsx` — remove `process-pending-upload` call; just upload + insert pending row.
+- `src/pages/ExaminerPortal.tsx` — remove extraction on upload.
+- `src/pages/PendingPolygraphReview.tsx` — add "Extract Data with AI" button in review dialog; show raw-PDF-only state when no extracted_data yet.
+- `supabase/functions/approve-pending-upload/index.ts` — strip any AI re-processing.
+
+**Delete:**
+- `supabase/functions/process-pending-upload/`
+- `supabase/functions/extract-invoice-data/`
+
+## Net result
+
+- AI runs **only** on: PreAppliCheck submission, and the reviewer's explicit "Extract Data" click.
+- Uploads are instant (no waiting for AI).
+- Rejected uploads cost zero AI credits.
+- Reviewer sees raw PDF first, decides whether to invest the AI extraction.
