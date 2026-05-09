@@ -29,11 +29,8 @@ interface Account {
 
 interface FileUploadState {
   file: File;
-  status: 'pending' | 'processing' | 'completed' | 'error';
-  extractedData?: any;
+  status: "pending" | "uploading" | "completed" | "error";
   error?: string;
-  reportId?: string;
-  progress?: number;
 }
 
 interface BatchUploadSectionProps {
@@ -46,15 +43,14 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
   const [stores, setStores] = useState<Store[]>([]);
   const [examiners, setExaminers] = useState<Examiner[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  
+
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState("");
   const [selectedExaminerId, setSelectedExaminerId] = useState("");
   const [batchName, setBatchName] = useState("");
   const [newExaminerName, setNewExaminerName] = useState("");
   const [showAddExaminer, setShowAddExaminer] = useState(false);
-  
-  const [isProcessing, setIsProcessing] = useState(false);
+
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -74,7 +70,7 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: isMasterAdmin } = await supabase.rpc('is_master_admin', { _user_id: user.id });
+    const { data: isMasterAdmin } = await supabase.rpc("is_master_admin", { _user_id: user.id });
 
     if (isMasterAdmin) {
       const { data: accountsData } = await supabase.from("accounts").select("id, name").order("name");
@@ -84,8 +80,8 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
         .from("account_access")
         .select("account_id, accounts(id, name)")
         .eq("user_id", user.id);
-      
-      const accessibleAccounts = accessData?.map(a => a.accounts).filter(Boolean) as Account[] || [];
+
+      const accessibleAccounts = (accessData?.map((a) => a.accounts).filter(Boolean) as Account[]) || [];
       setAccounts(accessibleAccounts);
     }
 
@@ -108,7 +104,7 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
 
   const handleAddExaminer = async () => {
     if (!newExaminerName.trim()) return;
-    
+
     try {
       const { data, error } = await supabase
         .from("examiners")
@@ -118,34 +114,22 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
 
       if (error) throw error;
 
-      setExaminers(prev => [...prev, data]);
+      setExaminers((prev) => [...prev, data]);
       setSelectedExaminerId(data.id);
       setNewExaminerName("");
       setShowAddExaminer(false);
-      
-      toast({
-        title: "Examiner Added",
-        description: `${data.name} has been added to the examiners list.`,
-      });
+
+      toast({ title: "Examiner Added", description: `${data.name} has been added.` });
     } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to add examiner",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to add examiner", variant: "destructive" });
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-
-    console.info('[polygraph-batch] selected files', selectedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })));
-
-    // Normalize names to avoid issues with trailing spaces (common on Windows)
     const normalizeName = (name: string) => name.trim().toLowerCase();
 
-    // Check for unsupported .doc files (older binary format)
-    const oldDocFiles = selectedFiles.filter(file => {
+    const oldDocFiles = selectedFiles.filter((file) => {
       const fileName = normalizeName(file.name);
       return /\.doc$/i.test(fileName) && !/\.docx$/i.test(fileName);
     });
@@ -153,18 +137,17 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
     if (oldDocFiles.length > 0) {
       toast({
         title: "Unsupported Format",
-        description: "The older .doc format is not supported. Please save documents as .docx (Word 2007+) or PDF.",
+        description: "The older .doc format is not supported. Please save documents as .docx or PDF.",
         variant: "destructive",
       });
     }
 
-    const validFiles = selectedFiles.filter(file => {
+    const validFiles = selectedFiles.filter((file) => {
       const fileName = normalizeName(file.name);
       const mime = (file.type || "").toLowerCase();
       const isAllowedMime =
         mime === "application/pdf" ||
         mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
       return /\.(pdf|docx)$/i.test(fileName) || isAllowedMime;
     });
 
@@ -178,184 +161,38 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
 
     if (validFiles.length === 0) return;
 
-    const newFiles: FileUploadState[] = validFiles.map(file => ({
-      file,
-      status: 'pending',
-    }));
+    const newFiles: FileUploadState[] = validFiles.map((file) => ({ file, status: "pending" }));
+    setFiles((prev) => [...prev, ...newFiles]);
 
-    setFiles(prev => [...prev, ...newFiles]);
-    
-    // Auto-generate batch name if empty
     if (!batchName && validFiles.length > 0) {
-      const date = new Date().toLocaleDateString('en-GB');
+      const date = new Date().toLocaleDateString("en-GB");
       setBatchName(`Batch - ${date} (${files.length + validFiles.length} reports)`);
     }
   };
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const result = reader.result as string;
-        const base64 = result.split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = (error) => reject(error);
-    });
-  };
+  const uploadFileToStorage = async (file: File): Promise<string | null> => {
+    const uploadId = crypto.randomUUID();
+    const fileName = `pending/${uploadId}/${file.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from("polygraph-reports")
+      .upload(fileName, file, { contentType: file.type });
 
-  const processFile = async (
-    fileState: FileUploadState, 
-    index: number,
-    updateProgress: (index: number, progress: number) => void
-  ): Promise<FileUploadState> => {
-    try {
-      updateProgress(index, 10);
-      const fileBase64 = await fileToBase64(fileState.file);
-      updateProgress(index, 20);
-      
-      // Detect file type
-      const fileName = fileState.file.name.toLowerCase();
-      const isWordDoc = fileName.endsWith('.docx') || fileName.endsWith('.doc');
-      
-      // Simulate progress during API call
-      let currentProgress = 20;
-      const progressInterval = setInterval(() => {
-        currentProgress = Math.min(currentProgress + 2, 90);
-        updateProgress(index, currentProgress);
-      }, 500);
-
-      // Send as docxBase64 for Word docs, pdfBase64 for PDFs
-      const requestBody = isWordDoc 
-        ? { docxBase64: fileBase64, fileName: fileState.file.name }
-        : { pdfBase64: fileBase64, fileName: fileState.file.name };
-
-      const { data, error } = await supabase.functions.invoke('extract-polygraph-report', {
-        body: requestBody
-      });
-
-      clearInterval(progressInterval);
-
-      if (error) throw new Error(error.message || 'Failed to process document');
-      if (data?.error) throw new Error(data.error);
-
-      if (data?.success && data?.data) {
-        updateProgress(index, 100);
-        return {
-          ...fileState,
-          status: 'completed',
-          extractedData: data.data,
-          progress: 100,
-        };
-      } else {
-        throw new Error('No data extracted from document');
-      }
-    } catch (error) {
-      return {
-        ...fileState,
-        status: 'error',
-        error: error instanceof Error ? error.message : 'Failed to extract data',
-        progress: 0,
-      };
+    if (uploadError) {
+      console.error("Upload error:", uploadError);
+      return null;
     }
+    // Bucket is private; store the storage path-style URL using public-style URL
+    // for compatibility with existing readers (signed URLs are generated on view).
+    const { data: { publicUrl } } = supabase.storage.from("polygraph-reports").getPublicUrl(fileName);
+    return publicUrl;
   };
 
-  const handleProcessAll = async () => {
+  const handleSubmitBatch = async () => {
     if (files.length === 0) return;
-
-    setIsProcessing(true);
-    
-    toast({
-      title: "Processing Reports",
-      description: `Processing ${files.length} report(s). This may take a moment per file...`,
-    });
-
-    const updateProgress = (index: number, progress: number) => {
-      setFiles(prev => {
-        const updated = [...prev];
-        if (updated[index]) {
-          updated[index] = { ...updated[index], progress };
-        }
-        return updated;
-      });
-    };
-
-    // Process files sequentially to avoid overwhelming the API
-    const updatedFiles = [...files];
-    for (let i = 0; i < updatedFiles.length; i++) {
-      if (updatedFiles[i].status === 'pending') {
-        updatedFiles[i] = { ...updatedFiles[i], status: 'processing', progress: 0 };
-        setFiles([...updatedFiles]);
-        
-        const result = await processFile(updatedFiles[i], i, updateProgress);
-        updatedFiles[i] = result;
-        setFiles([...updatedFiles]);
-      }
-    }
-
-    const successCount = updatedFiles.filter(f => f.status === 'completed').length;
-    const errorCount = updatedFiles.filter(f => f.status === 'error').length;
-
-    toast({
-      title: "Processing Complete",
-      description: `${successCount} successful, ${errorCount} failed.`,
-    });
-
-    setIsProcessing(false);
-  };
-
-  const parseExaminationDate = (dateStr: string | null | undefined): string => {
-    if (!dateStr) return new Date().toISOString().split("T")[0];
-    
-    const parsed = new Date(dateStr);
-    if (!isNaN(parsed.getTime())) {
-      return parsed.toISOString().split("T")[0];
-    }
-    
-    const months: Record<string, number> = {
-      'january': 0, 'february': 1, 'march': 2, 'april': 3, 'may': 4, 'june': 5,
-      'july': 6, 'august': 7, 'september': 8, 'october': 9, 'november': 10, 'december': 11
-    };
-    const parts = dateStr.toLowerCase().match(/(\d{1,2})\s+(\w+)\s+(\d{4})/);
-    if (parts) {
-      const day = parseInt(parts[1]);
-      const month = months[parts[2]];
-      const year = parseInt(parts[3]);
-      if (month !== undefined) {
-        return new Date(year, month, day).toISOString().split("T")[0];
-      }
-    }
-    
-    return new Date().toISOString().split("T")[0];
-  };
-
-  const mapOverallResult = (examQuestions: any[] | null | undefined): 'passed' | 'failed' | 'inconclusive' | null => {
-    if (!examQuestions || examQuestions.length === 0) return null;
-    
-    const findings = examQuestions.map(q => q.finding?.toUpperCase() || q.result?.toUpperCase() || '');
-    
-    if (findings.some(f => f === 'SR')) return 'failed';
-    if (findings.some(f => f === 'INC')) return 'inconclusive';
-    if (findings.length > 0 && findings.every(f => f === 'NSR')) return 'passed';
-    
-    return 'inconclusive';
-  };
-
-  const handleSaveBatch = async () => {
-    const completedFiles = files.filter(f => f.status === 'completed');
-    if (completedFiles.length === 0) {
-      toast({
-        title: "No Processed Reports",
-        description: "Please process at least one report before saving.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     if (!selectedAccountId || !selectedStoreId || !selectedExaminerId) {
       toast({
@@ -370,64 +207,31 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-
-      // Save each report to pending_polygraph_uploads for master admin review
       let successCount = 0;
-      for (const fileState of completedFiles) {
-        const extractedData = fileState.extractedData;
+      const updated = [...files];
 
-        // Upload document to pending folder
-        let fileUrl: string | null = null;
-        const uploadId = crypto.randomUUID();
-        const fileName = `pending/${uploadId}/${fileState.file.name}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from("polygraph-reports")
-          .upload(fileName, fileState.file, { contentType: fileState.file.type });
-        
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage
-            .from("polygraph-reports")
-            .getPublicUrl(fileName);
-          fileUrl = publicUrl;
+      for (let i = 0; i < updated.length; i++) {
+        if (updated[i].status === "completed") {
+          successCount++;
+          continue;
         }
+        updated[i] = { ...updated[i], status: "uploading", error: undefined };
+        setFiles([...updated]);
 
+        const fileUrl = await uploadFileToStorage(updated[i].file);
         if (!fileUrl) {
-          console.error("Failed to upload file:", fileState.file.name);
+          updated[i] = { ...updated[i], status: "error", error: "Upload failed" };
+          setFiles([...updated]);
           continue;
         }
 
-        // Prepare risk analysis data
-        let riskScore: number | null = null;
-        let riskLevel: string | null = null;
-        if (extractedData.riskAnalysis) {
-          riskScore = extractedData.riskAnalysis.TotalRiskScore || null;
-          const rawLevel = extractedData.riskAnalysis.RiskLevel || '';
-          let mappedLevel = rawLevel.toUpperCase().replace(' RISK', '');
-          if (mappedLevel === 'UNACCEPTABLE') mappedLevel = 'VERY HIGH';
-          riskLevel = ['LOW', 'MEDIUM', 'HIGH', 'VERY HIGH'].includes(mappedLevel) ? mappedLevel : null;
-        }
-
-        // Save to pending_polygraph_uploads table for master admin review
         const pendingPayload = {
-          account_id: selectedAccountId || null,
-          store_id: selectedStoreId || null,
-          examiner_id: selectedExaminerId || null,
+          account_id: selectedAccountId,
+          store_id: selectedStoreId,
+          examiner_id: selectedExaminerId,
           original_file_url: fileUrl,
-          original_file_name: fileState.file.name,
-          extracted_data: extractedData,
-          first_name: extractedData.candidate?.firstName || null,
-          last_name: extractedData.candidate?.lastName || null,
-          id_number: extractedData.candidate?.idNumber || null,
-          email: extractedData.candidate?.email || null,
-          contact_number: extractedData.candidate?.contactNumber || null,
-          physical_address: extractedData.candidate?.physicalAddress || null,
-          position_applying_for: extractedData.candidate?.positionApplyingFor || null,
-          risk_score: riskScore,
-          risk_level: riskLevel,
-          risk_analysis: extractedData.riskAnalysis || null,
-          examination_date: parseExaminationDate(extractedData.examination?.date),
-          overall_result: mapOverallResult(extractedData.examQuestions),
+          original_file_name: updated[i].file.name,
+          extracted_data: null,
           status: "pending",
           uploaded_by: user?.id,
         };
@@ -438,40 +242,39 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
 
         if (pendingError) {
           console.error("Error saving pending upload:", pendingError);
-          continue;
+          updated[i] = { ...updated[i], status: "error", error: pendingError.message };
+        } else {
+          updated[i] = { ...updated[i], status: "completed" };
+          successCount++;
         }
-
-        successCount++;
+        setFiles([...updated]);
       }
 
       toast({
         title: "Batch Submitted for Review",
-        description: `${successCount} report(s) submitted for Master Admin review.`,
+        description: `${successCount} of ${updated.length} report(s) uploaded. Master Admin will extract and approve.`,
       });
 
-      // Reset state
-      setFiles([]);
-      setBatchName("");
-      setSelectedAccountId("");
-      setSelectedStoreId("");
-      setSelectedExaminerId("");
+      if (successCount === updated.length) {
+        setFiles([]);
+        setBatchName("");
+        setSelectedAccountId("");
+        setSelectedStoreId("");
+        setSelectedExaminerId("");
+      }
       onBatchCreated();
     } catch (error: any) {
       console.error("Error saving batch:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save batch",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message || "Failed to save batch", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const completedCount = files.filter(f => f.status === 'completed').length;
-  const errorCount = files.filter(f => f.status === 'error').length;
-  const processingCount = files.filter(f => f.status === 'processing').length;
-  const pendingCount = files.filter(f => f.status === 'pending').length;
+  const completedCount = files.filter((f) => f.status === "completed").length;
+  const errorCount = files.filter((f) => f.status === "error").length;
+  const uploadingCount = files.filter((f) => f.status === "uploading").length;
+  const pendingCount = files.filter((f) => f.status === "pending").length;
   const progress = files.length > 0 ? ((completedCount + errorCount) / files.length) * 100 : 0;
 
   return (
@@ -479,7 +282,8 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
       <CardHeader>
         <CardTitle>Batch Upload Reports</CardTitle>
         <CardDescription>
-          Upload multiple polygraph reports at once. Each report will be processed individually but grouped as a batch.
+          Upload multiple polygraph reports as raw files. Master Admin will run extraction and approve them in the
+          Pending Review queue.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -493,7 +297,7 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
             onChange={handleFileSelect}
             className="hidden"
             id="batch-upload"
-            disabled={isProcessing || isSaving}
+            disabled={isSaving}
           />
           <label htmlFor="batch-upload">
             <Button variant="outline" asChild className="cursor-pointer">
@@ -501,7 +305,7 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
             </Button>
           </label>
           <p className="text-sm text-muted-foreground mt-2">
-            Select multiple PDF or Word documents to upload as a batch
+            Files are uploaded as-is. Data extraction happens during Master Admin review.
           </p>
         </div>
 
@@ -510,115 +314,79 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h4 className="font-medium">Selected Files ({files.length})</h4>
-              {isProcessing && <Progress value={progress} className="w-48" />}
+              {isSaving && <Progress value={progress} className="w-48" />}
             </div>
-            
+
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {files.map((fileState, index) => (
-                <div
-                  key={index}
-                  className="p-3 bg-muted/50 rounded-lg space-y-2"
-                >
+                <div key={index} className="p-3 bg-muted/50 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">
-                          {fileState.file.name}
-                        </p>
-                        {fileState.extractedData?.candidate && (
-                          <p className="text-xs text-muted-foreground">
-                            {fileState.extractedData.candidate.firstName} {fileState.extractedData.candidate.lastName}
-                          </p>
-                        )}
-                        {fileState.error && (
-                          <p className="text-xs text-destructive">{fileState.error}</p>
-                        )}
+                        <p className="text-sm font-medium truncate">{fileState.file.name}</p>
+                        {fileState.error && <p className="text-xs text-destructive">{fileState.error}</p>}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {fileState.status === 'pending' && (
-                        <Badge variant="outline">Pending</Badge>
-                      )}
-                      {fileState.status === 'processing' && (
+                      {fileState.status === "pending" && <Badge variant="outline">Pending</Badge>}
+                      {fileState.status === "uploading" && (
                         <Badge variant="secondary" className="flex items-center gap-1">
                           <Loader2 className="h-3 w-3 animate-spin" />
-                          {fileState.progress ? `${Math.round(fileState.progress)}%` : 'Processing'}
+                          Uploading
                         </Badge>
                       )}
-                      {fileState.status === 'completed' && (
+                      {fileState.status === "completed" && (
                         <Badge variant="default" className="bg-green-500">
                           <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Done
+                          Submitted
                         </Badge>
                       )}
-                      {fileState.status === 'error' && (
+                      {fileState.status === "error" && (
                         <Badge variant="destructive">
                           <AlertCircle className="h-3 w-3 mr-1" />
                           Error
                         </Badge>
                       )}
-                      {!isProcessing && !isSaving && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeFile(index)}
-                        >
+                      {!isSaving && (
+                        <Button variant="ghost" size="icon" onClick={() => removeFile(index)}>
                           <X className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
                   </div>
-                  
-                  {/* Per-file progress bar */}
-                  {fileState.status === 'processing' && (
-                    <div className="space-y-1">
-                      <Progress value={fileState.progress || 0} className="h-2" />
-                      <p className="text-xs text-muted-foreground text-center">
-                        AI extracting data... {Math.round(fileState.progress || 0)}%
-                      </p>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
 
-            {/* Summary */}
             <div className="flex gap-4 text-sm">
               {pendingCount > 0 && <span className="text-muted-foreground">{pendingCount} pending</span>}
-              {processingCount > 0 && <span className="text-primary">{processingCount} processing</span>}
-              {completedCount > 0 && <span className="text-green-600">{completedCount} completed</span>}
+              {uploadingCount > 0 && <span className="text-primary">{uploadingCount} uploading</span>}
+              {completedCount > 0 && <span className="text-green-600">{completedCount} submitted</span>}
               {errorCount > 0 && <span className="text-destructive">{errorCount} failed</span>}
             </div>
-
-            {/* Process Button */}
-            {pendingCount > 0 && !isProcessing && (
-              <Button onClick={handleProcessAll} className="w-full">
-                <Loader2 className="mr-2 h-4 w-4" />
-                Process All Reports ({pendingCount})
-              </Button>
-            )}
           </div>
         )}
 
-        {/* Batch Configuration - Show after processing */}
-        {completedCount > 0 && !isProcessing && (
+        {/* Batch Configuration */}
+        {files.length > 0 && (
           <div className="space-y-4 pt-4 border-t">
             <h4 className="font-medium">Batch Configuration</h4>
-            
+
             <div className="space-y-2">
               <Label>Batch Name</Label>
               <Input
                 value={batchName}
                 onChange={(e) => setBatchName(e.target.value)}
                 placeholder="Enter batch name"
+                disabled={isSaving}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Account *</Label>
-                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                <Select value={selectedAccountId} onValueChange={setSelectedAccountId} disabled={isSaving}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select account" />
                   </SelectTrigger>
@@ -633,10 +401,10 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
               </div>
               <div className="space-y-2">
                 <Label>Sub-Account / Store *</Label>
-                <Select 
-                  value={selectedStoreId} 
+                <Select
+                  value={selectedStoreId}
                   onValueChange={setSelectedStoreId}
-                  disabled={!selectedAccountId}
+                  disabled={!selectedAccountId || isSaving}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={selectedAccountId ? "Select store" : "Select account first"} />
@@ -656,7 +424,7 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
               <Label>Examiner *</Label>
               {!showAddExaminer ? (
                 <div className="flex gap-2">
-                  <Select value={selectedExaminerId} onValueChange={setSelectedExaminerId}>
+                  <Select value={selectedExaminerId} onValueChange={setSelectedExaminerId} disabled={isSaving}>
                     <SelectTrigger className="flex-1">
                       <SelectValue placeholder="Select examiner" />
                     </SelectTrigger>
@@ -668,11 +436,12 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     size="icon"
                     onClick={() => setShowAddExaminer(true)}
+                    disabled={isSaving}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -684,17 +453,25 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
                     value={newExaminerName}
                     onChange={(e) => setNewExaminerName(e.target.value)}
                   />
-                  <Button type="button" onClick={handleAddExaminer}>Add</Button>
-                  <Button type="button" variant="outline" onClick={() => {
-                    setShowAddExaminer(false);
-                    setNewExaminerName("");
-                  }}>Cancel</Button>
+                  <Button type="button" onClick={handleAddExaminer}>
+                    Add
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowAddExaminer(false);
+                      setNewExaminerName("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
                 </div>
               )}
             </div>
 
-            <Button 
-              onClick={handleSaveBatch} 
+            <Button
+              onClick={handleSubmitBatch}
               disabled={isSaving || !selectedAccountId || !selectedStoreId || !selectedExaminerId}
               className="w-full"
             >
@@ -706,7 +483,7 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
               ) : (
                 <>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Submit for Review ({completedCount} reports)
+                  Submit All for Master Review ({files.length})
                 </>
               )}
             </Button>
@@ -717,11 +494,10 @@ const BatchUploadSection = ({ onBatchCreated }: BatchUploadSectionProps) => {
         <div className="bg-muted/50 rounded-lg p-4">
           <h4 className="font-medium mb-2">Instructions:</h4>
           <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-            <li>Select multiple PDF report files to upload</li>
-            <li>Click "Process All Reports" to extract data from each report</li>
-            <li>Review the results - each report is processed individually</li>
-            <li>Select the account, store, and examiner for the batch</li>
-            <li>Submit for review - Master Admin will approve before distribution</li>
+            <li>Select the PDF or Word reports for this batch</li>
+            <li>Choose account, store and examiner</li>
+            <li>Submit — files upload as-is (no AI extraction at this stage)</li>
+            <li>Master Admin opens each report in Pending Review, clicks "Extract Data with AI", reviews, and approves</li>
           </ol>
         </div>
       </CardContent>
