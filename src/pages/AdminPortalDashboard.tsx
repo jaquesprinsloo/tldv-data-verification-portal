@@ -2,10 +2,9 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { FileText, Users, ClipboardCheck, Mail, Lock, FileCheck, GripVertical, ShieldCheck, Bug } from "lucide-react";
+import { FileText, Users, ClipboardCheck, Lock, FileCheck, GripVertical, ShieldCheck, Bug } from "lucide-react";
 import { PermissionKey } from "@/hooks/usePermissions";
 import { Badge } from "@/components/ui/badge";
-import { NotificationsDialog } from "@/components/admin/NotificationsDialog";
 import DebugDiagnosticsDialog from "@/components/admin/DebugDiagnosticsDialog";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
@@ -57,25 +56,8 @@ const AdminPortalDashboard = () => {
 
   // Per-user "last seen" trackers so badges clear once the admin opens the relevant portal,
   // even if the underlying records are still in their pending state.
-  const { lastSeen: requestsLastSeen, markSeen: markRequestsSeen } =
-    useBadgeLastSeen(currentUserId, "request-inbox");
   const { lastSeen: pendingPolygraphLastSeen, markSeen: markPendingPolygraphSeen } =
     useBadgeLastSeen(currentUserId, "pending-polygraph-review");
-  const { lastSeen: dataMgmtLastSeen, markSeen: markDataMgmtSeen } =
-    useBadgeLastSeen(currentUserId, "data-employee-management");
-
-  const { data: pendingRequests } = useQuery({
-    queryKey: ['pending-requests-count', requestsLastSeen],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from('profile_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending')
-        .gt('created_at', requestsLastSeen);
-      return count || 0;
-    },
-    enabled: isMasterAdmin
-  });
 
   const { data: pendingPolygraphCount } = useQuery({
     queryKey: ['pending-polygraph-count', pendingPolygraphLastSeen],
@@ -89,33 +71,6 @@ const AdminPortalDashboard = () => {
     },
     enabled: isMasterAdmin
   });
-
-  const { data: approvedCandidatesCount } = useQuery({
-    queryKey: ['approved-candidates-count', dataMgmtLastSeen],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from('polygraph_candidates')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'approved')
-        .or('invitation_sent.is.null,invitation_sent.eq.false')
-        .gt('created_at', dataMgmtLastSeen);
-      return count || 0;
-    },
-  });
-
-  const { data: pendingSubmissionsCount } = useQuery({
-    queryKey: ['pending-submissions-count', dataMgmtLastSeen],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from('submissions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending')
-        .gt('created_at', dataMgmtLastSeen);
-      return count || 0;
-    },
-  });
-
-  const dataManagementBadge = (approvedCandidatesCount || 0) + (pendingSubmissionsCount || 0);
 
   // Per-admin unread count for newly-approved PreAppliCheck applications.
   // Toast surfaces here (the dashboard) so admins are alerted regardless of which portal they're in next.
@@ -137,17 +92,6 @@ const AdminPortalDashboard = () => {
 
   // Build the base portals list using useMemo to avoid unnecessary rebuilds
   const allPortals: PortalCard[] = useMemo(() => [
-    {
-      key: "data-employee-management",
-      title: "Data & Employee Management",
-      description: "Manage employees, submissions, and invitations",
-      icon: Users,
-      path: "/admin/data-employee-management",
-      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: dataManagementBadge > 0 ? dataManagementBadge : null,
-      permissionKey: PERMISSION_KEYS.PORTAL_DATA_MANAGEMENT,
-      requiresMasterAdmin: false
-    },
     {
       key: "polygraph-vetting",
       title: "Appointments",
@@ -182,17 +126,6 @@ const AdminPortalDashboard = () => {
       requiresMasterAdmin: true
     },
     {
-      key: "request-inbox",
-      title: "Request Inbox",
-      description: "View and respond to profile requests",
-      icon: Mail,
-      path: "/admin/request-inbox",
-      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
-      badge: pendingRequests || null,
-      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
-      requiresMasterAdmin: true
-    },
-    {
       key: "candex-pre-screening",
       title: "PreAppliCheck",
       description: "Pre-employment screening and applicant checks",
@@ -214,7 +147,7 @@ const AdminPortalDashboard = () => {
       permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
       requiresMasterAdmin: true
     }
-  ], [dataManagementBadge, pendingRequests, pendingPolygraphCount, preAppliCheckedUnread]);
+  ], [pendingPolygraphCount, preAppliCheckedUnread]);
 
   // Compute ordered portals whenever dependencies change
   useEffect(() => {
@@ -340,12 +273,8 @@ const AdminPortalDashboard = () => {
     }
 
     // Clear the per-user badge as soon as the admin opens the portal.
-    if (portal.key === "request-inbox") {
-      markRequestsSeen();
-    } else if (portal.key === "pending-polygraph-review") {
+    if (portal.key === "pending-polygraph-review") {
       markPendingPolygraphSeen();
-    } else if (portal.key === "data-employee-management") {
-      markDataMgmtSeen();
     } else if (portal.key === "candex-pre-screening") {
       markPreAppliCheckedSeen();
     }
@@ -517,7 +446,6 @@ const AdminPortalDashboard = () => {
             >
               <Bug className="w-4 h-4" />
             </button>
-            {!hasFullAccess && <NotificationsDialog />}
             <button
               onClick={handleSignOut}
               className="px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-red-600/20 border-2 border-red-600 text-white rounded-lg hover:bg-red-600/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] transition-all duration-300"
