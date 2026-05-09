@@ -1,22 +1,24 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { InstallAppButton } from "@/components/shared/InstallAppButton";
-import Home from "./pages/Home";
-import AdminLogin from "./pages/AdminLogin";
-import AdminResetPassword from "./pages/AdminResetPassword";
-import AdminPortalDashboard from "./pages/AdminPortalDashboard";
-import PolygraphVetting from "./pages/PolygraphVetting";
-import ReportsAccounts from "./pages/ReportsAccounts";
-import ProfileManagement from "./pages/ProfileManagement";
-import PendingPolygraphReview from "./pages/PendingPolygraphReview";
-import CanDexPreScreening from "./pages/CanDexPreScreening";
-import CandexApplication from "./pages/CandexApplication";
-import ExaminerPortal from "./pages/ExaminerPortal";
-import NotFound from "./pages/NotFound";
-import Install from "./pages/Install";
+
+const Home = lazy(() => import("./pages/Home"));
+const AdminLogin = lazy(() => import("./pages/AdminLogin"));
+const AdminResetPassword = lazy(() => import("./pages/AdminResetPassword"));
+const AdminPortalDashboard = lazy(() => import("./pages/AdminPortalDashboard"));
+const PolygraphVetting = lazy(() => import("./pages/PolygraphVetting"));
+const ReportsAccounts = lazy(() => import("./pages/ReportsAccounts"));
+const ProfileManagement = lazy(() => import("./pages/ProfileManagement"));
+const PendingPolygraphReview = lazy(() => import("./pages/PendingPolygraphReview"));
+const CanDexPreScreening = lazy(() => import("./pages/CanDexPreScreening"));
+const CandexApplication = lazy(() => import("./pages/CandexApplication"));
+const ExaminerPortal = lazy(() => import("./pages/ExaminerPortal"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Install = lazy(() => import("./pages/Install"));
 
 const queryClient = new QueryClient();
 
@@ -37,7 +39,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <RouteAwareInstallButton />
-        <Routes>
+        <Suspense fallback={<div className="min-h-screen bg-background" />}>
+          <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/reset-password" element={<AdminResetPassword />} />
@@ -51,7 +54,8 @@ const App = () => (
           <Route path="/examiner" element={<ExaminerPortal />} />
           <Route path="/install" element={<Install />} />
           <Route path="*" element={<NotFound />} />
-        </Routes>
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
