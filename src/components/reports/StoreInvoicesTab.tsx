@@ -109,57 +109,9 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
       toast.error("Please select a PDF file");
       return;
     }
-    
+
     setSelectedFile(file);
-    setExtracting(true);
-    toast.info("Analyzing invoice...");
-
-    try {
-      // Convert file to base64
-      const arrayBuffer = await file.arrayBuffer();
-      const base64 = btoa(
-        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-      );
-
-      // Call edge function to extract invoice data
-      const { data, error } = await supabase.functions.invoke("extract-invoice-data", {
-        body: { pdfBase64: base64, fileName: file.name },
-      });
-
-      if (error) throw error;
-
-      if (data?.success && data?.data) {
-        const extracted = data.data;
-        setFormData({
-          invoice_number: extracted.invoice_number || "",
-          invoice_date: extracted.invoice_date || new Date().toISOString().split("T")[0],
-          subtotal: extracted.subtotal?.toString() || "",
-          vat_amount: extracted.vat_amount?.toString() || "",
-          discount_amount: extracted.discount_amount?.toString() || "0",
-          total_amount: extracted.total_amount?.toString() || "",
-          polygraph_amount: extracted.polygraph_amount?.toString() || "0",
-          risk_assessment_amount: extracted.risk_assessment_amount?.toString() || "0",
-          travel_amount: extracted.travel_amount?.toString() || "0",
-          tolls_amount: extracted.tolls_amount?.toString() || "0",
-          accommodation_amount: extracted.accommodation_amount?.toString() || "0",
-          other_amount: extracted.other_amount?.toString() || "0",
-        });
-        toast.success("Invoice data extracted successfully");
-      } else {
-        toast.error(data?.error || "Failed to extract invoice data");
-      }
-    } catch (error: any) {
-      console.error("Error extracting invoice:", error);
-      if (error.message?.includes("429")) {
-        toast.error("Rate limit exceeded. Please try again later.");
-      } else if (error.message?.includes("402")) {
-        toast.error("AI credits exhausted. Please add funds.");
-      } else {
-        toast.error("Failed to analyze invoice. Please enter details manually.");
-      }
-    } finally {
-      setExtracting(false);
-    }
+    toast.success("File selected — please enter the invoice details below");
   };
 
   const handleUploadInvoice = async () => {
