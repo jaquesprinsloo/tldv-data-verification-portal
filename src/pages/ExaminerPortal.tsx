@@ -38,11 +38,8 @@ const ExaminerPortal = () => {
 
   // Upload state
   const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [extractionProgress, setExtractionProgress] = useState(0);
-  const [extractedData, setExtractedData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
-  const [matchedCandidate, setMatchedCandidate] = useState<any>(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string>("");
 
   // Recordings (OneDrive) state
   const [recordings, setRecordings] = useState<File[]>([]);
