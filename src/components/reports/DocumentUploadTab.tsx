@@ -111,8 +111,7 @@ export const DocumentUploadTab = ({ accountId, onUploadComplete }: DocumentUploa
             Upload Documents
           </CardTitle>
           <CardDescription>
-            Upload documents and they will be automatically matched to sub-accounts using AI recognition.
-            Documents require master admin approval before being assigned.
+            Upload documents — Master Admin will review, assign the sub-account, and approve.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
