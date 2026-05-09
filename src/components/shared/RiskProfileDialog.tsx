@@ -368,7 +368,6 @@ const PersonCard = ({ person, label, showContact }: { person: any; label: string
 export const RiskProfileDialog = ({ 
   open, 
   onOpenChange, 
-  employeeId, 
   reportId,
   candidateName 
 }: RiskProfileDialogProps) => {
