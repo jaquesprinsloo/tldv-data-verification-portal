@@ -53,12 +53,9 @@ export const DocumentUploadTab = ({ accountId, onUploadComplete }: DocumentUploa
 
     setUploading(true);
     try {
-      // Read file as base64 for AI processing
-      const pdfBase64 = await fileToBase64(selectedFile);
-
-      // Upload file to storage
+      // Upload file to storage (no AI extraction at this stage)
       const fileName = `${accountId}/${selectedType}/${Date.now()}_${selectedFile.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("pending-documents")
         .upload(fileName, selectedFile);
 
@@ -66,27 +63,29 @@ export const DocumentUploadTab = ({ accountId, onUploadComplete }: DocumentUploa
         throw uploadError;
       }
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from("pending-documents")
         .getPublicUrl(fileName);
 
-      // Process with AI - include base64 for accurate extraction
-      const response = await supabase.functions.invoke("process-pending-upload", {
-        body: {
-          fileUrl: urlData.publicUrl,
-          accountId,
-          documentType: selectedType,
-          fileName: selectedFile.name,
-          pdfBase64,
-        },
-      });
+      const { data: { user } } = await supabase.auth.getUser();
 
-      if (response.error) {
-        throw new Error(response.error.message || "Failed to process upload");
+      // Insert pending row directly - reviewer will assign store and (for polygraph) trigger extraction manually
+      const { error: insertError } = await supabase
+        .from("pending_document_uploads")
+        .insert({
+          account_id: accountId,
+          document_type: selectedType,
+          file_url: urlData.publicUrl,
+          file_name: selectedFile.name,
+          status: "pending",
+          uploaded_by: user?.id,
+        });
+
+      if (insertError) {
+        throw new Error(insertError.message || "Failed to queue upload for review");
       }
 
-      toast.success(response.data?.message || "Document uploaded and queued for review");
+      toast.success("Document uploaded and queued for Master Admin review");
       setSelectedFile(null);
       onUploadComplete();
     } catch (error) {
