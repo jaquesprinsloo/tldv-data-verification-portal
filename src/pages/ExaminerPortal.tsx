@@ -215,83 +215,21 @@ const ExaminerPortal = () => {
       return;
     }
     setFile(selectedFile);
-    setExtractedData(null);
-    setMatchedCandidate(null);
   };
 
-  const tryMatchCandidate = (data: any) => {
-    if (!data?.candidate) return null;
-    const idNumber = data.candidate.idNumber?.trim();
-    const firstName = (data.candidate.firstName || "").trim().toLowerCase();
-    const lastName = (data.candidate.lastName || "").trim().toLowerCase();
-    for (const c of allExaminerCandidates as any[]) {
-      if (idNumber && c.candidate_id_number && c.candidate_id_number.trim() === idNumber) return c;
-      const candidateName = (c.candidate_name || "").toLowerCase();
-      if (firstName && lastName && candidateName.includes(firstName) && candidateName.includes(lastName)) return c;
-    }
-    return null;
-  };
-
-  const handleExtract = async () => {
-    if (!file) return;
-    setUploading(true);
-    setExtractionProgress(0);
-    const progressInterval = setInterval(() => {
-      setExtractionProgress(prev => {
-        if (prev < 30) return prev + 2;
-        if (prev < 60) return prev + 1.5;
-        if (prev < 80) return prev + 0.8;
-        if (prev < 90) return prev + 0.3;
-        return prev;
-      });
-    }, 500);
-    try {
-      const fileBase64 = await fileToBase64(file);
-      const isWord = file.name.toLowerCase().endsWith('.docx');
-      const body = isWord ? { docxBase64: fileBase64, fileName: file.name } : { pdfBase64: fileBase64, fileName: file.name };
-      const { data, error } = await supabase.functions.invoke('extract-polygraph-report', { body });
-      clearInterval(progressInterval);
-      if (error || data?.error) throw new Error(data?.error || error?.message || 'Extraction failed');
-      if (data?.success && data?.data) {
-        setExtractionProgress(100);
-        setExtractedData(data.data);
-        const match = tryMatchCandidate(data.data);
-        setMatchedCandidate(match);
-        toastHook({
-          title: "Data Extracted",
-          description: match ? `Matched to candidate: ${match.candidate_name}` : "Report extracted. No automatic candidate match found.",
-        });
-      }
-    } catch (err: any) {
-      clearInterval(progressInterval);
-      toastHook({ title: "Extraction Failed", description: err.message, variant: "destructive" });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const mapOverallResult = (examQuestions: any[]): string | null => {
-    if (!examQuestions?.length) return null;
-    const findings = examQuestions.map(q => (q.finding || q.result || '').toUpperCase());
-    if (findings.some(f => f === 'SR')) return 'failed';
-    if (findings.some(f => f === 'INC')) return 'inconclusive';
-    if (findings.every(f => f === 'NSR')) return 'passed';
-    return 'inconclusive';
-  };
+  const selectedCandidate = (allExaminerCandidates as any[]).find((c: any) => c.id === selectedCandidateId) || null;
+  const selectedCandidateAppointment = selectedCandidate
+    ? (appointments as any[]).find((a: any) => a.id === selectedCandidate.appointment_id)
+    : null;
 
   const uploadRecordingsToOneDrive = async (): Promise<typeof uploadedRecordings> => {
     if (recordings.length === 0) return uploadedRecordings;
 
-    const examinationDate = extractedData?.examination?.date
-      ? new Date(extractedData.examination.date).toISOString().split("T")[0]
+    const examinationDate = selectedCandidateAppointment?.scheduled_date
+      ? new Date(selectedCandidateAppointment.scheduled_date).toISOString().split("T")[0]
       : new Date().toISOString().split("T")[0];
-    const candidateName =
-      matchedCandidate?.candidate_name ||
-      `${extractedData?.candidate?.firstName || ""} ${extractedData?.candidate?.lastName || ""}`.trim() ||
-      "Unknown Candidate";
-    const bookingReference = matchedCandidate
-      ? (appointments as any[]).find((a: any) => a.id === matchedCandidate.appointment_id)?.booking_reference || "NoRef"
-      : "NoRef";
+    const candidateName = selectedCandidate?.candidate_name || "Unknown Candidate";
+    const bookingReference = selectedCandidateAppointment?.booking_reference || "NoRef";
     const examinerName = userName || user?.email || "Unassigned";
 
     const results: typeof uploadedRecordings = [...uploadedRecordings];
@@ -328,7 +266,11 @@ const ExaminerPortal = () => {
   };
 
   const handleSubmitReport = async () => {
-    if (!extractedData || !file) return;
+    if (!file) return;
+    if (!selectedCandidateId) {
+      toast.error("Please select the candidate this report is for.");
+      return;
+    }
     const totalRecordings = recordings.length + uploadedRecordings.length;
     if (totalRecordings === 0) {
       toast.error("Polygraph recordings are required before submitting for review.");
@@ -351,12 +293,16 @@ const ExaminerPortal = () => {
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from("polygraph-reports").getPublicUrl(fileName);
 
-      let accountId: string | null = null;
-      let storeId: string | null = null;
-      if (matchedCandidate) {
-        const apt = (appointments as any[]).find((a: any) => a.id === matchedCandidate.appointment_id);
-        if (apt) { accountId = apt.account_id; storeId = apt.store_id; }
-      }
+      const accountId: string | null = selectedCandidateAppointment?.account_id || null;
+      const storeId: string | null = selectedCandidateAppointment?.store_id || null;
+
+      // Parse first/last name from candidate_name as a hint for the reviewer
+      const nameParts = (selectedCandidate?.candidate_name || "").trim().split(/\s+/);
+      const firstName = nameParts[0] || null;
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
+      const examinationDate = selectedCandidateAppointment?.scheduled_date
+        ? new Date(selectedCandidateAppointment.scheduled_date).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0];
 
       const pendingPayload = {
         account_id: accountId,
@@ -364,21 +310,11 @@ const ExaminerPortal = () => {
         examiner_id: null,
         original_file_url: publicUrl,
         original_file_name: file.name,
-        extracted_data: extractedData,
-        first_name: extractedData.candidate?.firstName || null,
-        last_name: extractedData.candidate?.lastName || null,
-        id_number: extractedData.candidate?.idNumber || null,
-        email: extractedData.candidate?.email || null,
-        contact_number: extractedData.candidate?.contactNumber || null,
-        physical_address: extractedData.candidate?.physicalAddress || null,
-        position_applying_for: extractedData.candidate?.positionApplyingFor || null,
-        risk_score: extractedData.riskAnalysis?.TotalRiskScore || null,
-        risk_level: extractedData.riskAnalysis?.RiskLevel || null,
-        risk_analysis: extractedData.riskAnalysis || null,
-        examination_date: extractedData.examination?.date
-          ? new Date(extractedData.examination.date).toISOString().split("T")[0]
-          : new Date().toISOString().split("T")[0],
-        overall_result: mapOverallResult(extractedData.examQuestions),
+        extracted_data: null,
+        first_name: firstName,
+        last_name: lastName,
+        id_number: selectedCandidate?.candidate_id_number || null,
+        examination_date: examinationDate,
         status: "pending",
         uploaded_by: user?.id,
         onedrive_recordings: recordingLinks,
@@ -389,13 +325,10 @@ const ExaminerPortal = () => {
 
       toastHook({
         title: "Report Submitted",
-        description: matchedCandidate
-          ? `Report submitted for review. Matched to: ${matchedCandidate.candidate_name}${recordingLinks.length ? ` • ${recordingLinks.length} recording(s) saved to OneDrive` : ""}`
-          : `Report submitted for review by Master Admin.${recordingLinks.length ? ` ${recordingLinks.length} recording(s) saved to OneDrive.` : ""}`,
+        description: `Report linked to ${selectedCandidate?.candidate_name} submitted for Master Admin review.${recordingLinks.length ? ` ${recordingLinks.length} recording(s) saved to OneDrive.` : ""}`,
       });
       setFile(null);
-      setExtractedData(null);
-      setMatchedCandidate(null);
+      setSelectedCandidateId("");
       setUploadedRecordings([]);
       setActiveView("dashboard");
     } catch (err: any) {
