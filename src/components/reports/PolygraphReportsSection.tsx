@@ -263,75 +263,61 @@ const PolygraphReportsSection = ({ canEdit }: PolygraphReportsSectionProps) => {
       return;
     }
 
-    setUploading(true);
-    setUploadingStep('extracting');
-    setExtractedData(null);
-    setExtractionProgress(0);
-    
-    // Simulate progress for better UX (extraction takes ~30-60 seconds)
-    const progressInterval = setInterval(() => {
-      setExtractionProgress(prev => {
-        // Slow down as we approach 90% (leave room for completion)
-        if (prev < 30) return prev + 2;
-        if (prev < 60) return prev + 1.5;
-        if (prev < 80) return prev + 0.8;
-        if (prev < 90) return prev + 0.3;
-        return prev;
-      });
-    }, 500);
-    
-    try {
-      const fileName = file.name.toLowerCase();
-      const isWordDoc = fileName.endsWith('.docx') || fileName.endsWith('.doc');
-      
+    if (!selectedAccountId || !selectedStoreId) {
       toast({
-        title: "Processing Document",
-        description: `AI is extracting data from your ${isWordDoc ? 'Word document' : 'PDF'}. This may take up to a minute...`,
+        title: "Missing Information",
+        description: "Please select an account and store before uploading.",
+        variant: "destructive",
       });
-      
-      const fileBase64 = await fileToBase64(file);
-      setExtractionProgress(15); // File read complete
+      return;
+    }
 
-      // Send as docxBase64 for Word docs, pdfBase64 for PDFs
-      const requestBody = isWordDoc 
-        ? { docxBase64: fileBase64, fileName: file.name }
-        : { pdfBase64: fileBase64, fileName: file.name };
+    setUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
 
-      const { data, error } = await supabase.functions.invoke('extract-polygraph-report', {
-        body: requestBody
+      const uploadId = crypto.randomUUID();
+      const fileName = `pending/${uploadId}/${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("polygraph-reports")
+        .upload(fileName, file, { contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage
+        .from("polygraph-reports")
+        .getPublicUrl(fileName);
+
+      const { error: pendingError } = await supabase
+        .from("pending_polygraph_uploads")
+        .insert([{
+          account_id: selectedAccountId || null,
+          store_id: selectedStoreId || null,
+          examiner_id: selectedExaminerId || null,
+          original_file_url: publicUrl,
+          original_file_name: file.name,
+          status: "pending",
+          uploaded_by: user?.id,
+        }]);
+      if (pendingError) throw pendingError;
+
+      toast({
+        title: "Upload Submitted",
+        description: "The report has been submitted for review. Master Admin will extract and approve.",
       });
 
-      clearInterval(progressInterval);
-
-      if (error) {
-        throw new Error(error.message || 'Failed to process document');
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      if (data?.success && data?.data) {
-        setExtractionProgress(100);
-        setExtractedData(data.data);
-        toast({
-          title: "Data Extracted Successfully",
-          description: "Review the extracted information and save the report.",
-        });
-      } else {
-        throw new Error('No data extracted from document');
-      }
-    } catch (error) {
-      clearInterval(progressInterval);
+      setFile(null);
+      setSelectedAccountId("");
+      setSelectedStoreId("");
+      setSelectedExaminerId("");
+      setActiveTab("reports");
+    } catch (error: any) {
       console.error("Upload error:", error);
       toast({
-        title: "Extraction Failed",
-        description: error instanceof Error ? error.message : "Failed to extract data from the report. Please try again.",
+        title: "Upload Failed",
+        description: error?.message || "Failed to upload the report. Please try again.",
         variant: "destructive",
       });
     } finally {
       setUploading(false);
-      setUploadingStep(null);
     }
   };
 

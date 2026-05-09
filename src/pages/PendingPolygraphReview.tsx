@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Check, X, Eye, FileText, Loader2, Clock, AlertTriangle, Download, Save } from "lucide-react";
+import { ArrowLeft, Check, X, Eye, FileText, Loader2, Clock, AlertTriangle, Download, Save, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { markBadgeLastSeenForUser } from "@/hooks/useBadgeLastSeen";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -77,6 +77,7 @@ const PendingPolygraphReview = () => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [processing, setProcessing] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   
   // Editable fields
   const [editedData, setEditedData] = useState<any>({});
@@ -314,6 +315,153 @@ const PendingPolygraphReview = () => {
   };
 
   const handleApprove = async () => {
+    if (!selectedUpload) return;
+    return _handleApproveImpl();
+  };
+
+  const handleExtractData = async () => {
+    if (!selectedUpload) return;
+
+    setExtracting(true);
+    try {
+      const fileUrl = selectedUpload.converted_pdf_url || selectedUpload.original_file_url;
+      const fileName = selectedUpload.original_file_name;
+      const lower = fileName.toLowerCase();
+      const isWordDoc = lower.endsWith(".docx") || lower.endsWith(".doc");
+
+      // Fetch the file and convert to base64
+      const fileResp = await fetch(fileUrl);
+      if (!fileResp.ok) throw new Error("Failed to download report file for extraction");
+      const buf = await fileResp.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+      }
+      const base64 = btoa(binary);
+
+      const body = isWordDoc
+        ? { docxBase64: base64, fileName }
+        : { pdfBase64: base64, fileName };
+
+      const { data, error } = await supabase.functions.invoke("extract-polygraph-report", { body });
+      if (error) throw new Error(error.message || "Extraction failed");
+      if (data?.error) throw new Error(data.error);
+      if (!data?.success || !data?.data) throw new Error("No data extracted");
+
+      const ext = data.data;
+
+      // Map risk level
+      let riskScore: number | null = null;
+      let riskLevel: string | null = null;
+      if (ext.riskAnalysis) {
+        riskScore = ext.riskAnalysis.TotalRiskScore || null;
+        const rawLevel = (ext.riskAnalysis.RiskLevel || "").toUpperCase().replace(" RISK", "");
+        const mapped = rawLevel === "UNACCEPTABLE" ? "VERY HIGH" : rawLevel;
+        riskLevel = ["LOW", "MEDIUM", "HIGH", "VERY HIGH"].includes(mapped) ? mapped : null;
+      }
+
+      // Map overall result from exam questions
+      const findings = (ext.examQuestions || []).map((q: any) =>
+        (q.finding || q.result || "").toUpperCase()
+      );
+      let overallResult: string | null = null;
+      if (findings.length > 0) {
+        if (findings.some((f: string) => f === "SR")) overallResult = "failed";
+        else if (findings.some((f: string) => f === "INC")) overallResult = "inconclusive";
+        else if (findings.every((f: string) => f === "NSR")) overallResult = "passed";
+        else overallResult = "inconclusive";
+      }
+
+      const examDate = ext.examination?.date
+        ? new Date(ext.examination.date).toISOString().split("T")[0]
+        : selectedUpload.examination_date;
+
+      // Persist extraction back to the pending row
+      const { error: updateError } = await supabase
+        .from("pending_polygraph_uploads")
+        .update({
+          extracted_data: ext,
+          first_name: ext.candidate?.firstName || null,
+          last_name: ext.candidate?.lastName || null,
+          id_number: ext.candidate?.idNumber || null,
+          email: ext.candidate?.email || null,
+          contact_number: ext.candidate?.contactNumber || null,
+          physical_address: ext.candidate?.physicalAddress || null,
+          position_applying_for: ext.candidate?.positionApplyingFor || null,
+          risk_score: riskScore,
+          risk_level: riskLevel,
+          risk_analysis: ext.riskAnalysis || null,
+          examination_date: examDate,
+          overall_result: overallResult,
+        })
+        .eq("id", selectedUpload.id);
+
+      if (updateError) throw updateError;
+
+      // Refresh local edited fields so the reviewer sees the new data immediately
+      setSelectedUpload({
+        ...selectedUpload,
+        extracted_data: ext,
+        first_name: ext.candidate?.firstName || null,
+        last_name: ext.candidate?.lastName || null,
+        id_number: ext.candidate?.idNumber || null,
+        email: ext.candidate?.email || null,
+        contact_number: ext.candidate?.contactNumber || null,
+        physical_address: ext.candidate?.physicalAddress || null,
+        position_applying_for: ext.candidate?.positionApplyingFor || null,
+        risk_score: riskScore,
+        risk_level: riskLevel,
+        risk_analysis: ext.riskAnalysis || null,
+        examination_date: examDate,
+        overall_result: overallResult,
+      } as any);
+
+      setEditedData({
+        first_name: ext.candidate?.firstName || "",
+        last_name: ext.candidate?.lastName || "",
+        id_number: ext.candidate?.idNumber || "",
+        email: ext.candidate?.email || "",
+        contact_number: ext.candidate?.contactNumber || "",
+        physical_address: ext.candidate?.physicalAddress || "",
+        position_applying_for: ext.candidate?.positionApplyingFor || "",
+        examination_date: examDate || new Date().toISOString().split("T")[0],
+        overall_result: overallResult || "",
+        risk_score: riskScore,
+        risk_level: riskLevel || "",
+        risk_analysis: ext.riskAnalysis || {},
+        extracted_data: ext,
+        employment_history: ext.employmentHistory || [],
+        financial_circumstances: ext.financialCircumstances || {},
+        family_criminal_history: [
+          ...(ext.familyCriminalHistory || []),
+          ...(ext.nextOfKin || []),
+        ],
+        friend_criminal_history: ext.friendCriminalHistory || [],
+        personal_law_encounters: ext.personalLawEncounters || {},
+        extracted_disclosure: ext.disclosure || {},
+      });
+
+      fetchPendingUploads();
+
+      toast({
+        title: "Data Extracted",
+        description: "Review the extracted data, edit if needed, then approve.",
+      });
+    } catch (err: any) {
+      console.error("Extraction error:", err);
+      toast({
+        title: "Extraction Failed",
+        description: err.message || "Failed to extract data from the report.",
+        variant: "destructive",
+      });
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const _handleApproveImpl = async () => {
     if (!selectedUpload) return;
 
     // Validate required fields
@@ -956,7 +1104,22 @@ const PendingPolygraphReview = () => {
           </ScrollArea>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={handleSaveChanges} disabled={processing}>
+            <Button
+              variant="default"
+              onClick={handleExtractData}
+              disabled={extracting || processing}
+              className="bg-primary"
+            >
+              {extracting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-2" />
+              )}
+              {selectedUpload?.extracted_data
+                ? "Re-extract Data with AI"
+                : "Extract Data with AI"}
+            </Button>
+            <Button variant="outline" onClick={handleSaveChanges} disabled={processing || extracting}>
               {processing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               <Save className="h-4 w-4 mr-2" />
               Save Changes
@@ -965,12 +1128,20 @@ const PendingPolygraphReview = () => {
               <Button
                 variant="destructive"
                 onClick={() => setRejectDialogOpen(true)}
-                disabled={processing}
+                disabled={processing || extracting}
               >
                 <X className="h-4 w-4 mr-2" />
                 Reject
               </Button>
-              <Button onClick={handleApprove} disabled={processing}>
+              <Button
+                onClick={handleApprove}
+                disabled={processing || extracting || !selectedUpload?.extracted_data}
+                title={
+                  !selectedUpload?.extracted_data
+                    ? "Extract the report data before approving"
+                    : undefined
+                }
+              >
                 {processing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 <Check className="h-4 w-4 mr-2" />
                 Approve
