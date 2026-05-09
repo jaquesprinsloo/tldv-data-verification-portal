@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Upload, FileText, Plus, DollarSign, Eye, Loader2, Trash2 } from "lucide-react";
+import { Upload, FileText, Plus, DollarSign, Eye, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -57,7 +57,7 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
     other_amount: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [extracting, setExtracting] = useState(false);
+  // extraction removed — manual entry only
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -488,28 +488,17 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
                 ref={fileInputRef}
                 onChange={handleFileSelect}
                 className="hidden"
-                disabled={extracting}
-              />
+               />
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={extracting}
                 >
-                  {extracting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 mr-2" />
-                      {selectedFile ? selectedFile.name : "Select PDF"}
-                    </>
-                  )}
+                  <Upload className="h-4 w-4 mr-2" />
+                  {selectedFile ? selectedFile.name : "Select PDF"}
                 </Button>
-                {selectedFile && !extracting && (
+                {selectedFile && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -521,16 +510,16 @@ export const StoreInvoicesTab = ({ storeId, canEdit }: StoreInvoicesTabProps) =>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Upload a PDF and we'll automatically extract the invoice details
+                Upload a PDF and enter the invoice details below
               </p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => { resetForm(); setUploadDialogOpen(false); }} disabled={extracting}>
+            <Button variant="outline" onClick={() => { resetForm(); setUploadDialogOpen(false); }}>
               Cancel
             </Button>
-            <Button onClick={handleUploadInvoice} disabled={uploading || extracting}>
+            <Button onClick={handleUploadInvoice} disabled={uploading}>
               {uploading ? "Saving..." : "Save Invoice"}
             </Button>
           </DialogFooter>

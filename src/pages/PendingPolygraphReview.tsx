@@ -65,6 +65,14 @@ interface Account {
   name: string;
 }
 
+interface AppointmentCandidate {
+  id: string;
+  candidate_name: string;
+  candidate_id_number: string | null;
+  appointment_id: string;
+  application_id: string | null;
+}
+
 const PendingPolygraphReview = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -87,6 +95,9 @@ const PendingPolygraphReview = () => {
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState("");
   const [selectedExaminerId, setSelectedExaminerId] = useState("");
+  const [appointmentCandidates, setAppointmentCandidates] = useState<AppointmentCandidate[]>([]);
+  // "" = not chosen yet (blocks approval); "none" = explicit standalone; otherwise candidate id
+  const [selectedCandidateLink, setSelectedCandidateLink] = useState<string>("");
 
   useEffect(() => {
     checkAuth();
@@ -181,13 +192,18 @@ const PendingPolygraphReview = () => {
   };
 
   const fetchDropdownData = async () => {
-    const [accountsRes, examinersRes] = await Promise.all([
+    const [accountsRes, examinersRes, candidatesRes] = await Promise.all([
       supabase.from("accounts").select("id, name").order("name"),
       supabase.from("examiners").select("id, name").eq("is_active", true).order("name"),
+      supabase
+        .from("polygraph_appointment_candidates")
+        .select("id, candidate_name, candidate_id_number, appointment_id, application_id")
+        .order("created_at", { ascending: false }),
     ]);
 
     if (accountsRes.data) setAccounts(accountsRes.data);
     if (examinersRes.data) setExaminers(examinersRes.data);
+    if (candidatesRes.data) setAppointmentCandidates(candidatesRes.data as AppointmentCandidate[]);
   };
 
   const fetchStoresByAccount = async (accountId: string) => {
@@ -230,6 +246,23 @@ const PendingPolygraphReview = () => {
     setSelectedAccountId(upload.account_id || "");
     setSelectedStoreId(upload.store_id || "");
     setSelectedExaminerId(upload.examiner_id || "");
+
+    // Suggest a candidate match by ID number / name; reviewer must still confirm.
+    const idNum = (upload.id_number || "").trim();
+    const fn = (upload.first_name || "").trim().toLowerCase();
+    const ln = (upload.last_name || "").trim().toLowerCase();
+    const suggested =
+      (idNum &&
+        appointmentCandidates.find(
+          (c) => (c.candidate_id_number || "").trim() === idNum,
+        )) ||
+      (fn && ln &&
+        appointmentCandidates.find((c) => {
+          const n = (c.candidate_name || "").toLowerCase();
+          return n.includes(fn) && n.includes(ln);
+        })) ||
+      null;
+    setSelectedCandidateLink(suggested ? suggested.id : "");
     setReviewDialogOpen(true);
   };
 
@@ -474,6 +507,16 @@ const PendingPolygraphReview = () => {
       return;
     }
 
+    if (!selectedCandidateLink) {
+      toast({
+        title: "Candidate Link Required",
+        description:
+          "Select the candidate application this report belongs to, or choose \"Standalone (no link)\" to approve without linking.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!selectedUpload.converted_pdf_url && selectedUpload.original_file_name.toLowerCase().endsWith(".docx")) {
       toast({
         title: "PDF Required",
@@ -627,58 +670,26 @@ const PendingPolygraphReview = () => {
         }
       }
 
-      // Try to auto-link report to an appointment candidate by ID number or name
+      // Reviewer-confirmed candidate link (or explicit standalone)
       let linkedCandidateName: string | null = null;
-      try {
-        const candidateIdNumber = editedData.id_number?.trim();
-        const candidateFirstName = (editedData.first_name || "").trim().toLowerCase();
-        const candidateLastName = (editedData.last_name || "").trim().toLowerCase();
-
-        // Search appointment candidates
-        const { data: aptCandidates } = await supabase
-          .from("polygraph_appointment_candidates")
-          .select("id, candidate_name, candidate_id_number, appointment_id, application_id");
-
-        if (aptCandidates && aptCandidates.length > 0) {
-          let matched = null;
-
-          // Match by ID number first
-          if (candidateIdNumber) {
-            matched = aptCandidates.find(
-              (c) => c.candidate_id_number && c.candidate_id_number.trim() === candidateIdNumber
-            );
-          }
-
-          // Fallback: match by name
-          if (!matched && candidateFirstName && candidateLastName) {
-            matched = aptCandidates.find((c) => {
-              const name = (c.candidate_name || "").toLowerCase();
-              return name.includes(candidateFirstName) && name.includes(candidateLastName);
-            });
-          }
-
-          if (matched) {
-            linkedCandidateName = matched.candidate_name;
-
-            // Store the report link in a risk request candidate record or update existing
-            if (matched.application_id) {
-              const reportUrl = selectedUpload.converted_pdf_url || selectedUpload.original_file_url;
-              // Check if there's an existing risk request candidate for this application
-              const { data: existingRiskCandidate } = await supabase
+      if (selectedCandidateLink && selectedCandidateLink !== "none") {
+        const matched = appointmentCandidates.find((c) => c.id === selectedCandidateLink);
+        if (matched) {
+          linkedCandidateName = matched.candidate_name;
+          if (matched.application_id) {
+            try {
+              await supabase
                 .from("candex_risk_request_candidates")
-                .select("id")
-                .eq("application_id", matched.application_id)
-                .limit(1);
-
-              if (existingRiskCandidate && existingRiskCandidate.length > 0) {
-                // Could store polygraph report url in a note or separate field if needed
-                console.log("Linked polygraph report to candidate:", matched.candidate_name);
-              }
+                .update({
+                  risk_assessment_url:
+                    selectedUpload.converted_pdf_url || selectedUpload.original_file_url,
+                })
+                .eq("application_id", matched.application_id);
+            } catch (linkError) {
+              console.error("Link update error (non-fatal):", linkError);
             }
           }
         }
-      } catch (linkError) {
-        console.error("Auto-link error (non-fatal):", linkError);
       }
 
       // Update pending upload status
@@ -984,6 +995,30 @@ const PendingPolygraphReview = () => {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label>Link to Candidate Application *</Label>
+                    <Select
+                      value={selectedCandidateLink}
+                      onValueChange={setSelectedCandidateLink}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select candidate to link this report to" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Standalone (no link)</SelectItem>
+                        {appointmentCandidates.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.candidate_name}
+                            {c.candidate_id_number ? ` — ${c.candidate_id_number}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Required. Choose the appointment candidate this report belongs to, or
+                      explicitly mark it as standalone.
+                    </p>
+                  </div>
                   <div className="space-y-2">
                     <Label>Examination Date</Label>
                     <Input
@@ -1135,10 +1170,17 @@ const PendingPolygraphReview = () => {
               </Button>
               <Button
                 onClick={handleApprove}
-                disabled={processing || extracting || !selectedUpload?.extracted_data}
+                disabled={
+                  processing ||
+                  extracting ||
+                  !selectedUpload?.extracted_data ||
+                  !selectedCandidateLink
+                }
                 title={
                   !selectedUpload?.extracted_data
                     ? "Extract the report data before approving"
+                    : !selectedCandidateLink
+                    ? "Link to a candidate (or choose Standalone) before approving"
                     : undefined
                 }
               >
