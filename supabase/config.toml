@@ -41,9 +41,6 @@ verify_jwt = true
 [functions.reset-admin-password]
 verify_jwt = true
 
-[functions.process-pending-upload]
-verify_jwt = true
-
 [functions.approve-pending-upload]
 verify_jwt = true
 
@@ -58,9 +55,6 @@ verify_jwt = false
 
 [functions.link-employee-user]
 verify_jwt = false
-
-[functions.extract-invoice-data]
-verify_jwt = true
 
 [functions.convert-docx-to-pdf]
 verify_jwt = true
