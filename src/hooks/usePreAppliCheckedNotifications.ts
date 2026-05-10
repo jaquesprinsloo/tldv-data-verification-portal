@@ -1,19 +1,16 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-// We track *which* approved application IDs the user has already seen.
-// Using IDs (not a timestamp) means once a notification has been cleared,
-// later edits to the same row (risk_level updates, etc.) cannot re-trigger
-// the badge — only genuinely new approvals will.
+const BADGE_KEY = "preapplichecked-seen-ids";
 const STORAGE_PREFIX = "preappli:seenApprovedIds:";
 
-const getStorageKey = (userId: string) => `${STORAGE_PREFIX}${userId}`;
+const cacheKey = (userId: string) => `${STORAGE_PREFIX}${userId}`;
 
-const readSeenIds = (userId: string): Set<string> => {
+const readCache = (userId: string): Set<string> => {
   if (!userId) return new Set();
   try {
-    const raw = localStorage.getItem(getStorageKey(userId));
+    const raw = localStorage.getItem(cacheKey(userId));
     if (!raw) return new Set();
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? new Set(arr.filter((v) => typeof v === "string")) : new Set();
@@ -22,15 +19,41 @@ const readSeenIds = (userId: string): Set<string> => {
   }
 };
 
-const writeSeenIds = (userId: string, ids: Set<string>) => {
+const writeCache = (userId: string, ids: Set<string>) => {
   if (!userId) return;
   try {
-    // Cap to last 5000 ids to keep storage bounded.
     const arr = Array.from(ids).slice(-5000);
-    localStorage.setItem(getStorageKey(userId), JSON.stringify(arr));
+    localStorage.setItem(cacheKey(userId), JSON.stringify(arr));
   } catch {
     /* ignore */
   }
+};
+
+const fetchRemoteIds = async (userId: string): Promise<Set<string>> => {
+  const { data } = await supabase
+    .from("user_badge_state")
+    .select("seen_ids")
+    .eq("user_id", userId)
+    .eq("badge_key", BADGE_KEY)
+    .maybeSingle();
+  const raw = (data as any)?.seen_ids;
+  if (Array.isArray(raw)) return new Set(raw.filter((v: any) => typeof v === "string"));
+  return new Set();
+};
+
+const writeRemoteIds = async (userId: string, ids: Set<string>) => {
+  const arr = Array.from(ids).slice(-5000);
+  await supabase
+    .from("user_badge_state")
+    .upsert(
+      {
+        user_id: userId,
+        badge_key: BADGE_KEY,
+        seen_ids: arr as any,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,badge_key" }
+    );
 };
 
 export const markPreAppliCheckedNotificationsSeenForUser = async (
@@ -42,18 +65,18 @@ export const markPreAppliCheckedNotificationsSeenForUser = async (
     .select("id")
     .in("status", ["approved", "candexed"])
     .is("deleted_at", null);
-  const seen = readSeenIds(userId);
-  (data || []).forEach((r: any) => r?.id && seen.add(r.id));
-  writeSeenIds(userId, seen);
+  const remote = await fetchRemoteIds(userId);
+  const local = readCache(userId);
+  const merged = new Set<string>([...remote, ...local]);
+  (data || []).forEach((r: any) => r?.id && merged.add(r.id));
+  writeCache(userId, merged);
+  await writeRemoteIds(userId, merged);
 };
 
 /**
- * Tracks newly-approved PreAppliCheck applications (status `approved` or `candexed`)
- * since the user last opened the PreAppliChecked tab.
- *
- * - Per-user unread state via localStorage.
- * - Optional realtime toast when a new approval lands while the user is in the app.
- * - `markSeen()` clears the unread count for the current user.
+ * Tracks newly-approved PreAppliCheck applications since the user last opened
+ * the PreAppliChecked tab. State is synced via Supabase so the same admin
+ * sees consistent unread counts across browsers/tabs/devices.
  */
 export function usePreAppliCheckedNotifications(
   userId: string | null | undefined,
@@ -61,31 +84,35 @@ export function usePreAppliCheckedNotifications(
 ) {
   const { showToast = false } = options;
   const [unreadCount, setUnreadCount] = useState(0);
+  const seenIdsRef = useRef<Set<string>>(new Set());
 
   const refetch = useCallback(async () => {
     if (!userId) {
       setUnreadCount(0);
+      seenIdsRef.current = new Set();
       return;
     }
-    const seen = readSeenIds(userId);
-    const { data } = await supabase
-      .from("candex_applications")
-      .select("id")
-      .in("status", ["approved", "candexed"])
-      .is("deleted_at", null);
+    const [remote, { data }] = await Promise.all([
+      fetchRemoteIds(userId),
+      supabase
+        .from("candex_applications")
+        .select("id")
+        .in("status", ["approved", "candexed"])
+        .is("deleted_at", null),
+    ]);
+    const local = readCache(userId);
+    const merged = new Set<string>([...remote, ...local]);
+    if (merged.size !== remote.size) writeCache(userId, merged);
+    seenIdsRef.current = merged;
     const rows = (data || []) as { id: string }[];
-    const unread = rows.filter((r) => !seen.has(r.id)).length;
-    setUnreadCount(unread);
+    setUnreadCount(rows.filter((r) => !merged.has(r.id)).length);
   }, [userId]);
 
-  // Initial + dependency-driven refetch
   useEffect(() => {
     if (!userId) return;
     refetch();
   }, [userId, refetch]);
 
-  // Realtime subscription: any update on candex_applications that flips into
-  // approved/candexed should bump the badge and (optionally) toast.
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
@@ -108,6 +135,20 @@ export function usePreAppliCheckedNotifications(
                 : "An approved application is now available.",
             });
           }
+          refetch();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "user_badge_state",
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          const row: any = payload.new ?? payload.old;
+          if (row?.badge_key !== BADGE_KEY) return;
           refetch();
         }
       )
