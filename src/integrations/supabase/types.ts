@@ -1747,6 +1747,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_badge_state: {
+        Row: {
+          badge_key: string
+          last_seen_at: string
+          seen_ids: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          badge_key: string
+          last_seen_at?: string
+          seen_ids?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          badge_key?: string
+          last_seen_at?: string
+          seen_ids?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_permissions: {
         Row: {
           created_at: string
