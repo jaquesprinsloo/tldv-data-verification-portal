@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useBadgeLastSeen } from "@/hooks/useBadgeLastSeen";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,20 @@ import BookingConfirmationView, { type BookingData } from "@/components/shared/B
 
 const PolygraphAppointments = () => {
   const queryClient = useQueryClient();
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setCurrentUserId(data.session?.user.id || "");
+    });
+  }, []);
+  // Badge clears once admin views the Requested tab; only new requests revive it.
+  const { lastSeen: requestedLastSeen, markSeen: markRequestedSeen } =
+    useBadgeLastSeen(currentUserId, "polygraph-appts-requested");
+  const [activeApptTab, setActiveApptTab] = useState("requested");
+  useEffect(() => {
+    if (activeApptTab === "requested" && currentUserId) markRequestedSeen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeApptTab, currentUserId]);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>();
@@ -235,6 +250,9 @@ True Lie Detectors & Vetting
   };
 
   const requested = (appointments as any[]).filter((a) => a.status === "requested");
+  const newRequestedCount = (appointments as any[]).filter(
+    (a) => a.status === "requested" && (a.created_at || "") > requestedLastSeen,
+  ).length;
   const scheduled = (appointments as any[]).filter((a) => a.status === "scheduled");
   const assigned = (appointments as any[]).filter((a) => a.status === "assigned");
   const completed = (appointments as any[]).filter((a) => a.status === "completed");
@@ -371,12 +389,12 @@ True Lie Detectors & Vetting
         <Card><CardContent className="py-4 text-center"><p className="text-2xl font-bold text-primary">{completed.length}</p><p className="text-xs text-muted-foreground">Completed</p></CardContent></Card>
       </div>
 
-      <Tabs defaultValue="requested" className="space-y-4">
+      <Tabs value={activeApptTab} onValueChange={setActiveApptTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="requested" className="relative">
             Requested
-            {requested.length > 0 && (
-              <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">{requested.length}</Badge>
+            {newRequestedCount > 0 && (
+              <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]">{newRequestedCount}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
