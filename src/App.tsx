@@ -25,7 +25,7 @@ const queryClient = new QueryClient();
 const RouteAwareInstallButton = () => {
   const location = useLocation();
 
-  if (location.pathname === "/candex-apply") {
+  if (location.pathname === "/candex-apply" || location.pathname === "/preapplicheck-apply") {
     return null;
   }
 
@@ -50,6 +50,7 @@ const App = () => (
           <Route path="/admin/profile-management" element={<ProfileManagement />} />
           <Route path="/admin/pending-polygraph-review" element={<PendingPolygraphReview />} />
           <Route path="/admin/candex-pre-screening" element={<CanDexPreScreening />} />
+          <Route path="/preapplicheck-apply" element={<CandexApplication />} />
           <Route path="/candex-apply" element={<CandexApplication />} />
           <Route path="/examiner" element={<ExaminerPortal />} />
           <Route path="/install" element={<Install />} />

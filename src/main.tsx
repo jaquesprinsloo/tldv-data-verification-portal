@@ -75,7 +75,9 @@ const isPreviewHost =
   window.location.hostname.includes("id-preview--") ||
   window.location.hostname.includes("lovableproject.com");
 
-const isCandidateRoute = window.location.pathname === "/candex-apply";
+const isCandidateRoute =
+  window.location.pathname === "/candex-apply" ||
+  window.location.pathname === "/preapplicheck-apply";
 
 if (isPreviewHost || isInIframe || isCandidateRoute) {
   void unregisterServiceWorkers();
