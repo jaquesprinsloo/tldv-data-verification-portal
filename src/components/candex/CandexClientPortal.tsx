@@ -420,13 +420,13 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       if (error) throw error;
 
       if (inviteMethod === "email" && candidateEmail) {
-        const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
+        const portalUrl = `${PUBLISHED_URL}/preapplicheck-apply?token=${invData.token}`;
         const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
           body: { email: candidateEmail, candidateName, invitationLink: portalUrl },
         });
         if (emailError) throw new Error("Invitation saved but email failed to send");
       } else if (inviteMethod === "whatsapp" && candidatePhone) {
-        const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
+        const portalUrl = `${PUBLISHED_URL}/preapplicheck-apply?token=${invData.token}`;
         const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
           body: { phone: candidatePhone, message: `Hi ${inviteForm.name}, you've been invited to complete a PreAppliCheck. Please click here to begin: ${portalUrl}` },
         });
@@ -479,12 +479,12 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
 
         // Send notification
         if (candidateEmail) {
-          const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
+          const portalUrl = `${PUBLISHED_URL}/preapplicheck-apply?token=${invData.token}`;
           await supabase.functions.invoke("send-candex-invitation", {
             body: { email: candidateEmail, candidateName, invitationLink: portalUrl },
           });
         } else if (candidatePhone) {
-          const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${invData.token}`;
+          const portalUrl = `${PUBLISHED_URL}/preapplicheck-apply?token=${invData.token}`;
           await supabase.functions.invoke("send-whatsapp-invitation", {
             body: { phone: candidatePhone, message: `Hi ${candidate.name}, you've been invited to complete a PreAppliCheck. Please click here to begin: ${portalUrl}` },
           });
@@ -649,13 +649,13 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const resendInvite = useMutation({
     mutationFn: async (inv: any) => {
       if (inv.candidate_email) {
-        const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${inv.token}`;
+        const portalUrl = `${PUBLISHED_URL}/preapplicheck-apply?token=${inv.token}`;
         const { error: emailError } = await supabase.functions.invoke("send-candex-invitation", {
           body: { email: inv.candidate_email, candidateName: inv.candidate_name, invitationLink: portalUrl },
         });
         if (emailError) throw new Error("Failed to resend email");
       } else if (inv.candidate_phone) {
-        const portalUrl = `${PUBLISHED_URL}/candex-apply?token=${inv.token}`;
+        const portalUrl = `${PUBLISHED_URL}/preapplicheck-apply?token=${inv.token}`;
         const { error: waError } = await supabase.functions.invoke("send-whatsapp-invitation", {
           body: { phone: inv.candidate_phone, message: `Reminder: You've been invited to complete a PreAppliCheck. Please click here to begin: ${portalUrl}` },
         });
