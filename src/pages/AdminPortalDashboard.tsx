@@ -513,10 +513,10 @@ const AdminPortalDashboard = () => {
                   )}
                   <div className="flex flex-col items-center text-center space-y-2 sm:space-y-3 md:space-y-4">
                     {portal.key === "candex-pre-screening" ? (
-                      <div className={`p-3 sm:p-4 md:p-6 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
+                      <div className={`p-2 sm:p-3 md:p-4 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
                         hasAccess ? 'bg-white border-red-600' : 'bg-gray-600/30 border-gray-600'
                       }`}>
-                        <img src={preapplicheckLogo} alt="PreAppliCheck" className="w-8 h-8 sm:w-10 sm:h-10 md:w-16 md:h-16 object-contain" />
+                        <img src={preapplicheckLogo} alt="PreAppliCheck" className="w-14 h-14 sm:w-20 sm:h-20 md:w-28 md:h-28 object-contain" />
                       </div>
                     ) : (
                       <div className={`p-3 sm:p-4 md:p-6 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
