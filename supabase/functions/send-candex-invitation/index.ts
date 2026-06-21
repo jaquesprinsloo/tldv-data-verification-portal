@@ -100,7 +100,15 @@ You have been invited to complete a PreAppliCheck pre-screening application. Ple
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
 <tr>
 <td align="center" style="padding: 10px 0 30px 0;">
-<a href="${invitationLink}" target="_blank" style="display: inline-block; background-color: #1a1a1a; color: #ffffff; text-decoration: none; padding: 16px 48px; font-size: 16px; font-weight: 700; border-radius: 8px; letter-spacing: 0.5px; border: 2px solid #1a1a1a;">Begin <span style="color: #DC2626;">PreAppli</span>Check</a>
+<!--[if mso]>
+<v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${invitationLink}" style="height:54px;v-text-anchor:middle;width:280px;" arcsize="15%" strokecolor="#DC2626" strokeweight="1.5pt" fillcolor="#DC2626">
+<w:anchorlock/>
+<center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;letter-spacing:0.5px;">Begin PreAppliCheck &rarr;</center>
+</v:roundrect>
+<![endif]-->
+<!--[if !mso]><!-- -->
+<a href="${invitationLink}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%); background-color: #DC2626; color: #ffffff !important; text-decoration: none; padding: 17px 44px; font-size: 16px; font-weight: 700; border-radius: 10px; letter-spacing: 0.6px; font-family: Arial, Helvetica, sans-serif; box-shadow: 0 6px 16px rgba(220, 38, 38, 0.35); mso-hide: all;">Begin PreAppliCheck &nbsp;&rarr;</a>
+<!--<![endif]-->
 </td>
 </tr>
 </table>
