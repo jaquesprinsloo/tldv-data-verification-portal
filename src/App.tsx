@@ -25,7 +25,12 @@ const queryClient = new QueryClient();
 const RouteAwareInstallButton = () => {
   const location = useLocation();
 
-  if (location.pathname === "/candex-apply" || location.pathname === "/preapplicheck-apply") {
+  // Hide the install button on the candidate application route, on any URL that
+  // carries an invitation token, and on the 404 page (where a candidate with a
+  // broken/stale link could otherwise see admin-app prompts).
+  const hasToken = new URLSearchParams(location.search).has("token");
+  const candidatePaths = ["/candex-apply", "/preapplicheck-apply"];
+  if (candidatePaths.includes(location.pathname) || hasToken) {
     return null;
   }
 
