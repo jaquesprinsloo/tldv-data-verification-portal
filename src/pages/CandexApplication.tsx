@@ -39,24 +39,14 @@ const CandexApplication = () => {
     const loadInvitation = async () => {
       if (!token) { setStep("invalid"); return; }
 
-      const { data, error } = await supabase
-        .from("candex_invitations")
-        .select("*")
-        .eq("token", token)
-        .maybeSingle();
+      const { data: rpcData, error } = await supabase
+        .rpc("get_candex_invitation_by_token", { _token: token });
 
+      const data: any = rpcData;
       if (error || !data) { setStep("invalid"); return; }
 
       if (data.status === "completed") {
-        // Verify an application actually exists for this invitation.
-        // If not (orphan invitation), allow the candidate to redo the submission.
-        const { data: existingApp } = await supabase
-          .from("candex_applications")
-          .select("id")
-          .eq("invitation_id", data.id)
-          .is("deleted_at", null)
-          .maybeSingle();
-        if (existingApp) {
+        if (data.has_application) {
           setInvitation(data);
           setStep("completed");
           return;
@@ -108,49 +98,33 @@ const CandexApplication = () => {
 
   const handleQuestionnaireComplete = useCallback(async (answers: Record<string, any>) => {
     try {
-      // Create application record FIRST (RLS requires invitation status to still be 'sent' or 'opened')
       const candidateName = personalDetails
         ? `${personalDetails.firstName} ${personalDetails.secondName ? personalDetails.secondName + " " : ""}${personalDetails.surname}`.trim()
         : invitation.candidate_name;
 
-      const { data: insertedApp, error: insertError } = await supabase.from("candex_applications").insert([{
-        invitation_id: invitation.id,
-        client_id: invitation.client_id,
-        candidate_name: candidateName,
-        candidate_email: personalDetails?.email || invitation.candidate_email,
-        candidate_phone: personalDetails?.cellphone || invitation.candidate_phone,
-        candidate_id_number: personalDetails?.idNumber || invitation.candidate_id_number,
-        template_id: invitation.template_id,
-        status: "submitted",
-        submitted_at: new Date().toISOString(),
-        answers: {
-          questionnaire: answers,
-          personalDetails,
-          deviceData,
-          popiaAccepted: true,
-          indemnityAccepted: true,
-        } as any,
-      }]).select("id").single();
+      // Submission and invitation status are atomically handled server-side
+      // via the submit_candex_application RPC (validates token + status).
+      const { data: newAppId, error: submitError } = await supabase
+        .rpc("submit_candex_application", {
+          _token: token!,
+          _candidate_name: candidateName,
+          _candidate_email: personalDetails?.email || invitation.candidate_email || "",
+          _candidate_phone: personalDetails?.cellphone || invitation.candidate_phone || "",
+          _candidate_id_number: personalDetails?.idNumber || invitation.candidate_id_number || "",
+          _answers: {
+            questionnaire: answers,
+            personalDetails,
+            deviceData,
+            popiaAccepted: true,
+            indemnityAccepted: true,
+          } as any,
+        });
 
-      if (insertError) {
-        console.error("candex_applications insert failed:", insertError);
-        throw insertError;
+      if (submitError || !newAppId) {
+        console.error("submit_candex_application failed:", submitError);
+        throw submitError || new Error("Submission was not saved. Please try again or contact support.");
       }
-      if (!insertedApp?.id) {
-        // RLS may silently return no row — treat as failure to avoid orphan invitations
-        throw new Error("Submission was not saved. Please try again or contact support.");
-      }
-
-      // Only mark the invitation as completed AFTER we've confirmed the application row exists
-      const { error: invitationUpdateError } = await supabase
-        .from("candex_invitations")
-        .update({ status: "completed" })
-        .eq("token", token!);
-
-      if (invitationUpdateError) {
-        console.error("Invitation update failed (application was saved):", invitationUpdateError);
-        // Don't throw — the application is saved, which is what matters for the review tab
-      }
+      const insertedApp = { id: newAppId as unknown as string };
 
       // Trigger pre-risk profile generation in background (fire-and-forget)
       if (insertedApp?.id) {
