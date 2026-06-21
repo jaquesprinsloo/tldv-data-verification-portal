@@ -1863,6 +1863,10 @@ export type Database = {
         Args: { a: string; b: string }
         Returns: boolean
       }
+      get_candex_invitation_by_token: {
+        Args: { _token: string }
+        Returns: Json
+      }
       get_master_admin_email: { Args: never; Returns: string }
       get_user_roles: {
         Args: { _user_id: string }
@@ -1898,6 +1902,17 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      submit_candex_application: {
+        Args: {
+          _answers: Json
+          _candidate_email: string
+          _candidate_id_number: string
+          _candidate_name: string
+          _candidate_phone: string
+          _token: string
+        }
+        Returns: string
       }
     }
     Enums: {
