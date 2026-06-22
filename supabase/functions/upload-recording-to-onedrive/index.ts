@@ -10,6 +10,12 @@ const corsHeaders = {
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/microsoft_onedrive";
 
+import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+
+// 500 MB upload cap
+const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
+const ALLOWED_MIME_PREFIXES = ["video/", "audio/", "image/", "application/pdf"];
+
 function sanitize(part: string): string {
   // OneDrive disallows: \ / : * ? " < > | and trims leading/trailing dots+spaces
   return (part || "")
@@ -45,6 +51,33 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // Authenticate caller — must be admin/master_admin/examiner
+    const authHeader = req.headers.get("Authorization") || "";
+    const jwt = authHeader.replace("Bearer ", "");
+    if (!jwt) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: userData, error: userErr } = await supabase.auth.getUser(jwt);
+    if (userErr || !userData?.user) {
+      return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { data: roleRows } = await supabase
+      .from("user_roles").select("role").eq("user_id", userData.user.id);
+    const roles = (roleRows || []).map((r: any) => r.role);
+    if (!roles.some((r: string) => ["admin", "master_admin", "examiner"].includes(r))) {
+      return new Response(JSON.stringify({ success: false, error: "Forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
     const ONEDRIVE_API_KEY = Deno.env.get("MICROSOFT_ONEDRIVE_API_KEY");
@@ -68,11 +101,26 @@ Deno.serve(async (req) => {
       );
     }
 
+    // MIME allowlist
+    const mime = String(contentType || "application/octet-stream").toLowerCase();
+    if (!ALLOWED_MIME_PREFIXES.some((p) => mime.startsWith(p))) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Unsupported contentType: ${mime}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Decode base64 → bytes
     const binaryStr = atob(fileBase64);
     const bytes = new Uint8Array(binaryStr.length);
     for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
     const totalSize = bytes.byteLength;
+    if (totalSize > MAX_UPLOAD_BYTES) {
+      return new Response(
+        JSON.stringify({ success: false, error: `File exceeds maximum size of ${MAX_UPLOAD_BYTES} bytes` }),
+        { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const folderPath = buildFolderPath({
       examinerName: examinerName || "Unassigned",

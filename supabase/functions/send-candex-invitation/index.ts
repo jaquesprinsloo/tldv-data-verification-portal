@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +9,10 @@ const corsHeaders = {
 };
 
 const PRODUCTION_URL = "https://tldv-data-verification-portal.lovable.app";
+const ALLOWED_LINK_HOSTS = [
+  "portal.tldv.co.za",
+  "tldv-data-verification-portal.lovable.app",
+];
 
 const RequestSchema = z.object({
   email: z.string().email().max(255),
@@ -21,6 +26,33 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Require authenticated admin/master_admin caller
+    const authHeader = req.headers.get("Authorization") || "";
+    const jwt = authHeader.replace("Bearer ", "");
+    if (!jwt) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(jwt);
+    if (userErr || !userData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+    const { data: roleRows } = await supabaseAdmin
+      .from("user_roles").select("role").eq("user_id", userData.user.id);
+    const roles = (roleRows || []).map((r: any) => r.role);
+    if (!roles.includes("admin") && !roles.includes("master_admin")) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403, headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
+
     const body = await req.json();
     const parsed = RequestSchema.safeParse(body);
     if (!parsed.success) {
@@ -31,6 +63,16 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     const { email, candidateName, invitationLink } = parsed.data;
+
+    // Restrict invitation link to allow-listed hosts to prevent phishing relay
+    let linkHost = "";
+    try { linkHost = new URL(invitationLink).hostname.toLowerCase(); } catch { /* noop */ }
+    if (!ALLOWED_LINK_HOSTS.includes(linkHost)) {
+      return new Response(
+        JSON.stringify({ error: "invitationLink host not allowed" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     const GMAIL_EMAIL = Deno.env.get("GMAIL_EMAIL");
     const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD");

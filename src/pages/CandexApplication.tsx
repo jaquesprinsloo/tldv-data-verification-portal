@@ -129,7 +129,7 @@ const CandexApplication = () => {
       // Trigger pre-risk profile generation in background (fire-and-forget)
       if (insertedApp?.id) {
         supabase.functions.invoke("generate-pre-risk-profile", {
-          body: { application_id: insertedApp.id },
+          body: { application_id: insertedApp.id, token },
         }).catch((err) => console.error("Pre-risk profile generation error:", err));
       }
 
