@@ -179,17 +179,13 @@ serve(async (req) => {
               </div>
               <div class="content">
                 <h2>Welcome, ${firstName} ${lastName}!</h2>
-                <p>Your <strong>${roleDisplay}</strong> account has been created. Below are your login credentials:</p>
+                <p>Your <strong>${roleDisplay}</strong> account has been created. Use the secure link below to set your password and sign in:</p>
                 
                 <div class="credentials-box">
-                  <h3 style="margin-top: 0; color: #dc2626;">Your Login Credentials</h3>
+                  <h3 style="margin-top: 0; color: #dc2626;">Your Account</h3>
                   <div class="credential-item">
                     <div class="credential-label">Email Address</div>
                     <div class="credential-value">${email}</div>
-                  </div>
-                  <div class="credential-item">
-                    <div class="credential-label">Password</div>
-                    <div class="credential-value">${password}</div>
                   </div>
                   <div class="credential-item">
                     <div class="credential-label">Role</div>
@@ -198,12 +194,12 @@ serve(async (req) => {
                 </div>
                 
                 <div class="warning">
-                  <strong>⚠️ Security Notice:</strong>
-                  <p style="margin-bottom: 0;">For security purposes, we strongly recommend changing your password after your first login. Keep these credentials confidential and do not share them with anyone.</p>
+                  <strong>🔐 Set Your Password:</strong>
+                  <p style="margin-bottom: 0;">For your security, your password is not sent by email. Click the button below to set your own password. This link is single-use and will expire shortly.</p>
                 </div>
                 
                 <center>
-                  <a href="${siteUrl}/admin/login" class="button">Login to Portal</a>
+                  <a href="${recoveryLink}" class="button">Set Password &amp; Sign In</a>
                 </center>
                 
                 <p style="margin-top: 30px;">If you have any questions, please contact the master administrator.</p>
