@@ -21,13 +21,16 @@ Deno.serve(async (req) => {
     }
 
     const authHeader = req.headers.get("Authorization") ?? "";
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    if (!authHeader.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Verify caller is authenticated
+    // Use the caller's own JWT so Storage RLS policies are enforced for the
+    // download. Never use the service role here — that would bypass per-bucket
+    // authorization and allow any authenticated user to read any file.
     const userClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -41,10 +44,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data, error } = await supabase.storage.from(bucket).download(path);
+    const { data, error } = await userClient.storage.from(bucket).download(path);
     if (error || !data) {
-      return new Response(JSON.stringify({ error: error?.message || "Not found" }), {
-        status: 404,
+      return new Response(JSON.stringify({ error: "Not found or access denied" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
