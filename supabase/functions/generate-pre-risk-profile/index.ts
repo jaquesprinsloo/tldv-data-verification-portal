@@ -53,7 +53,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const { application_id } = await req.json();
+    const { application_id, token } = await req.json();
     if (!application_id) {
       return new Response(JSON.stringify({ error: "application_id required" }), {
         status: 400,
@@ -64,6 +64,51 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Authorization: accept either (a) a candidate invitation token that
+    // matches this application's invitation, or (b) an authenticated
+    // admin / master_admin caller. Otherwise reject — this endpoint runs
+    // paid AI inference and exposes candidate PII.
+    let authorized = false;
+
+    if (token && typeof token === "string" && /^[a-f0-9]{16,}$/i.test(token)) {
+      const { data: invRow } = await supabase
+        .from("candex_invitations")
+        .select("id")
+        .eq("token", token)
+        .maybeSingle();
+      if (invRow?.id) {
+        const { data: appRow } = await supabase
+          .from("candex_applications")
+          .select("invitation_id")
+          .eq("id", application_id)
+          .maybeSingle();
+        if (appRow?.invitation_id === invRow.id) authorized = true;
+      }
+    }
+
+    if (!authorized) {
+      const authHeader = req.headers.get("Authorization") || "";
+      const jwt = authHeader.replace("Bearer ", "");
+      if (jwt) {
+        const { data: userData } = await supabase.auth.getUser(jwt);
+        if (userData?.user) {
+          const { data: roleRows } = await supabase
+            .from("user_roles").select("role").eq("user_id", userData.user.id);
+          const roles = (roleRows || []).map((r: any) => r.role);
+          if (roles.includes("admin") || roles.includes("master_admin")) {
+            authorized = true;
+          }
+        }
+      }
+    }
+
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Get the application
     const { data: app, error: appErr } = await supabase
