@@ -137,6 +137,22 @@ serve(async (req) => {
         const siteUrl = Deno.env.get('SITE_URL') || 'https://tldv-data-verification-portal.lovable.app';
         const roleDisplay = role === 'master_admin' ? 'Master Admin' : role === 'examiner' ? 'Examiner' : 'Admin';
 
+        // Generate one-time recovery link so the user sets their own password.
+        // Never email the plaintext password.
+        let recoveryLink = `${siteUrl}/admin/login`;
+        try {
+          const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'recovery',
+            email,
+            options: { redirectTo: `${siteUrl}/admin/reset-password` },
+          } as any);
+          if (!linkErr && (linkData as any)?.properties?.action_link) {
+            recoveryLink = (linkData as any).properties.action_link;
+          }
+        } catch (linkGenErr) {
+          console.error('Failed to generate recovery link:', linkGenErr);
+        }
+
         const emailHtml = `
           <!DOCTYPE html>
           <html>
