@@ -241,6 +241,7 @@ const CandexApplication = () => {
       <QuestionnaireScreen
         templateId={invitation.template_id}
         onComplete={handleQuestionnaireComplete}
+        invitationToken={token || undefined}
       />
     );
   }
