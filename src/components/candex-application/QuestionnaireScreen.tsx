@@ -233,6 +233,8 @@ interface QuestionnaireScreenProps {
   initialAnswers?: Record<string, any>;
   /** Pre-populated table cell data (questionnaire.tables blob from candex_applications). */
   initialTableData?: Record<string, string[][][]>;
+  /** Invitation token for unauthenticated candidates. When set, the questionnaire is loaded via a secure RPC that validates the token server-side. */
+  invitationToken?: string;
 }
 
 interface Section {
@@ -274,7 +276,7 @@ interface Question {
   options: string[] | null;
 }
 
-export default function QuestionnaireScreen({ templateId, onComplete, readOnly = false, initialAnswers, initialTableData }: QuestionnaireScreenProps) {
+export default function QuestionnaireScreen({ templateId, onComplete, readOnly = false, initialAnswers, initialTableData, invitationToken }: QuestionnaireScreenProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [sections, setSections] = useState<Section[]>([]);
@@ -293,17 +295,38 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
 
   useEffect(() => {
     const load = async () => {
-      const [secRes, tblRes, qRes] = await Promise.all([
-        supabase.from("candex_template_sections").select("*").eq("template_id", templateId).order("sort_order"),
-        supabase.from("candex_section_tables").select("*").order("sort_order"),
-        supabase.from("candex_template_questions").select("*").order("sort_order"),
-      ]);
+      let rawSections: any[] = [];
+      let rawTables: any[] = [];
+      let rawQuestions: any[] = [];
 
-      const secs = (secRes.data || []) as Section[];
+      if (invitationToken) {
+        // Unauthenticated candidate path: validated server-side by token.
+        const { data, error } = await supabase.rpc("get_candex_template_structure", {
+          _token: invitationToken,
+          _template_id: templateId,
+        });
+        if (!error && data) {
+          const payload = data as { sections?: any[]; tables?: any[]; questions?: any[] };
+          rawSections = payload.sections || [];
+          rawTables = payload.tables || [];
+          rawQuestions = payload.questions || [];
+        }
+      } else {
+        const [secRes, tblRes, qRes] = await Promise.all([
+          supabase.from("candex_template_sections").select("*").eq("template_id", templateId).order("sort_order"),
+          supabase.from("candex_section_tables").select("*").order("sort_order"),
+          supabase.from("candex_template_questions").select("*").order("sort_order"),
+        ]);
+        rawSections = (secRes.data || []) as any[];
+        rawTables = (tblRes.data || []) as any[];
+        rawQuestions = (qRes.data || []) as any[];
+      }
+
+      const secs = rawSections as Section[];
       setSections(secs);
 
       const secIds = secs.map((s) => s.id);
-      const allTables = ((tblRes.data || []) as any[]).filter((t: any) => secIds.includes(t.section_id));
+      const allTables = rawTables.filter((t: any) => secIds.includes(t.section_id));
       const parsedTables: SectionTable[] = allTables.map((t: any) => ({
         ...t,
         column_headers: Array.isArray(t.column_headers) ? t.column_headers : [],
@@ -314,7 +337,7 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
       }));
       setTables(parsedTables);
 
-      const allQuestions = ((qRes.data || []) as any[]).filter((q: any) => secIds.includes(q.section_id));
+      const allQuestions = rawQuestions.filter((q: any) => secIds.includes(q.section_id));
       const parsedQuestions: Question[] = allQuestions.map((q: any) => ({
         ...q,
         options: Array.isArray(q.options) ? q.options : null,
@@ -336,7 +359,7 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
       setLoading(false);
     };
     load();
-  }, [templateId]);
+  }, [templateId, invitationToken]);
 
   const setAnswer = useCallback((key: string, value: any) => {
     setAnswers((prev) => ({ ...prev, [key]: value }));
