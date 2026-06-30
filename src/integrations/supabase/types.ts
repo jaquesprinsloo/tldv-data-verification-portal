@@ -1867,6 +1867,10 @@ export type Database = {
         Args: { _token: string }
         Returns: Json
       }
+      get_candex_template_structure: {
+        Args: { _template_id: string; _token: string }
+        Returns: Json
+      }
       get_master_admin_email: { Args: never; Returns: string }
       get_user_roles: {
         Args: { _user_id: string }
