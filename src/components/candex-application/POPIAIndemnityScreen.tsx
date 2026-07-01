@@ -159,9 +159,13 @@ export default function POPIAIndemnityScreen({ onComplete, invitationToken }: PO
 
   const uploadSelfie = async (): Promise<string | null> => {
     if (!selfieDataUrl) return null;
+    if (!invitationToken) {
+      throw new Error("Missing invitation token — cannot upload selfie.");
+    }
     const blob = dataUrlToBlob(selfieDataUrl);
     const ext = blob.type === "image/png" ? "png" : "jpg";
-    const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
+    // Path MUST start with the invitation token — storage RLS validates it.
+    const path = `${invitationToken}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage
       .from("candex-selfies")
       .upload(path, blob, { contentType: blob.type, upsert: false });
