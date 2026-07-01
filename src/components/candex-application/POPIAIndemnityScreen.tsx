@@ -32,6 +32,7 @@ const FALLBACK_INDEMNITY = "INDEMNITY & CONSENT\n\nPlease contact the administra
 export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScreenProps) {
   const [popiaAccepted, setPopiaAccepted] = useState(false);
   const [indemnityAccepted, setIndemnityAccepted] = useState(false);
+  const [activeTab, setActiveTab] = useState<"popia" | "indemnity">("popia");
   const [loading, setLoading] = useState(false);
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
   const [audioProgress, setAudioProgress] = useState(0);
@@ -363,12 +364,26 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
-            <Tabs defaultValue="popia" className="w-full">
+            <Tabs
+              value={activeTab}
+              onValueChange={(v) => {
+                if (v === "indemnity" && !popiaAccepted) {
+                  toast.error("Please accept the POPIA Declaration first.");
+                  return;
+                }
+                setActiveTab(v as "popia" | "indemnity");
+              }}
+              className="w-full"
+            >
               <TabsList className="w-full bg-zinc-900 border border-zinc-800">
                 <TabsTrigger value="popia" className="flex-1 data-[state=active]:bg-red-600 data-[state=active]:text-white text-xs sm:text-sm">
                   <FileText className="h-4 w-4 mr-1 shrink-0" /> POPIA
                 </TabsTrigger>
-                <TabsTrigger value="indemnity" className="flex-1 data-[state=active]:bg-red-600 data-[state=active]:text-white text-xs sm:text-sm">
+                <TabsTrigger
+                  value="indemnity"
+                  disabled={!popiaAccepted}
+                  className="flex-1 data-[state=active]:bg-red-600 data-[state=active]:text-white text-xs sm:text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                >
                   <FileText className="h-4 w-4 mr-1 shrink-0" /> Indemnity & Consent
                 </TabsTrigger>
               </TabsList>
@@ -384,7 +399,14 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
                   <Checkbox
                     id="popia"
                     checked={popiaAccepted}
-                    onCheckedChange={(c) => setPopiaAccepted(c as boolean)}
+                    onCheckedChange={(c) => {
+                      const accepted = c as boolean;
+                      setPopiaAccepted(accepted);
+                      if (accepted) {
+                        // Auto-advance to the Indemnity tab once POPIA is accepted
+                        setTimeout(() => setActiveTab("indemnity"), 250);
+                      }
+                    }}
                     disabled={loading}
                     className="mt-0.5 border-zinc-600 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
                   />
