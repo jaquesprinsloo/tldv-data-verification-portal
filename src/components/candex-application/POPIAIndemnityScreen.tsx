@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Shield, FileText, Volume2, Camera, RotateCcw, Upload } from "lucide-react";
+import { Loader2, Shield, FileText, PlayCircle, Camera, RotateCcw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +34,7 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
   const [indemnityAccepted, setIndemnityAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const [audioProgress, setAudioProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [selfieDataUrl, setSelfieDataUrl] = useState<string | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
@@ -239,26 +240,34 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
 
     if (playingAudio === label) {
       setPlayingAudio(null);
+      setAudioProgress(0);
       return;
     }
 
     const audio = new Audio(url);
     audioRef.current = audio;
     setPlayingAudio(label);
+    setAudioProgress(0);
 
+    audio.addEventListener("timeupdate", () => {
+      if (audio.duration) setAudioProgress((audio.currentTime / audio.duration) * 100);
+    });
     audio.onended = () => {
       setPlayingAudio(null);
+      setAudioProgress(0);
       audioRef.current = null;
     };
 
     audio.onerror = () => {
       setPlayingAudio(null);
+      setAudioProgress(0);
       audioRef.current = null;
       toast.error("Failed to play audio");
     };
 
     audio.play().catch(() => {
       setPlayingAudio(null);
+      setAudioProgress(0);
       toast.error("Playback failed");
     });
   }, [playingAudio]);
@@ -270,27 +279,52 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
     };
   }, []);
 
-  const AudioPlayer = ({ url, label }: { url: string; label: string }) => (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/80 border border-zinc-700 mb-3">
-      <button
-        onClick={() => handlePlayAudio(label, url)}
-        className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors"
-      >
-        <div className="relative">
-          <Volume2 className="h-5 w-5" />
-          {playingAudio !== label && (
-            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
-            </span>
-          )}
-        </div>
-        <span className="text-sm font-medium">
-          {playingAudio === label ? "Playing..." : `Listen to ${label}`}
+  const AudioPlayer = ({ url, label }: { url: string; label: string }) => {
+    const isPlaying = playingAudio === label;
+    const radius = 12;
+    const circumference = 2 * Math.PI * radius;
+    const dashOffset = circumference - (audioProgress / 100) * circumference;
+    return (
+      <div className="flex items-center justify-center gap-2 mb-3">
+        <span className="text-[11px] text-red-400 font-medium">
+          🎧 Audio Explainer — Listen before accepting
         </span>
-      </button>
-    </div>
-  );
+        <button
+          type="button"
+          onClick={() => handlePlayAudio(label, url)}
+          className="relative inline-flex items-center justify-center flex-shrink-0 w-8 h-8"
+          aria-label={isPlaying ? "Stop audio" : `Play ${label}`}
+        >
+          <svg className="absolute inset-0 w-8 h-8 -rotate-90" viewBox="0 0 32 32">
+            <circle cx="16" cy="16" r={radius} fill="none" stroke="rgb(63, 63, 70)" strokeWidth="2" />
+            {isPlaying && (
+              <circle
+                cx="16" cy="16" r={radius}
+                fill="none"
+                stroke="rgb(220, 38, 38)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={dashOffset}
+                className="transition-[stroke-dashoffset] duration-200"
+              />
+            )}
+          </svg>
+          {isPlaying ? (
+            <span className="relative z-10 w-2.5 h-2.5 bg-red-600 rounded-sm" />
+          ) : (
+            <>
+              <PlayCircle className="relative z-10 h-5 w-5 text-red-400 hover:text-red-300 transition-colors" />
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+              </span>
+            </>
+          )}
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-black">
