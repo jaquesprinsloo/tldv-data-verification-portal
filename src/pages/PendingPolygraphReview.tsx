@@ -215,16 +215,87 @@ const PendingPolygraphReview = () => {
     setStores(data || []);
   };
 
-  const openReviewDialog = (upload: PendingUpload) => {
+  const isNA = (v: any) =>
+    v === null ||
+    v === undefined ||
+    (typeof v === "string" && (v.trim() === "" || v.trim().toUpperCase() === "N/A"));
+
+  const buildStructuredAddress = (pd: any): string => {
+    if (!pd) return "";
+    const lines: string[] = [];
+    const push = (label: string, val: any) => {
+      if (!isNA(val)) lines.push(`${label}: ${String(val).trim()}`);
+    };
+    push("House Number", pd.houseNumber);
+    push("Floor Number", pd.floorNumber);
+    push("Street Name", pd.streetName);
+    push("Complex Name", pd.complexName);
+    push("Suburb", pd.suburb);
+    push("City", pd.city);
+    push("Province", pd.province);
+    push("Postal Code", pd.postalCode);
+    return lines.join("\n");
+  };
+
+  const openReviewDialog = async (upload: PendingUpload) => {
     setSelectedUpload(upload);
     const ext = upload.extracted_data || {};
+
+    // Try to pull structured personal details from the linked candex application.
+    // Match by ID number first, then by first + last name.
+    let personalDetails: any = null;
+    try {
+      const idNum = (upload.id_number || "").trim();
+      let appRow: any = null;
+      if (idNum) {
+        const { data } = await supabase
+          .from("candex_applications")
+          .select("answers")
+          .eq("candidate_id_number", idNum)
+          .is("deleted_at", null)
+          .order("submitted_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        appRow = data;
+      }
+      if (!appRow && upload.first_name && upload.last_name) {
+        const fullName = `${upload.first_name} ${upload.last_name}`.trim();
+        const { data } = await supabase
+          .from("candex_applications")
+          .select("answers")
+          .ilike("candidate_name", `%${fullName}%`)
+          .is("deleted_at", null)
+          .order("submitted_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        appRow = data;
+      }
+      const answers: any = appRow?.answers;
+      personalDetails = answers?.personalDetails || null;
+    } catch (e) {
+      console.warn("Could not fetch structured personal details:", e);
+    }
+
+    const fullFirstName = personalDetails
+      ? [personalDetails.firstName, personalDetails.secondName]
+          .filter((v) => !isNA(v))
+          .join(" ")
+          .trim()
+      : upload.first_name || "";
+    const surname = personalDetails
+      ? personalDetails.surname || upload.last_name || ""
+      : upload.last_name || "";
+    const structuredAddress = personalDetails
+      ? buildStructuredAddress(personalDetails)
+      : upload.physical_address || "";
+
     setEditedData({
-      first_name: upload.first_name || "",
-      last_name: upload.last_name || "",
-      id_number: upload.id_number || "",
-      email: upload.email || "",
-      contact_number: upload.contact_number || "",
-      physical_address: upload.physical_address || "",
+      first_name: fullFirstName,
+      last_name: surname,
+      id_number: personalDetails?.idNumber || upload.id_number || "",
+      email: personalDetails?.email || upload.email || "",
+      contact_number: personalDetails?.cellphone || upload.contact_number || "",
+      physical_address: structuredAddress,
       position_applying_for: upload.position_applying_for || "",
       examination_date: upload.examination_date || new Date().toISOString().split("T")[0],
       overall_result: upload.overall_result || "",
@@ -941,9 +1012,14 @@ const PendingPolygraphReview = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Physical Address</Label>
+                  <p className="text-xs text-muted-foreground">
+                    One line per component. N/A entries are omitted automatically.
+                  </p>
                   <Textarea
                     value={editedData.physical_address || ""}
                     onChange={(e) => setEditedData({ ...editedData, physical_address: e.target.value })}
+                    rows={8}
+                    className="font-mono text-sm whitespace-pre"
                   />
                 </div>
               </TabsContent>
