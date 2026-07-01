@@ -413,6 +413,9 @@ const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  Only active pre-loaded examiners are listed. The appointment will flow to their Examiner Portal.
+                </p>
               </div>
               <div className="space-y-1">
                 <Label>Status</Label>
