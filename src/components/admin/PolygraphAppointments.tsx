@@ -517,7 +517,18 @@ True Lie Detectors & Vetting
           <div className="space-y-4">
             <div>
               <Label>Examiner *</Label>
-              <Select value={selectedExaminerId} onValueChange={setSelectedExaminerId}>
+              <Select value={selectedExaminerId} onValueChange={(v) => {
+                setSelectedExaminerId(v);
+                const ex = (examiners as any[]).find((e: any) => e.id === v);
+                if (ex?.email) {
+                  const match = (examinerProfiles as any[]).find(
+                    (p: any) => (p.email || "").toLowerCase() === ex.email.toLowerCase()
+                  );
+                  setSelectedExaminerUserId(match?.id || "");
+                } else {
+                  setSelectedExaminerUserId("");
+                }
+              }}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Select examiner" /></SelectTrigger>
                 <SelectContent>
                   {examiners.map((ex: any) => (
@@ -525,6 +536,9 @@ True Lie Detectors & Vetting
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Only pre-loaded examiner profiles are listed here.
+              </p>
             </div>
             <div>
               <Label>Examiner User Profile (for portal access)</Label>
