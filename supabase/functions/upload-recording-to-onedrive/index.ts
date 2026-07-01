@@ -22,6 +22,11 @@ const ALLOWED_MIME_PREFIXES = [
   "application/zip",
   "application/x-zip-compressed",
   "application/octet-stream", // raw polygraph capture files (.dat/.bin/.lxe/.lx5/.lx6)
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  "application/msword", // .doc
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+  "application/vnd.ms-excel", // .xls
+  "text/",
 ];
 
 function sanitize(part: string): string {
