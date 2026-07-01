@@ -99,4 +99,17 @@ if (isPreviewHost || isInIframe || isCandidateRoute) {
   });
 }
 
+// Candidates completing the PreAppliCheck should never see any browser-level
+// "install app" prompt (mini-infobar, address-bar icon prompt, etc.). Suppress
+// the event on candidate routes and on any URL that carries an invitation
+// token, regardless of whether the InstallAppButton component is mounted.
+if (
+  isCandidateRoute ||
+  new URLSearchParams(window.location.search).has("token")
+) {
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+  });
+}
+
 createRoot(document.getElementById("root")!).render(<App />);
