@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight, Volume2, VolumeX } from "lucide-react";
 
 interface IntroVideoScreenProps {
   onComplete: () => void;
@@ -17,23 +17,36 @@ export default function IntroVideoScreen({
 }: IntroVideoScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showOutro, setShowOutro] = useState(false);
-  const [started, setStarted] = useState(false);
+  const [muted, setMuted] = useState(false);
 
   // If no video is configured, show the continue prompt immediately.
   useEffect(() => {
     if (!videoUrl) setShowOutro(true);
   }, [videoUrl]);
 
-  const handlePlay = () => {
+  // Attempt autoplay with sound; fall back to muted autoplay when the
+  // browser blocks unmuted playback (no user gesture yet).
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !videoUrl) return;
+    v.muted = false;
+    v.volume = 1;
+    v.play().catch(() => {
+      v.muted = true;
+      setMuted(true);
+      v.play().catch(() => {
+        /* ignore — user can tap to enable sound */
+      });
+    });
+  }, [videoUrl]);
+
+  const enableSound = () => {
     const v = videoRef.current;
     if (!v) return;
     v.muted = false;
     v.volume = 1;
-    v.play()
-      .then(() => setStarted(true))
-      .catch(() => {
-        /* ignore */
-      });
+    setMuted(false);
+    v.play().catch(() => {});
   };
 
   const handleTimeUpdate = () => {
@@ -66,17 +79,16 @@ export default function IntroVideoScreen({
         <div className="text-zinc-600 text-sm">{title}</div>
       )}
 
-      {/* Play button overlay shown until user starts the video */}
-      {videoUrl && !started && !showOutro && (
+      {/* Unmute prompt shown only when autoplay was forced to muted */}
+      {videoUrl && muted && !showOutro && (
         <button
           type="button"
-          onClick={handlePlay}
-          aria-label="Play video"
-          className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 hover:bg-black/50 transition-colors"
+          onClick={enableSound}
+          aria-label="Enable sound"
+          className="absolute bottom-6 right-6 z-10 flex items-center gap-2 rounded-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 text-sm shadow-[0_0_20px_rgba(239,68,68,0.6)] animate-pulse"
         >
-          <span className="flex h-24 w-24 items-center justify-center rounded-full bg-red-600 hover:bg-red-700 text-white shadow-[0_0_40px_rgba(239,68,68,0.7)] animate-pulse">
-            <Play className="h-10 w-10 ml-1" fill="currentColor" />
-          </span>
+          <VolumeX className="h-4 w-4" />
+          Tap for sound
         </button>
       )}
 
