@@ -1031,7 +1031,10 @@ const ExaminerPortal = () => {
           venueAddress: viewBookingApt.venue_address || "",
           status: viewBookingApt.status || "",
           examinerName: userName || user?.email || undefined,
-          candidates: [],
+          candidates: (bookingCandidates as any[]).map((c: any) => ({
+            name: c.candidate_name,
+            idNumber: c.candidate_id_number || undefined,
+          })),
         } : null}
       />
       <DebugDiagnosticsDialog open={debugOpen} onOpenChange={setDebugOpen} />
