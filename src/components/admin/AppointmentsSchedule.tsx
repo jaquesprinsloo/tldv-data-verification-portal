@@ -60,14 +60,19 @@ const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
       const userIds = roles.map((r: any) => r.user_id);
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("email")
+        .select("email, full_name")
         .in("id", userIds);
-      const allowed = new Set(
-        (profiles || [])
-          .map((p: any) => (p.email || "").toLowerCase())
-          .filter(Boolean)
+      const allowedEmails = new Set(
+        (profiles || []).map((p: any) => (p.email || "").toLowerCase()).filter(Boolean)
       );
-      return (data as any[]).filter((e: any) => allowed.has((e.email || "").toLowerCase()));
+      const allowedNames = new Set(
+        (profiles || []).map((p: any) => (p.full_name || "").trim().toLowerCase()).filter(Boolean)
+      );
+      return (data as any[]).filter((e: any) => {
+        const em = (e.email || "").toLowerCase();
+        const nm = (e.name || "").trim().toLowerCase();
+        return (em && allowedEmails.has(em)) || (nm && allowedNames.has(nm));
+      });
     },
   });
 
