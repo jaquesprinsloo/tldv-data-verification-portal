@@ -327,6 +327,7 @@ True Lie Detectors & Vetting
                       const enriched = await enrichWithCandidates(apt);
                       const client = clients.find((c) => c.id === apt.client_id);
                       const candidatesList = enriched._candidates || [];
+                      const examiner = (examiners as any[]).find((ex: any) => ex.id === apt.examiner_id);
                       setViewBookingConfirmation({
                         bookingReference: apt.booking_reference,
                         status: apt.status,
@@ -336,6 +337,7 @@ True Lie Detectors & Vetting
                         venueType: apt.venue_type,
                         venueAddress: apt.venue_address || undefined,
                         preferredArea: apt.preferred_area || undefined,
+                        examinerName: examiner?.name || undefined,
                         candidates: candidatesList.map((c: any) => ({ name: c.candidate_name, idNumber: c.candidate_id_number })),
                         notes: apt.notes || undefined,
                       });
@@ -515,7 +517,18 @@ True Lie Detectors & Vetting
           <div className="space-y-4">
             <div>
               <Label>Examiner *</Label>
-              <Select value={selectedExaminerId} onValueChange={setSelectedExaminerId}>
+              <Select value={selectedExaminerId} onValueChange={(v) => {
+                setSelectedExaminerId(v);
+                const ex = (examiners as any[]).find((e: any) => e.id === v);
+                if (ex?.email) {
+                  const match = (examinerProfiles as any[]).find(
+                    (p: any) => (p.email || "").toLowerCase() === ex.email.toLowerCase()
+                  );
+                  setSelectedExaminerUserId(match?.id || "");
+                } else {
+                  setSelectedExaminerUserId("");
+                }
+              }}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Select examiner" /></SelectTrigger>
                 <SelectContent>
                   {examiners.map((ex: any) => (
@@ -523,6 +536,9 @@ True Lie Detectors & Vetting
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Only pre-loaded examiner profiles are listed here.
+              </p>
             </div>
             <div>
               <Label>Examiner User Profile (for portal access)</Label>

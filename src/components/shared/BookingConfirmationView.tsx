@@ -16,6 +16,7 @@ export interface BookingData {
   venueType: string;
   venueAddress?: string;
   preferredArea?: string;
+  examinerName?: string;
   candidates: { name: string; idNumber?: string }[];
   notes?: string;
 }
@@ -133,6 +134,17 @@ const BookingConfirmationView = ({ open, onClose, data }: BookingConfirmationVie
             {data.venueAddress && <p className="text-xs text-muted-foreground">{data.venueAddress}</p>}
             {data.preferredArea && <p className="text-xs text-muted-foreground">Preferred Area: {data.preferredArea}</p>}
           </div>
+
+          {/* Assigned Examiner */}
+          {data.examinerName && (
+            <div className="bg-muted/40 rounded-lg p-3 space-y-1">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Users className="h-3.5 w-3.5" />
+                <span className="text-[11px] uppercase tracking-wider font-semibold">Assigned Examiner</span>
+              </div>
+              <p className="text-sm font-medium">{data.examinerName}</p>
+            </div>
+          )}
 
           {/* Candidates */}
           <div>

@@ -972,6 +972,7 @@ const ExaminerPortal = () => {
           venueType: viewBookingApt.venue_type || "",
           venueAddress: viewBookingApt.venue_address || "",
           status: viewBookingApt.status || "",
+          examinerName: userName || user?.email || undefined,
           candidates: [],
         } : null}
       />

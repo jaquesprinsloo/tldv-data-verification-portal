@@ -46,8 +46,30 @@ const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
   const { data: examiners = [] } = useQuery({
     queryKey: ["schedule-examiners"],
     queryFn: async () => {
-      const { data } = await supabase.from("examiners").select("id, name");
+      const { data } = await supabase
+        .from("examiners")
+        .select("id, name, email, is_active")
+        .eq("is_active", true)
+        .order("name");
       return data || [];
+    },
+  });
+
+  // Users with examiner role — used to link an appointment to the portal user
+  const { data: examinerProfiles = [] } = useQuery({
+    queryKey: ["schedule-examiner-profiles"],
+    queryFn: async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "examiner");
+      if (!roles?.length) return [];
+      const userIds = roles.map((r) => r.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, email, full_name")
+        .in("id", userIds);
+      return profiles || [];
     },
   });
 
@@ -94,6 +116,17 @@ const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
   const saveEdit = useMutation({
     mutationFn: async () => {
       if (!editing) return;
+      // Auto-resolve assigned_examiner_user_id from the examiner's email
+      let assignedUserId: string | null = null;
+      if (form.examiner_id) {
+        const ex: any = (examiners as any[]).find((e: any) => e.id === form.examiner_id);
+        if (ex?.email) {
+          const match: any = (examinerProfiles as any[]).find(
+            (p: any) => (p.email || "").toLowerCase() === ex.email.toLowerCase()
+          );
+          assignedUserId = match?.id || null;
+        }
+      }
       const payload: any = {
         scheduled_date: form.scheduled_date || null,
         scheduled_time: form.scheduled_time || null,
@@ -101,6 +134,7 @@ const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
         venue_address: form.venue_address?.trim() || null,
         venue_type: form.venue_type || null,
         examiner_id: form.examiner_id || null,
+        assigned_examiner_user_id: assignedUserId,
         status: form.status,
         notes: form.notes?.trim() || null,
         booking_reference: form.booking_reference?.trim() || null,
@@ -379,6 +413,9 @@ const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  Only active pre-loaded examiners are listed. The appointment will flow to their Examiner Portal.
+                </p>
               </div>
               <div className="space-y-1">
                 <Label>Status</Label>
