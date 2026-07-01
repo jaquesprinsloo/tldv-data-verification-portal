@@ -66,3 +66,6 @@ verify_jwt = true
 
 [functions.generate-pre-risk-profile]
 verify_jwt = false
+
+[functions.get-popia-indemnity]
+verify_jwt = false
