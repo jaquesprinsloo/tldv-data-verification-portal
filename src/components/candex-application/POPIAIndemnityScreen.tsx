@@ -167,7 +167,7 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
       .upload(path, blob, { contentType: blob.type, upsert: false });
     if (error) {
       console.error("Selfie upload failed:", error);
-      throw new Error("Failed to upload selfie");
+      throw new Error(error.message || "Failed to upload selfie");
     }
     const { data } = supabase.storage.from("candex-selfies").getPublicUrl(path);
     return data.publicUrl;
