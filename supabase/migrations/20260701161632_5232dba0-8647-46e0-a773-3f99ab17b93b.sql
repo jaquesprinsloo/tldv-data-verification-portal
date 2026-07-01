@@ -1,0 +1,1 @@
+CREATE POLICY "Master admins can view all profiles" ON public.profiles FOR SELECT USING (is_master_admin(auth.uid()));
