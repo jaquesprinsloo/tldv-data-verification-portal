@@ -182,6 +182,20 @@ const ExaminerPortal = () => {
     enabled: !!(appointments as any[]).length,
   });
 
+  // Fetch candidates for the appointment shown in the Booking Confirmation dialog
+  const { data: bookingCandidates = [] } = useQuery({
+    queryKey: ["examiner-booking-candidates", viewBookingApt?.id],
+    queryFn: async () => {
+      if (!viewBookingApt?.id) return [];
+      const { data } = await supabase
+        .from("polygraph_appointment_candidates" as any)
+        .select("candidate_name, candidate_id_number")
+        .eq("appointment_id", viewBookingApt.id);
+      return data || [];
+    },
+    enabled: !!viewBookingApt?.id,
+  });
+
   const handleSignOut = async () => {
     setIsExiting(true);
     sessionStorage.removeItem('examiner_animation_played');
