@@ -58,10 +58,7 @@ const CandexApplication = () => {
       // Fetch template videos if template is assigned
       if (data.template_id) {
         const { data: tplData } = await supabase
-          .from("candex_questionnaire_templates")
-          .select("*")
-          .eq("id", data.template_id)
-          .maybeSingle();
+          .rpc("get_candex_template_videos_by_token", { _token: token });
         if (tplData) {
           setTemplateVideos({
             intro_video_url: (tplData as any).intro_video_url || null,
@@ -189,7 +186,7 @@ const CandexApplication = () => {
   }
 
   if (step === "popia") {
-    return <POPIAIndemnityScreen onComplete={handlePOPIAComplete} />;
+    return <POPIAIndemnityScreen onComplete={handlePOPIAComplete} invitationToken={token} />;
   }
 
   if (step === "personal_details") {
