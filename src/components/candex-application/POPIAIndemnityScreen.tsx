@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
-import SpeakButton from "@/components/shared/SpeakButton";
 
 interface POPIAIndemnityScreenProps {
   onComplete: (deviceData: DeviceData) => void;
@@ -30,15 +29,6 @@ export interface DeviceData {
 const FALLBACK_POPIA = "POPIA DECLARATION\n\nPlease contact the administrator – the POPIA document has not been configured yet.";
 const FALLBACK_INDEMNITY = "INDEMNITY & CONSENT\n\nPlease contact the administrator – the Indemnity document has not been configured yet.";
 
-const extractStoredAudioPath = (storedUrl: string | null): string | null => {
-  if (!storedUrl) return null;
-
-  const pathMatch = storedUrl.match(/\/object\/(?:public|sign)\/employee-documents\/(.+?)(?:\?|$)/);
-  const extractedPath = pathMatch ? decodeURIComponent(pathMatch[1]) : storedUrl.replace(/^\//, "");
-
-  return extractedPath.startsWith("popia-indemnity/") ? extractedPath : null;
-};
-
 export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScreenProps) {
   const [popiaAccepted, setPopiaAccepted] = useState(false);
   const [indemnityAccepted, setIndemnityAccepted] = useState(false);
@@ -56,44 +46,22 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
   const { data: settings } = useQuery({
     queryKey: ["popia-indemnity-settings-public"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("popia_indemnity_settings" as any)
-        .select("*")
-        .limit(1)
-        .single();
-      if (error) return null;
-      return data as any;
+      const { data, error } = await supabase.functions.invoke("get-popia-indemnity");
+      if (error) {
+        console.error("Failed to load POPIA/Indemnity:", error);
+        return null;
+      }
+      return data as {
+        popia_text: string;
+        indemnity_text: string;
+        popia_audio_url: string | null;
+        indemnity_audio_url: string | null;
+      };
     },
   });
 
-  const getSignedAudioUrl = async (storedUrl: string | null): Promise<string | null> => {
-    const path = extractStoredAudioPath(storedUrl);
-    if (!path) return null;
-
-    const { data, error } = await supabase.storage
-      .from("employee-documents")
-      .createSignedUrl(path, 3600);
-
-    if (error) {
-      console.error("Failed to create signed POPIA audio URL:", error);
-      return null;
-    }
-
-    return data?.signedUrl ?? null;
-  };
-
-  const { data: popiaAudioUrl } = useQuery({
-    queryKey: ["popia-audio-signed", settings?.popia_audio_url],
-    queryFn: () => getSignedAudioUrl(settings?.popia_audio_url),
-    enabled: !!settings?.popia_audio_url,
-  });
-
-  const { data: indemnityAudioUrl } = useQuery({
-    queryKey: ["indemnity-audio-signed", settings?.indemnity_audio_url],
-    queryFn: () => getSignedAudioUrl(settings?.indemnity_audio_url),
-    enabled: !!settings?.indemnity_audio_url,
-  });
-
+  const popiaAudioUrl = settings?.popia_audio_url || null;
+  const indemnityAudioUrl = settings?.indemnity_audio_url || null;
   const popiaText = settings?.popia_text || FALLBACK_POPIA;
   const indemnityText = settings?.indemnity_text || FALLBACK_INDEMNITY;
 
@@ -355,12 +323,8 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
               </TabsList>
 
               <TabsContent value="popia" className="mt-4 space-y-4">
-                {popiaAudioUrl ? (
+                {popiaAudioUrl && (
                   <AudioPlayer url={popiaAudioUrl} label="POPIA Declaration" />
-                ) : (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/80 border border-zinc-700 mb-3">
-                    <SpeakButton text={popiaText} label="Listen to POPIA Declaration" />
-                  </div>
                 )}
                 <ScrollArea className="h-[350px] w-full rounded-lg border border-zinc-800 bg-zinc-900 p-4">
                   <div className="whitespace-pre-wrap text-sm text-zinc-300 leading-relaxed">{popiaText}</div>
@@ -381,12 +345,8 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
               </TabsContent>
 
               <TabsContent value="indemnity" className="mt-4 space-y-4">
-                {indemnityAudioUrl ? (
+                {indemnityAudioUrl && (
                   <AudioPlayer url={indemnityAudioUrl} label="Indemnity & Consent" />
-                ) : (
-                  <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/80 border border-zinc-700 mb-3">
-                    <SpeakButton text={indemnityText} label="Listen to Indemnity & Consent" />
-                  </div>
                 )}
                 <ScrollArea className="h-[350px] w-full rounded-lg border border-zinc-800 bg-zinc-900 p-4">
                   <div className="whitespace-pre-wrap text-sm text-zinc-300 leading-relaxed">{indemnityText}</div>
