@@ -433,10 +433,29 @@ const PendingPolygraphReview = () => {
       const lower = fileName.toLowerCase();
       const isWordDoc = lower.endsWith(".docx") || lower.endsWith(".doc");
 
-      // Fetch the file and convert to base64
-      const fileResp = await fetch(fileUrl);
-      if (!fileResp.ok) throw new Error("Failed to download report file for extraction");
-      const buf = await fileResp.arrayBuffer();
+      // The polygraph-reports bucket is private, so a plain fetch() on the
+      // stored public URL returns 400. Extract the storage path and download
+      // via the authenticated storage client instead.
+      const extractPath = (url: string, bucket: string): string | null => {
+        const marker = `/storage/v1/object/`;
+        const idx = url.indexOf(marker);
+        if (idx === -1) return null;
+        const after = url.substring(idx + marker.length); // e.g. "public/polygraph-reports/xxx"
+        const parts = after.split("/");
+        // parts[0] is "public" | "sign" | "authenticated"; parts[1] is bucket
+        const bIdx = parts.indexOf(bucket);
+        if (bIdx === -1) return null;
+        return parts.slice(bIdx + 1).join("/").split("?")[0];
+      };
+
+      const path = extractPath(fileUrl, "polygraph-reports");
+      if (!path) throw new Error("Could not resolve storage path for report file");
+
+      const { data: blob, error: dlErr } = await supabase.storage
+        .from("polygraph-reports")
+        .download(path);
+      if (dlErr || !blob) throw new Error(dlErr?.message || "Failed to download report file for extraction");
+      const buf = await blob.arrayBuffer();
       const bytes = new Uint8Array(buf);
       let binary = "";
       const chunk = 0x8000;
