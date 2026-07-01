@@ -174,7 +174,12 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
 
   const getIPAddress = async (): Promise<string> => {
     try {
-      const res = await fetch("https://api.ipify.org?format=json");
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch("https://api.ipify.org?format=json", {
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
       const data = await res.json();
       return data.ip;
     } catch {
@@ -206,11 +211,23 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
     }
     setLoading(true);
     try {
-      const [ip, gps, selfieUrl] = await Promise.all([
-        getIPAddress(),
-        getGPS(),
-        uploadSelfie(),
-      ]);
+      // Upload the selfie first — this is the only step that can legitimately
+      // fail (storage policy, network). Handle its error explicitly so we
+      // surface a real message instead of a generic "Failed to submit".
+      let selfieUrl: string | null = null;
+      try {
+        selfieUrl = await uploadSelfie();
+      } catch (uploadErr: any) {
+        console.error("Selfie upload error:", uploadErr);
+        toast.error(
+          `Could not upload your selfie: ${uploadErr?.message || "unknown error"}. Please try again or upload a different photo.`,
+        );
+        setLoading(false);
+        return;
+      }
+
+      // IP + GPS are best-effort and must not block the flow.
+      const [ip, gps] = await Promise.all([getIPAddress(), getGPS()]);
       const deviceData: DeviceData = {
         ipAddress: ip,
         gpsLatitude: gps.lat,
@@ -223,9 +240,9 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
         selfieUrl,
       };
       onComplete(deviceData);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to submit. Please try again.");
+    } catch (err: any) {
+      console.error("POPIA handleAccept error:", err);
+      toast.error(`Failed to submit: ${err?.message || "unknown error"}. Please try again.`);
     } finally {
       setLoading(false);
     }
