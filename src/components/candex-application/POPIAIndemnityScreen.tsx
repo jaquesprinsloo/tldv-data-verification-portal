@@ -397,7 +397,10 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
                       setPopiaAccepted(accepted);
                       if (accepted) {
                         // Auto-advance to the Indemnity tab once POPIA is accepted
-                        setTimeout(() => setActiveTab("indemnity"), 250);
+                        setTimeout(() => {
+                          setActiveTab("indemnity");
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }, 250);
                       }
                     }}
                     disabled={loading}
