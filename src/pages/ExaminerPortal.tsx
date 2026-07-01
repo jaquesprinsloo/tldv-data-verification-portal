@@ -353,6 +353,39 @@ const ExaminerPortal = () => {
       const { error } = await supabase.from("pending_polygraph_uploads").insert([pendingPayload as any]);
       if (error) throw error;
 
+      // If every candidate linked to this appointment now has an uploaded
+      // report, flip the appointment status from upcoming to completed so it
+      // moves out of the examiner's upcoming list.
+      const appointmentId = pickedCandidateAppointment?.id;
+      if (appointmentId) {
+        try {
+          const { data: aptCandidates } = await supabase
+            .from("polygraph_appointment_candidates" as any)
+            .select("candidate_id_number")
+            .eq("appointment_id", appointmentId);
+          const idNumbers = ((aptCandidates as any[]) || [])
+            .map((c: any) => c.candidate_id_number)
+            .filter(Boolean);
+          if (idNumbers.length > 0) {
+            const { data: uploaded } = await supabase
+              .from("pending_polygraph_uploads")
+              .select("id_number")
+              .in("id_number", idNumbers);
+            const uploadedIds = new Set(((uploaded as any[]) || []).map((u: any) => u.id_number));
+            const allCovered = idNumbers.every((n: string) => uploadedIds.has(n));
+            if (allCovered) {
+              await supabase
+                .from("polygraph_appointments" as any)
+                .update({ status: "completed", updated_at: new Date().toISOString() })
+                .eq("id", appointmentId);
+              queryClient.invalidateQueries({ queryKey: ["examiner-appointments", user?.id] });
+            }
+          }
+        } catch (e) {
+          console.error("Failed to update appointment status after report upload:", e);
+        }
+      }
+
       toastHook({
         title: "Report Submitted",
         description: `Report linked to ${pickedCandidate?.candidate_name} submitted for Master Admin review.${recordingLinks.length ? ` ${recordingLinks.length} recording(s) saved to OneDrive.` : ""}`,
