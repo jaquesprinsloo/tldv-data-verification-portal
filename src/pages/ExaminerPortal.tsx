@@ -20,6 +20,7 @@ import BookingConfirmationView from "@/components/shared/BookingConfirmationView
 import { User } from "@supabase/supabase-js";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
 import DebugDiagnosticsDialog from "@/components/admin/DebugDiagnosticsDialog";
+import { useBadgeLastSeen } from "@/hooks/useBadgeLastSeen";
 
 type ActiveView = "dashboard" | "appointments" | "upload";
 
@@ -54,6 +55,12 @@ const ExaminerPortal = () => {
   const [isAnimating, setIsAnimating] = useState(!hasSeenAnimation);
   const [isExiting, setIsExiting] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+
+  // Per-user badge tracking for the Appointments card on the dashboard
+  const { lastSeen: apptsLastSeen, markSeen: markApptsSeen } = useBadgeLastSeen(
+    user?.id,
+    "examiner-appointments"
+  );
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -185,6 +192,14 @@ const ExaminerPortal = () => {
   };
 
   const upcomingCount = (appointments as any[]).filter((a: any) => ["assigned", "confirmed"].includes(a.status)).length;
+  // Only count appointments that were created/updated after the examiner last
+  // opened the Appointments view — so the red badge clears once they view it.
+  const unseenUpcomingCount = (appointments as any[]).filter((a: any) => {
+    if (!["assigned", "confirmed"].includes(a.status)) return false;
+    const stamp = a.updated_at || a.created_at;
+    if (!stamp) return true;
+    return new Date(stamp).toISOString() > apptsLastSeen;
+  }).length;
   const completedCount = (appointments as any[]).filter((a: any) => a.status === "completed").length;
 
   const getStatusBadge = (status: string) => {
@@ -354,7 +369,7 @@ const ExaminerPortal = () => {
       title: "Appointments",
       description: "View assigned appointments and candidates",
       icon: CalendarIcon,
-      badge: upcomingCount > 0 ? upcomingCount : null,
+      badge: unseenUpcomingCount > 0 ? unseenUpcomingCount : null,
     },
     {
       key: "upload",
@@ -443,7 +458,12 @@ const ExaminerPortal = () => {
               {portalCards.map((portal) => (
                 <Card
                   key={portal.key}
-                  onClick={() => setActiveView(portal.key as ActiveView)}
+                  onClick={() => {
+                    if (portal.key === "appointments") {
+                      markApptsSeen();
+                    }
+                    setActiveView(portal.key as ActiveView);
+                  }}
                   className="p-5 sm:p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-[3px] border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)] relative"
                 >
                   {portal.badge !== null && (
