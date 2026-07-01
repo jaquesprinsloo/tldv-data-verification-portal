@@ -60,14 +60,19 @@ const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
       const userIds = roles.map((r: any) => r.user_id);
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("email")
+        .select("email, full_name")
         .in("id", userIds);
-      const allowed = new Set(
-        (profiles || [])
-          .map((p: any) => (p.email || "").toLowerCase())
-          .filter(Boolean)
+      const allowedEmails = new Set(
+        (profiles || []).map((p: any) => (p.email || "").toLowerCase()).filter(Boolean)
       );
-      return (data as any[]).filter((e: any) => allowed.has((e.email || "").toLowerCase()));
+      const allowedNames = new Set(
+        (profiles || []).map((p: any) => (p.full_name || "").trim().toLowerCase()).filter(Boolean)
+      );
+      return (data as any[]).filter((e: any) => {
+        const em = (e.email || "").toLowerCase();
+        const nm = (e.name || "").trim().toLowerCase();
+        return (em && allowedEmails.has(em)) || (nm && allowedNames.has(nm));
+      });
     },
   });
 
@@ -136,10 +141,14 @@ const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
       let assignedUserId: string | null = null;
       if (form.examiner_id) {
         const ex: any = (examiners as any[]).find((e: any) => e.id === form.examiner_id);
-        if (ex?.email) {
-          const match: any = (examinerProfiles as any[]).find(
-            (p: any) => (p.email || "").toLowerCase() === ex.email.toLowerCase()
-          );
+        if (ex) {
+          const email = (ex.email || "").toLowerCase();
+          const name = (ex.name || "").trim().toLowerCase();
+          const match: any = (examinerProfiles as any[]).find((p: any) => {
+            const pe = (p.email || "").toLowerCase();
+            const pn = (p.full_name || "").trim().toLowerCase();
+            return (email && pe === email) || (name && pn === name);
+          });
           assignedUserId = match?.id || null;
         }
       }
