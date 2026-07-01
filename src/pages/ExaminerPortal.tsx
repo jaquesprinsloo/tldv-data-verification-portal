@@ -182,6 +182,20 @@ const ExaminerPortal = () => {
     enabled: !!(appointments as any[]).length,
   });
 
+  // Fetch candidates for the appointment shown in the Booking Confirmation dialog
+  const { data: bookingCandidates = [] } = useQuery({
+    queryKey: ["examiner-booking-candidates", viewBookingApt?.id],
+    queryFn: async () => {
+      if (!viewBookingApt?.id) return [];
+      const { data } = await supabase
+        .from("polygraph_appointment_candidates" as any)
+        .select("candidate_name, candidate_id_number")
+        .eq("appointment_id", viewBookingApt.id);
+      return data || [];
+    },
+    enabled: !!viewBookingApt?.id,
+  });
+
   const handleSignOut = async () => {
     setIsExiting(true);
     sessionStorage.removeItem('examiner_animation_played');
@@ -1017,7 +1031,10 @@ const ExaminerPortal = () => {
           venueAddress: viewBookingApt.venue_address || "",
           status: viewBookingApt.status || "",
           examinerName: userName || user?.email || undefined,
-          candidates: [],
+          candidates: (bookingCandidates as any[]).map((c: any) => ({
+            name: c.candidate_name,
+            idNumber: c.candidate_id_number || undefined,
+          })),
         } : null}
       />
       <DebugDiagnosticsDialog open={debugOpen} onOpenChange={setDebugOpen} />
