@@ -14,7 +14,15 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 
 // 500 MB upload cap
 const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
-const ALLOWED_MIME_PREFIXES = ["video/", "audio/", "image/", "application/pdf"];
+const ALLOWED_MIME_PREFIXES = [
+  "video/",
+  "audio/",
+  "image/",
+  "application/pdf",
+  "application/zip",
+  "application/x-zip-compressed",
+  "application/octet-stream", // raw polygraph capture files (.dat/.bin/.lxe/.lx5/.lx6)
+];
 
 function sanitize(part: string): string {
   // OneDrive disallows: \ / : * ? " < > | and trims leading/trailing dots+spaces

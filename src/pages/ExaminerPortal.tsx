@@ -20,6 +20,7 @@ import BookingConfirmationView from "@/components/shared/BookingConfirmationView
 import { User } from "@supabase/supabase-js";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
 import DebugDiagnosticsDialog from "@/components/admin/DebugDiagnosticsDialog";
+import { useBadgeLastSeen } from "@/hooks/useBadgeLastSeen";
 
 type ActiveView = "dashboard" | "appointments" | "upload";
 
@@ -54,6 +55,12 @@ const ExaminerPortal = () => {
   const [isAnimating, setIsAnimating] = useState(!hasSeenAnimation);
   const [isExiting, setIsExiting] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+
+  // Per-user badge tracking for the Appointments card on the dashboard
+  const { lastSeen: apptsLastSeen, markSeen: markApptsSeen } = useBadgeLastSeen(
+    user?.id,
+    "examiner-appointments"
+  );
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -185,6 +192,14 @@ const ExaminerPortal = () => {
   };
 
   const upcomingCount = (appointments as any[]).filter((a: any) => ["assigned", "confirmed"].includes(a.status)).length;
+  // Only count appointments that were created/updated after the examiner last
+  // opened the Appointments view — so the red badge clears once they view it.
+  const unseenUpcomingCount = (appointments as any[]).filter((a: any) => {
+    if (!["assigned", "confirmed"].includes(a.status)) return false;
+    const stamp = a.updated_at || a.created_at;
+    if (!stamp) return true;
+    return new Date(stamp).toISOString() > apptsLastSeen;
+  }).length;
   const completedCount = (appointments as any[]).filter((a: any) => a.status === "completed").length;
 
   const getStatusBadge = (status: string) => {
@@ -354,7 +369,7 @@ const ExaminerPortal = () => {
       title: "Appointments",
       description: "View assigned appointments and candidates",
       icon: CalendarIcon,
-      badge: upcomingCount > 0 ? upcomingCount : null,
+      badge: unseenUpcomingCount > 0 ? unseenUpcomingCount : null,
     },
     {
       key: "upload",
@@ -443,7 +458,12 @@ const ExaminerPortal = () => {
               {portalCards.map((portal) => (
                 <Card
                   key={portal.key}
-                  onClick={() => setActiveView(portal.key as ActiveView)}
+                  onClick={() => {
+                    if (portal.key === "appointments") {
+                      markApptsSeen();
+                    }
+                    setActiveView(portal.key as ActiveView);
+                  }}
                   className="p-5 sm:p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-[3px] border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)] relative"
                 >
                   {portal.badge !== null && (
@@ -856,18 +876,42 @@ const ExaminerPortal = () => {
                               <div><span className="text-muted-foreground">Result:</span> <span className={`font-medium ${risk.risk_assessment_result === "clear" ? "text-green-700" : "text-destructive"}`}>{risk.risk_assessment_result === "clear" ? "No Risk Identified" : "Risk Identified"}</span></div>
                             </div>
                             <Button variant="outline" size="sm" onClick={async () => {
-                              let filePath = risk.risk_assessment_url;
-                              // Extract path from full URL if needed
-                              const bucketMarker = "/object/public/employee-documents/";
-                              const bucketMarker2 = "/object/sign/employee-documents/";
-                              if (filePath.includes(bucketMarker)) {
-                                filePath = filePath.split(bucketMarker)[1];
-                              } else if (filePath.includes(bucketMarker2)) {
-                                filePath = filePath.split(bucketMarker2)[1];
+                              const raw: string = risk.risk_assessment_url;
+                              // The field can hold either a bucket-relative path
+                              // (employee-documents) or a full public URL from
+                              // another bucket (e.g. polygraph-reports when a
+                              // report is linked to a risk candidate).
+                              const buckets = ["employee-documents", "polygraph-reports"];
+                              let bucket: string | null = null;
+                              let filePath: string | null = null;
+                              for (const b of buckets) {
+                                const pub = `/object/public/${b}/`;
+                                const sig = `/object/sign/${b}/`;
+                                if (raw.includes(pub)) {
+                                  bucket = b;
+                                  filePath = raw.split(pub)[1].split("?")[0];
+                                  break;
+                                }
+                                if (raw.includes(sig)) {
+                                  bucket = b;
+                                  filePath = raw.split(sig)[1].split("?")[0];
+                                  break;
+                                }
                               }
-                              const { data, error } = await supabase.storage.from("employee-documents").createSignedUrl(filePath, 3600);
-                              if (data?.signedUrl) setViewRiskUrl(data.signedUrl);
-                              else { console.error("Signed URL error:", error); toast.error("Could not load document"); }
+                              if (!bucket) {
+                                // Plain bucket-relative path → assume employee-documents
+                                bucket = "employee-documents";
+                                filePath = raw.replace(/^\/+/, "");
+                              }
+                              const { data, error } = await supabase.storage
+                                .from(bucket)
+                                .createSignedUrl(filePath!, 3600);
+                              if (data?.signedUrl) {
+                                setViewRiskUrl(data.signedUrl);
+                              } else {
+                                console.error("Signed URL error:", error, { bucket, filePath });
+                                toast.error("Could not load document — file may have been moved or removed.");
+                              }
                             }}>
                               <Eye className="h-4 w-4 mr-2" /> View Risk Assessment
                             </Button>
