@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
+import SpeakButton from "@/components/shared/SpeakButton";
 
 interface POPIAIndemnityScreenProps {
   onComplete: (deviceData: DeviceData) => void;
@@ -354,7 +355,13 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
               </TabsList>
 
               <TabsContent value="popia" className="mt-4 space-y-4">
-                {popiaAudioUrl && <AudioPlayer url={popiaAudioUrl} label="POPIA Declaration" />}
+                {popiaAudioUrl ? (
+                  <AudioPlayer url={popiaAudioUrl} label="POPIA Declaration" />
+                ) : (
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/80 border border-zinc-700 mb-3">
+                    <SpeakButton text={popiaText} label="Listen to POPIA Declaration" />
+                  </div>
+                )}
                 <ScrollArea className="h-[350px] w-full rounded-lg border border-zinc-800 bg-zinc-900 p-4">
                   <div className="whitespace-pre-wrap text-sm text-zinc-300 leading-relaxed">{popiaText}</div>
                 </ScrollArea>
@@ -374,7 +381,13 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
               </TabsContent>
 
               <TabsContent value="indemnity" className="mt-4 space-y-4">
-                {indemnityAudioUrl && <AudioPlayer url={indemnityAudioUrl} label="Indemnity & Consent" />}
+                {indemnityAudioUrl ? (
+                  <AudioPlayer url={indemnityAudioUrl} label="Indemnity & Consent" />
+                ) : (
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-zinc-900/80 border border-zinc-700 mb-3">
+                    <SpeakButton text={indemnityText} label="Listen to Indemnity & Consent" />
+                  </div>
+                )}
                 <ScrollArea className="h-[350px] w-full rounded-lg border border-zinc-800 bg-zinc-900 p-4">
                   <div className="whitespace-pre-wrap text-sm text-zinc-300 leading-relaxed">{indemnityText}</div>
                 </ScrollArea>
