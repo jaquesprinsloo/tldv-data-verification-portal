@@ -5,6 +5,8 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AppointmentsSchedule from "@/components/admin/AppointmentsSchedule";
+import VenueManagement from "@/components/admin/VenueManagement";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User } from "@supabase/supabase-js";
 
 const PolygraphVetting = () => {
@@ -71,8 +73,23 @@ const PolygraphVetting = () => {
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Dashboard
         </Button>
-        
-        <AppointmentsSchedule isMasterAdmin={isMasterAdmin} />
+
+        {isMasterAdmin ? (
+          <Tabs defaultValue="schedule" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2 max-w-md">
+              <TabsTrigger value="schedule">Schedule</TabsTrigger>
+              <TabsTrigger value="venues">Pre-Approved Venues</TabsTrigger>
+            </TabsList>
+            <TabsContent value="schedule">
+              <AppointmentsSchedule isMasterAdmin={isMasterAdmin} />
+            </TabsContent>
+            <TabsContent value="venues">
+              <VenueManagement />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          <AppointmentsSchedule isMasterAdmin={isMasterAdmin} />
+        )}
       </main>
     </div>
   );
