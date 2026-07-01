@@ -5,13 +5,12 @@ import { AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
-import SplashScreen from "@/components/candex-application/SplashScreen";
 import IntroVideoScreen from "@/components/candex-application/IntroVideoScreen";
 import POPIAIndemnityScreen, { type DeviceData } from "@/components/candex-application/POPIAIndemnityScreen";
 import PersonalDetailsScreen, { type PersonalDetails } from "@/components/candex-application/PersonalDetailsScreen";
 import QuestionnaireScreen from "@/components/candex-application/QuestionnaireScreen";
 
-type Step = "loading" | "invalid" | "completed" | "splash" | "intro_video" | "popia" | "personal_details" | "questionnaire_intro" | "questionnaire";
+type Step = "loading" | "invalid" | "completed" | "intro_video" | "popia" | "personal_details" | "questionnaire_intro" | "questionnaire";
 
 const CandexApplication = () => {
   const [searchParams] = useSearchParams();
@@ -75,13 +74,12 @@ const CandexApplication = () => {
         await supabase.rpc("mark_candex_invitation_opened", { _token: token });
       }
 
-      setStep("splash");
+      setStep("intro_video");
     };
 
     loadInvitation();
   }, [token]);
 
-  const handleSplashComplete = useCallback(() => setStep("intro_video"), []);
   const handleIntroComplete = useCallback(() => setStep("popia"), []);
 
   const handlePOPIAComplete = useCallback((data: DeviceData) => {
@@ -177,10 +175,6 @@ const CandexApplication = () => {
         </Card>
       </div>
     );
-  }
-
-  if (step === "splash") {
-    return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
   if (step === "intro_video") {
