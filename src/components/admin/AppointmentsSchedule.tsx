@@ -1,16 +1,28 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarDays, Clock, MapPin, Users, AlertCircle } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Users, AlertCircle, Pencil } from "lucide-react";
 import { format, parseISO, isToday, isFuture, isPast, isThisWeek } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 
 interface AppointmentsScheduleProps {
   isMasterAdmin: boolean;
 }
 
 const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState<any | null>(null);
+  const [form, setForm] = useState<any>({});
+
   const { data: appointments = [], isLoading } = useQuery({
     queryKey: ["appointments-schedule-overview"],
     queryFn: async () => {
@@ -61,6 +73,53 @@ const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
       });
       return counts;
     },
+  });
+
+  const openEdit = (apt: any) => {
+    setEditing(apt);
+    setForm({
+      scheduled_date: apt.scheduled_date || "",
+      scheduled_time: apt.scheduled_time ? String(apt.scheduled_time).slice(0, 5) : "",
+      venue_id: apt.venue_id || "",
+      venue_address: apt.venue_address || "",
+      venue_type: apt.venue_type || "own_location",
+      examiner_id: apt.examiner_id || "",
+      status: apt.status || "requested",
+      notes: apt.notes || "",
+      booking_reference: apt.booking_reference || "",
+      preferred_area: apt.preferred_area || "",
+    });
+  };
+
+  const saveEdit = useMutation({
+    mutationFn: async () => {
+      if (!editing) return;
+      const payload: any = {
+        scheduled_date: form.scheduled_date || null,
+        scheduled_time: form.scheduled_time || null,
+        venue_id: form.venue_id || null,
+        venue_address: form.venue_address?.trim() || null,
+        venue_type: form.venue_type || null,
+        examiner_id: form.examiner_id || null,
+        status: form.status,
+        notes: form.notes?.trim() || null,
+        booking_reference: form.booking_reference?.trim() || null,
+        preferred_area: form.preferred_area?.trim() || null,
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await supabase
+        .from("polygraph_appointments" as any)
+        .update(payload)
+        .eq("id", editing.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Appointment updated");
+      queryClient.invalidateQueries({ queryKey: ["appointments-schedule-overview"] });
+      queryClient.invalidateQueries({ queryKey: ["polygraph-appointments"] });
+      setEditing(null);
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to update"),
   });
 
   const getClientName = (clientId: string) => {
@@ -203,6 +262,7 @@ const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
                     <TableHead>Candidates</TableHead>
                     <TableHead>Examiner</TableHead>
                     <TableHead>Status</TableHead>
+                    {isMasterAdmin && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -250,6 +310,13 @@ const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
                       <TableCell>
                         {getStatusBadge(apt.status)}
                       </TableCell>
+                      {isMasterAdmin && (
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => openEdit(apt)}>
+                            <Pencil className="h-4 w-4 mr-1" /> Edit
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -258,6 +325,92 @@ const AppointmentsSchedule = ({ isMasterAdmin }: AppointmentsScheduleProps) => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Appointment</DialogTitle>
+            <DialogDescription>Update scheduling, venue, examiner, and status.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Date</Label>
+                <Input type="date" value={form.scheduled_date || ""} onChange={(e) => setForm({ ...form, scheduled_date: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Time</Label>
+                <Input type="time" value={form.scheduled_time || ""} onChange={(e) => setForm({ ...form, scheduled_time: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Pre-Approved Venue</Label>
+              <Select value={form.venue_id || "none"} onValueChange={(v) => setForm({ ...form, venue_id: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Select venue" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— None (use address below) —</SelectItem>
+                  {(venues as any[]).map((v: any) => (
+                    <SelectItem key={v.id} value={v.id}>{v.venue_name} — {v.city}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Venue Address / Notes</Label>
+              <Textarea rows={2} value={form.venue_address || ""} onChange={(e) => setForm({ ...form, venue_address: e.target.value })} />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Preferred Area</Label>
+              <Input value={form.preferred_area || ""} onChange={(e) => setForm({ ...form, preferred_area: e.target.value })} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Examiner</Label>
+                <Select value={form.examiner_id || "none"} onValueChange={(v) => setForm({ ...form, examiner_id: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Unassigned —</SelectItem>
+                    {(examiners as any[]).map((e: any) => (
+                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Status</Label>
+                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["requested","scheduled","assigned","confirmed","completed","cancelled"].map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Booking Reference</Label>
+              <Input value={form.booking_reference || ""} onChange={(e) => setForm({ ...form, booking_reference: e.target.value })} />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Notes</Label>
+              <Textarea rows={3} value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button onClick={() => saveEdit.mutate()} disabled={saveEdit.isPending}>
+              {saveEdit.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
