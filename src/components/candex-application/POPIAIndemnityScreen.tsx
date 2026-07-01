@@ -8,7 +8,6 @@ import { Loader2, Shield, FileText, PlayCircle, Camera, RotateCcw, Upload } from
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
 
 interface POPIAIndemnityScreenProps {
   onComplete: (deviceData: DeviceData) => void;
@@ -346,12 +345,6 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
 
   return (
     <div className="min-h-screen bg-black">
-      <div className="border-b border-zinc-800 bg-zinc-950">
-        <div className="container mx-auto px-4 py-3 flex items-center gap-3">
-          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-8" />
-        </div>
-      </div>
-
       <main className="container mx-auto px-4 py-6 max-w-3xl">
         <Card className="bg-zinc-950 border-zinc-800 text-white">
           <CardHeader>
@@ -404,7 +397,10 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
                       setPopiaAccepted(accepted);
                       if (accepted) {
                         // Auto-advance to the Indemnity tab once POPIA is accepted
-                        setTimeout(() => setActiveTab("indemnity"), 250);
+                        setTimeout(() => {
+                          setActiveTab("indemnity");
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }, 250);
                       }
                     }}
                     disabled={loading}
