@@ -186,7 +186,7 @@ const CandexApplication = () => {
   }
 
   if (step === "popia") {
-    return <POPIAIndemnityScreen onComplete={handlePOPIAComplete} />;
+    return <POPIAIndemnityScreen onComplete={handlePOPIAComplete} invitationToken={token} />;
   }
 
   if (step === "personal_details") {
