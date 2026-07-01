@@ -345,12 +345,7 @@ export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScree
 
   return (
     <div className="min-h-screen bg-black">
-      <div className="border-b border-zinc-800 bg-zinc-950">
-        <div className="container mx-auto px-4 py-3 flex items-center gap-3">
-          <img src={preapplicheckLogo} alt="PreAppliCheck" className="h-8" />
-        </div>
-      </div>
-
+    <div className="min-h-screen bg-black">
       <main className="container mx-auto px-4 py-6 max-w-3xl">
         <Card className="bg-zinc-950 border-zinc-800 text-white">
           <CardHeader>
