@@ -1012,9 +1012,14 @@ const PendingPolygraphReview = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Physical Address</Label>
+                  <p className="text-xs text-muted-foreground">
+                    One line per component. N/A entries are omitted automatically.
+                  </p>
                   <Textarea
                     value={editedData.physical_address || ""}
                     onChange={(e) => setEditedData({ ...editedData, physical_address: e.target.value })}
+                    rows={8}
+                    className="font-mono text-sm whitespace-pre"
                   />
                 </div>
               </TabsContent>
