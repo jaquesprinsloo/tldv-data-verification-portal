@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface POPIAIndemnityScreenProps {
   onComplete: (deviceData: DeviceData) => void;
+  invitationToken?: string | null;
 }
 
 export interface DeviceData {
@@ -28,7 +29,7 @@ export interface DeviceData {
 const FALLBACK_POPIA = "POPIA DECLARATION\n\nPlease contact the administrator – the POPIA document has not been configured yet.";
 const FALLBACK_INDEMNITY = "INDEMNITY & CONSENT\n\nPlease contact the administrator – the Indemnity document has not been configured yet.";
 
-export default function POPIAIndemnityScreen({ onComplete }: POPIAIndemnityScreenProps) {
+export default function POPIAIndemnityScreen({ onComplete, invitationToken }: POPIAIndemnityScreenProps) {
   const [popiaAccepted, setPopiaAccepted] = useState(false);
   const [indemnityAccepted, setIndemnityAccepted] = useState(false);
   const [activeTab, setActiveTab] = useState<"popia" | "indemnity">("popia");
