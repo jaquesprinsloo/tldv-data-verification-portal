@@ -72,7 +72,24 @@ const PolygraphAppointments = () => {
     queryKey: ["appointment-examiners"],
     queryFn: async () => {
       const { data } = await supabase.from("examiners").select("*").eq("is_active", true);
-      return data || [];
+      if (!data?.length) return [];
+      // Only include examiners linked to a user account with the 'examiner' role
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "examiner");
+      if (!roles?.length) return [];
+      const userIds = roles.map((r: any) => r.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("email")
+        .in("id", userIds);
+      const allowed = new Set(
+        (profiles || [])
+          .map((p: any) => (p.email || "").toLowerCase())
+          .filter(Boolean)
+      );
+      return (data as any[]).filter((e: any) => allowed.has((e.email || "").toLowerCase()));
     },
   });
 
