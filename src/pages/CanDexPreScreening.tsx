@@ -17,6 +17,7 @@ import CandexClientPortal from "@/components/candex/CandexClientPortal";
 import CandexRiskRequests from "@/components/candex/CandexRiskRequests";
 import PolygraphAppointments from "@/components/admin/PolygraphAppointments";
 import POPIAIndemnityEditor from "@/components/candex/POPIAIndemnityEditor";
+import { useImpersonation, useEffectiveUserId } from "@/hooks/useImpersonation";
 
 const CanDexPreScreening = () => {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ const CanDexPreScreening = () => {
   const [loading, setLoading] = useState(true);
   const [isMasterAdmin, setIsMasterAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState("statistics");
+  const impersonation = useImpersonation();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -46,7 +48,11 @@ const CanDexPreScreening = () => {
         }
 
         const isMaster = roleData.some(r => r.role === "master_admin");
-        setIsMasterAdmin(isMaster);
+        // When a master admin is impersonating a non-master profile, render
+        // the target's view (admin client portal) rather than the master tabs.
+        const effectiveIsMaster =
+          isMaster && (!impersonation || impersonation.role === "master_admin");
+        setIsMasterAdmin(effectiveIsMaster);
         setUser(session.user);
         await markPreAppliCheckedNotificationsSeenForUser(session.user.id);
       } catch (error) {
@@ -58,12 +64,13 @@ const CanDexPreScreening = () => {
     };
 
     checkAuth();
-  }, [navigate]);
+  }, [navigate, impersonation?.userId, impersonation?.role]);
 
   // Per-user "last seen" trackers — badges only count rows that arrived
   // since the admin last opened the corresponding sub-tab. Once a tab is
   // viewed it clears immediately and won't return unless new rows appear.
-  const userId = user?.id || "";
+  // Effective user id — when impersonating, badges/queries scope to the target.
+  const userId = useEffectiveUserId(user?.id);
   const { lastSeen: riskLastSeen, markSeen: markRiskSeen } =
     useBadgeLastSeen(userId, "candex-risk-requests");
   const { lastSeen: apptLastSeen, markSeen: markApptSeen } =
@@ -225,7 +232,7 @@ const CanDexPreScreening = () => {
             </Tabs>
           </div>
         ) : (
-          <CandexClientPortal userId={user?.id || ""} />
+          <CandexClientPortal userId={userId} />
         )}
       </main>
     </div>
