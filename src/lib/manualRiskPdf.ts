@@ -532,8 +532,6 @@ function renderRichParagraphs(
       y += lineHeight;
     });
 
-    // paragraph spacing
-    y += 3;
   }
   return y;
 }
