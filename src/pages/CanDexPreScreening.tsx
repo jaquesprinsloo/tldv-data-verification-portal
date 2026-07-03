@@ -54,7 +54,18 @@ const CanDexPreScreening = () => {
           isMaster && (!impersonation || impersonation.role === "master_admin");
         setIsMasterAdmin(effectiveIsMaster);
         setUser(session.user);
-        await markPreAppliCheckedNotificationsSeenForUser(session.user.id);
+        // Mark the pre-risk / PreAppliChecked notifications as seen for whichever
+        // profile the dashboard badge is scoped to. When a master admin is
+        // impersonating another profile, the dashboard badge is stored under
+        // the target's user_id, so we must clear it for that user (and also
+        // for the master's own id so their real dashboard clears too).
+        const targetId = impersonation?.userId;
+        const ids = Array.from(
+          new Set([session.user.id, targetId].filter(Boolean) as string[])
+        );
+        await Promise.all(
+          ids.map((id) => markPreAppliCheckedNotificationsSeenForUser(id))
+        );
       } catch (error) {
         console.error("Auth error:", error);
         navigate("/admin/login");
