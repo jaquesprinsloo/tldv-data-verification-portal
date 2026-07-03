@@ -501,6 +501,8 @@ function renderRichParagraphs(
       while (line.length && line[line.length - 1].isSpace) line.pop();
       lines.push(line);
     }
+    // Empty paragraph -> render a blank line so editor line breaks show as spacing
+    if (lines.length === 0) lines.push([]);
 
     // Render lines
     lines.forEach((ln, idx) => {
