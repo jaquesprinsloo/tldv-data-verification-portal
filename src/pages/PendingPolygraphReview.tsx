@@ -779,6 +779,18 @@ const PendingPolygraphReview = () => {
               console.error("Link update error (non-fatal):", linkError);
             }
           }
+          // Flip the appointment to "completed" once its report is approved so
+          // the Polygraph column in the PreAppliChecked table shows Clear.
+          if (matched.appointment_id) {
+            try {
+              await supabase
+                .from("polygraph_appointments" as any)
+                .update({ status: "completed" })
+                .eq("id", matched.appointment_id);
+            } catch (statusError) {
+              console.error("Appointment status update error (non-fatal):", statusError);
+            }
+          }
         }
       }
 
