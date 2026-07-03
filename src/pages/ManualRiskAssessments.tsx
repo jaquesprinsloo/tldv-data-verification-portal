@@ -990,22 +990,21 @@ function SubmissionDetailsDialog({
   };
 
   const sendEmail = async () => {
-    const list = emailTo.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
-    if (!list.length) { toast.error("Enter at least one recipient"); return; }
     setSending(true);
     try {
       const blob = await buildPdfBlob();
       const base64 = await blobToBase64(blob);
       const { data, error } = await supabase.functions.invoke("send-manual-risk-report", {
         body: {
-          to: list, message: emailMsg, pdfBase64: base64,
+          message: emailMsg, pdfBase64: base64,
           filename: `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`,
           orderNumber: sub?.order_number,
+          clientName: sub?.client_name ?? null,
         },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
-      toast.success(`Emailed to ${list.length} recipient(s)`);
+      toast.success("Report sent to Admin@tldv.co.za");
       setEmailOpen(false); setEmailMsg("");
     } catch (e) { toast.error((e as Error).message); }
     finally { setSending(false); }
