@@ -290,9 +290,9 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(0, 0, 0);
-    doc.text("Terms & Conditions", margin, cursorY);
+    doc.text("Disclaimer", margin, cursorY);
     doc.setDrawColor(220, 38, 38);
-    doc.line(margin, cursorY + 3, margin + 90, cursorY + 3);
+    doc.line(margin, cursorY + 3, margin + 55, cursorY + 3);
     cursorY += 14;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);

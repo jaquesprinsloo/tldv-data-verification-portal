@@ -536,13 +536,13 @@ function TermsSettingsTab({ userId }: { userId: string }) {
         .insert({ terms_and_conditions: terms, updated_by: userId });
       if (error) { toast.error(error.message); return; }
     }
-    toast.success("Terms & Conditions saved");
+    toast.success("Disclaimer saved");
   };
 
   return (
     <Card className="p-4 space-y-3">
       <div>
-        <h3 className="font-semibold">Report Terms &amp; Conditions</h3>
+        <h3 className="font-semibold">Report Disclaimer</h3>
         <p className="text-xs text-muted-foreground">Applied to every Manual Risk Assessment PDF.</p>
       </div>
       <Textarea rows={12} value={terms} onChange={(e) => setTerms(e.target.value)} disabled={loading}
