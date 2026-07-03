@@ -283,8 +283,8 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
 
   // T&Cs (always on last page, may add new page)
   if (input.termsAndConditions?.trim()) {
-    const terms = doc.splitTextToSize(input.termsAndConditions.trim(), pageWidth - margin * 2);
-    const needed = 40 + terms.length * 10;
+    const t = input.termsAndConditions.trim();
+    const needed = 40 + doc.splitTextToSize(t, pageWidth - margin * 2).length * 10;
     if (cursorY + needed > pageHeight - 60) { doc.addPage(); cursorY = margin; }
     else cursorY += 30;
     doc.setFont("helvetica", "bold");
@@ -297,6 +297,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(70, 70, 70);
+    const terms = doc.splitTextToSize(t, pageWidth - margin * 2);
     doc.text(terms, margin, cursorY);
   }
 
