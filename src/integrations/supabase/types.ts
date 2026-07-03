@@ -748,11 +748,19 @@ export type Database = {
           credit_result: string | null
           criminal_notes: string | null
           criminal_result: string | null
+          drivers_license_notes: string | null
+          drivers_license_result: string | null
           first_name: string
           id: string
           id_number: string
           id_verification_notes: string | null
           id_verification_result: string | null
+          pdp_notes: string | null
+          pdp_result: string | null
+          qualification_notes: string | null
+          qualification_result: string | null
+          risk_assessment_notes: string | null
+          risk_assessment_result: string | null
           sort_order: number
           submission_id: string
           surname: string
@@ -764,11 +772,19 @@ export type Database = {
           credit_result?: string | null
           criminal_notes?: string | null
           criminal_result?: string | null
+          drivers_license_notes?: string | null
+          drivers_license_result?: string | null
           first_name: string
           id?: string
           id_number: string
           id_verification_notes?: string | null
           id_verification_result?: string | null
+          pdp_notes?: string | null
+          pdp_result?: string | null
+          qualification_notes?: string | null
+          qualification_result?: string | null
+          risk_assessment_notes?: string | null
+          risk_assessment_result?: string | null
           sort_order?: number
           submission_id: string
           surname: string
@@ -780,11 +796,19 @@ export type Database = {
           credit_result?: string | null
           criminal_notes?: string | null
           criminal_result?: string | null
+          drivers_license_notes?: string | null
+          drivers_license_result?: string | null
           first_name?: string
           id?: string
           id_number?: string
           id_verification_notes?: string | null
           id_verification_result?: string | null
+          pdp_notes?: string | null
+          pdp_result?: string | null
+          qualification_notes?: string | null
+          qualification_result?: string | null
+          risk_assessment_notes?: string | null
+          risk_assessment_result?: string | null
           sort_order?: number
           submission_id?: string
           surname?: string
@@ -871,6 +895,7 @@ export type Database = {
           id: string
           notes: string | null
           order_number: string
+          requested_checks: string[]
           status: string
           submission_type: string
           updated_at: string
@@ -882,6 +907,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_number: string
+          requested_checks?: string[]
           status?: string
           submission_type: string
           updated_at?: string
@@ -893,6 +919,7 @@ export type Database = {
           id?: string
           notes?: string | null
           order_number?: string
+          requested_checks?: string[]
           status?: string
           submission_type?: string
           updated_at?: string

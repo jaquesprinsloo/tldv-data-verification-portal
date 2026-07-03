@@ -6,12 +6,8 @@ export interface ManualRiskCandidatePdf {
   id_number: string;
   surname: string;
   first_name: string;
-  id_verification_result?: string | null;
-  id_verification_notes?: string | null;
-  credit_result?: string | null;
-  credit_notes?: string | null;
-  criminal_result?: string | null;
-  criminal_notes?: string | null;
+  results?: Record<string, string | null | undefined>;
+  notes?: Record<string, string | null | undefined>;
 }
 
 export interface ManualRiskReportInput {
@@ -23,11 +19,78 @@ export interface ManualRiskReportInput {
   candidates: ManualRiskCandidatePdf[];
   termsAndConditions: string;
   generatedByName?: string | null;
+  requestedChecks: string[];
 }
+
+export const CHECK_META: Record<string, { label: string; short: string; options: { v: string; l: string }[] }> = {
+  id_verification: {
+    label: "ID Verification", short: "ID",
+    options: [
+      { v: "valid", l: "Valid" }, { v: "invalid", l: "Invalid" },
+      { v: "deceased", l: "Deceased" }, { v: "pending", l: "Pending" },
+    ],
+  },
+  credit: {
+    label: "Credit Check", short: "Credit",
+    options: [
+      { v: "low", l: "Low Risk" }, { v: "medium", l: "Medium Risk" },
+      { v: "high", l: "High Risk" }, { v: "very_high", l: "Very High Risk" },
+      { v: "pending", l: "Pending" },
+    ],
+  },
+  risk_assessment: {
+    label: "Risk Assessment", short: "Risk",
+    options: [
+      { v: "low", l: "Low Risk" }, { v: "medium", l: "Medium Risk" },
+      { v: "high", l: "High Risk" }, { v: "very_high", l: "Very High Risk" },
+      { v: "pending", l: "Pending" },
+    ],
+  },
+  drivers_license: {
+    label: "Driver's License Verification", short: "DL",
+    options: [
+      { v: "valid", l: "Valid" }, { v: "invalid", l: "Invalid" },
+      { v: "expired", l: "Expired" }, { v: "pending", l: "Pending" },
+    ],
+  },
+  pdp: {
+    label: "PDP Verification", short: "PDP",
+    options: [
+      { v: "valid", l: "Valid" }, { v: "invalid", l: "Invalid" },
+      { v: "expired", l: "Expired" }, { v: "pending", l: "Pending" },
+    ],
+  },
+  qualification: {
+    label: "Qualification Verification", short: "Qual",
+    options: [
+      { v: "verified", l: "Verified" }, { v: "not_verified", l: "Not Verified" },
+      { v: "pending", l: "Pending" },
+    ],
+  },
+  criminal: {
+    label: "Criminal Check", short: "Criminal",
+    options: [
+      { v: "clear", l: "Clear" }, { v: "record_found", l: "Record Found" },
+      { v: "pending", l: "Pending" },
+    ],
+  },
+};
+
+// DB column mapping per check key
+export const CHECK_COLUMNS: Record<string, { result: string; notes: string }> = {
+  id_verification: { result: "id_verification_result", notes: "id_verification_notes" },
+  credit: { result: "credit_result", notes: "credit_notes" },
+  risk_assessment: { result: "risk_assessment_result", notes: "risk_assessment_notes" },
+  drivers_license: { result: "drivers_license_result", notes: "drivers_license_notes" },
+  pdp: { result: "pdp_result", notes: "pdp_notes" },
+  qualification: { result: "qualification_result", notes: "qualification_notes" },
+  criminal: { result: "criminal_result", notes: "criminal_notes" },
+};
 
 const RESULT_LABELS: Record<string, string> = {
   valid: "Valid",
   invalid: "Invalid",
+  expired: "Expired",
   deceased: "Deceased",
   pending: "Pending",
   low: "Low Risk",
@@ -36,17 +99,22 @@ const RESULT_LABELS: Record<string, string> = {
   very_high: "Very High Risk",
   clear: "Clear",
   record_found: "Record Found",
+  verified: "Verified",
+  not_verified: "Not Verified",
 };
 
 const RESULT_COLORS: Record<string, [number, number, number]> = {
   valid: [22, 163, 74],
   clear: [22, 163, 74],
   low: [22, 163, 74],
+  verified: [22, 163, 74],
   medium: [202, 138, 4],
+  expired: [202, 138, 4],
   high: [234, 88, 12],
   very_high: [185, 28, 28],
   invalid: [185, 28, 28],
   record_found: [185, 28, 28],
+  not_verified: [185, 28, 28],
   deceased: [82, 82, 82],
   pending: [107, 114, 128],
 };
@@ -123,18 +191,20 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   y += 12;
 
   // Table
+  const checks = (input.requestedChecks?.length ? input.requestedChecks : ["id_verification"]).filter(
+    (k) => CHECK_META[k],
+  );
+  const head = [["#", "Candidate", "ID Number", ...checks.map((k) => CHECK_META[k].short)]];
   const body = input.candidates.map((c, idx) => [
     String(idx + 1),
     `${c.surname}, ${c.first_name}`,
     c.id_number,
-    label(c.id_verification_result),
-    label(c.credit_result),
-    label(c.criminal_result),
+    ...checks.map((k) => label(c.results?.[k])),
   ]);
 
   autoTable(doc, {
     startY: y + 6,
-    head: [["#", "Candidate", "ID Number", "ID Verification", "Credit / Risk", "Criminal"]],
+    head,
     body,
     theme: "grid",
     styles: { fontSize: 9, cellPadding: 6, textColor: [30, 30, 30] },
@@ -142,17 +212,11 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     columnStyles: {
       0: { cellWidth: 22, halign: "center" },
       2: { cellWidth: 90 },
-      3: { cellWidth: 82, halign: "center" },
-      4: { cellWidth: 82, halign: "center" },
-      5: { cellWidth: 82, halign: "center" },
     },
     didParseCell: (data) => {
       if (data.section !== "body" || data.column.index < 3) return;
       const cand = input.candidates[data.row.index];
-      const key =
-        data.column.index === 3 ? cand.id_verification_result :
-        data.column.index === 4 ? cand.credit_result :
-        cand.criminal_result;
+      const key = cand.results?.[checks[data.column.index - 3]];
       if (key && RESULT_COLORS[key]) {
         data.cell.styles.textColor = RESULT_COLORS[key];
         data.cell.styles.fontStyle = "bold";
@@ -162,9 +226,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   });
 
   // Notes section (only when any note present)
-  const withNotes = input.candidates.filter(
-    (c) => c.id_verification_notes || c.credit_notes || c.criminal_notes
-  );
+  const withNotes = input.candidates.filter((c) => checks.some((k) => c.notes?.[k]));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let cursorY = (doc as any).lastAutoTable?.finalY ?? y + 40;
   if (withNotes.length) {
@@ -182,9 +244,10 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     for (const c of withNotes) {
       const header = `${c.surname}, ${c.first_name} (${c.id_number})`;
       const lines: string[] = [];
-      if (c.id_verification_notes) lines.push(`• ID Verification: ${c.id_verification_notes}`);
-      if (c.credit_notes) lines.push(`• Credit / Risk: ${c.credit_notes}`);
-      if (c.criminal_notes) lines.push(`• Criminal: ${c.criminal_notes}`);
+      for (const k of checks) {
+        const n = c.notes?.[k];
+        if (n) lines.push(`• ${CHECK_META[k].label}: ${n}`);
+      }
       const wrapped = lines.flatMap((l) => doc.splitTextToSize(l, pageWidth - margin * 2));
       const blockH = 16 + wrapped.length * 12 + 10;
       if (cursorY + blockH > pageHeight - 100) { doc.addPage(); cursorY = margin; }

@@ -21,7 +21,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { generateManualRiskPdf, blobToBase64, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
+import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // ---------- helpers ----------
 
@@ -33,30 +34,24 @@ type Submission = {
   id: string; order_number: string; client_id: string | null;
   submission_type: "single" | "batch"; status: "open" | "completed";
   notes: string | null; created_at: string;
+  requested_checks: string[] | null;
 };
 type Candidate = {
   id: string; submission_id: string; id_number: string;
   surname: string; first_name: string;
-  id_verification_result: string | null; id_verification_notes: string | null;
-  credit_result: string | null; credit_notes: string | null;
-  criminal_result: string | null; criminal_notes: string | null;
   sort_order: number;
+  [key: string]: any;
 };
 
 const sb = supabase as any;
 
-const ID_OPTIONS = [
-  { v: "valid", l: "Valid" }, { v: "invalid", l: "Invalid" },
-  { v: "deceased", l: "Deceased" }, { v: "pending", l: "Pending" },
-];
-const CREDIT_OPTIONS = [
-  { v: "low", l: "Low Risk" }, { v: "medium", l: "Medium Risk" },
-  { v: "high", l: "High Risk" }, { v: "very_high", l: "Very High Risk" },
-  { v: "pending", l: "Pending" },
-];
-const CRIMINAL_OPTIONS = [
-  { v: "clear", l: "Clear" }, { v: "record_found", l: "Record Found" },
-  { v: "pending", l: "Pending" },
+const AVAILABLE_CHECKS: { key: string; label: string }[] = [
+  { key: "id_verification", label: "ID Verification" },
+  { key: "credit", label: "Credit Check" },
+  { key: "risk_assessment", label: "Risk Assessment" },
+  { key: "drivers_license", label: "Driver's License Verification" },
+  { key: "pdp", label: "PDP Verification" },
+  { key: "qualification", label: "Qualification Verification" },
 ];
 
 // ---------- page ----------
@@ -391,6 +386,7 @@ function NewSubmissionDialog({
   const [clientId, setClientId] = useState<string>("");
   const [newClient, setNewClient] = useState<Partial<Client>>({});
   const [saveClient, setSaveClient] = useState(true);
+  const [selectedChecks, setSelectedChecks] = useState<string[]>(["id_verification"]);
   // single mode candidate
   const [singleC, setSingleC] = useState<{ id_number: string; surname: string; first_name: string }>({
     id_number: "", surname: "", first_name: "",
@@ -431,6 +427,7 @@ function NewSubmissionDialog({
 
   const submit = async () => {
     if (!orderNumber.trim()) { toast.error("Order number is required"); return; }
+    if (!selectedChecks.length) { toast.error("Select at least one check"); return; }
     let resolvedClientId: string | null = null;
     if (clientMode === "existing") {
       if (!clientId) { toast.error("Select a client"); return; }
@@ -466,6 +463,7 @@ function NewSubmissionDialog({
           client_id: resolvedClientId,
           submission_type: type,
           status: "open",
+          requested_checks: selectedChecks,
           created_by: userId,
         })
         .select("id").single();
@@ -524,6 +522,29 @@ function NewSubmissionDialog({
             <div>
               <Label>Order Number *</Label>
               <Input value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder="e.g. ORD-2026-0142" />
+            </div>
+
+            <div>
+              <Label>Checks Requested *</Label>
+              <p className="text-xs text-muted-foreground mb-2">Select one or more checks to run for this submission.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border rounded-md p-3">
+                {AVAILABLE_CHECKS.map((c) => {
+                  const checked = selectedChecks.includes(c.key);
+                  return (
+                    <label key={c.key} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          setSelectedChecks((prev) =>
+                            v ? Array.from(new Set([...prev, c.key])) : prev.filter((k) => k !== c.key),
+                          );
+                        }}
+                      />
+                      <span>{c.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             <div>
@@ -673,22 +694,30 @@ function SubmissionDetailsDialog({
     setLocal((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   };
 
+  const activeChecks = (sub?.requested_checks && sub.requested_checks.length
+    ? sub.requested_checks
+    : ["id_verification", "credit", "criminal"]
+  ).filter((k) => CHECK_COLUMNS[k]);
+
   const saveResults = async () => {
     setSaving(true);
     try {
       for (const c of local) {
-        const { error } = await sb.from("manual_risk_candidates").update({
-          id_verification_result: c.id_verification_result,
-          id_verification_notes: c.id_verification_notes,
-          credit_result: c.credit_result,
-          credit_notes: c.credit_notes,
-          criminal_result: c.criminal_result,
-          criminal_notes: c.criminal_notes,
-        }).eq("id", c.id);
+        const patch: Record<string, any> = {};
+        for (const k of activeChecks) {
+          const cols = CHECK_COLUMNS[k];
+          patch[cols.result] = c[cols.result] ?? null;
+          patch[cols.notes] = c[cols.notes] ?? null;
+        }
+        const { error } = await sb.from("manual_risk_candidates").update(patch).eq("id", c.id);
         if (error) throw error;
       }
-      const allComplete = local.every((c) => c.id_verification_result && c.credit_result && c.criminal_result &&
-        ![c.id_verification_result, c.credit_result, c.criminal_result].includes("pending"));
+      const allComplete = local.every((c) =>
+        activeChecks.every((k) => {
+          const v = c[CHECK_COLUMNS[k].result];
+          return v && v !== "pending";
+        }),
+      );
       if (allComplete && sub?.status !== "completed") {
         await sb.from("manual_risk_submissions").update({ status: "completed" }).eq("id", submissionId);
       }
@@ -705,13 +734,15 @@ function SubmissionDetailsDialog({
 
   const buildPdfBlob = async () => {
     const { data: settings } = await sb.from("manual_risk_settings").select("terms_and_conditions").limit(1).maybeSingle();
-    const pdfCandidates: ManualRiskCandidatePdf[] = local.map((c) => ({
-      id_number: c.id_number, surname: c.surname, first_name: c.first_name,
-      id_verification_result: c.id_verification_result,
-      id_verification_notes: c.id_verification_notes,
-      credit_result: c.credit_result, credit_notes: c.credit_notes,
-      criminal_result: c.criminal_result, criminal_notes: c.criminal_notes,
-    }));
+    const pdfCandidates: ManualRiskCandidatePdf[] = local.map((c) => {
+      const results: Record<string, string | null> = {};
+      const notes: Record<string, string | null> = {};
+      for (const k of activeChecks) {
+        results[k] = c[CHECK_COLUMNS[k].result] ?? null;
+        notes[k] = c[CHECK_COLUMNS[k].notes] ?? null;
+      }
+      return { id_number: c.id_number, surname: c.surname, first_name: c.first_name, results, notes };
+    });
     return await generateManualRiskPdf({
       orderNumber: sub?.order_number ?? "",
       clientName: client?.client_name,
@@ -721,6 +752,7 @@ function SubmissionDetailsDialog({
       candidates: pdfCandidates,
       termsAndConditions: settings?.terms_and_conditions ?? "",
       generatedByName: userName,
+      requestedChecks: activeChecks,
     });
   };
 
@@ -778,9 +810,9 @@ function SubmissionDetailsDialog({
               <TableRow>
                 <TableHead className="w-40">Candidate</TableHead>
                 <TableHead className="w-32">ID</TableHead>
-                <TableHead>ID Verification</TableHead>
-                <TableHead>Credit / Risk</TableHead>
-                <TableHead>Criminal</TableHead>
+                {activeChecks.map((k) => (
+                  <TableHead key={k}>{CHECK_META[k]?.label ?? k}</TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -788,30 +820,20 @@ function SubmissionDetailsDialog({
                 <TableRow key={c.id}>
                   <TableCell className="font-medium">{c.surname}, {c.first_name}</TableCell>
                   <TableCell className="font-mono text-xs">{c.id_number}</TableCell>
-                  <TableCell>
-                    <ResultCell
-                      value={c.id_verification_result} notes={c.id_verification_notes}
-                      options={ID_OPTIONS}
-                      onValue={(v) => updateRow(idx, { id_verification_result: v })}
-                      onNotes={(v) => updateRow(idx, { id_verification_notes: v })}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <ResultCell
-                      value={c.credit_result} notes={c.credit_notes}
-                      options={CREDIT_OPTIONS}
-                      onValue={(v) => updateRow(idx, { credit_result: v })}
-                      onNotes={(v) => updateRow(idx, { credit_notes: v })}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <ResultCell
-                      value={c.criminal_result} notes={c.criminal_notes}
-                      options={CRIMINAL_OPTIONS}
-                      onValue={(v) => updateRow(idx, { criminal_result: v })}
-                      onNotes={(v) => updateRow(idx, { criminal_notes: v })}
-                    />
-                  </TableCell>
+                  {activeChecks.map((k) => {
+                    const cols = CHECK_COLUMNS[k];
+                    return (
+                      <TableCell key={k}>
+                        <ResultCell
+                          value={c[cols.result] ?? null}
+                          notes={c[cols.notes] ?? null}
+                          options={CHECK_META[k]?.options ?? []}
+                          onValue={(v) => updateRow(idx, { [cols.result]: v } as any)}
+                          onNotes={(v) => updateRow(idx, { [cols.notes]: v } as any)}
+                        />
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))}
             </TableBody>
