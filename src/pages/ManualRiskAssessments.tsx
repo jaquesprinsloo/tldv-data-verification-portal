@@ -185,9 +185,25 @@ export default function ManualRiskAssessments() {
                           </Badge>
                         </TableCell>
                         <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right space-x-1">
                           <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDetailsSubId(s.id); }}>
                             Open
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!confirm(`Delete submission ${s.order_number}? This permanently removes all candidates and results.`)) return;
+                              const { error: cErr } = await sb.from("manual_risk_candidates").delete().eq("submission_id", s.id);
+                              if (cErr) { toast.error(cErr.message); return; }
+                              const { error } = await sb.from("manual_risk_submissions").delete().eq("id", s.id);
+                              if (error) { toast.error(error.message); return; }
+                              toast.success("Submission deleted");
+                              qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
                           </Button>
                         </TableCell>
                       </TableRow>
