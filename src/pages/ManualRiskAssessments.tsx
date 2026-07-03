@@ -525,6 +525,29 @@ function NewSubmissionDialog({
             </div>
 
             <div>
+              <Label>Checks Requested *</Label>
+              <p className="text-xs text-muted-foreground mb-2">Select one or more checks to run for this submission.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border rounded-md p-3">
+                {AVAILABLE_CHECKS.map((c) => {
+                  const checked = selectedChecks.includes(c.key);
+                  return (
+                    <label key={c.key} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          setSelectedChecks((prev) =>
+                            v ? Array.from(new Set([...prev, c.key])) : prev.filter((k) => k !== c.key),
+                          );
+                        }}
+                      />
+                      <span>{c.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
               <Label>Client</Label>
               <div className="flex gap-2 mb-2 mt-1">
                 <Button type="button" size="sm" variant={clientMode === "existing" ? "default" : "outline"}
