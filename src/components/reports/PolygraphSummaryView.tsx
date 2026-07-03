@@ -104,8 +104,12 @@ const collectKeyFindings = (report: any, examQuestions: any[] = []): string[] =>
     for (const [key, label] of Object.entries(branchLabels)) {
       const branch = (detailed as any)[key];
       if (!branch || typeof branch !== "object") continue;
-      const hasYes = JSON.stringify(branch).toLowerCase().includes('"yes"');
-      if (hasYes) findings.push(`${label} admissions disclosed`);
+      const values = Object.values(branch);
+      const hasAdmission = values.some((v) => meaningful(v));
+      if (hasAdmission) {
+        const detail = values.find((v) => typeof v === "string" && meaningful(v)) as string | undefined;
+        findings.push(detail ? `${label}: ${detail}` : `${label} admissions disclosed`);
+      }
     }
   }
 

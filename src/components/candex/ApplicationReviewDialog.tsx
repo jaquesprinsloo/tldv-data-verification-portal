@@ -13,6 +13,21 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { RISK_CHECKS, RiskCheckKey, RiskCheckResult, RiskCheckStatusBadge } from "./riskCheckTypes";
 import PolygraphSummaryView from "@/components/reports/PolygraphSummaryView";
+import { useToast } from "@/hooks/use-toast";
+
+// Given a public/private Supabase storage URL for the polygraph-reports
+// bucket, extract the object path so we can generate a signed URL.
+const extractPolyReportPath = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  const marker = "/polygraph-reports/";
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  try {
+    return decodeURIComponent(url.slice(idx + marker.length));
+  } catch {
+    return url.slice(idx + marker.length);
+  }
+};
 
 interface ApplicationReviewDialogProps {
   application: any;
@@ -157,6 +172,7 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
   // Approved polygraph_reports row (contains the AI risk_analysis profile).
   const [polyRiskReport, setPolyRiskReport] = useState<any | null>(null);
   const [polyLoading, setPolyLoading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!open) return;
@@ -234,6 +250,15 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
         if (cancelled) return;
         const pac = pacRows?.[0] as any;
         const apt = pac?.polygraph_appointments;
+        // Resolve examiner display name (fallback to profile lookup — no FK exists).
+        if (apt?.assigned_examiner_user_id) {
+          const profQuery: any = supabase.from("profiles");
+          const { data: exam } = await profQuery
+            .select("full_name, email")
+            .eq("user_id", apt.assigned_examiner_user_id)
+            .maybeSingle();
+          apt.assigned_examiner = exam || null;
+        }
         setPolyAppointment(apt || null);
 
         // Try matching an uploaded polygraph report by ID number.
@@ -251,11 +276,9 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           // Approved polygraph_reports row carries the AI risk_analysis
           // (5-category profile) used to render the polygraph summary in
           // the same format as the PreAppliCheck pre-risk profile.
-          const { data: polyRisk } = await supabase
-            .from("polygraph_reports")
-            .select(
-              "id, overall_result, risk_level, risk_score, risk_analysis, examination_date, status",
-            )
+          const polyRiskQuery: any = supabase.from("polygraph_reports");
+          const { data: polyRisk } = await polyRiskQuery
+            .select("*")
             .eq("id_number", idNum)
             .order("examination_date", { ascending: false })
             .limit(1)
@@ -700,6 +723,13 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
                       )}
                     </div>
                     <div className="flex items-center gap-2">
+                      {result?.url && (
+                        <Button asChild variant="outline" size="sm">
+                          <a href={result.url} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-3.5 w-3.5 mr-1" /> View
+                          </a>
+                        </Button>
+                      )}
                       <RiskCheckStatusBadge status={result?.status} />
                     </div>
                   </div>
@@ -709,7 +739,16 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
           </CardContent>
         </Card>
 
-        {/* Shared assessment document — centered action button */}
+        {sharedDocUrl && (
+          <div className="flex justify-center pt-2">
+            <Button asChild>
+              <a href={sharedDocUrl} target="_blank" rel="noopener noreferrer">
+                View Risk Assessment Document
+                <ExternalLink className="h-4 w-4 ml-2" />
+              </a>
+            </Button>
+          </div>
+        )}
       </div>
     );
   };
@@ -730,12 +769,42 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
         </div>
       );
     }
+    const venueLabel = (() => {
+      switch (polyAppointment.venue_type) {
+        case "own_location": return "Own Location";
+        case "rented_venue": return "Rented Venue";
+        case "tldv_venue": return "TLDV Vetted Venue";
+        default: return polyAppointment.venue_type;
+      }
+    })();
+    const examinerDisplay =
+      polyAppointment.assigned_examiner?.full_name ||
+      polyAppointment.assigned_examiner?.email ||
+      "Not assigned";
+
+    const handleViewReport = async () => {
+      const raw = polyReport?.converted_pdf_url || polyReport?.original_file_url;
+      const path = extractPolyReportPath(raw);
+      if (!path) {
+        toast({ title: "Report unavailable", description: "No file linked to this report.", variant: "destructive" });
+        return;
+      }
+      const { data, error } = await supabase.storage
+        .from("polygraph-reports")
+        .createSignedUrl(path, 300);
+      if (error || !data?.signedUrl) {
+        toast({ title: "Could not open report", description: error?.message || "File may have been moved.", variant: "destructive" });
+        return;
+      }
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    };
+
     return (
       <div className="space-y-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Brain className="h-4 w-4 text-primary" /> Polygraph Appointment
+              <Brain className="h-4 w-4 text-primary" /> Polygraph Booking Confirmation
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -743,8 +812,11 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
             <InfoRow label="Booking Reference" value={polyAppointment.booking_reference} />
             <InfoRow label="Scheduled Date" value={polyAppointment.scheduled_date ? format(new Date(polyAppointment.scheduled_date), "dd MMM yyyy") : null} />
             <InfoRow label="Scheduled Time" value={polyAppointment.scheduled_time} />
-            <InfoRow label="Venue" value={polyAppointment.venue_type} />
+            <InfoRow label="Venue" value={venueLabel} />
             <InfoRow label="Venue Address" value={polyAppointment.venue_address} />
+            <InfoRow label="Preferred Area" value={polyAppointment.preferred_area} />
+            <InfoRow label="Examiner" value={examinerDisplay} />
+            {polyAppointment.notes && <InfoRow label="Notes" value={polyAppointment.notes} />}
           </CardContent>
         </Card>
 
@@ -753,11 +825,9 @@ export default function ApplicationReviewDialog({ application, open, onClose, on
             <PolygraphSummaryView report={polyRiskReport} />
             {(polyReport?.converted_pdf_url || polyReport?.original_file_url) && (
               <div className="flex justify-center pt-2">
-                <Button asChild>
-                  <a href={polyReport.converted_pdf_url || polyReport.original_file_url} target="_blank" rel="noopener noreferrer">
-                    View Polygraph Report
-                    <ExternalLink className="h-4 w-4 ml-2" />
-                  </a>
+                <Button onClick={handleViewReport}>
+                  View Polygraph Report
+                  <ExternalLink className="h-4 w-4 ml-2" />
                 </Button>
               </div>
             )}
