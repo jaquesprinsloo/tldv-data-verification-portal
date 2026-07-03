@@ -326,7 +326,7 @@ export default function ManualRiskAssessments() {
       )}
 
       <Dialog open={!!previewReport} onOpenChange={(open) => !open && closePreviewReport()}>
-        <DialogContent className="max-w-6xl h-[92vh] p-0 overflow-hidden">
+        <DialogContent className="max-w-6xl h-[92vh] p-0 overflow-hidden flex flex-col">
           <DialogHeader className="px-4 pt-4 pb-2 border-b">
             <DialogTitle>{previewReport?.title ?? "Report Preview"}</DialogTitle>
           </DialogHeader>
