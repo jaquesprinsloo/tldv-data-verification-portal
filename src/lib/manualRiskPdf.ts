@@ -297,8 +297,9 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(70, 70, 70);
-    const terms = doc.splitTextToSize(t, pageWidth - margin * 2);
-    doc.text(terms, margin, cursorY);
+    const maxTextWidth = pageWidth - margin * 2;
+    const terms = doc.splitTextToSize(t, maxTextWidth);
+    doc.text(t, margin, cursorY, { align: "justify", maxWidth: maxTextWidth });
   }
 
   // Footer on every page
