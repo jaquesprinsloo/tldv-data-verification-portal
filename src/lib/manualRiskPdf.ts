@@ -165,7 +165,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   doc.setTextColor(15, 15, 15);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
-  doc.text("Risk Assessment Report", pageWidth / 2, y, { align: "center" });
+  doc.text("Background Screening Report", pageWidth / 2, y, { align: "center" });
   y += 14;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
