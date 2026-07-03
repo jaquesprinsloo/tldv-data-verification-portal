@@ -39,7 +39,7 @@ export const CHECK_META: Record<string, { label: string; short: string; options:
     ],
   },
   risk_assessment: {
-    label: "Risk Assessment", short: "Risk",
+    label: "Risk Assessment", short: "Risk Assessment",
     options: [
       { v: "no_risk", l: "No Risk Identified" },
       { v: "risk_identified", l: "Risk Identified" },
@@ -142,32 +142,32 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 40;
 
-  // Header band
-  doc.setFillColor(0, 0, 0);
-  doc.rect(0, 0, pageWidth, 90, "F");
-
+  // Modern centered header: logo in the middle, title beneath, subtle divider
+  const headerTop = 40;
+  const logoSize = 72;
   try {
     const logoData = await loadImageAsDataUrl(preapplicheckLogo);
-    doc.addImage(logoData, "PNG", margin, 18, 54, 54);
+    doc.addImage(logoData, "PNG", (pageWidth - logoSize) / 2, headerTop, logoSize, logoSize);
   } catch {
     /* logo optional */
   }
 
-  doc.setTextColor(255, 255, 255);
+  let y = headerTop + logoSize + 22;
+  doc.setTextColor(15, 15, 15);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  doc.text("PreAppliCheck", margin + 68, 42);
+  doc.setFontSize(22);
+  doc.text("Risk Assessment Report", pageWidth / 2, y, { align: "center" });
+  y += 14;
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  doc.text("Risk Assessment Report", margin + 68, 60);
-
   doc.setFontSize(9);
+  doc.setTextColor(120, 120, 120);
   const dateStr = new Date().toLocaleDateString("en-ZA", { year: "numeric", month: "long", day: "numeric" });
-  doc.text(dateStr, pageWidth - margin, 42, { align: "right" });
-  doc.text(`Order No: ${input.orderNumber}`, pageWidth - margin, 58, { align: "right" });
-
-  // Client block
-  let y = 115;
+  doc.text(`${dateStr}   •   Order No: ${input.orderNumber}`, pageWidth / 2, y, { align: "center" });
+  y += 18;
+  doc.setDrawColor(230, 230, 230);
+  doc.setLineWidth(0.6);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 26;
   doc.setTextColor(0, 0, 0);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
