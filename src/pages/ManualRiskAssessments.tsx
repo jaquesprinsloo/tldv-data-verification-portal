@@ -999,7 +999,7 @@ function SubmissionDetailsDialog({
           message: emailMsg, pdfBase64: base64,
           filename: `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`,
           orderNumber: sub?.order_number,
-          clientName: sub?.client_name ?? null,
+          clientName: client?.client_name ?? null,
         },
       });
       if (error) throw error;
