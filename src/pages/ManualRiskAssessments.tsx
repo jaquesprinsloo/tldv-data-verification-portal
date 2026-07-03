@@ -116,7 +116,7 @@ export default function ManualRiskAssessments() {
     return m;
   }, [clients]);
 
-  const previewPdf = async (submissionId: string) => {
+  const previewPdf = async (submissionId: string, win: Window | null) => {
     setPreviewing(submissionId);
     try {
       const sub = submissions.find((s) => s.id === submissionId);
@@ -159,8 +159,21 @@ export default function ManualRiskAssessments() {
       });
 
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      if (win && !win.closed) {
+        win.location.href = url;
+      } else {
+        // Popup was blocked — fall back to a same-tab download-style open
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e: any) {
+      if (win && !win.closed) win.close();
       toast.error("Failed to preview report: " + e.message);
     } finally {
       setPreviewing(null);
@@ -241,7 +254,13 @@ export default function ManualRiskAssessments() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={(e) => { e.stopPropagation(); previewPdf(s.id); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Open the tab synchronously inside the user gesture so
+                              // popup blockers don't kill it after the async PDF build.
+                              const win = window.open("about:blank", "_blank");
+                              previewPdf(s.id, win);
+                            }}
                             disabled={previewing === s.id}
                             title="View Report"
                           >
