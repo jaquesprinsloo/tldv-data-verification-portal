@@ -41,8 +41,8 @@ export const CHECK_META: Record<string, { label: string; short: string; options:
   risk_assessment: {
     label: "Risk Assessment", short: "Risk",
     options: [
-      { v: "low", l: "Low Risk" }, { v: "medium", l: "Medium Risk" },
-      { v: "high", l: "High Risk" }, { v: "very_high", l: "Very High Risk" },
+      { v: "no_risk", l: "No Risk Identified" },
+      { v: "risk_identified", l: "Risk Identified" },
       { v: "pending", l: "Pending" },
     ],
   },
@@ -101,6 +101,8 @@ const RESULT_LABELS: Record<string, string> = {
   record_found: "Record Found",
   verified: "Verified",
   not_verified: "Not Verified",
+  no_risk: "No Risk Identified",
+  risk_identified: "Risk Identified",
 };
 
 const RESULT_COLORS: Record<string, [number, number, number]> = {
@@ -108,6 +110,7 @@ const RESULT_COLORS: Record<string, [number, number, number]> = {
   clear: [22, 163, 74],
   low: [22, 163, 74],
   verified: [22, 163, 74],
+  no_risk: [22, 163, 74],
   medium: [202, 138, 4],
   expired: [202, 138, 4],
   high: [234, 88, 12],
@@ -115,6 +118,7 @@ const RESULT_COLORS: Record<string, [number, number, number]> = {
   invalid: [185, 28, 28],
   record_found: [185, 28, 28],
   not_verified: [185, 28, 28],
+  risk_identified: [185, 28, 28],
   deceased: [82, 82, 82],
   pending: [107, 114, 128],
 };
@@ -225,8 +229,16 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     margin: { left: margin, right: margin },
   });
 
-  // Notes section (only when any note present)
-  const withNotes = input.candidates.filter((c) => checks.some((k) => c.notes?.[k]));
+  // Auto-generated notes: currently only Risk Assessment "risk_identified" injects a note.
+  const autoNoteFor = (k: string, result?: string | null): string | null => {
+    if (k === "risk_assessment" && result === "risk_identified") {
+      return "Probable Risk Identified — candidate should have their fingerprints submitted for clearance.";
+    }
+    return null;
+  };
+  const withNotes = input.candidates.filter((c) =>
+    checks.some((k) => autoNoteFor(k, c.results?.[k])),
+  );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let cursorY = (doc as any).lastAutoTable?.finalY ?? y + 40;
   if (withNotes.length) {
@@ -245,7 +257,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       const header = `${c.surname}, ${c.first_name} (${c.id_number})`;
       const lines: string[] = [];
       for (const k of checks) {
-        const n = c.notes?.[k];
+        const n = autoNoteFor(k, c.results?.[k]);
         if (n) lines.push(`• ${CHECK_META[k].label}: ${n}`);
       }
       const wrapped = lines.flatMap((l) => doc.splitTextToSize(l, pageWidth - margin * 2));
