@@ -1,0 +1,881 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import * as XLSX from "xlsx";
+import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { generateManualRiskPdf, blobToBase64, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
+
+// ---------- helpers ----------
+
+type Client = {
+  id: string; client_name: string; contact_person: string | null;
+  email: string | null; phone: string | null; address: string | null;
+};
+type Submission = {
+  id: string; order_number: string; client_id: string | null;
+  submission_type: "single" | "batch"; status: "open" | "completed";
+  notes: string | null; created_at: string;
+};
+type Candidate = {
+  id: string; submission_id: string; id_number: string;
+  surname: string; first_name: string;
+  id_verification_result: string | null; id_verification_notes: string | null;
+  credit_result: string | null; credit_notes: string | null;
+  criminal_result: string | null; criminal_notes: string | null;
+  sort_order: number;
+};
+
+const sb = supabase as any;
+
+const ID_OPTIONS = [
+  { v: "valid", l: "Valid" }, { v: "invalid", l: "Invalid" },
+  { v: "deceased", l: "Deceased" }, { v: "pending", l: "Pending" },
+];
+const CREDIT_OPTIONS = [
+  { v: "low", l: "Low Risk" }, { v: "medium", l: "Medium Risk" },
+  { v: "high", l: "High Risk" }, { v: "very_high", l: "Very High Risk" },
+  { v: "pending", l: "Pending" },
+];
+const CRIMINAL_OPTIONS = [
+  { v: "clear", l: "Clear" }, { v: "record_found", l: "Record Found" },
+  { v: "pending", l: "Pending" },
+];
+
+// ---------- page ----------
+
+export default function ManualRiskAssessments() {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [userId, setUserId] = useState<string>("");
+  const [userName, setUserName] = useState<string>("");
+  const [newSubOpen, setNewSubOpen] = useState(false);
+  const [detailsSubId, setDetailsSubId] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { navigate("/admin/login"); return; }
+      setUserId(session.user.id);
+      const { data: roleData } = await sb
+        .from("user_roles").select("role").eq("user_id", session.user.id);
+      const isMaster = (roleData ?? []).some((r: any) => r.role === "master_admin");
+      if (!isMaster) {
+        toast.error("Master admin access required");
+        navigate("/admin/portal"); return;
+      }
+      const { data: p } = await sb.from("profiles").select("full_name").eq("id", session.user.id).maybeSingle();
+      setUserName(p?.full_name ?? "");
+      setAllowed(true);
+    })();
+  }, [navigate]);
+
+  const { data: submissions = [] } = useQuery({
+    queryKey: ["mra-submissions"],
+    enabled: !!allowed,
+    queryFn: async () => {
+      const { data, error } = await sb
+        .from("manual_risk_submissions")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Submission[];
+    },
+  });
+
+  const { data: clients = [] } = useQuery({
+    queryKey: ["mra-clients"],
+    enabled: !!allowed,
+    queryFn: async () => {
+      const { data, error } = await sb
+        .from("manual_risk_clients")
+        .select("*")
+        .order("client_name", { ascending: true });
+      if (error) throw error;
+      return data as Client[];
+    },
+  });
+
+  const clientById = useMemo(() => {
+    const m = new Map<string, Client>();
+    for (const c of clients) m.set(c.id, c);
+    return m;
+  }, [clients]);
+
+  if (allowed === null) {
+    return <div className="min-h-screen flex items-center justify-center bg-black text-white">Loading...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      <div className="container mx-auto px-4 sm:px-6 pt-4">
+        <button
+          onClick={() => navigate("/admin/portal")}
+          className="bg-white border-[3px] border-red-600 text-foreground px-6 py-2 rounded-lg hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] transition-all duration-500 flex items-center gap-2 font-medium"
+        >
+          <Home className="h-4 w-4" /> Main Portal
+        </button>
+      </div>
+
+      <main className="container mx-auto px-4 sm:px-6 py-6">
+        <div className="flex items-center gap-3 mb-6">
+          <ClipboardList className="h-6 w-6 text-red-600" />
+          <h1 className="text-2xl font-bold">Manual Risk Assessments</h1>
+        </div>
+
+        <Tabs defaultValue="submissions">
+          <TabsList>
+            <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />Submissions</TabsTrigger>
+            <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
+            <TabsTrigger value="settings">T&amp;Cs</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="submissions" className="mt-4">
+            <Card className="p-4">
+              <div className="flex justify-between items-center mb-4">
+                <p className="text-sm text-muted-foreground">{submissions.length} submission(s)</p>
+                <Button onClick={() => setNewSubOpen(true)} className="bg-red-600 hover:bg-red-700">
+                  <Plus className="h-4 w-4 mr-2" /> New Submission
+                </Button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order #</TableHead>
+                      <TableHead>Client</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {submissions.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                          No submissions yet — click "New Submission" to create one.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {submissions.map((s) => (
+                      <TableRow key={s.id} className="cursor-pointer" onClick={() => setDetailsSubId(s.id)}>
+                        <TableCell className="font-mono">{s.order_number}</TableCell>
+                        <TableCell>{s.client_id ? clientById.get(s.client_id)?.client_name ?? "—" : "—"}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{s.submission_type === "single" ? "Single" : "Batch"}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={s.status === "completed" ? "bg-emerald-600" : "bg-amber-600"}>
+                            {s.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDetailsSubId(s.id); }}>
+                            Open
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="clients" className="mt-4">
+            <ClientsTab clients={clients} userId={userId} onChanged={() => qc.invalidateQueries({ queryKey: ["mra-clients"] })} />
+          </TabsContent>
+
+          <TabsContent value="settings" className="mt-4">
+            <TermsSettingsTab userId={userId} />
+          </TabsContent>
+        </Tabs>
+      </main>
+
+      {newSubOpen && (
+        <NewSubmissionDialog
+          open={newSubOpen}
+          onClose={() => setNewSubOpen(false)}
+          clients={clients}
+          userId={userId}
+          onCreated={(id) => {
+            qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+            qc.invalidateQueries({ queryKey: ["mra-clients"] });
+            setNewSubOpen(false);
+            setDetailsSubId(id);
+          }}
+        />
+      )}
+
+      {detailsSubId && (
+        <SubmissionDetailsDialog
+          submissionId={detailsSubId}
+          onClose={() => setDetailsSubId(null)}
+          clients={clients}
+          userName={userName}
+          onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------- Clients tab ----------
+
+function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId: string; onChanged: () => void }) {
+  const [editing, setEditing] = useState<Partial<Client> | null>(null);
+
+  const save = async () => {
+    if (!editing?.client_name?.trim()) { toast.error("Client name is required"); return; }
+    const payload = {
+      client_name: editing.client_name.trim(),
+      contact_person: editing.contact_person?.trim() || null,
+      email: editing.email?.trim() || null,
+      phone: editing.phone?.trim() || null,
+      address: editing.address?.trim() || null,
+    };
+    if (editing.id) {
+      const { error } = await sb.from("manual_risk_clients").update(payload).eq("id", editing.id);
+      if (error) { toast.error(error.message); return; }
+    } else {
+      const { error } = await sb.from("manual_risk_clients").insert({ ...payload, created_by: userId });
+      if (error) { toast.error(error.message); return; }
+    }
+    toast.success("Client saved");
+    setEditing(null); onChanged();
+  };
+
+  const remove = async (id: string) => {
+    if (!confirm("Delete this client? Existing submissions keep the client name.")) return;
+    const { error } = await sb.from("manual_risk_clients").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    onChanged();
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="flex justify-between items-center mb-4">
+        <p className="text-sm text-muted-foreground">{clients.length} saved client(s)</p>
+        <Button onClick={() => setEditing({})} className="bg-red-600 hover:bg-red-700">
+          <Plus className="h-4 w-4 mr-2" /> Add Client
+        </Button>
+      </div>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Client</TableHead>
+            <TableHead>Contact</TableHead>
+            <TableHead>Email</TableHead>
+            <TableHead>Phone</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {clients.length === 0 && (
+            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No saved clients.</TableCell></TableRow>
+          )}
+          {clients.map((c) => (
+            <TableRow key={c.id}>
+              <TableCell className="font-medium">{c.client_name}</TableCell>
+              <TableCell>{c.contact_person ?? "—"}</TableCell>
+              <TableCell>{c.email ?? "—"}</TableCell>
+              <TableCell>{c.phone ?? "—"}</TableCell>
+              <TableCell className="text-right space-x-1">
+                <Button variant="ghost" size="sm" onClick={() => setEditing(c)}><Pencil className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="sm" onClick={() => remove(c.id)}><Trash2 className="h-4 w-4 text-red-600" /></Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <Dialog open={!!editing} onOpenChange={(v) => !v && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editing?.id ? "Edit Client" : "Add Client"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Client Name *</Label><Input value={editing?.client_name ?? ""} onChange={(e) => setEditing((p) => ({ ...p, client_name: e.target.value }))} /></div>
+            <div><Label>Contact Person</Label><Input value={editing?.contact_person ?? ""} onChange={(e) => setEditing((p) => ({ ...p, contact_person: e.target.value }))} /></div>
+            <div><Label>Email</Label><Input type="email" value={editing?.email ?? ""} onChange={(e) => setEditing((p) => ({ ...p, email: e.target.value }))} /></div>
+            <div><Label>Phone</Label><Input value={editing?.phone ?? ""} onChange={(e) => setEditing((p) => ({ ...p, phone: e.target.value }))} /></div>
+            <div><Label>Address</Label><Textarea value={editing?.address ?? ""} onChange={(e) => setEditing((p) => ({ ...p, address: e.target.value }))} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button onClick={save} className="bg-red-600 hover:bg-red-700">Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+// ---------- Settings tab ----------
+
+function TermsSettingsTab({ userId }: { userId: string }) {
+  const [terms, setTerms] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await sb.from("manual_risk_settings").select("*").limit(1).maybeSingle();
+      if (data) setTerms(data.terms_and_conditions ?? "");
+      setLoading(false);
+    })();
+  }, []);
+
+  const save = async () => {
+    const { data: existing } = await sb.from("manual_risk_settings").select("id").limit(1).maybeSingle();
+    if (existing?.id) {
+      const { error } = await sb.from("manual_risk_settings")
+        .update({ terms_and_conditions: terms, updated_by: userId }).eq("id", existing.id);
+      if (error) { toast.error(error.message); return; }
+    } else {
+      const { error } = await sb.from("manual_risk_settings")
+        .insert({ terms_and_conditions: terms, updated_by: userId });
+      if (error) { toast.error(error.message); return; }
+    }
+    toast.success("Terms & Conditions saved");
+  };
+
+  return (
+    <Card className="p-4 space-y-3">
+      <div>
+        <h3 className="font-semibold">Report Terms &amp; Conditions</h3>
+        <p className="text-xs text-muted-foreground">Applied to every Manual Risk Assessment PDF.</p>
+      </div>
+      <Textarea rows={12} value={terms} onChange={(e) => setTerms(e.target.value)} disabled={loading}
+        placeholder="Enter the T&Cs shown at the bottom of the report..." />
+      <div className="flex justify-end">
+        <Button onClick={save} className="bg-red-600 hover:bg-red-700" disabled={loading}>Save T&amp;Cs</Button>
+      </div>
+    </Card>
+  );
+}
+
+// ---------- New submission dialog ----------
+
+function NewSubmissionDialog({
+  open, onClose, clients, userId, onCreated,
+}: {
+  open: boolean; onClose: () => void; clients: Client[]; userId: string;
+  onCreated: (submissionId: string) => void;
+}) {
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [type, setType] = useState<"single" | "batch">("single");
+  const [orderNumber, setOrderNumber] = useState("");
+  const [clientMode, setClientMode] = useState<"existing" | "new" | "none">("existing");
+  const [clientId, setClientId] = useState<string>("");
+  const [newClient, setNewClient] = useState<Partial<Client>>({});
+  const [saveClient, setSaveClient] = useState(true);
+  // single mode candidate
+  const [singleC, setSingleC] = useState<{ id_number: string; surname: string; first_name: string }>({
+    id_number: "", surname: "", first_name: "",
+  });
+  // batch candidates
+  const [batchRows, setBatchRows] = useState<Array<{ id_number: string; surname: string; first_name: string }>>([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (clients.length === 0) setClientMode("new");
+  }, [clients.length]);
+
+  const handleFile = async (file: File) => {
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<any>(ws, { header: 1, defval: "" });
+      const parsed: typeof batchRows = [];
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const a = String(r?.[0] ?? "").trim();
+        const b = String(r?.[1] ?? "").trim();
+        const c = String(r?.[2] ?? "").trim();
+        if (!a && !b && !c) continue;
+        // skip header row if it doesn't look like an ID (13 digits)
+        if (i === 0 && !/^\d{6,}$/.test(a)) continue;
+        if (!a || !b || !c) continue;
+        parsed.push({ id_number: a, surname: b, first_name: c });
+      }
+      if (!parsed.length) { toast.error("No candidate rows found. Use Column A=ID, B=Surname, C=First Name."); return; }
+      setBatchRows(parsed);
+      toast.success(`${parsed.length} candidate(s) loaded`);
+    } catch (e) {
+      toast.error("Failed to read spreadsheet: " + (e as Error).message);
+    }
+  };
+
+  const submit = async () => {
+    if (!orderNumber.trim()) { toast.error("Order number is required"); return; }
+    let resolvedClientId: string | null = null;
+    if (clientMode === "existing") {
+      if (!clientId) { toast.error("Select a client"); return; }
+      resolvedClientId = clientId;
+    } else if (clientMode === "new") {
+      if (!newClient.client_name?.trim()) { toast.error("Client name is required"); return; }
+      if (saveClient) {
+        const { data, error } = await sb.from("manual_risk_clients")
+          .insert({
+            client_name: newClient.client_name!.trim(),
+            contact_person: newClient.contact_person?.trim() || null,
+            email: newClient.email?.trim() || null,
+            phone: newClient.phone?.trim() || null,
+            address: newClient.address?.trim() || null,
+            created_by: userId,
+          })
+          .select("id").single();
+        if (error) { toast.error(error.message); return; }
+        resolvedClientId = data.id;
+      }
+    }
+
+    const candidates = type === "single"
+      ? [singleC].filter((c) => c.id_number && c.surname && c.first_name)
+      : batchRows;
+    if (!candidates.length) { toast.error("Add at least one candidate"); return; }
+
+    setBusy(true);
+    try {
+      const { data: sub, error: subErr } = await sb.from("manual_risk_submissions")
+        .insert({
+          order_number: orderNumber.trim(),
+          client_id: resolvedClientId,
+          submission_type: type,
+          status: "open",
+          created_by: userId,
+        })
+        .select("id").single();
+      if (subErr) throw subErr;
+
+      const rows = candidates.map((c, idx) => ({
+        submission_id: sub.id,
+        id_number: c.id_number.trim(),
+        surname: c.surname.trim(),
+        first_name: c.first_name.trim(),
+        sort_order: idx,
+      }));
+      const { error: candErr } = await sb.from("manual_risk_candidates").insert(rows);
+      if (candErr) throw candErr;
+
+      toast.success("Submission created");
+      onCreated(sub.id);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>New Manual Risk Submission</DialogTitle>
+          <DialogDescription>Step {step} of 3</DialogDescription>
+        </DialogHeader>
+
+        {step === 1 && (
+          <div className="space-y-4">
+            <Label>Submission Type</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => setType("single")}
+                className={`p-4 rounded-lg border-2 text-left ${type === "single" ? "border-red-600 bg-red-50" : "border-gray-200"}`}>
+                <div className="font-semibold">Single Submission</div>
+                <div className="text-xs text-muted-foreground">Add one candidate manually.</div>
+              </button>
+              <button onClick={() => setType("batch")}
+                className={`p-4 rounded-lg border-2 text-left ${type === "batch" ? "border-red-600 bg-red-50" : "border-gray-200"}`}>
+                <div className="font-semibold">Batch Submission</div>
+                <div className="text-xs text-muted-foreground">Upload Excel: A=ID, B=Surname, C=First Name.</div>
+              </button>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setStep(2)} className="bg-red-600 hover:bg-red-700">Next</Button>
+            </DialogFooter>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4">
+            <div>
+              <Label>Order Number *</Label>
+              <Input value={orderNumber} onChange={(e) => setOrderNumber(e.target.value)} placeholder="e.g. ORD-2026-0142" />
+            </div>
+
+            <div>
+              <Label>Client</Label>
+              <div className="flex gap-2 mb-2 mt-1">
+                <Button type="button" size="sm" variant={clientMode === "existing" ? "default" : "outline"}
+                  onClick={() => setClientMode("existing")} disabled={clients.length === 0}>
+                  Existing Client
+                </Button>
+                <Button type="button" size="sm" variant={clientMode === "new" ? "default" : "outline"}
+                  onClick={() => setClientMode("new")}>
+                  New Client
+                </Button>
+                <Button type="button" size="sm" variant={clientMode === "none" ? "default" : "outline"}
+                  onClick={() => setClientMode("none")}>
+                  No Client
+                </Button>
+              </div>
+
+              {clientMode === "existing" && (
+                <Select value={clientId} onValueChange={setClientId}>
+                  <SelectTrigger><SelectValue placeholder="Select a client..." /></SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.client_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {clientMode === "new" && (
+                <div className="space-y-2 border p-3 rounded-md">
+                  <Input placeholder="Client name *" value={newClient.client_name ?? ""}
+                    onChange={(e) => setNewClient((p) => ({ ...p, client_name: e.target.value }))} />
+                  <Input placeholder="Contact person" value={newClient.contact_person ?? ""}
+                    onChange={(e) => setNewClient((p) => ({ ...p, contact_person: e.target.value }))} />
+                  <Input placeholder="Email" value={newClient.email ?? ""}
+                    onChange={(e) => setNewClient((p) => ({ ...p, email: e.target.value }))} />
+                  <Input placeholder="Phone" value={newClient.phone ?? ""}
+                    onChange={(e) => setNewClient((p) => ({ ...p, phone: e.target.value }))} />
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={saveClient} onChange={(e) => setSaveClient(e.target.checked)} />
+                    Save this client for future submissions
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
+              <Button onClick={() => setStep(3)} className="bg-red-600 hover:bg-red-700">Next</Button>
+            </DialogFooter>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-4">
+            {type === "single" ? (
+              <div className="space-y-2">
+                <Label>Candidate</Label>
+                <Input placeholder="ID Number *" value={singleC.id_number} onChange={(e) => setSingleC({ ...singleC, id_number: e.target.value })} />
+                <Input placeholder="Surname *" value={singleC.surname} onChange={(e) => setSingleC({ ...singleC, surname: e.target.value })} />
+                <Input placeholder="First Name *" value={singleC.first_name} onChange={(e) => setSingleC({ ...singleC, first_name: e.target.value })} />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="border-2 border-dashed rounded-md p-4 text-center">
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm mb-2">Upload Excel file (.xlsx / .csv)</p>
+                  <p className="text-xs text-muted-foreground mb-3">Column A: ID Number • B: Surname • C: First Name</p>
+                  <Input type="file" accept=".xlsx,.xls,.csv"
+                    onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
+                </div>
+                {batchRows.length > 0 && (
+                  <div className="max-h-56 overflow-y-auto border rounded">
+                    <Table>
+                      <TableHeader><TableRow>
+                        <TableHead>ID</TableHead><TableHead>Surname</TableHead><TableHead>First Name</TableHead>
+                      </TableRow></TableHeader>
+                      <TableBody>
+                        {batchRows.map((r, i) => (
+                          <TableRow key={i}>
+                            <TableCell className="font-mono text-xs">{r.id_number}</TableCell>
+                            <TableCell>{r.surname}</TableCell><TableCell>{r.first_name}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
+              <Button onClick={submit} className="bg-red-600 hover:bg-red-700" disabled={busy}>
+                {busy ? "Creating..." : "Create Submission"}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------- Submission details / results dialog ----------
+
+function SubmissionDetailsDialog({
+  submissionId, onClose, clients, userName, onChanged,
+}: {
+  submissionId: string; onClose: () => void;
+  clients: Client[]; userName: string;
+  onChanged: () => void;
+}) {
+  const qc = useQueryClient();
+  const { data: sub } = useQuery<Submission | null>({
+    queryKey: ["mra-sub", submissionId],
+    queryFn: async () => {
+      const { data, error } = await sb.from("manual_risk_submissions").select("*").eq("id", submissionId).maybeSingle();
+      if (error) throw error;
+      return data as Submission | null;
+    },
+  });
+  const { data: candidates = [], refetch } = useQuery<Candidate[]>({
+    queryKey: ["mra-cands", submissionId],
+    queryFn: async () => {
+      const { data, error } = await sb.from("manual_risk_candidates")
+        .select("*").eq("submission_id", submissionId)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data as Candidate[];
+    },
+  });
+  const [local, setLocal] = useState<Candidate[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [emailMsg, setEmailMsg] = useState("");
+  const [sending, setSending] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  useEffect(() => { setLocal(candidates); }, [candidates]);
+
+  const client = sub?.client_id ? clients.find((c) => c.id === sub.client_id) : undefined;
+  useEffect(() => { if (client?.email) setEmailTo(client.email); }, [client?.email]);
+
+  const updateRow = (idx: number, patch: Partial<Candidate>) => {
+    setLocal((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  };
+
+  const saveResults = async () => {
+    setSaving(true);
+    try {
+      for (const c of local) {
+        const { error } = await sb.from("manual_risk_candidates").update({
+          id_verification_result: c.id_verification_result,
+          id_verification_notes: c.id_verification_notes,
+          credit_result: c.credit_result,
+          credit_notes: c.credit_notes,
+          criminal_result: c.criminal_result,
+          criminal_notes: c.criminal_notes,
+        }).eq("id", c.id);
+        if (error) throw error;
+      }
+      const allComplete = local.every((c) => c.id_verification_result && c.credit_result && c.criminal_result &&
+        ![c.id_verification_result, c.credit_result, c.criminal_result].includes("pending"));
+      if (allComplete && sub?.status !== "completed") {
+        await sb.from("manual_risk_submissions").update({ status: "completed" }).eq("id", submissionId);
+      }
+      toast.success("Results saved");
+      refetch();
+      qc.invalidateQueries({ queryKey: ["mra-sub", submissionId] });
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const buildPdfBlob = async () => {
+    const { data: settings } = await sb.from("manual_risk_settings").select("terms_and_conditions").limit(1).maybeSingle();
+    const pdfCandidates: ManualRiskCandidatePdf[] = local.map((c) => ({
+      id_number: c.id_number, surname: c.surname, first_name: c.first_name,
+      id_verification_result: c.id_verification_result,
+      id_verification_notes: c.id_verification_notes,
+      credit_result: c.credit_result, credit_notes: c.credit_notes,
+      criminal_result: c.criminal_result, criminal_notes: c.criminal_notes,
+    }));
+    return await generateManualRiskPdf({
+      orderNumber: sub?.order_number ?? "",
+      clientName: client?.client_name,
+      clientContact: client?.contact_person,
+      clientEmail: client?.email,
+      submissionType: (sub?.submission_type ?? "single") as "single" | "batch",
+      candidates: pdfCandidates,
+      termsAndConditions: settings?.terms_and_conditions ?? "",
+      generatedByName: userName,
+    });
+  };
+
+  const downloadPdf = async () => {
+    setDownloading(true);
+    try {
+      const blob = await buildPdfBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setDownloading(false); }
+  };
+
+  const sendEmail = async () => {
+    const list = emailTo.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+    if (!list.length) { toast.error("Enter at least one recipient"); return; }
+    setSending(true);
+    try {
+      const blob = await buildPdfBlob();
+      const base64 = await blobToBase64(blob);
+      const { data, error } = await supabase.functions.invoke("send-manual-risk-report", {
+        body: {
+          to: list, message: emailMsg, pdfBase64: base64,
+          filename: `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`,
+          orderNumber: sub?.order_number,
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast.success(`Emailed to ${list.length} recipient(s)`);
+      setEmailOpen(false); setEmailMsg("");
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setSending(false); }
+  };
+
+  if (!sub) return null;
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Submission — Order {sub.order_number}</DialogTitle>
+          <DialogDescription>
+            {client?.client_name ?? "No client"} • {sub.submission_type === "single" ? "Single" : "Batch"} • {local.length} candidate(s) • Status: {sub.status}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-40">Candidate</TableHead>
+                <TableHead className="w-32">ID</TableHead>
+                <TableHead>ID Verification</TableHead>
+                <TableHead>Credit / Risk</TableHead>
+                <TableHead>Criminal</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {local.map((c, idx) => (
+                <TableRow key={c.id}>
+                  <TableCell className="font-medium">{c.surname}, {c.first_name}</TableCell>
+                  <TableCell className="font-mono text-xs">{c.id_number}</TableCell>
+                  <TableCell>
+                    <ResultCell
+                      value={c.id_verification_result} notes={c.id_verification_notes}
+                      options={ID_OPTIONS}
+                      onValue={(v) => updateRow(idx, { id_verification_result: v })}
+                      onNotes={(v) => updateRow(idx, { id_verification_notes: v })}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <ResultCell
+                      value={c.credit_result} notes={c.credit_notes}
+                      options={CREDIT_OPTIONS}
+                      onValue={(v) => updateRow(idx, { credit_result: v })}
+                      onNotes={(v) => updateRow(idx, { credit_notes: v })}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <ResultCell
+                      value={c.criminal_result} notes={c.criminal_notes}
+                      options={CRIMINAL_OPTIONS}
+                      onValue={(v) => updateRow(idx, { criminal_result: v })}
+                      onNotes={(v) => updateRow(idx, { criminal_notes: v })}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <DialogFooter className="flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+          <Button variant="outline" onClick={onClose}>Close</Button>
+          <div className="flex-1" />
+          <Button onClick={saveResults} disabled={saving} className="bg-red-600 hover:bg-red-700">
+            {saving ? "Saving..." : "Save Results"}
+          </Button>
+          <Button variant="outline" onClick={downloadPdf} disabled={downloading}>
+            <Download className="h-4 w-4 mr-2" /> {downloading ? "Building..." : "Download PDF"}
+          </Button>
+          <Button onClick={() => setEmailOpen(true)}>
+            <Mail className="h-4 w-4 mr-2" /> Email PDF
+          </Button>
+        </DialogFooter>
+
+        <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Email Report</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>Recipients (comma-separated)</Label>
+                <Input value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="name@example.com" />
+              </div>
+              <div>
+                <Label>Message (optional)</Label>
+                <Textarea rows={4} value={emailMsg} onChange={(e) => setEmailMsg(e.target.value)}
+                  placeholder="Add a short message that will appear in the email body..." />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEmailOpen(false)}>Cancel</Button>
+              <Button onClick={sendEmail} disabled={sending} className="bg-red-600 hover:bg-red-700">
+                {sending ? "Sending..." : "Send"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ResultCell({
+  value, notes, options, onValue, onNotes,
+}: {
+  value: string | null; notes: string | null;
+  options: { v: string; l: string }[];
+  onValue: (v: string) => void; onNotes: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1 min-w-[180px]">
+      <Select value={value ?? ""} onValueChange={onValue}>
+        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Not set" /></SelectTrigger>
+        <SelectContent>
+          {options.map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Input value={notes ?? ""} onChange={(e) => onNotes(e.target.value)}
+        placeholder="Notes..." className="h-7 text-xs" />
+    </div>
+  );
+}
