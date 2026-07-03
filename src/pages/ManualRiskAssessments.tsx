@@ -898,22 +898,20 @@ function SubmissionDetailsDialog({
 }
 
 function ResultCell({
-  value, notes, options, onValue, onNotes,
+  value, options, onValue,
 }: {
-  value: string | null; notes: string | null;
+  value: string | null;
   options: { v: string; l: string }[];
-  onValue: (v: string) => void; onNotes: (v: string) => void;
+  onValue: (v: string) => void;
 }) {
   return (
-    <div className="space-y-1 min-w-[180px]">
+    <div className="min-w-[160px]">
       <Select value={value ?? ""} onValueChange={onValue}>
         <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Not set" /></SelectTrigger>
         <SelectContent>
           {options.map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}
         </SelectContent>
       </Select>
-      <Input value={notes ?? ""} onChange={(e) => onNotes(e.target.value)}
-        placeholder="Notes..." className="h-7 text-xs" />
     </div>
   );
 }
