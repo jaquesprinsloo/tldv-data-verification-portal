@@ -21,6 +21,7 @@ import { User } from "@supabase/supabase-js";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
 import DebugDiagnosticsDialog from "@/components/admin/DebugDiagnosticsDialog";
 import { useBadgeLastSeen } from "@/hooks/useBadgeLastSeen";
+import { useImpersonation } from "@/hooks/useImpersonation";
 
 type ActiveView = "dashboard" | "appointments" | "upload";
 
@@ -29,6 +30,10 @@ const ExaminerPortal = () => {
   const queryClient = useQueryClient();
   const { toast: toastHook } = useToast();
   const [user, setUser] = useState<User | null>(null);
+  const impersonation = useImpersonation();
+  // When a master admin is viewing as an examiner, run all queries as that examiner.
+  const effectiveUserId =
+    impersonation?.role === "examiner" ? impersonation.userId : user?.id;
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
@@ -58,7 +63,7 @@ const ExaminerPortal = () => {
 
   // Per-user badge tracking for the Appointments card on the dashboard
   const { lastSeen: apptsLastSeen, markSeen: markApptsSeen } = useBadgeLastSeen(
-    user?.id,
+    effectiveUserId,
     "examiner-appointments"
   );
 
@@ -73,7 +78,7 @@ const ExaminerPortal = () => {
           .from("user_roles")
           .select("role")
           .eq("user_id", currentUser.id)
-          .eq("role", "examiner")
+          .in("role", ["examiner", "master_admin"])
           .maybeSingle();
 
         if (roleError) {
@@ -89,10 +94,13 @@ const ExaminerPortal = () => {
 
         setUser(currentUser);
 
+        // If a master is impersonating an examiner, use the examiner's display name.
+        const nameLookupId =
+          impersonation?.role === "examiner" ? impersonation.userId : currentUser.id;
         const { data: profileData } = await supabase
           .from("profiles")
           .select("full_name")
-          .eq("id", currentUser.id)
+          .eq("id", nameLookupId)
           .single();
 
         if (profileData?.full_name) setUserName(profileData.full_name);
@@ -115,18 +123,18 @@ const ExaminerPortal = () => {
 
   // Fetch appointments assigned to this examiner
   const { data: appointments = [] } = useQuery({
-    queryKey: ["examiner-appointments", user?.id],
+    queryKey: ["examiner-appointments", effectiveUserId],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!effectiveUserId) return [];
       const { data, error } = await supabase
         .from("polygraph_appointments" as any)
         .select("*")
-        .eq("assigned_examiner_user_id", user.id)
+        .eq("assigned_examiner_user_id", effectiveUserId)
         .order("scheduled_date", { ascending: true });
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user?.id,
+    enabled: !!effectiveUserId,
   });
 
   // Fetch candidates for current viewed appointment
@@ -168,9 +176,9 @@ const ExaminerPortal = () => {
   });
 
   const { data: allExaminerCandidates = [] } = useQuery({
-    queryKey: ["examiner-all-candidates", user?.id],
+    queryKey: ["examiner-all-candidates", effectiveUserId],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!effectiveUserId) return [];
       const aptIds = (appointments as any[]).map((a: any) => a.id);
       if (aptIds.length === 0) return [];
       const { data } = await supabase
