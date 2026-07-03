@@ -292,7 +292,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     let estLines = 0;
     for (const p of paragraphs) {
       const plain = p.runs.map((r) => r.text).join("");
-      estLines += Math.max(1, doc.splitTextToSize(plain || " ", maxTextWidth).length);
+      estLines += Math.max(1, doc.splitTextToSize(plain || " ", maxTextWidth).length) + 1;
     }
     const needed = 40 + estLines * lineHeight;
     if (cursorY + needed > pageHeight - 60) { doc.addPage(); cursorY = margin; }
@@ -379,8 +379,8 @@ function parseRichParagraphs(html: string): RichParagraph[] {
   let current: RichParagraph = { align: "justify", runs: [] };
 
   const flush = () => {
-    const hasContent = current.runs.some((r) => r.text.replace(/\s/g, "").length > 0);
-    if (hasContent) paragraphs.push(current);
+    // Preserve empty paragraphs so blank lines from the editor render as spacing in the PDF
+    paragraphs.push(current);
     current = { align: current.align, runs: [] };
   };
 
@@ -501,6 +501,8 @@ function renderRichParagraphs(
       while (line.length && line[line.length - 1].isSpace) line.pop();
       lines.push(line);
     }
+    // Empty paragraph -> render a blank line so editor line breaks show as spacing
+    if (lines.length === 0) lines.push([]);
 
     // Render lines
     lines.forEach((ln, idx) => {
