@@ -991,7 +991,6 @@ function SubmissionDetailsDialog({
 
   const sendEmail = async () => {
     const list = emailTo.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
-    const list = emailTo.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
     if (!list.length) { toast.error("Enter at least one recipient"); return; }
     setSending(true);
     try {
