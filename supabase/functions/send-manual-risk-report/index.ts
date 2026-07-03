@@ -1,4 +1,5 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { LOGO_BASE64 } from './logo.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 
@@ -48,7 +49,7 @@ Deno.serve(async (req) => {
         <tr><td align="center">
           <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
             <tr><td style="background:#ffffff;padding:20px 28px;text-align:center">
-              <img src="https://portal.tldv.co.za/preapplicheck-logo.png" alt="PreAppliCheck" width="220" style="display:block;margin:0 auto;" />
+              <img src="cid:preapplicheck-logo" alt="PreAppliCheck" width="220" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;" />
               <div style="color:#dc2626;font-size:13px;font-weight:600;margin-top:10px;text-transform:uppercase;letter-spacing:1px">Risk Assessment Report</div>
             </td></tr>
             <tr><td style="padding:28px">
@@ -85,7 +86,10 @@ Deno.serve(async (req) => {
         to: clean,
         subject: finalSubject,
         html,
-        attachments: [{ filename: finalFilename, content: pdfBase64 }],
+        attachments: [
+          { filename: finalFilename, content: pdfBase64 },
+          { filename: 'preapplicheck-logo.png', content: LOGO_BASE64, content_id: 'preapplicheck-logo' },
+        ],
       }),
     });
 
