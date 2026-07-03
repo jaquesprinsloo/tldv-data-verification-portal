@@ -18,6 +18,7 @@ const PendingPolygraphReview = lazy(() => import("./pages/PendingPolygraphReview
 const CanDexPreScreening = lazy(() => import("./pages/CanDexPreScreening"));
 const CandexApplication = lazy(() => import("./pages/CandexApplication"));
 const ExaminerPortal = lazy(() => import("./pages/ExaminerPortal"));
+const ManualRiskAssessments = lazy(() => import("./pages/ManualRiskAssessments"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Install = lazy(() => import("./pages/Install"));
 
@@ -57,6 +58,7 @@ const App = () => (
           <Route path="/admin/profile-management" element={<ProfileManagement />} />
           <Route path="/admin/pending-polygraph-review" element={<PendingPolygraphReview />} />
           <Route path="/admin/candex-pre-screening" element={<CanDexPreScreening />} />
+          <Route path="/admin/manual-risk-assessments" element={<ManualRiskAssessments />} />
           <Route path="/preapplicheck-apply" element={<CandexApplication />} />
           <Route path="/candex-apply" element={<CandexApplication />} />
           <Route path="/examiner" element={<ExaminerPortal />} />
