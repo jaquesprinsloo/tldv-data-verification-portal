@@ -229,8 +229,16 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     margin: { left: margin, right: margin },
   });
 
-  // Notes section (only when any note present)
-  const withNotes = input.candidates.filter((c) => checks.some((k) => c.notes?.[k]));
+  // Auto-generated notes: currently only Risk Assessment "risk_identified" injects a note.
+  const autoNoteFor = (k: string, result?: string | null): string | null => {
+    if (k === "risk_assessment" && result === "risk_identified") {
+      return "Probable Risk Identified — candidate should have their fingerprints submitted for clearance.";
+    }
+    return null;
+  };
+  const withNotes = input.candidates.filter((c) =>
+    checks.some((k) => autoNoteFor(k, c.results?.[k])),
+  );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let cursorY = (doc as any).lastAutoTable?.finalY ?? y + 40;
   if (withNotes.length) {
@@ -249,7 +257,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       const header = `${c.surname}, ${c.first_name} (${c.id_number})`;
       const lines: string[] = [];
       for (const k of checks) {
-        const n = c.notes?.[k];
+        const n = autoNoteFor(k, c.results?.[k]);
         if (n) lines.push(`• ${CHECK_META[k].label}: ${n}`);
       }
       const wrapped = lines.flatMap((l) => doc.splitTextToSize(l, pageWidth - margin * 2));
