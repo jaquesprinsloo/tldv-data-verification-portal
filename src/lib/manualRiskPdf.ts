@@ -302,9 +302,28 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
 
   // Footer on every page
   const pageCount = doc.getNumberOfPages();
+  const footerAddress = "Office 3, First Floor, Right Side Wing, Refined Park, 11 Inanda Rd, Hillcrest, Durban, 3610";
+  const footerCompany = "PreAppliCheck is a division of True Lie Detectors & Vetting, a South African background screening and vetting company.";
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+
+    // Red separator line
+    doc.setDrawColor(220, 38, 38);
+    doc.setLineWidth(0.5);
+    doc.line(margin, pageHeight - 64, pageWidth - margin, pageHeight - 64);
+
+    // Address
     doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(100, 100, 100);
+    const addrLines = doc.splitTextToSize(footerAddress, pageWidth - margin * 2);
+    doc.text(addrLines, pageWidth / 2, pageHeight - 54, { align: "center" });
+
+    // Company description
+    const companyLines = doc.splitTextToSize(footerCompany, pageWidth - margin * 2);
+    doc.text(companyLines, pageWidth / 2, pageHeight - 44, { align: "center" });
+
+    // Bottom row
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
     doc.text("PreAppliCheck • Confidential Risk Assessment Report", margin, pageHeight - 24);
