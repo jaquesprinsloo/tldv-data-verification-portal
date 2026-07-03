@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +25,8 @@ import {
 } from "@/components/ui/table";
 import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
 import { Checkbox } from "@/components/ui/checkbox";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 // ---------- helpers ----------
 
@@ -65,13 +69,10 @@ export default function ManualRiskAssessments() {
   const [newSubOpen, setNewSubOpen] = useState(false);
   const [detailsSubId, setDetailsSubId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
-  const [previewReport, setPreviewReport] = useState<{ url: string; title: string } | null>(null);
+  const [previewReport, setPreviewReport] = useState<{ blob: Blob; title: string } | null>(null);
 
   const closePreviewReport = () => {
-    setPreviewReport((current) => {
-      if (current?.url) URL.revokeObjectURL(current.url);
-      return null;
-    });
+    setPreviewReport(null);
   };
 
   useEffect(() => {
@@ -166,11 +167,7 @@ export default function ManualRiskAssessments() {
         requestedChecks: activeChecks,
       });
 
-      const url = URL.createObjectURL(blob);
-      setPreviewReport((current) => {
-        if (current?.url) URL.revokeObjectURL(current.url);
-        return { url, title: `PreAppliCheck Report — ${sub.order_number}` };
-      });
+      setPreviewReport({ blob, title: `PreAppliCheck Report — ${sub.order_number}` });
     } catch (e: any) {
       toast.error("Failed to preview report: " + e.message);
     } finally {
@@ -331,14 +328,93 @@ export default function ManualRiskAssessments() {
             <DialogTitle>{previewReport?.title ?? "Report Preview"}</DialogTitle>
           </DialogHeader>
           {previewReport && (
-            <iframe
-              src={previewReport.url}
+            <PdfPreview
+              blob={previewReport.blob}
               title={previewReport.title}
-              className="w-full flex-1 min-h-0 border-0"
             />
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function PdfPreview({ blob, title }: { blob: Blob; title: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState("Loading preview...");
+
+  useEffect(() => {
+    let cancelled = false;
+    let pdfDocument: any = null;
+    const renderTasks: any[] = [];
+
+    const renderPdf = async () => {
+      try {
+        const container = containerRef.current;
+        if (!container) return;
+
+        setStatus("Loading preview...");
+        container.innerHTML = "";
+
+        const data = await blob.arrayBuffer();
+        const loadingTask = pdfjsLib.getDocument({ data });
+        pdfDocument = await loadingTask.promise;
+        if (cancelled) return;
+
+        const targetWidth = Math.min(900, Math.max(320, container.clientWidth - 32));
+        const pixelRatio = window.devicePixelRatio || 1;
+
+        for (let pageNumber = 1; pageNumber <= pdfDocument.numPages; pageNumber += 1) {
+          const page = await pdfDocument.getPage(pageNumber);
+          if (cancelled) return;
+
+          const baseViewport = page.getViewport({ scale: 1 });
+          const viewport = page.getViewport({ scale: targetWidth / baseViewport.width });
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d");
+          if (!context) continue;
+
+          canvas.width = Math.floor(viewport.width * pixelRatio);
+          canvas.height = Math.floor(viewport.height * pixelRatio);
+          canvas.style.width = `${viewport.width}px`;
+          canvas.style.height = `${viewport.height}px`;
+          canvas.style.display = "block";
+          canvas.style.background = "white";
+          canvas.style.boxShadow = "0 1px 8px rgba(0,0,0,0.12)";
+          context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+          const pageWrap = document.createElement("div");
+          pageWrap.style.display = "flex";
+          pageWrap.style.justifyContent = "center";
+          pageWrap.style.padding = "16px";
+          pageWrap.appendChild(canvas);
+          container.appendChild(pageWrap);
+
+          const renderTask = page.render({ canvasContext: context as any, viewport });
+          renderTasks.push(renderTask);
+          await renderTask.promise;
+        }
+
+        if (!cancelled) setStatus("");
+      } catch (error: any) {
+        if (cancelled || error?.name === "RenderingCancelledException") return;
+        setStatus("Unable to load report preview.");
+      }
+    };
+
+    renderPdf();
+
+    return () => {
+      cancelled = true;
+      renderTasks.forEach((task) => task.cancel?.());
+      pdfDocument?.destroy?.();
+    };
+  }, [blob]);
+
+  return (
+    <div className="flex-1 min-h-0 overflow-auto bg-muted/30" aria-label={title}>
+      {status && <div className="p-6 text-sm text-muted-foreground">{status}</div>}
+      <div ref={containerRef} className="min-h-full" role="document" />
     </div>
   );
 }
