@@ -232,7 +232,7 @@ const CanDexPreScreening = () => {
             </Tabs>
           </div>
         ) : (
-          <CandexClientPortal userId={user?.id || ""} />
+          <CandexClientPortal userId={userId} />
         )}
       </main>
     </div>
