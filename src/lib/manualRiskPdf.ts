@@ -41,8 +41,8 @@ export const CHECK_META: Record<string, { label: string; short: string; options:
   risk_assessment: {
     label: "Risk Assessment", short: "Risk",
     options: [
-      { v: "low", l: "Low Risk" }, { v: "medium", l: "Medium Risk" },
-      { v: "high", l: "High Risk" }, { v: "very_high", l: "Very High Risk" },
+      { v: "no_risk", l: "No Risk Identified" },
+      { v: "risk_identified", l: "Risk Identified" },
       { v: "pending", l: "Pending" },
     ],
   },
@@ -101,6 +101,8 @@ const RESULT_LABELS: Record<string, string> = {
   record_found: "Record Found",
   verified: "Verified",
   not_verified: "Not Verified",
+  no_risk: "No Risk Identified",
+  risk_identified: "Risk Identified",
 };
 
 const RESULT_COLORS: Record<string, [number, number, number]> = {
@@ -108,6 +110,7 @@ const RESULT_COLORS: Record<string, [number, number, number]> = {
   clear: [22, 163, 74],
   low: [22, 163, 74],
   verified: [22, 163, 74],
+  no_risk: [22, 163, 74],
   medium: [202, 138, 4],
   expired: [202, 138, 4],
   high: [234, 88, 12],
@@ -115,6 +118,7 @@ const RESULT_COLORS: Record<string, [number, number, number]> = {
   invalid: [185, 28, 28],
   record_found: [185, 28, 28],
   not_verified: [185, 28, 28],
+  risk_identified: [185, 28, 28],
   deceased: [82, 82, 82],
   pending: [107, 114, 128],
 };
