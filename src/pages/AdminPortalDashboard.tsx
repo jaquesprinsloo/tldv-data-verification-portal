@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
-import { FileText, Users, ClipboardCheck, Lock, FileCheck, GripVertical, ShieldCheck, Bug } from "lucide-react";
+import { FileText, Users, ClipboardCheck, Lock, FileCheck, GripVertical, ShieldCheck, Bug, ClipboardList } from "lucide-react";
 import { PermissionKey } from "@/hooks/usePermissions";
 import { Badge } from "@/components/ui/badge";
 import DebugDiagnosticsDialog from "@/components/admin/DebugDiagnosticsDialog";
@@ -156,6 +156,17 @@ const AdminPortalDashboard = () => {
       path: "/admin/pending-polygraph-review",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
       badge: pendingPolygraphCount || null,
+      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
+      requiresMasterAdmin: true
+    },
+    {
+      key: "manual-risk-assessments",
+      title: "Manual Risk Assessments",
+      description: "Off-system ID Verification, Credit and Criminal checks with report PDF",
+      icon: ClipboardList,
+      path: "/admin/manual-risk-assessments",
+      color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
+      badge: null,
       permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
       requiresMasterAdmin: true
     }
