@@ -47,9 +47,9 @@ Deno.serve(async (req) => {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0">
         <tr><td align="center">
           <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
-            <tr><td style="background:#000000;padding:24px 28px">
-              <div style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px">PreAppliCheck</div>
-              <div style="color:#dc2626;font-size:13px;font-weight:600;margin-top:4px;text-transform:uppercase;letter-spacing:1px">Risk Assessment Report</div>
+            <tr><td style="background:#ffffff;padding:20px 28px;text-align:center">
+              <img src="https://portal.tldv.co.za/preapplicheck-logo.png" alt="PreAppliCheck" width="220" style="display:block;margin:0 auto;" />
+              <div style="color:#dc2626;font-size:13px;font-weight:600;margin-top:10px;text-transform:uppercase;letter-spacing:1px">Risk Assessment Report</div>
             </td></tr>
             <tr><td style="padding:28px">
               <p style="margin:0 0 16px;font-size:15px;line-height:1.5">Good day,</p>
