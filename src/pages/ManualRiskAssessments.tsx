@@ -386,6 +386,7 @@ function NewSubmissionDialog({
   const [clientId, setClientId] = useState<string>("");
   const [newClient, setNewClient] = useState<Partial<Client>>({});
   const [saveClient, setSaveClient] = useState(true);
+  const [selectedChecks, setSelectedChecks] = useState<string[]>(["id_verification"]);
   // single mode candidate
   const [singleC, setSingleC] = useState<{ id_number: string; surname: string; first_name: string }>({
     id_number: "", surname: "", first_name: "",
@@ -426,6 +427,7 @@ function NewSubmissionDialog({
 
   const submit = async () => {
     if (!orderNumber.trim()) { toast.error("Order number is required"); return; }
+    if (!selectedChecks.length) { toast.error("Select at least one check"); return; }
     let resolvedClientId: string | null = null;
     if (clientMode === "existing") {
       if (!clientId) { toast.error("Select a client"); return; }
@@ -461,6 +463,7 @@ function NewSubmissionDialog({
           client_id: resolvedClientId,
           submission_type: type,
           status: "open",
+          requested_checks: selectedChecks,
           created_by: userId,
         })
         .select("id").single();
