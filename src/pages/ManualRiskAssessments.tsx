@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download, Eye } from "lucide-react";
+import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download, Eye, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -516,14 +516,30 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
 function TermsSettingsTab({ userId }: { userId: string }) {
   const [terms, setTerms] = useState("");
   const [loading, setLoading] = useState(true);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     (async () => {
       const { data } = await sb.from("manual_risk_settings").select("*").limit(1).maybeSingle();
-      if (data) setTerms(data.terms_and_conditions ?? "");
+      const val = data?.terms_and_conditions ?? "";
+      setTerms(val);
+      if (editorRef.current) editorRef.current.innerHTML = val;
       setLoading(false);
     })();
   }, []);
+
+  useEffect(() => {
+    if (!loading && editorRef.current && editorRef.current.innerHTML !== terms) {
+      editorRef.current.innerHTML = terms;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  const exec = (cmd: string, value?: string) => {
+    editorRef.current?.focus();
+    document.execCommand(cmd, false, value);
+    if (editorRef.current) setTerms(editorRef.current.innerHTML);
+  };
 
   const save = async () => {
     const { data: existing } = await sb.from("manual_risk_settings").select("id").limit(1).maybeSingle();
@@ -545,8 +561,27 @@ function TermsSettingsTab({ userId }: { userId: string }) {
         <h3 className="font-semibold">Report Disclaimer</h3>
         <p className="text-xs text-muted-foreground">Applied to every Manual Risk Assessment PDF.</p>
       </div>
-      <Textarea rows={12} value={terms} onChange={(e) => setTerms(e.target.value)} disabled={loading}
-        placeholder="Enter the disclaimer shown at the bottom of the report..." className="text-justify" />
+      <div className="border rounded-md">
+        <div className="flex flex-wrap items-center gap-1 border-b p-1 bg-muted/40">
+          <Button type="button" variant="ghost" size="icon" title="Bold" onMouseDown={(e) => e.preventDefault()} onClick={() => exec("bold")}><Bold className="h-4 w-4" /></Button>
+          <Button type="button" variant="ghost" size="icon" title="Italic" onMouseDown={(e) => e.preventDefault()} onClick={() => exec("italic")}><Italic className="h-4 w-4" /></Button>
+          <Button type="button" variant="ghost" size="icon" title="Underline" onMouseDown={(e) => e.preventDefault()} onClick={() => exec("underline")}><Underline className="h-4 w-4" /></Button>
+          <div className="w-px h-6 bg-border mx-1" />
+          <Button type="button" variant="ghost" size="icon" title="Align left" onMouseDown={(e) => e.preventDefault()} onClick={() => exec("justifyLeft")}><AlignLeft className="h-4 w-4" /></Button>
+          <Button type="button" variant="ghost" size="icon" title="Align center" onMouseDown={(e) => e.preventDefault()} onClick={() => exec("justifyCenter")}><AlignCenter className="h-4 w-4" /></Button>
+          <Button type="button" variant="ghost" size="icon" title="Align right" onMouseDown={(e) => e.preventDefault()} onClick={() => exec("justifyRight")}><AlignRight className="h-4 w-4" /></Button>
+          <Button type="button" variant="ghost" size="icon" title="Justify" onMouseDown={(e) => e.preventDefault()} onClick={() => exec("justifyFull")}><AlignJustify className="h-4 w-4" /></Button>
+        </div>
+        <div
+          ref={editorRef}
+          contentEditable={!loading}
+          suppressContentEditableWarning
+          onInput={(e) => setTerms((e.target as HTMLDivElement).innerHTML)}
+          className="min-h-[280px] p-3 text-sm focus:outline-none prose prose-sm max-w-none [&_*]:my-1"
+          style={{ textAlign: "justify" }}
+          data-placeholder="Enter the disclaimer shown at the bottom of the report..."
+        />
+      </div>
       <div className="flex justify-end">
         <Button onClick={save} className="bg-red-600 hover:bg-red-700" disabled={loading}>Save T&amp;Cs</Button>
       </div>
