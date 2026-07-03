@@ -902,6 +902,7 @@ function SubmissionDetailsDialog({
   const [emailMsg, setEmailMsg] = useState("");
   const [sending, setSending] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [reopening, setReopening] = useState(false);
 
   useEffect(() => { setLocal(candidates); }, [candidates]);
 
