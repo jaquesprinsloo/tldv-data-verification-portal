@@ -694,22 +694,30 @@ function SubmissionDetailsDialog({
     setLocal((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   };
 
+  const activeChecks = (sub?.requested_checks && sub.requested_checks.length
+    ? sub.requested_checks
+    : ["id_verification", "credit", "criminal"]
+  ).filter((k) => CHECK_COLUMNS[k]);
+
   const saveResults = async () => {
     setSaving(true);
     try {
       for (const c of local) {
-        const { error } = await sb.from("manual_risk_candidates").update({
-          id_verification_result: c.id_verification_result,
-          id_verification_notes: c.id_verification_notes,
-          credit_result: c.credit_result,
-          credit_notes: c.credit_notes,
-          criminal_result: c.criminal_result,
-          criminal_notes: c.criminal_notes,
-        }).eq("id", c.id);
+        const patch: Record<string, any> = {};
+        for (const k of activeChecks) {
+          const cols = CHECK_COLUMNS[k];
+          patch[cols.result] = c[cols.result] ?? null;
+          patch[cols.notes] = c[cols.notes] ?? null;
+        }
+        const { error } = await sb.from("manual_risk_candidates").update(patch).eq("id", c.id);
         if (error) throw error;
       }
-      const allComplete = local.every((c) => c.id_verification_result && c.credit_result && c.criminal_result &&
-        ![c.id_verification_result, c.credit_result, c.criminal_result].includes("pending"));
+      const allComplete = local.every((c) =>
+        activeChecks.every((k) => {
+          const v = c[CHECK_COLUMNS[k].result];
+          return v && v !== "pending";
+        }),
+      );
       if (allComplete && sub?.status !== "completed") {
         await sb.from("manual_risk_submissions").update({ status: "completed" }).eq("id", submissionId);
       }
@@ -726,13 +734,15 @@ function SubmissionDetailsDialog({
 
   const buildPdfBlob = async () => {
     const { data: settings } = await sb.from("manual_risk_settings").select("terms_and_conditions").limit(1).maybeSingle();
-    const pdfCandidates: ManualRiskCandidatePdf[] = local.map((c) => ({
-      id_number: c.id_number, surname: c.surname, first_name: c.first_name,
-      id_verification_result: c.id_verification_result,
-      id_verification_notes: c.id_verification_notes,
-      credit_result: c.credit_result, credit_notes: c.credit_notes,
-      criminal_result: c.criminal_result, criminal_notes: c.criminal_notes,
-    }));
+    const pdfCandidates: ManualRiskCandidatePdf[] = local.map((c) => {
+      const results: Record<string, string | null> = {};
+      const notes: Record<string, string | null> = {};
+      for (const k of activeChecks) {
+        results[k] = c[CHECK_COLUMNS[k].result] ?? null;
+        notes[k] = c[CHECK_COLUMNS[k].notes] ?? null;
+      }
+      return { id_number: c.id_number, surname: c.surname, first_name: c.first_name, results, notes };
+    });
     return await generateManualRiskPdf({
       orderNumber: sub?.order_number ?? "",
       clientName: client?.client_name,
@@ -742,6 +752,7 @@ function SubmissionDetailsDialog({
       candidates: pdfCandidates,
       termsAndConditions: settings?.terms_and_conditions ?? "",
       generatedByName: userName,
+      requestedChecks: activeChecks,
     });
   };
 
@@ -799,9 +810,9 @@ function SubmissionDetailsDialog({
               <TableRow>
                 <TableHead className="w-40">Candidate</TableHead>
                 <TableHead className="w-32">ID</TableHead>
-                <TableHead>ID Verification</TableHead>
-                <TableHead>Credit / Risk</TableHead>
-                <TableHead>Criminal</TableHead>
+                {activeChecks.map((k) => (
+                  <TableHead key={k}>{CHECK_META[k]?.label ?? k}</TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -809,30 +820,20 @@ function SubmissionDetailsDialog({
                 <TableRow key={c.id}>
                   <TableCell className="font-medium">{c.surname}, {c.first_name}</TableCell>
                   <TableCell className="font-mono text-xs">{c.id_number}</TableCell>
-                  <TableCell>
-                    <ResultCell
-                      value={c.id_verification_result} notes={c.id_verification_notes}
-                      options={ID_OPTIONS}
-                      onValue={(v) => updateRow(idx, { id_verification_result: v })}
-                      onNotes={(v) => updateRow(idx, { id_verification_notes: v })}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <ResultCell
-                      value={c.credit_result} notes={c.credit_notes}
-                      options={CREDIT_OPTIONS}
-                      onValue={(v) => updateRow(idx, { credit_result: v })}
-                      onNotes={(v) => updateRow(idx, { credit_notes: v })}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <ResultCell
-                      value={c.criminal_result} notes={c.criminal_notes}
-                      options={CRIMINAL_OPTIONS}
-                      onValue={(v) => updateRow(idx, { criminal_result: v })}
-                      onNotes={(v) => updateRow(idx, { criminal_notes: v })}
-                    />
-                  </TableCell>
+                  {activeChecks.map((k) => {
+                    const cols = CHECK_COLUMNS[k];
+                    return (
+                      <TableCell key={k}>
+                        <ResultCell
+                          value={c[cols.result] ?? null}
+                          notes={c[cols.notes] ?? null}
+                          options={CHECK_META[k]?.options ?? []}
+                          onValue={(v) => updateRow(idx, { [cols.result]: v } as any)}
+                          onNotes={(v) => updateRow(idx, { [cols.notes]: v } as any)}
+                        />
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))}
             </TableBody>
