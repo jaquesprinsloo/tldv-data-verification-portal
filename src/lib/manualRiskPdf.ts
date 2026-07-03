@@ -379,8 +379,8 @@ function parseRichParagraphs(html: string): RichParagraph[] {
   let current: RichParagraph = { align: "justify", runs: [] };
 
   const flush = () => {
-    const hasContent = current.runs.some((r) => r.text.replace(/\s/g, "").length > 0);
-    if (hasContent) paragraphs.push(current);
+    // Preserve empty paragraphs so blank lines from the editor render as spacing in the PDF
+    paragraphs.push(current);
     current = { align: current.align, runs: [] };
   };
 
