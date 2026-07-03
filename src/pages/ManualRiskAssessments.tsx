@@ -65,6 +65,14 @@ export default function ManualRiskAssessments() {
   const [newSubOpen, setNewSubOpen] = useState(false);
   const [detailsSubId, setDetailsSubId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
+  const [previewReport, setPreviewReport] = useState<{ url: string; title: string } | null>(null);
+
+  const closePreviewReport = () => {
+    setPreviewReport((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  };
 
   useEffect(() => {
     (async () => {
@@ -116,7 +124,7 @@ export default function ManualRiskAssessments() {
     return m;
   }, [clients]);
 
-  const previewPdf = async (submissionId: string, win: Window | null) => {
+  const previewPdf = async (submissionId: string) => {
     setPreviewing(submissionId);
     try {
       const sub = submissions.find((s) => s.id === submissionId);
@@ -159,21 +167,11 @@ export default function ManualRiskAssessments() {
       });
 
       const url = URL.createObjectURL(blob);
-      if (win && !win.closed) {
-        win.location.href = url;
-      } else {
-        // Popup was blocked — fall back to a same-tab download-style open
-        const a = document.createElement("a");
-        a.href = url;
-        a.target = "_blank";
-        a.rel = "noopener";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      }
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      setPreviewReport((current) => {
+        if (current?.url) URL.revokeObjectURL(current.url);
+        return { url, title: `PreAppliCheck Report — ${sub.order_number}` };
+      });
     } catch (e: any) {
-      if (win && !win.closed) win.close();
       toast.error("Failed to preview report: " + e.message);
     } finally {
       setPreviewing(null);
@@ -256,10 +254,7 @@ export default function ManualRiskAssessments() {
                             size="icon"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Open the tab synchronously inside the user gesture so
-                              // popup blockers don't kill it after the async PDF build.
-                              const win = window.open("about:blank", "_blank");
-                              previewPdf(s.id, win);
+                              previewPdf(s.id);
                             }}
                             disabled={previewing === s.id}
                             title="View Report"
@@ -329,6 +324,21 @@ export default function ManualRiskAssessments() {
           onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
         />
       )}
+
+      <Dialog open={!!previewReport} onOpenChange={(open) => !open && closePreviewReport()}>
+        <DialogContent className="max-w-6xl h-[92vh] p-0 overflow-hidden">
+          <DialogHeader className="px-4 pt-4 pb-2 border-b">
+            <DialogTitle>{previewReport?.title ?? "Report Preview"}</DialogTitle>
+          </DialogHeader>
+          {previewReport && (
+            <iframe
+              src={previewReport.url}
+              title={previewReport.title}
+              className="w-full flex-1 min-h-0 border-0"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
