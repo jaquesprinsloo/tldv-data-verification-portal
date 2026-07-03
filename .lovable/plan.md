@@ -1,49 +1,47 @@
-## Goal
+## Impersonation ("View as") for Master Admins
 
-Continue the deferred-extraction rollout by stripping AI extraction from the remaining upload paths, while preserving each component's existing UI, validation, and signed-URL handling.
+Adds a master-admin-only ability to open any admin, examiner, or restricted admin's portal and see exactly what they see — same appointments list, same reports, same locked/unlocked tabs, same dashboard badges.
 
-## Changes
+### How it works
 
-### 1. `src/components/reports/BatchUploadSection.tsx`
-- Remove the per-file `supabase.functions.invoke('extract-polygraph-report', ...)` call inside the upload loop.
-- Keep existing PDF/DOCX validation, file-list UI, per-file status indicators, batch name/account/store/examiner selectors, and the "Add Examiner" flow.
-- Keep current storage upload pattern (private `polygraph-reports` bucket, signed URLs / proxy where used) — do **not** switch to `getPublicUrl`.
-- Insert a row into `pending_polygraph_uploads` per file with `extracted_data: null`, `status: 'pending'`, the chosen `account_id`, `store_id`, `examiner_id`, `original_file_url`, `original_file_name`, `uploaded_by`.
-- Toast copy: "Submitted for review — Master Admin will extract and approve."
+1. **Impersonation session** (client-side, per browser tab)
+   - Stored in `sessionStorage` under `impersonation_target` = `{ userId, role, fullName, email }`.
+   - Only a real master admin can set it; cleared on tab close or "Exit view" click.
+   - The master's real Supabase auth session stays intact — RLS still runs as the master, who already has read access to everything. We only swap the **user ID used in query filters and permission checks**, so views scoped by `assigned_examiner_user_id`, `granted_by`, `account_access.user_id`, badge state, etc. render as that person.
 
-### 2. `src/components/reports/DocumentUploadTab.tsx`
-- Remove the call to `process-pending-upload`.
-- Upload file to storage and insert a `pending_document_uploads` (or `pending_polygraph_uploads` for polygraph type) row with file metadata only — no AI extraction, no auto store match.
-- Reviewer will assign store manually in the Pending Review screen.
+2. **New hook `useEffectiveUser()`**
+   - Returns `{ id, isImpersonating, realUserId, targetRole, targetName }`.
+   - Every place in the app that currently reads `session.user.id` for filtering data or checking role is switched to this hook. RLS-critical writes (uploads, mutations) keep using the real master ID and get tagged with an audit note.
 
-### 3. `src/pages/ExaminerPortal.tsx`
-- Remove the `extract-polygraph-report` invocation on examiner uploads.
-- Keep file upload + insert pending row; examiner sees "submitted for review" confirmation.
+3. **Wired into**
+   - `ExaminerPortal.tsx` — role gate accepts master when impersonating an examiner; appointment/candidate queries use the effective ID.
+   - `AdminPortalDashboard.tsx` — restricted-access mode, permission checks, dashboard card ordering, badge counts all use the effective ID.
+   - `usePermissions.ts` — resolves permissions for the effective user so locked tabs appear exactly as the target sees them.
+   - `useBadgeLastSeen.ts` — reads/writes badge state under the effective ID.
 
-### 4. `supabase/functions/approve-pending-upload/index.ts`
-- Strip any branch that re-runs AI extraction on approval.
-- For polygraph approvals: copy `extracted_data` (already populated by reviewer's manual extract step) into `polygraph_reports`.
-- For invoice/document approvals: just promote file + manually entered metadata; no AI.
+4. **UI: "View as" button in Profile Management**
+   - New column on the master's Profile Management table with an eye icon → confirmation dialog → activates impersonation and navigates to `/examiner` or `/admin/portal` based on the target's role.
+   - Persistent red banner at the top of every page while impersonating: *"Viewing as {name} ({role}) — [Exit view]"*.
+   - Exit clears the session and returns to Profile Management.
 
-### 5. Delete unused edge functions
-- `supabase/functions/process-pending-upload/` — no longer called.
-- `supabase/functions/extract-invoice-data/` — out of scope per earlier confirmation.
-- Call `supabase--delete_edge_functions` to remove them from the deployed backend.
+5. **Audit trail**
+   - Every impersonation start/stop writes to `audit_log` with action `IMPERSONATE_START` / `IMPERSONATE_END`, actor = real master ID, target = impersonated user ID.
 
-## Not changing
+### What it solves
 
-- `extract-polygraph-report` — kept, only invoked from `PendingPolygraphReview.tsx` "Extract Data with AI" button (already implemented).
-- `generate-pre-risk-profile` — unchanged, runs on PreAppliCheck submission.
-- `PendingPolygraphReview.tsx` — already updated in previous step.
-- `PolygraphReportsSection.tsx` (single upload) — already updated in previous step.
+- Master can open the examiner's portal and immediately see whether an appointment actually reached them.
+- Master can open a restricted admin's portal and confirm which tabs are locked and what data they see.
+- Master can verify a report shows up in the admin dashboard the same way that admin sees it.
 
-## Verification
+### What it does NOT do
 
-After edits:
-1. Confirm no remaining `extract-polygraph-report` or `process-pending-upload` invocations exist outside `PendingPolygraphReview.tsx` (`rg "extract-polygraph-report|process-pending-upload" src/`).
-2. Build passes.
-3. Manual smoke test: batch upload 2 PDFs → both appear in Pending Review with no extracted data → click "Extract Data with AI" on one → fields populate → Approve copies to `polygraph_reports`.
+- Not a "login as" — no session swap, no new JWT, no password reset. All actions performed while impersonating are still done by the master account for audit integrity.
+- Write actions (uploading reports, deleting records) remain performed by the master; a red confirmation dialog appears if the master tries to submit a mutation while impersonating.
 
-## Net result
+### Files touched
 
-AI runs only on PreAppliCheck submission and the reviewer's explicit "Extract Data" click. All other upload paths are pure file-upload + pending-row inserts.
+- New: `src/hooks/useEffectiveUser.ts`, `src/components/shared/ImpersonationBanner.tsx`
+- Updated: `src/App.tsx` (mount banner), `src/pages/ExaminerPortal.tsx`, `src/pages/AdminPortalDashboard.tsx`, `src/hooks/usePermissions.ts`, `src/hooks/useBadgeLastSeen.ts`, `src/components/admin/ProfileManagement.tsx`
+- Migration: none required (uses existing `audit_log` table).
+
+Approve and I'll build it.
