@@ -20,8 +20,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { subject, message, pdfBase64, filename, orderNumber, clientName } = body as {
-      subject?: string; message?: string; clientName?: string;
+    const { subject, message, pdfBase64, filename, orderNumber, clientName, contactName } = body as {
+      subject?: string; message?: string; clientName?: string; contactName?: string;
       pdfBase64?: string; filename?: string; orderNumber?: string;
     };
 
@@ -39,29 +39,30 @@ Deno.serve(async (req) => {
       `PreAppliCheck-Report${orderNumber ? `-${orderNumber}` : ''}.pdf`;
 
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const messageHtml = message && message.trim()
-      ? esc(message).replace(/\n/g, '<br/>')
-      : 'Please find the attached PreAppliCheck Risk Assessment Report for your review.';
+    const extraMessageHtml = message && message.trim()
+      ? `<p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#333">${esc(message).replace(/\n/g, '<br/>')}</p>`
+      : '';
+    const greetingName = (contactName && contactName.trim()) ? esc(contactName.trim()) : '';
+    const greetingLine = greetingName ? `Good day ${greetingName},` : 'Good day,';
     const dateStr = new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' });
 
     const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#111">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0">
         <tr><td align="center">
           <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
-            <tr><td style="background:#ffffff;padding:20px 28px;text-align:center">
-              <img src="cid:preapplicheck-logo" alt="PreAppliCheck" width="220" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;" />
-              <div style="color:#dc2626;font-size:13px;font-weight:600;margin-top:10px;text-transform:uppercase;letter-spacing:1px">Risk Assessment Report</div>
+            <tr><td style="background:#ffffff;padding:28px 28px 12px;text-align:center">
+              <img src="cid:preapplicheck-logo" alt="PreAppliCheck — Vetting driven by Intelligence" width="420" style="display:block;margin:0 auto;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;" />
             </td></tr>
             <tr><td style="padding:28px">
-              <p style="margin:0 0 16px;font-size:15px;line-height:1.5">Good day,</p>
-              <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#333">${messageHtml}</p>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.5">${greetingLine}</p>
+              <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#333">Please find the attached Background Screening Report for your review.</p>
+              ${extraMessageHtml}
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:6px;margin:0 0 20px">
                 ${orderNumber ? `<tr><td style="padding:10px 14px;font-size:13px;color:#6b7280;border-bottom:1px solid #e5e7eb;width:140px">Order Number</td><td style="padding:10px 14px;font-size:13px;color:#111;border-bottom:1px solid #e5e7eb;font-weight:600">${esc(orderNumber)}</td></tr>` : ''}
                 ${clientName ? `<tr><td style="padding:10px 14px;font-size:13px;color:#6b7280;border-bottom:1px solid #e5e7eb">Client</td><td style="padding:10px 14px;font-size:13px;color:#111;border-bottom:1px solid #e5e7eb;font-weight:600">${esc(clientName)}</td></tr>` : ''}
                 <tr><td style="padding:10px 14px;font-size:13px;color:#6b7280">Report Date</td><td style="padding:10px 14px;font-size:13px;color:#111;font-weight:600">${dateStr}</td></tr>
               </table>
-              <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#333">The full report is attached as a PDF for your records.</p>
-              <p style="margin:0;font-size:14px;line-height:1.6;color:#333">Kind regards,<br/><strong>PreAppliCheck Reporting Team</strong></p>
+              <p style="margin:0;font-size:14px;line-height:1.6;color:#333">Warm regards,<br/><strong>Client Service</strong></p>
             </td></tr>
             <tr><td style="background:#f9fafb;padding:16px 28px;border-top:1px solid #e5e7eb">
               <p style="margin:0;font-size:11px;line-height:1.5;color:#6b7280;text-align:center">

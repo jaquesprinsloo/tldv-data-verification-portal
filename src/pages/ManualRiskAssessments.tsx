@@ -1000,6 +1000,7 @@ function SubmissionDetailsDialog({
           filename: `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`,
           orderNumber: sub?.order_number,
           clientName: client?.client_name ?? null,
+          contactName: client?.contact_person ?? null,
         },
       });
       if (error) throw error;
