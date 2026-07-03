@@ -21,7 +21,8 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { generateManualRiskPdf, blobToBase64, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
+import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // ---------- helpers ----------
 
@@ -33,30 +34,24 @@ type Submission = {
   id: string; order_number: string; client_id: string | null;
   submission_type: "single" | "batch"; status: "open" | "completed";
   notes: string | null; created_at: string;
+  requested_checks: string[] | null;
 };
 type Candidate = {
   id: string; submission_id: string; id_number: string;
   surname: string; first_name: string;
-  id_verification_result: string | null; id_verification_notes: string | null;
-  credit_result: string | null; credit_notes: string | null;
-  criminal_result: string | null; criminal_notes: string | null;
   sort_order: number;
+  [key: string]: any;
 };
 
 const sb = supabase as any;
 
-const ID_OPTIONS = [
-  { v: "valid", l: "Valid" }, { v: "invalid", l: "Invalid" },
-  { v: "deceased", l: "Deceased" }, { v: "pending", l: "Pending" },
-];
-const CREDIT_OPTIONS = [
-  { v: "low", l: "Low Risk" }, { v: "medium", l: "Medium Risk" },
-  { v: "high", l: "High Risk" }, { v: "very_high", l: "Very High Risk" },
-  { v: "pending", l: "Pending" },
-];
-const CRIMINAL_OPTIONS = [
-  { v: "clear", l: "Clear" }, { v: "record_found", l: "Record Found" },
-  { v: "pending", l: "Pending" },
+const AVAILABLE_CHECKS: { key: string; label: string }[] = [
+  { key: "id_verification", label: "ID Verification" },
+  { key: "credit", label: "Credit Check" },
+  { key: "risk_assessment", label: "Risk Assessment" },
+  { key: "drivers_license", label: "Driver's License Verification" },
+  { key: "pdp", label: "PDP Verification" },
+  { key: "qualification", label: "Qualification Verification" },
 ];
 
 // ---------- page ----------
