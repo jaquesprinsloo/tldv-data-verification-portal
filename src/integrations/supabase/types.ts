@@ -741,6 +741,172 @@ export type Database = {
           },
         ]
       }
+      manual_risk_candidates: {
+        Row: {
+          created_at: string
+          credit_notes: string | null
+          credit_result: string | null
+          criminal_notes: string | null
+          criminal_result: string | null
+          first_name: string
+          id: string
+          id_number: string
+          id_verification_notes: string | null
+          id_verification_result: string | null
+          sort_order: number
+          submission_id: string
+          surname: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credit_notes?: string | null
+          credit_result?: string | null
+          criminal_notes?: string | null
+          criminal_result?: string | null
+          first_name: string
+          id?: string
+          id_number: string
+          id_verification_notes?: string | null
+          id_verification_result?: string | null
+          sort_order?: number
+          submission_id: string
+          surname: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credit_notes?: string | null
+          credit_result?: string | null
+          criminal_notes?: string | null
+          criminal_result?: string | null
+          first_name?: string
+          id?: string
+          id_number?: string
+          id_verification_notes?: string | null
+          id_verification_result?: string | null
+          sort_order?: number
+          submission_id?: string
+          surname?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_risk_candidates_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_risk_clients: {
+        Row: {
+          address: string | null
+          client_name: string
+          contact_person: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          client_name: string
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          client_name?: string
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      manual_risk_settings: {
+        Row: {
+          created_at: string
+          id: string
+          singleton: boolean
+          terms_and_conditions: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          singleton?: boolean
+          terms_and_conditions?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          singleton?: boolean
+          terms_and_conditions?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      manual_risk_submissions: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          order_number: string
+          status: string
+          submission_type: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          order_number: string
+          status?: string
+          submission_type: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          order_number?: string
+          status?: string
+          submission_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_risk_submissions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_document_uploads: {
         Row: {
           account_id: string
