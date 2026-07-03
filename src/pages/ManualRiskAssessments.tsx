@@ -1144,7 +1144,7 @@ function ResultCell({
           <SelectValue placeholder="Not set" />
         </SelectTrigger>
         <SelectContent>
-          {options.map((o) use a specific approach for mapping options. ) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}
+          {options.map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}
         </SelectContent>
       </Select>
     </div>
