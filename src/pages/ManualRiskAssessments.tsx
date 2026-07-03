@@ -842,10 +842,8 @@ function SubmissionDetailsDialog({
                       <TableCell key={k}>
                         <ResultCell
                           value={c[cols.result] ?? null}
-                          notes={c[cols.notes] ?? null}
                           options={CHECK_META[k]?.options ?? []}
                           onValue={(v) => updateRow(idx, { [cols.result]: v } as any)}
-                          onNotes={(v) => updateRow(idx, { [cols.notes]: v } as any)}
                         />
                       </TableCell>
                     );
