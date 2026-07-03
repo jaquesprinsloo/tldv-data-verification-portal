@@ -9,8 +9,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProfileDetailsDialog } from "./ProfileDetailsDialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, Loader2, Send } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Send, Eye } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { startImpersonation } from "@/hooks/useImpersonation";
 
 interface Profile {
   id: string;
@@ -33,6 +34,7 @@ export const ProfileManagement = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [emailStatus, setEmailStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Debounced email availability check
@@ -230,6 +232,47 @@ export const ProfileManagement = () => {
     }
   };
 
+  const handleImpersonate = async (e: React.MouseEvent, profile: Profile) => {
+    e.stopPropagation();
+
+    const roles = profile.roles || [];
+    // Prefer the more privileged role if the user has multiple.
+    const role: "admin" | "master_admin" | "examiner" =
+      (roles.includes("master_admin") && "master_admin") ||
+      (roles.includes("admin") && "admin") ||
+      (roles.includes("examiner") && "examiner") ||
+      "admin";
+
+    // Prevent master from impersonating themselves.
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData?.user?.id === profile.id) {
+      toast.error("You are already signed in as this user.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `View the portal as ${profile.full_name || profile.email} (${role})?\n\n` +
+        `You will see exactly what this user sees. All actions remain logged under your master account.`
+    );
+    if (!confirmed) return;
+
+    setImpersonatingId(profile.id);
+    try {
+      await startImpersonation({
+        userId: profile.id,
+        role,
+        fullName: profile.full_name || "",
+        email: profile.email,
+        startedAt: new Date().toISOString(),
+      });
+      // Hard navigate so every query / auth check remounts under the new effective user.
+      window.location.href = role === "examiner" ? "/examiner" : "/admin/portal";
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to start impersonation");
+      setImpersonatingId(null);
+    }
+  };
+
   const filteredProfiles = profiles?.filter(profile => 
     (profile.full_name?.toLowerCase() || '').includes(searchFilter.toLowerCase()) ||
     profile.email.toLowerCase().includes(searchFilter.toLowerCase())
@@ -389,6 +432,28 @@ export const ProfileManagement = () => {
                         <p className="text-gray-400 text-sm">{profile.email}</p>
                       </div>
                       <div className="flex items-center gap-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => handleImpersonate(e, profile)}
+                                disabled={impersonatingId === profile.id}
+                                className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-red-600/20"
+                              >
+                                {impersonatingId === profile.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>View portal as this user</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
