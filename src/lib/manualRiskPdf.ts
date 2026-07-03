@@ -144,15 +144,24 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
 
   // Modern centered header: logo in the middle, title beneath, subtle divider
   const headerTop = 40;
-  const logoSize = 72;
+  const logoMaxWidth = 160;
   try {
     const logoData = await loadImageAsDataUrl(preapplicheckLogo);
-    doc.addImage(logoData, "PNG", (pageWidth - logoSize) / 2, headerTop, logoSize, logoSize);
+    const img = new Image();
+    img.src = logoData;
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = reject;
+    });
+    const aspect = img.naturalHeight / img.naturalWidth;
+    const logoW = logoMaxWidth;
+    const logoH = logoMaxWidth * aspect;
+    doc.addImage(logoData, "PNG", (pageWidth - logoW) / 2, headerTop, logoW, logoH);
   } catch {
     /* logo optional */
   }
 
-  let y = headerTop + logoSize + 22;
+  let y = headerTop + logoMaxWidth * (600 / 900) + 22;
   doc.setTextColor(15, 15, 15);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
