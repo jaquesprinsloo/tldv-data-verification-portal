@@ -12,6 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { usePermissions, PERMISSION_KEYS } from "@/hooks/usePermissions";
 import { usePreAppliCheckedNotifications } from "@/hooks/usePreAppliCheckedNotifications";
 import { useBadgeLastSeen } from "@/hooks/useBadgeLastSeen";
+import { useImpersonation } from "@/hooks/useImpersonation";
 import { toast } from "sonner";
 
 interface PortalCard {
@@ -45,19 +46,30 @@ const AdminPortalDashboard = () => {
   const [debugOpen, setDebugOpen] = useState(false);
   const [authResolved, setAuthResolved] = useState(false);
 
+  // Impersonation: when a real master admin is "viewing as" another admin/master,
+  // resolve permissions, badges, and role gating for the target user instead.
+  const impersonation = useImpersonation();
+  const isImpersonatingPortalUser =
+    !!impersonation && (impersonation.role === "admin" || impersonation.role === "master_admin");
+  const effectiveUserId = isImpersonatingPortalUser ? impersonation!.userId : currentUserId;
+
   const {
     hasPermission,
     checkAccessWithNotification,
     isLoading: permissionsLoading,
     isMasterAdmin: permissionsMasterAdmin,
-  } = usePermissions(currentUserId);
+  } = usePermissions(effectiveUserId);
 
-  const hasFullAccess = isMasterAdmin || permissionsMasterAdmin;
+  // While impersonating a plain admin, master's own privileges must NOT leak
+  // through — the whole point is to see exactly what that admin sees.
+  const hasFullAccess = isImpersonatingPortalUser
+    ? impersonation!.role === "master_admin" || permissionsMasterAdmin
+    : isMasterAdmin || permissionsMasterAdmin;
 
   // Per-user "last seen" trackers so badges clear once the admin opens the relevant portal,
   // even if the underlying records are still in their pending state.
   const { lastSeen: pendingPolygraphLastSeen, markSeen: markPendingPolygraphSeen } =
-    useBadgeLastSeen(currentUserId, "pending-polygraph-review");
+    useBadgeLastSeen(effectiveUserId, "pending-polygraph-review");
 
   const { data: pendingPolygraphCount } = useQuery({
     queryKey: ['pending-polygraph-count', pendingPolygraphLastSeen],
@@ -75,7 +87,7 @@ const AdminPortalDashboard = () => {
   // Per-admin unread count for newly-approved PreAppliCheck applications.
   // Toast surfaces here (the dashboard) so admins are alerted regardless of which portal they're in next.
   const { unreadCount: preAppliCheckedUnread, markSeen: markPreAppliCheckedSeen } =
-    usePreAppliCheckedNotifications(currentUserId, { showToast: true });
+    usePreAppliCheckedNotifications(effectiveUserId, { showToast: isImpersonatingPortalUser ? false : true });
 
   // Fetch saved card order
   const { data: savedOrder } = useQuery({
