@@ -1080,6 +1080,17 @@ function SubmissionDetailsDialog({
         <DialogFooter className="flex-col sm:flex-row gap-2 items-stretch sm:items-center">
           <Button variant="outline" onClick={onClose}>Close</Button>
           <div className="flex-1" />
+          {sub.status === "completed" && (
+            <Button
+              variant="outline"
+              onClick={reopenSubmission}
+              disabled={reopening}
+              title="Reopen this submission so results can be edited"
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              {reopening ? "Reopening..." : "Reopen for Editing"}
+            </Button>
+          )}
           <Button onClick={saveResults} disabled={saving} className="bg-red-600 hover:bg-red-700">
             {saving ? "Saving..." : "Save Results"}
           </Button>
