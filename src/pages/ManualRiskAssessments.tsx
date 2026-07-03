@@ -1011,6 +1011,26 @@ function SubmissionDetailsDialog({
     finally { setSending(false); }
   };
 
+  const reopenSubmission = async () => {
+    setReopening(true);
+    try {
+      const { error } = await sb
+        .from("manual_risk_submissions")
+        .update({ status: "open" })
+        .eq("id", submissionId);
+      if (error) throw error;
+      toast.success("Submission reopened — you can now edit the checks");
+      refetch();
+      qc.invalidateQueries({ queryKey: ["mra-sub", submissionId] });
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setReopening(false);
+    }
+  };
+
   if (!sub) return null;
 
   return (
