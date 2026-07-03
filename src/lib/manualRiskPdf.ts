@@ -39,7 +39,7 @@ export const CHECK_META: Record<string, { label: string; short: string; options:
     ],
   },
   risk_assessment: {
-    label: "Risk Assessment", short: "Risk Assessment",
+    label: "Background Screening", short: "Background Screening",
     options: [
       { v: "no_risk", l: "No Risk Identified" },
       { v: "risk_identified", l: "Risk Identified" },
