@@ -116,6 +116,57 @@ export default function ManualRiskAssessments() {
     return m;
   }, [clients]);
 
+  const previewPdf = async (submissionId: string) => {
+    setPreviewing(submissionId);
+    try {
+      const sub = submissions.find((s) => s.id === submissionId);
+      if (!sub) throw new Error("Submission not found");
+
+      const [{ data: cands }, { data: settings }] = await Promise.all([
+        sb.from("manual_risk_candidates")
+          .select("*")
+          .eq("submission_id", submissionId)
+          .order("sort_order", { ascending: true }),
+        sb.from("manual_risk_settings").select("terms_and_conditions").limit(1).maybeSingle(),
+      ]);
+
+      const client = sub.client_id ? clientById.get(sub.client_id) : undefined;
+      const activeChecks = (sub.requested_checks?.length
+        ? sub.requested_checks
+        : ["id_verification", "credit", "criminal"]
+      ).filter((k) => CHECK_COLUMNS[k]);
+
+      const pdfCandidates: ManualRiskCandidatePdf[] = (cands ?? []).map((c: any) => {
+        const results: Record<string, string | null> = {};
+        const notes: Record<string, string | null> = {};
+        for (const k of activeChecks) {
+          results[k] = c[CHECK_COLUMNS[k].result] ?? null;
+          notes[k] = c[CHECK_COLUMNS[k].notes] ?? null;
+        }
+        return { id_number: c.id_number, surname: c.surname, first_name: c.first_name, results, notes };
+      });
+
+      const blob = await generateManualRiskPdf({
+        orderNumber: sub.order_number,
+        clientName: client?.client_name,
+        clientContact: client?.contact_person,
+        clientEmail: client?.email,
+        submissionType: sub.submission_type,
+        candidates: pdfCandidates,
+        termsAndConditions: settings?.terms_and_conditions ?? "",
+        generatedByName: userName,
+        requestedChecks: activeChecks,
+      });
+
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch (e: any) {
+      toast.error("Failed to preview report: " + e.message);
+    } finally {
+      setPreviewing(null);
+    }
+  };
+
   if (allowed === null) {
     return <div className="min-h-screen flex items-center justify-center bg-black text-white">Loading...</div>;
   }
