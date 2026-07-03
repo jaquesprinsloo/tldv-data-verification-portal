@@ -64,6 +64,7 @@ export default function ManualRiskAssessments() {
   const [userName, setUserName] = useState<string>("");
   const [newSubOpen, setNewSubOpen] = useState(false);
   const [detailsSubId, setDetailsSubId] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
