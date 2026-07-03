@@ -902,6 +902,7 @@ function SubmissionDetailsDialog({
   const [emailMsg, setEmailMsg] = useState("");
   const [sending, setSending] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [reopening, setReopening] = useState(false);
 
   useEffect(() => { setLocal(candidates); }, [candidates]);
 
@@ -1010,6 +1011,26 @@ function SubmissionDetailsDialog({
     finally { setSending(false); }
   };
 
+  const reopenSubmission = async () => {
+    setReopening(true);
+    try {
+      const { error } = await sb
+        .from("manual_risk_submissions")
+        .update({ status: "open" })
+        .eq("id", submissionId);
+      if (error) throw error;
+      toast.success("Submission reopened — you can now edit the checks");
+      refetch();
+      qc.invalidateQueries({ queryKey: ["mra-sub", submissionId] });
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setReopening(false);
+    }
+  };
+
   if (!sub) return null;
 
   return (
@@ -1059,6 +1080,17 @@ function SubmissionDetailsDialog({
         <DialogFooter className="flex-col sm:flex-row gap-2 items-stretch sm:items-center">
           <Button variant="outline" onClick={onClose}>Close</Button>
           <div className="flex-1" />
+          {sub.status === "completed" && (
+            <Button
+              variant="outline"
+              onClick={reopenSubmission}
+              disabled={reopening}
+              title="Reopen this submission so results can be edited"
+            >
+              <Pencil className="h-4 w-4 mr-2" />
+              {reopening ? "Reopening..." : "Reopen for Editing"}
+            </Button>
+          )}
           <Button onClick={saveResults} disabled={saving} className="bg-red-600 hover:bg-red-700">
             {saving ? "Saving..." : "Save Results"}
           </Button>
