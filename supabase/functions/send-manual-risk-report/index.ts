@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     }
 
     const finalSubject = (subject && subject.trim()) ||
-      `PreAppliCheck Risk Assessment Report${orderNumber ? ` — Order ${orderNumber}` : ''}`;
+      `PreAppliCheck Background Screening Report${orderNumber ? ` — Order ${orderNumber}` : ''}`;
     const finalFilename = (filename && filename.trim()) ||
       `PreAppliCheck-Report${orderNumber ? `-${orderNumber}` : ''}.pdf`;
 
