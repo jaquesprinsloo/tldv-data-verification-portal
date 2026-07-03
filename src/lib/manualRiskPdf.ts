@@ -292,7 +292,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     let estLines = 0;
     for (const p of paragraphs) {
       const plain = p.runs.map((r) => r.text).join("");
-      estLines += Math.max(1, doc.splitTextToSize(plain || " ", maxTextWidth).length) + 1;
+      estLines += Math.max(1, doc.splitTextToSize(plain || " ", maxTextWidth).length);
     }
     const needed = 40 + estLines * lineHeight;
     if (cursorY + needed > pageHeight - 60) { doc.addPage(); cursorY = margin; }
@@ -532,8 +532,6 @@ function renderRichParagraphs(
       y += lineHeight;
     });
 
-    // paragraph spacing
-    y += 3;
   }
   return y;
 }
