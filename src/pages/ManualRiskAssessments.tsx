@@ -546,7 +546,7 @@ function TermsSettingsTab({ userId }: { userId: string }) {
         <p className="text-xs text-muted-foreground">Applied to every Manual Risk Assessment PDF.</p>
       </div>
       <Textarea rows={12} value={terms} onChange={(e) => setTerms(e.target.value)} disabled={loading}
-        placeholder="Enter the disclaimer shown at the bottom of the report..." />
+        placeholder="Enter the disclaimer shown at the bottom of the report..." className="text-justify" />
       <div className="flex justify-end">
         <Button onClick={save} className="bg-red-600 hover:bg-red-700" disabled={loading}>Save T&amp;Cs</Button>
       </div>
