@@ -1136,10 +1136,13 @@ function ResultCell({
   options: { v: string; l: string }[];
   onValue: (v: string) => void;
 }) {
+  const isRisk = value === "risk_identified";
   return (
     <div className="min-w-[160px]">
       <Select value={value ?? ""} onValueChange={onValue}>
-        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Not set" /></SelectTrigger>
+        <SelectTrigger className={`h-8 text-xs ${isRisk ? "text-red-500 font-bold" : ""}`}>
+          <SelectValue placeholder="Not set" />
+        </SelectTrigger>
         <SelectContent>
           {options.map((o) => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}
         </SelectContent>

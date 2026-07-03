@@ -118,7 +118,7 @@ const RESULT_COLORS: Record<string, [number, number, number]> = {
   invalid: [185, 28, 28],
   record_found: [185, 28, 28],
   not_verified: [185, 28, 28],
-  risk_identified: [185, 28, 28],
+  risk_identified: [255, 0, 0],
   deceased: [82, 82, 82],
   pending: [107, 114, 128],
 };
