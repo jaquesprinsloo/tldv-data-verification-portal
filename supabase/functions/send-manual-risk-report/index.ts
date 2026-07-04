@@ -20,13 +20,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { subject, message, pdfBase64, filename, orderNumber, clientName, contactName } = body as {
+    const { subject, message, pdfBase64, filename, orderNumber, clientName, contactName, to, cc } = body as {
       subject?: string; message?: string; clientName?: string; contactName?: string;
       pdfBase64?: string; filename?: string; orderNumber?: string;
+      to?: string; cc?: string | string[];
     };
 
-    // All risk assessment report requests are routed exclusively to Admin@tldv.co.za
-    const clean = ['Admin@tldv.co.za'];
+    const toClean = to && to.trim() ? [to.trim()] : [];
+    const ccClean: string[] = Array.isArray(cc) ? cc.filter((e) => e && e.trim()).map((e) => e.trim()) : cc && cc.trim() ? [cc.trim()] : [];
+
+    if (!toClean.length) {
+      return new Response(JSON.stringify({ error: 'Recipient email (to) is required' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     if (!pdfBase64 || typeof pdfBase64 !== 'string') {
       return new Response(JSON.stringify({ error: 'pdfBase64 is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
