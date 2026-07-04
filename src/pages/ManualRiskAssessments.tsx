@@ -255,6 +255,7 @@ export default function ManualRiskAssessments() {
   const [detailsSubId, setDetailsSubId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [previewReport, setPreviewReport] = useState<{ blob: Blob; title: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("submissions");
 
   const closePreviewReport = () => {
     setPreviewReport(null);
@@ -399,7 +400,7 @@ export default function ManualRiskAssessments() {
           <h1 className="text-2xl font-bold">Manual Risk Assessments</h1>
         </div>
 
-        <Tabs defaultValue="submissions">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />Submissions</TabsTrigger>
             <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
@@ -544,6 +545,7 @@ export default function ManualRiskAssessments() {
           clients={clients}
           userName={userName}
           onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
+          onSent={() => setActiveTab("accounts")}
         />
       )}
 
@@ -1152,11 +1154,12 @@ function NewSubmissionDialog({
 // ---------- Submission details / results dialog ----------
 
 function SubmissionDetailsDialog({
-  submissionId, onClose, clients, userName, onChanged,
+  submissionId, onClose, clients, userName, onChanged, onSent,
 }: {
   submissionId: string; onClose: () => void;
   clients: Client[]; userName: string;
   onChanged: () => void;
+  onSent?: () => void;
 }) {
   const qc = useQueryClient();
   const { data: sub } = useQuery<Submission | null>({
@@ -1365,6 +1368,7 @@ function SubmissionDetailsDialog({
       );
       setEmailOpen(false); setEmailMsg("");
       onClose();
+      onSent?.();
     } catch (e) { toast.error((e as Error).message); }
     finally { setSending(false); }
   };
