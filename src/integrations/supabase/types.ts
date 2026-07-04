@@ -753,6 +753,7 @@ export type Database = {
           first_name: string
           id: string
           id_number: string
+          id_verification_data: Json | null
           id_verification_notes: string | null
           id_verification_result: string | null
           pdp_notes: string | null
@@ -777,6 +778,7 @@ export type Database = {
           first_name: string
           id?: string
           id_number: string
+          id_verification_data?: Json | null
           id_verification_notes?: string | null
           id_verification_result?: string | null
           pdp_notes?: string | null
@@ -801,6 +803,7 @@ export type Database = {
           first_name?: string
           id?: string
           id_number?: string
+          id_verification_data?: Json | null
           id_verification_notes?: string | null
           id_verification_result?: string | null
           pdp_notes?: string | null
