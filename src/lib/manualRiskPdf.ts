@@ -268,10 +268,6 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       doc.setDrawColor(29, 78, 216);
       doc.setLineWidth(0.5);
       doc.line(tx, ty + 1.5, tx + tw, ty + 1.5);
-      // Small "note" glyph next to the name to signal a pop-up is attached
-      doc.setFontSize(8);
-      doc.setTextColor(29, 78, 216);
-      doc.text("\u{1F4AC}", tx + tw + 4, ty);
       doc.setTextColor(30, 30, 30);
       doc.setFont("helvetica", "normal");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
