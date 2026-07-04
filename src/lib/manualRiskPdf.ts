@@ -297,10 +297,12 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       const cand = realCandidates[data.row.index];
       if (!cand?.id_verification_data) return;
       const { x, y: cy, width, height } = data.cell;
-      // Underline the name to hint at the link
+      // Underline the actual name text width only
+      const nameText = `${cand.surname}, ${cand.first_name}`;
+      const textW = doc.getTextWidth(nameText);
       doc.setDrawColor(29, 78, 216);
       doc.setLineWidth(0.4);
-      doc.line(x + 6, cy + height - 5, x + width - 6, cy + height - 5);
+      doc.line(x + 6, cy + height - 5, x + 6 + textW, cy + height - 5);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const pageNumber = (doc.internal as any).getCurrentPageInfo().pageNumber as number;
       nameCellRects.push({
