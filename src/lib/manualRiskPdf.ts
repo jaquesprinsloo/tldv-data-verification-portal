@@ -464,7 +464,24 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 24, { align: "right" });
   }
 
-  return doc.output("blob");
+  const pdfBlob = doc.output("blob");
+  const arrayBuffer = await pdfBlob.arrayBuffer();
+  const { PDFDocument } = await import("@cantoo/pdf-lib");
+  const pdfDoc = await PDFDocument.load(new Uint8Array(arrayBuffer));
+  pdfDoc.encrypt({
+    ownerPassword: "TLDV0011",
+    permissions: {
+      printing: true,
+      copying: true,
+      modifying: false,
+      annotating: false,
+      fillingForms: false,
+      contentAccessibility: true,
+      documentAssembly: false,
+    },
+  });
+  const encryptedBytes = await pdfDoc.save();
+  return new Blob([encryptedBytes.slice()], { type: "application/pdf" });
 }
 
 // ---------- Rich text helpers ----------
