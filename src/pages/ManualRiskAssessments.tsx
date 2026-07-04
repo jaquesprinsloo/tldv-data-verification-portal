@@ -47,6 +47,7 @@ type Submission = {
   report_onedrive_web_url: string | null;
   report_onedrive_item_id: string | null;
   report_onedrive_path: string | null;
+  supplier_report_files: SupplierReportFile[] | null;
 };
 export type IndemnityFile = {
   name: string;
@@ -57,6 +58,82 @@ export type IndemnityFile = {
   onedrive_web_url?: string | null;
   onedrive_item_id?: string | null;
 };
+export type SupplierReportFile = {
+  name: string;
+  path: string; // storage path in manual-risk-supplier-reports bucket
+  uploaded_at: string;
+  size?: number;
+  content_type?: string;
+  onedrive_web_url?: string | null;
+  onedrive_item_id?: string | null;
+  extracted_id_numbers?: string[];
+};
+
+// Uploads supplier risk report PDF to storage + OneDrive (SupplierReports subfolder)
+async function uploadSupplierReport(
+  file: File,
+  submissionId: string,
+  orderNumber: string,
+  clientName: string | null,
+  extractedIds: string[],
+): Promise<SupplierReportFile> {
+  const path = `${submissionId}/${Date.now()}_${crypto.randomUUID()}_${file.name.replace(/[^\w.\-]+/g, "_")}`;
+  const { error: upErr } = await supabase.storage
+    .from("manual-risk-supplier-reports")
+    .upload(path, file, { contentType: file.type || "application/pdf", upsert: false });
+  if (upErr) throw upErr;
+
+  let onedrive_web_url: string | null = null;
+  let onedrive_item_id: string | null = null;
+  try {
+    const base64 = await blobToBase64(file);
+    const { data, error } = await supabase.functions.invoke("upload-manual-risk-to-onedrive", {
+      body: {
+        fileName: file.name,
+        fileBase64: base64,
+        contentType: file.type || "application/pdf",
+        clientName: clientName ?? "Unassigned",
+        orderNumber,
+        kind: "supplier",
+      },
+    });
+    if (error) throw error;
+    if ((data as any)?.success) {
+      onedrive_web_url = (data as any).webUrl ?? null;
+      onedrive_item_id = (data as any).itemId ?? null;
+    } else if ((data as any)?.error) {
+      throw new Error((data as any).error);
+    }
+  } catch (e) {
+    toast.warning(`Uploaded "${file.name}" to storage, but OneDrive mirror failed: ${(e as Error).message}`);
+  }
+
+  return {
+    name: file.name,
+    path,
+    uploaded_at: new Date().toISOString(),
+    size: file.size,
+    content_type: file.type || "application/pdf",
+    onedrive_web_url,
+    onedrive_item_id,
+    extracted_id_numbers: extractedIds,
+  };
+}
+
+// Extract SA 13-digit ID numbers from a PDF via pdfjs text extraction
+async function extractIdNumbersFromPdf(file: File): Promise<string[]> {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let fullText = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    fullText += " " + content.items.map((it: any) => it.str ?? "").join(" ");
+  }
+  const compact = fullText.replace(/\s+/g, "");
+  const matches = compact.match(/\d{13}/g) ?? [];
+  return Array.from(new Set(matches));
+}
 
 // Uploads a single file to the manual-risk-indemnities storage bucket
 // AND mirrors it to OneDrive, returning the metadata to persist.
