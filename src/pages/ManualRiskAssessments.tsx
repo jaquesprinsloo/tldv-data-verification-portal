@@ -43,7 +43,71 @@ type Submission = {
   invoiced_at: string | null;
   invoice_number: string | null;
   invoice_file_path: string | null;
+  indemnity_files: IndemnityFile[] | null;
+  report_onedrive_web_url: string | null;
+  report_onedrive_item_id: string | null;
+  report_onedrive_path: string | null;
 };
+export type IndemnityFile = {
+  name: string;
+  path: string; // storage path in manual-risk-indemnities bucket
+  uploaded_at: string;
+  size?: number;
+  content_type?: string;
+  onedrive_web_url?: string | null;
+  onedrive_item_id?: string | null;
+};
+
+// Uploads a single file to the manual-risk-indemnities storage bucket
+// AND mirrors it to OneDrive, returning the metadata to persist.
+async function uploadIndemnity(
+  file: File,
+  submissionId: string,
+  orderNumber: string,
+  clientName: string | null,
+): Promise<IndemnityFile> {
+  const path = `${submissionId}/${Date.now()}_${crypto.randomUUID()}_${file.name.replace(/[^\w.\-]+/g, "_")}`;
+  const { error: upErr } = await supabase.storage
+    .from("manual-risk-indemnities")
+    .upload(path, file, { contentType: file.type || "application/pdf", upsert: false });
+  if (upErr) throw upErr;
+
+  let onedrive_web_url: string | null = null;
+  let onedrive_item_id: string | null = null;
+  try {
+    const base64 = await blobToBase64(file);
+    const { data, error } = await supabase.functions.invoke("upload-manual-risk-to-onedrive", {
+      body: {
+        fileName: file.name,
+        fileBase64: base64,
+        contentType: file.type || "application/pdf",
+        clientName: clientName ?? "Unassigned",
+        orderNumber,
+        kind: "indemnity",
+      },
+    });
+    if (error) throw error;
+    if ((data as any)?.success) {
+      onedrive_web_url = (data as any).webUrl ?? null;
+      onedrive_item_id = (data as any).itemId ?? null;
+    } else if ((data as any)?.error) {
+      throw new Error((data as any).error);
+    }
+  } catch (e) {
+    toast.warning(`Uploaded "${file.name}" to storage, but OneDrive mirror failed: ${(e as Error).message}`);
+  }
+
+  return {
+    name: file.name,
+    path,
+    uploaded_at: new Date().toISOString(),
+    size: file.size,
+    content_type: file.type || "application/pdf",
+    onedrive_web_url,
+    onedrive_item_id,
+  };
+}
+
 type Candidate = {
   id: string; submission_id: string; id_number: string;
   surname: string; first_name: string;
