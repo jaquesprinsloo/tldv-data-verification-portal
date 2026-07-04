@@ -353,7 +353,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   // attached as PDF pop-up note annotations on each candidate's name in the
   // Check Results table (click the blue underlined name to view).
   const idVerCandidates = hasIdVer
-    ? input.candidates.map((c, i) => ({ c, i })).filter(({ c }) => !!c.id_verification_data)
+    ? realCandidates.map((c, i) => ({ c, i })).filter(({ c }) => !!c.id_verification_data)
     : [];
   if (idVerCandidates.length) {
     cursorY += 24;
