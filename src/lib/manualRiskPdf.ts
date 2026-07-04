@@ -312,10 +312,10 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
     doc.text(
-      "Information sourced from public databases via the supplier report.",
+      "Information sourced from public databases.",
       margin, cursorY + 8,
     );
-    cursorY += 16;
+    cursorY += 26;
     doc.setTextColor(30, 30, 30);
 
     for (const c of idVerCandidates) {
