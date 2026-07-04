@@ -1329,6 +1329,130 @@ function SubmissionDetailsDialog({
   );
 }
 
+function IndemnitySection({
+  submissionId, submission, clientName, onChanged,
+}: {
+  submissionId: string;
+  submission: Submission;
+  clientName: string | null;
+  onChanged: () => void;
+}) {
+  const files: IndemnityFile[] = Array.isArray(submission.indemnity_files) ? submission.indemnity_files : [];
+  const [uploading, setUploading] = useState(false);
+
+  const handleAdd = async (list: FileList | null) => {
+    if (!list || !list.length) return;
+    setUploading(true);
+    try {
+      const added: IndemnityFile[] = [];
+      for (const f of Array.from(list)) {
+        try {
+          const meta = await uploadIndemnity(f, submissionId, submission.order_number, clientName);
+          added.push(meta);
+        } catch (e) {
+          toast.error(`Failed "${f.name}": ${(e as Error).message}`);
+        }
+      }
+      if (added.length) {
+        const next = [...files, ...added];
+        const { error } = await sb
+          .from("manual_risk_submissions")
+          .update({ indemnity_files: next })
+          .eq("id", submissionId);
+        if (error) throw error;
+        toast.success(`${added.length} indemnity file(s) added`);
+        onChanged();
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleView = async (f: IndemnityFile) => {
+    const { data, error } = await supabase.storage
+      .from("manual-risk-indemnities")
+      .createSignedUrl(f.path, 300);
+    if (error) { toast.error(error.message); return; }
+    window.open(data.signedUrl, "_blank");
+  };
+
+  const handleDelete = async (f: IndemnityFile) => {
+    if (!confirm(`Delete indemnity "${f.name}"? This removes it from storage. The OneDrive copy will remain unless removed manually.`)) return;
+    try {
+      await supabase.storage.from("manual-risk-indemnities").remove([f.path]);
+      const next = files.filter((x) => x.path !== f.path);
+      const { error } = await sb
+        .from("manual_risk_submissions")
+        .update({ indemnity_files: next })
+        .eq("id", submissionId);
+      if (error) throw error;
+      toast.success("Indemnity deleted");
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  return (
+    <div className="border rounded-md p-3 mb-3 bg-muted/30">
+      <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        <div>
+          <div className="font-semibold text-sm flex items-center gap-2">
+            <FileText className="h-4 w-4" /> Indemnity Forms ({files.length})
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Stays with this submission and stored in OneDrive. Never included in the emailed report.
+          </p>
+        </div>
+        <label className="cursor-pointer">
+          <input
+            type="file"
+            className="hidden"
+            accept="application/pdf,.pdf,image/*"
+            multiple
+            disabled={uploading}
+            onChange={(e) => { handleAdd(e.target.files); e.currentTarget.value = ""; }}
+          />
+          <span className="inline-flex items-center gap-2 h-9 px-3 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+            <Upload className="h-4 w-4" /> {uploading ? "Uploading..." : "Add Indemnity"}
+          </span>
+        </label>
+      </div>
+      {files.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No indemnity forms uploaded yet.</p>
+      ) : (
+        <ul className="space-y-1">
+          {files.map((f) => (
+            <li key={f.path} className="flex items-center justify-between border rounded bg-background px-2 py-1 text-sm">
+              <div className="min-w-0 flex-1 truncate">
+                <span className="truncate">{f.name}</span>
+                {f.onedrive_web_url && (
+                  <a
+                    href={f.onedrive_web_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="ml-2 text-xs text-red-600 hover:underline"
+                  >
+                    OneDrive ↗
+                  </a>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" title="View" onClick={() => handleView(f)}>
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" title="Delete" onClick={() => handleDelete(f)}>
+                  <Trash2 className="h-4 w-4 text-red-600" />
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function ResultCell({
   value, options, onValue,
 }: {
