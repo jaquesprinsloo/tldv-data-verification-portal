@@ -43,7 +43,71 @@ type Submission = {
   invoiced_at: string | null;
   invoice_number: string | null;
   invoice_file_path: string | null;
+  indemnity_files: IndemnityFile[] | null;
+  report_onedrive_web_url: string | null;
+  report_onedrive_item_id: string | null;
+  report_onedrive_path: string | null;
 };
+export type IndemnityFile = {
+  name: string;
+  path: string; // storage path in manual-risk-indemnities bucket
+  uploaded_at: string;
+  size?: number;
+  content_type?: string;
+  onedrive_web_url?: string | null;
+  onedrive_item_id?: string | null;
+};
+
+// Uploads a single file to the manual-risk-indemnities storage bucket
+// AND mirrors it to OneDrive, returning the metadata to persist.
+async function uploadIndemnity(
+  file: File,
+  submissionId: string,
+  orderNumber: string,
+  clientName: string | null,
+): Promise<IndemnityFile> {
+  const path = `${submissionId}/${Date.now()}_${crypto.randomUUID()}_${file.name.replace(/[^\w.\-]+/g, "_")}`;
+  const { error: upErr } = await supabase.storage
+    .from("manual-risk-indemnities")
+    .upload(path, file, { contentType: file.type || "application/pdf", upsert: false });
+  if (upErr) throw upErr;
+
+  let onedrive_web_url: string | null = null;
+  let onedrive_item_id: string | null = null;
+  try {
+    const base64 = await blobToBase64(file);
+    const { data, error } = await supabase.functions.invoke("upload-manual-risk-to-onedrive", {
+      body: {
+        fileName: file.name,
+        fileBase64: base64,
+        contentType: file.type || "application/pdf",
+        clientName: clientName ?? "Unassigned",
+        orderNumber,
+        kind: "indemnity",
+      },
+    });
+    if (error) throw error;
+    if ((data as any)?.success) {
+      onedrive_web_url = (data as any).webUrl ?? null;
+      onedrive_item_id = (data as any).itemId ?? null;
+    } else if ((data as any)?.error) {
+      throw new Error((data as any).error);
+    }
+  } catch (e) {
+    toast.warning(`Uploaded "${file.name}" to storage, but OneDrive mirror failed: ${(e as Error).message}`);
+  }
+
+  return {
+    name: file.name,
+    path,
+    uploaded_at: new Date().toISOString(),
+    size: file.size,
+    content_type: file.type || "application/pdf",
+    onedrive_web_url,
+    onedrive_item_id,
+  };
+}
+
 type Candidate = {
   id: string; submission_id: string; id_number: string;
   surname: string; first_name: string;
@@ -634,6 +698,7 @@ function NewSubmissionDialog({
   // batch candidates
   const [batchRows, setBatchRows] = useState<Array<{ id_number: string; surname: string; first_name: string }>>([]);
   const [busy, setBusy] = useState(false);
+  const [indemnityFiles, setIndemnityFiles] = useState<File[]>([]);
 
   useEffect(() => {
     if (clients.length === 0) setClientMode("new");
@@ -718,6 +783,32 @@ function NewSubmissionDialog({
       }));
       const { error: candErr } = await sb.from("manual_risk_candidates").insert(rows);
       if (candErr) throw candErr;
+
+      // Upload indemnity files (storage + OneDrive) and persist metadata
+      if (indemnityFiles.length) {
+        const resolvedClientName =
+          clientMode === "existing"
+            ? clients.find((c) => c.id === resolvedClientId)?.client_name ?? null
+            : clientMode === "new"
+              ? newClient.client_name?.trim() ?? null
+              : null;
+        const uploaded: IndemnityFile[] = [];
+        for (const f of indemnityFiles) {
+          try {
+            const meta = await uploadIndemnity(f, sub.id, orderNumber.trim(), resolvedClientName);
+            uploaded.push(meta);
+          } catch (e) {
+            toast.error(`Indemnity "${f.name}" failed: ${(e as Error).message}`);
+          }
+        }
+        if (uploaded.length) {
+          await sb
+            .from("manual_risk_submissions")
+            .update({ indemnity_files: uploaded })
+            .eq("id", sub.id);
+          toast.success(`${uploaded.length} indemnity file(s) uploaded`);
+        }
+      }
 
       toast.success("Submission created");
       onCreated(sub.id);
@@ -876,6 +967,35 @@ function NewSubmissionDialog({
               </div>
             )}
 
+            <div className="space-y-2 border-t pt-4">
+              <Label>Indemnity Forms (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Upload signed candidate indemnity forms. They stay with the submission and are saved to OneDrive — they are <strong>not</strong> attached when the Background Screening Report is emailed.
+              </p>
+              <Input
+                type="file"
+                accept="application/pdf,.pdf,image/*"
+                multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  setIndemnityFiles((prev) => [...prev, ...files]);
+                  e.currentTarget.value = "";
+                }}
+              />
+              {indemnityFiles.length > 0 && (
+                <ul className="text-xs space-y-1 mt-2">
+                  {indemnityFiles.map((f, i) => (
+                    <li key={i} className="flex items-center justify-between border rounded px-2 py-1">
+                      <span className="truncate mr-2">{f.name} <span className="text-muted-foreground">({Math.round(f.size / 1024)} KB)</span></span>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => setIndemnityFiles((prev) => prev.filter((_, ix) => ix !== i))}>
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
               <Button onClick={submit} className="bg-red-600 hover:bg-red-700" disabled={busy}>
@@ -1027,10 +1147,46 @@ function SubmissionDetailsDialog({
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
+
+      // Mirror the Background Screening Report (only) to OneDrive
+      let odWebUrl: string | null = null;
+      let odItemId: string | null = null;
+      let odPath: string | null = null;
+      try {
+        const { data: odData, error: odErr } = await supabase.functions.invoke(
+          "upload-manual-risk-to-onedrive",
+          {
+            body: {
+              fileName: `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`,
+              fileBase64: base64,
+              contentType: "application/pdf",
+              clientName: client?.client_name ?? "Unassigned",
+              orderNumber: sub?.order_number,
+              kind: "report",
+            },
+          },
+        );
+        if (odErr) throw odErr;
+        if ((odData as any)?.success) {
+          odWebUrl = (odData as any).webUrl ?? null;
+          odItemId = (odData as any).itemId ?? null;
+          odPath = (odData as any).fullPath ?? null;
+        } else if ((odData as any)?.error) {
+          throw new Error((odData as any).error);
+        }
+      } catch (e) {
+        toast.warning(`Report emailed, but OneDrive save failed: ${(e as Error).message}`);
+      }
+
       // Mark submission as sent so it moves to Accounts tab
       await sb
         .from("manual_risk_submissions")
-        .update({ sent_at: new Date().toISOString() })
+        .update({
+          sent_at: new Date().toISOString(),
+          report_onedrive_web_url: odWebUrl,
+          report_onedrive_item_id: odItemId,
+          report_onedrive_path: odPath,
+        })
         .eq("id", submissionId);
       qc.invalidateQueries({ queryKey: ["mra-submissions"] });
       onChanged();
@@ -1072,6 +1228,17 @@ function SubmissionDetailsDialog({
             {client?.client_name ?? "No client"} • {sub.submission_type === "single" ? "Single" : "Batch"} • {local.length} candidate(s) • Status: {sub.status}
           </DialogDescription>
         </DialogHeader>
+
+        <IndemnitySection
+          submissionId={submissionId}
+          submission={sub}
+          clientName={client?.client_name ?? null}
+          onChanged={() => {
+            qc.invalidateQueries({ queryKey: ["mra-sub", submissionId] });
+            qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+            onChanged();
+          }}
+        />
 
         <div className="overflow-x-auto">
           <Table>
@@ -1159,6 +1326,130 @@ function SubmissionDetailsDialog({
         </Dialog>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function IndemnitySection({
+  submissionId, submission, clientName, onChanged,
+}: {
+  submissionId: string;
+  submission: Submission;
+  clientName: string | null;
+  onChanged: () => void;
+}) {
+  const files: IndemnityFile[] = Array.isArray(submission.indemnity_files) ? submission.indemnity_files : [];
+  const [uploading, setUploading] = useState(false);
+
+  const handleAdd = async (list: FileList | null) => {
+    if (!list || !list.length) return;
+    setUploading(true);
+    try {
+      const added: IndemnityFile[] = [];
+      for (const f of Array.from(list)) {
+        try {
+          const meta = await uploadIndemnity(f, submissionId, submission.order_number, clientName);
+          added.push(meta);
+        } catch (e) {
+          toast.error(`Failed "${f.name}": ${(e as Error).message}`);
+        }
+      }
+      if (added.length) {
+        const next = [...files, ...added];
+        const { error } = await sb
+          .from("manual_risk_submissions")
+          .update({ indemnity_files: next })
+          .eq("id", submissionId);
+        if (error) throw error;
+        toast.success(`${added.length} indemnity file(s) added`);
+        onChanged();
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleView = async (f: IndemnityFile) => {
+    const { data, error } = await supabase.storage
+      .from("manual-risk-indemnities")
+      .createSignedUrl(f.path, 300);
+    if (error) { toast.error(error.message); return; }
+    window.open(data.signedUrl, "_blank");
+  };
+
+  const handleDelete = async (f: IndemnityFile) => {
+    if (!confirm(`Delete indemnity "${f.name}"? This removes it from storage. The OneDrive copy will remain unless removed manually.`)) return;
+    try {
+      await supabase.storage.from("manual-risk-indemnities").remove([f.path]);
+      const next = files.filter((x) => x.path !== f.path);
+      const { error } = await sb
+        .from("manual_risk_submissions")
+        .update({ indemnity_files: next })
+        .eq("id", submissionId);
+      if (error) throw error;
+      toast.success("Indemnity deleted");
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  return (
+    <div className="border rounded-md p-3 mb-3 bg-muted/30">
+      <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        <div>
+          <div className="font-semibold text-sm flex items-center gap-2">
+            <FileText className="h-4 w-4" /> Indemnity Forms ({files.length})
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Stays with this submission and stored in OneDrive. Never included in the emailed report.
+          </p>
+        </div>
+        <label className="cursor-pointer">
+          <input
+            type="file"
+            className="hidden"
+            accept="application/pdf,.pdf,image/*"
+            multiple
+            disabled={uploading}
+            onChange={(e) => { handleAdd(e.target.files); e.currentTarget.value = ""; }}
+          />
+          <span className="inline-flex items-center gap-2 h-9 px-3 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+            <Upload className="h-4 w-4" /> {uploading ? "Uploading..." : "Add Indemnity"}
+          </span>
+        </label>
+      </div>
+      {files.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No indemnity forms uploaded yet.</p>
+      ) : (
+        <ul className="space-y-1">
+          {files.map((f) => (
+            <li key={f.path} className="flex items-center justify-between border rounded bg-background px-2 py-1 text-sm">
+              <div className="min-w-0 flex-1 truncate">
+                <span className="truncate">{f.name}</span>
+                {f.onedrive_web_url && (
+                  <a
+                    href={f.onedrive_web_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="ml-2 text-xs text-red-600 hover:underline"
+                  >
+                    OneDrive ↗
+                  </a>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" title="View" onClick={() => handleView(f)}>
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" title="Delete" onClick={() => handleDelete(f)}>
+                  <Trash2 className="h-4 w-4 text-red-600" />
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
