@@ -339,7 +339,9 @@ export default function ManualRiskAssessments() {
         : ["id_verification", "credit", "criminal"]
       ).filter((k) => CHECK_COLUMNS[k]);
 
-      const pdfCandidates: ManualRiskCandidatePdf[] = (cands ?? []).map((c: any) => {
+      const pdfCandidates: ManualRiskCandidatePdf[] = (cands ?? [])
+        .filter((c: any) => !isPlaceholderCandidate(c))
+        .map((c: any) => {
         const results: Record<string, string | null> = {};
         const notes: Record<string, string | null> = {};
         for (const k of activeChecks) {
