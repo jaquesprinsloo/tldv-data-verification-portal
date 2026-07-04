@@ -228,6 +228,12 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     ...checks.map((k) => label(c.results?.[k])),
   ]);
 
+  // Records the on-page position of each candidate-name cell so we can add a
+  // clickable link to its ID Verification Details block once that section is
+  // drawn further down in the report.
+  const nameCellRects: Array<{ page: number; x: number; y: number; w: number; h: number } | null> =
+    input.candidates.map(() => null);
+
   autoTable(doc, {
     startY: y + 6,
     head,
@@ -247,6 +253,37 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
         data.cell.styles.textColor = RESULT_COLORS[key];
         data.cell.styles.fontStyle = "bold";
       }
+    },
+    didDrawCell: (data) => {
+      if (data.section !== "body" || data.column.index !== 1) return;
+      const cand = input.candidates[data.row.index];
+      if (!cand?.id_verification_data) return;
+      nameCellRects[data.row.index] = {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        page: (doc as any).internal.getCurrentPageInfo().pageNumber,
+        x: data.cell.x,
+        y: data.cell.y,
+        w: data.cell.width,
+        h: data.cell.height,
+      };
+      // Style the candidate name as a link (blue + underline) so it's obvious
+      // it's clickable.
+      doc.setTextColor(29, 78, 216);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      const text = String(data.cell.text.join(" "));
+      const tx = data.cell.x + 6;
+      const ty = data.cell.y + data.cell.height / 2 + 3;
+      // Overpaint the default cell text with the blue version.
+      doc.setFillColor(255, 255, 255);
+      doc.rect(data.cell.x + 0.5, data.cell.y + 0.5, data.cell.width - 1, data.cell.height - 1, "F");
+      doc.text(text, tx, ty);
+      const textW = doc.getTextWidth(text);
+      doc.setDrawColor(29, 78, 216);
+      doc.setLineWidth(0.5);
+      doc.line(tx, ty + 1.5, tx + textW, ty + 1.5);
+      doc.setTextColor(30, 30, 30);
+      doc.setFont("helvetica", "normal");
     },
     margin: { left: margin, right: margin },
   });
@@ -298,6 +335,9 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   const idVerCandidates = input.candidates.filter(
     (c) => c.id_verification_data && (c.results?.id_verification || null),
   );
+  // Records the destination page for each candidate's detail block so links
+  // from the Check Results table can point there.
+  const detailAnchorPage: Array<number | null> = input.candidates.map(() => null);
   if (idVerCandidates.length) {
     cursorY += 24;
     if (cursorY > pageHeight - 160) { doc.addPage(); cursorY = margin; }
@@ -311,11 +351,12 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
-    doc.text(
-      "Information sourced from public databases.",
-      margin, cursorY + 8,
+    const explainer = doc.splitTextToSize(
+      "Information sourced from public databases. Tap a candidate's name (shown in blue) in the Check Results table above to jump straight to their ID Verification Details below.",
+      pageWidth - margin * 2,
     );
-    cursorY += 26;
+    doc.text(explainer, margin, cursorY + 8);
+    cursorY += 8 + explainer.length * 10 + 10;
     doc.setTextColor(30, 30, 30);
 
     for (const c of idVerCandidates) {
@@ -335,6 +376,13 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       const header = `${c.surname}, ${c.first_name}${c.id_number ? ` (${c.id_number})` : ""}`;
       const blockH = 22 + rows.length * 18 + 14;
       if (cursorY + blockH > pageHeight - 100) { doc.addPage(); cursorY = margin; }
+      // Remember the page this candidate's block starts on, then map it back
+      // to the original candidate index for link resolution.
+      const originalIdx = input.candidates.indexOf(c);
+      if (originalIdx >= 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        detailAnchorPage[originalIdx] = (doc as any).internal.getCurrentPageInfo().pageNumber;
+      }
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
       doc.text(header, margin, cursorY);
@@ -363,6 +411,16 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       cursorY = ((doc as any).lastAutoTable?.finalY ?? cursorY) + 16;
+    }
+
+    // Wire up the clickable candidate-name cells now that we know the
+    // destination pages for each detail block.
+    for (let i = 0; i < nameCellRects.length; i++) {
+      const rect = nameCellRects[i];
+      const destPage = detailAnchorPage[i];
+      if (!rect || !destPage) continue;
+      doc.setPage(rect.page);
+      doc.link(rect.x, rect.y, rect.w, rect.h, { pageNumber: destPage });
     }
   }
 
