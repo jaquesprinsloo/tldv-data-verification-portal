@@ -33,7 +33,7 @@ const RouteAwareInstallButton = () => {
   // broken/stale link could otherwise see admin-app prompts).
   const hasToken = new URLSearchParams(location.search).has("token");
   const candidatePaths = ["/candex-apply", "/preapplicheck-apply"];
-  if (candidatePaths.includes(location.pathname) || hasToken) {
+  if (candidatePaths.includes(location.pathname) || location.pathname === "/privacy-policy" || hasToken) {
     return null;
   }
 
