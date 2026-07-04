@@ -2049,6 +2049,19 @@ function ClientAccountDialog({
       if (sub?.invoice_file_path) {
         await supabase.storage.from("invoices").remove([sub.invoice_file_path]);
       }
+      if (sub) {
+        await deleteFromOneDrive((sub as any).report_onedrive_item_id);
+        for (const f of ((sub as any).indemnity_files ?? []) as IndemnityFile[]) {
+          await deleteFromOneDrive(f.onedrive_item_id);
+        }
+        for (const f of ((sub as any).supplier_report_files ?? []) as SupplierReportFile[]) {
+          await deleteFromOneDrive(f.onedrive_item_id);
+        }
+        const indPaths = (((sub as any).indemnity_files ?? []) as IndemnityFile[]).map((f) => f.path);
+        if (indPaths.length) await supabase.storage.from("manual-risk-indemnities").remove(indPaths);
+        const supPaths = (((sub as any).supplier_report_files ?? []) as SupplierReportFile[]).map((f) => f.path);
+        if (supPaths.length) await supabase.storage.from("manual-risk-supplier-reports").remove(supPaths);
+      }
       const { error: cErr } = await sb.from("manual_risk_candidates").delete().eq("submission_id", submissionId);
       if (cErr) throw cErr;
       const { error } = await sb.from("manual_risk_submissions").delete().eq("id", submissionId);
@@ -2071,6 +2084,22 @@ function ClientAccountDialog({
         .filter((s) => selectedSubmissionIds.includes(s.id) && s.invoice_file_path)
         .map((s) => s.invoice_file_path!) as string[];
       if (paths.length) await supabase.storage.from("invoices").remove(paths);
+      const targetSubs = subs.filter((s) => selectedSubmissionIds.includes(s.id));
+      const indPaths: string[] = [];
+      const supPaths: string[] = [];
+      for (const sub of targetSubs) {
+        await deleteFromOneDrive((sub as any).report_onedrive_item_id);
+        for (const f of ((sub as any).indemnity_files ?? []) as IndemnityFile[]) {
+          await deleteFromOneDrive(f.onedrive_item_id);
+          indPaths.push(f.path);
+        }
+        for (const f of ((sub as any).supplier_report_files ?? []) as SupplierReportFile[]) {
+          await deleteFromOneDrive(f.onedrive_item_id);
+          supPaths.push(f.path);
+        }
+      }
+      if (indPaths.length) await supabase.storage.from("manual-risk-indemnities").remove(indPaths);
+      if (supPaths.length) await supabase.storage.from("manual-risk-supplier-reports").remove(supPaths);
       const { error: cErr } = await sb.from("manual_risk_candidates").delete().in("submission_id", selectedSubmissionIds);
       if (cErr) throw cErr;
       const { error } = await sb.from("manual_risk_submissions").delete().in("id", selectedSubmissionIds);
