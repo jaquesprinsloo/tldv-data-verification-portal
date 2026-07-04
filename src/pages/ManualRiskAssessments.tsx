@@ -1368,6 +1368,7 @@ function SubmissionDetailsDialog({
       );
       setEmailOpen(false); setEmailMsg("");
       onClose();
+      onSent?.();
     } catch (e) { toast.error((e as Error).message); }
     finally { setSending(false); }
   };
