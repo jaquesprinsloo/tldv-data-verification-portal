@@ -139,7 +139,6 @@ async function uploadSupplierReport(
 //    the extract-supplier-report-ids edge function.
 async function extractIdNumbersFromPdf(file: File): Promise<string[]> {
   let localIds: string[] = [];
-  let textLen = 0;
   try {
     const buf = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
@@ -150,14 +149,15 @@ async function extractIdNumbersFromPdf(file: File): Promise<string[]> {
       fullText += " " + content.items.map((it: any) => it.str ?? "").join(" ");
     }
     const compact = fullText.replace(/\s+/g, "");
-    textLen = compact.length;
     localIds = Array.from(new Set(compact.match(/\d{13}/g) ?? []));
   } catch (e) {
     console.warn("Local PDF text extraction failed", e);
   }
 
-  // If we got IDs OR the PDF had substantial digital text, trust local result.
-  if (localIds.length > 0 || textLen > 400) return localIds;
+  // If local extraction found IDs, trust it. Otherwise always fall back
+  // to server-side OCR — digital text alone doesn't guarantee IDs weren't
+  // split by columns, dashes, or embedded in images.
+  if (localIds.length > 0) return localIds;
 
   // Fall back to server-side OCR
   try {
