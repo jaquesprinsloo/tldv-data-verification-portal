@@ -23,7 +23,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
+import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, isPlaceholderCandidate, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
 import { Checkbox } from "@/components/ui/checkbox";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
