@@ -146,6 +146,7 @@ export type SupplierIdRecord = {
   gender?: string | null;
   citizenship?: string | null;
   dead_alive?: string | null;
+  risk_assessment?: string | null;
 };
 
 // Extract ID Verification records from a supplier report PDF via the
@@ -1679,13 +1680,24 @@ function SupplierReportSection({
             `Matched supplier report ${sourceLabel} on ID prefix ${candPrefix}`,
             rec.status ? `Status: ${rec.status}` : null,
           ].filter(Boolean);
+          const update: Record<string, unknown> = {
+            id_verification_result: result,
+            id_verification_notes: noteParts.join(" • "),
+            id_verification_data: rec as unknown as Record<string, unknown>,
+          };
+          // Auto-populate Risk Assessment outcome from supplier's Risk Assessment Check.
+          const raText = String(rec.risk_assessment ?? "");
+          if (raText) {
+            const isNoRisk = /no\s+further\s+investigation/i.test(raText);
+            const isRisk = /further\s+investigation\s+required/i.test(raText) && !isNoRisk;
+            if (isNoRisk || isRisk) {
+              update.risk_assessment_result = isNoRisk ? "no_risk" : "risk_identified";
+              update.risk_assessment_notes = `Auto-populated from supplier report ${sourceLabel}: ${raText}`;
+            }
+          }
           const { error: uErr } = await sb
             .from("manual_risk_candidates")
-            .update({
-              id_verification_result: result,
-              id_verification_notes: noteParts.join(" • "),
-              id_verification_data: rec as unknown as Record<string, unknown>,
-            })
+            .update(update)
             .eq("id", c.id);
           if (!uErr) matched++;
         }
