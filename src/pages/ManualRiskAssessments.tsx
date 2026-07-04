@@ -1317,6 +1317,19 @@ function SubmissionDetailsDialog({
           }}
         />
 
+        <SupplierReportSection
+          submissionId={submissionId}
+          submission={sub}
+          candidates={local}
+          clientName={client?.client_name ?? null}
+          onChanged={() => {
+            refetch();
+            qc.invalidateQueries({ queryKey: ["mra-sub", submissionId] });
+            qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+            onChanged();
+          }}
+        />
+
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
