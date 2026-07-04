@@ -129,6 +129,15 @@ export default function ManualRiskAssessments() {
     return m;
   }, [clients]);
 
+  const openSubmissions = useMemo(
+    () => submissions.filter((s) => !s.sent_at),
+    [submissions],
+  );
+  const sentSubmissions = useMemo(
+    () => submissions.filter((s) => !!s.sent_at),
+    [submissions],
+  );
+
   const previewPdf = async (submissionId: string) => {
     setPreviewing(submissionId);
     try {
