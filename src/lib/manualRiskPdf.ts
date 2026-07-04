@@ -377,7 +377,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
 
     // Build a pop-up text annotation on each name cell containing the details.
     for (const rect of nameCellRects) {
-      const cand = input.candidates[rect.candidateIndex];
+      const cand = realCandidates[rect.candidateIndex];
       const d = cand?.id_verification_data;
       if (!d) continue;
       const lines = [
