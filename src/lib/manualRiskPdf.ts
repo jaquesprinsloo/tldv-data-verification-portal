@@ -481,7 +481,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     },
   });
   const encryptedBytes = await pdfDoc.save();
-  return new Blob([encryptedBytes.buffer], { type: "application/pdf" });
+  return new Blob([encryptedBytes.slice()], { type: "application/pdf" });
 }
 
 // ---------- Rich text helpers ----------
