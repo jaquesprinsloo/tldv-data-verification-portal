@@ -146,6 +146,7 @@ export type SupplierIdRecord = {
   gender?: string | null;
   citizenship?: string | null;
   dead_alive?: string | null;
+  risk_assessment?: string | null;
 };
 
 // Extract ID Verification records from a supplier report PDF via the
