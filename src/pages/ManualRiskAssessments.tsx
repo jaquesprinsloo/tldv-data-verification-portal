@@ -1443,6 +1443,49 @@ function ClientAccountDialog({
     window.open(data.signedUrl, "_blank");
   };
 
+  const deleteSubmission = async (submissionId: string, orderNumber: string) => {
+    if (!confirm(`Delete submission ${orderNumber}? This removes the submission and all its candidates permanently.`)) return;
+    try {
+      const sub = subs.find((s) => s.id === submissionId);
+      if (sub?.invoice_file_path) {
+        await supabase.storage.from("invoices").remove([sub.invoice_file_path]);
+      }
+      const { error: cErr } = await sb.from("manual_risk_candidates").delete().eq("submission_id", submissionId);
+      if (cErr) throw cErr;
+      const { error } = await sb.from("manual_risk_submissions").delete().eq("id", submissionId);
+      if (error) throw error;
+      toast.success("Submission deleted");
+      setSelected((prev) => { const n = new Set(prev); n.delete(submissionId); return n; });
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const deleteSelected = async () => {
+    if (!selectedSubmissionIds.length) return;
+    if (!confirm(`Delete ${selectedSubmissionIds.length} submission(s)? This removes them and all their candidates permanently.`)) return;
+    try {
+      const paths = subs
+        .filter((s) => selectedSubmissionIds.includes(s.id) && s.invoice_file_path)
+        .map((s) => s.invoice_file_path!) as string[];
+      if (paths.length) await supabase.storage.from("invoices").remove(paths);
+      const { error: cErr } = await sb.from("manual_risk_candidates").delete().in("submission_id", selectedSubmissionIds);
+      if (cErr) throw cErr;
+      const { error } = await sb.from("manual_risk_submissions").delete().in("id", selectedSubmissionIds);
+      if (error) throw error;
+      toast.success(`${selectedSubmissionIds.length} submission(s) deleted`);
+      setSelected(new Set());
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
@@ -1476,6 +1519,14 @@ function ClientAccountDialog({
           >
             <FileText className="h-4 w-4 mr-2" /> Mark as Invoiced
           </Button>
+          <Button
+            variant="outline"
+            className="border-red-600 text-red-600 hover:bg-red-50"
+            onClick={deleteSelected}
+            disabled={!selectedSubmissionIds.length}
+          >
+            <Trash2 className="h-4 w-4 mr-2" /> Delete Selected
+          </Button>
         </div>
 
         <div className="overflow-x-auto">
@@ -1493,12 +1544,13 @@ function ClientAccountDialog({
                 <TableHead>Candidate</TableHead>
                 <TableHead>ID Number</TableHead>
                 <TableHead>Invoice</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
                     No checks in this range.
                   </TableCell>
                 </TableRow>
@@ -1528,6 +1580,16 @@ function ClientAccountDialog({
                     ) : (
                       <Badge variant="outline">Pending</Badge>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Delete submission"
+                      onClick={() => deleteSubmission(r.submissionId, r.orderNumber)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
