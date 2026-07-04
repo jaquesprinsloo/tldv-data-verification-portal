@@ -8,6 +8,19 @@ export interface ManualRiskCandidatePdf {
   first_name: string;
   results?: Record<string, string | null | undefined>;
   notes?: Record<string, string | null | undefined>;
+  id_verification_data?: {
+    id_number?: string | null;
+    id_prefix?: string | null;
+    status?: string | null;
+    first_names?: string | null;
+    initials?: string | null;
+    surname?: string | null;
+    date_of_birth?: string | null;
+    age?: string | null;
+    gender?: string | null;
+    citizenship?: string | null;
+    dead_alive?: string | null;
+  } | null;
 }
 
 export interface ManualRiskReportInput {
