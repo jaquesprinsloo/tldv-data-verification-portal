@@ -120,19 +120,48 @@ async function uploadSupplierReport(
   };
 }
 
-// Extract SA 13-digit ID numbers from a PDF via pdfjs text extraction
+// Extract SA 13-digit ID numbers from a PDF.
+// 1) Try local pdfjs text extraction (fast, works for digital PDFs).
+// 2) If nothing found (scanned/image PDF), fall back to server OCR via
+//    the extract-supplier-report-ids edge function.
 async function extractIdNumbersFromPdf(file: File): Promise<string[]> {
-  const buf = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-  let fullText = "";
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    fullText += " " + content.items.map((it: any) => it.str ?? "").join(" ");
+  let localIds: string[] = [];
+  let textLen = 0;
+  try {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let fullText = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      fullText += " " + content.items.map((it: any) => it.str ?? "").join(" ");
+    }
+    const compact = fullText.replace(/\s+/g, "");
+    textLen = compact.length;
+    localIds = Array.from(new Set(compact.match(/\d{13}/g) ?? []));
+  } catch (e) {
+    console.warn("Local PDF text extraction failed", e);
   }
-  const compact = fullText.replace(/\s+/g, "");
-  const matches = compact.match(/\d{13}/g) ?? [];
-  return Array.from(new Set(matches));
+
+  // If we got IDs OR the PDF had substantial digital text, trust local result.
+  if (localIds.length > 0 || textLen > 400) return localIds;
+
+  // Fall back to server-side OCR
+  try {
+    const base64 = await blobToBase64(file);
+    const { data, error } = await supabase.functions.invoke("extract-supplier-report-ids", {
+      body: { fileBase64: base64, contentType: file.type || "application/pdf" },
+    });
+    if (error) throw error;
+    if ((data as any)?.success && Array.isArray((data as any).ids)) {
+      return Array.from(new Set((data as any).ids as string[]));
+    }
+    if ((data as any)?.error) throw new Error((data as any).error);
+  } catch (e) {
+    console.error("OCR fallback failed", e);
+    toast.warning(`ID auto-extraction failed: ${(e as Error).message}`);
+  }
+  return localIds;
 }
 
 // Uploads a single file to the manual-risk-indemnities storage bucket
