@@ -1,6 +1,5 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { PDFDocument } from "@cantoo/pdf-lib";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
 
 export interface ManualRiskCandidatePdf {
