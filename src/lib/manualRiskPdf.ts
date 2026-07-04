@@ -228,12 +228,6 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     ...checks.map((k) => label(c.results?.[k])),
   ]);
 
-  // Records the on-page position of each candidate-name cell so we can add a
-  // clickable link to its ID Verification Details block once that section is
-  // drawn further down in the report.
-  const nameCellRects: Array<{ page: number; x: number; y: number; w: number; h: number } | null> =
-    input.candidates.map(() => null);
-
   autoTable(doc, {
     startY: y + 6,
     head,
@@ -253,37 +247,6 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
         data.cell.styles.textColor = RESULT_COLORS[key];
         data.cell.styles.fontStyle = "bold";
       }
-    },
-    didDrawCell: (data) => {
-      if (data.section !== "body" || data.column.index !== 1) return;
-      const cand = input.candidates[data.row.index];
-      if (!cand?.id_verification_data) return;
-      nameCellRects[data.row.index] = {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        page: (doc as any).internal.getCurrentPageInfo().pageNumber,
-        x: data.cell.x,
-        y: data.cell.y,
-        w: data.cell.width,
-        h: data.cell.height,
-      };
-      // Style the candidate name as a link (blue + underline) so it's obvious
-      // it's clickable.
-      doc.setTextColor(29, 78, 216);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      const text = String(data.cell.text.join(" "));
-      const tx = data.cell.x + 6;
-      const ty = data.cell.y + data.cell.height / 2 + 3;
-      // Overpaint the default cell text with the blue version.
-      doc.setFillColor(255, 255, 255);
-      doc.rect(data.cell.x + 0.5, data.cell.y + 0.5, data.cell.width - 1, data.cell.height - 1, "F");
-      doc.text(text, tx, ty);
-      const textW = doc.getTextWidth(text);
-      doc.setDrawColor(29, 78, 216);
-      doc.setLineWidth(0.5);
-      doc.line(tx, ty + 1.5, tx + textW, ty + 1.5);
-      doc.setTextColor(30, 30, 30);
-      doc.setFont("helvetica", "normal");
     },
     margin: { left: margin, right: margin },
   });
