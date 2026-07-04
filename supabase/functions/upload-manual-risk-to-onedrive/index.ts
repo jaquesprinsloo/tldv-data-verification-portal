@@ -74,6 +74,8 @@ Deno.serve(async (req) => {
 
     const body = await req.json();
     const {
+      action,
+      itemId: deleteItemId,
       fileName,
       fileBase64,
       contentType,
@@ -81,6 +83,31 @@ Deno.serve(async (req) => {
       orderNumber,
       kind, // "report" | "indemnity"
     } = body || {};
+
+    // Delete an existing OneDrive item by id
+    if (action === "delete") {
+      if (!deleteItemId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "itemId is required for delete" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const delRes = await gatewayFetch(
+        `/me/drive/items/${encodeURIComponent(deleteItemId)}`,
+        { method: "DELETE" },
+        LOVABLE_API_KEY,
+        ONEDRIVE_API_KEY,
+      );
+      // 204 = deleted, 404 = already gone (treat as success)
+      if (delRes.status !== 204 && delRes.status !== 404) {
+        const txt = await delRes.text().catch(() => "");
+        throw new Error(`OneDrive delete failed [${delRes.status}]: ${txt}`);
+      }
+      return new Response(
+        JSON.stringify({ success: true, deleted: true, itemId: deleteItemId }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     if (!fileName || !fileBase64 || !orderNumber) {
       return new Response(
