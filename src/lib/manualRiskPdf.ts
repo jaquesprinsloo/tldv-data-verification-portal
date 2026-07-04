@@ -294,6 +294,78 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     }
   }
 
+  // ---------- ID Verification Details (from supplier report) ----------
+  const idVerCandidates = input.candidates.filter(
+    (c) => c.id_verification_data && (c.results?.id_verification || null),
+  );
+  if (idVerCandidates.length) {
+    cursorY += 24;
+    if (cursorY > pageHeight - 160) { doc.addPage(); cursorY = margin; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text("ID Verification Details", margin, cursorY);
+    doc.setDrawColor(220, 38, 38);
+    doc.line(margin, cursorY + 3, margin + 130, cursorY + 3);
+    cursorY += 10;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text(
+      "Information sourced from public databases via the supplier report. Not independently verified.",
+      margin, cursorY + 8,
+    );
+    cursorY += 16;
+    doc.setTextColor(30, 30, 30);
+
+    for (const c of idVerCandidates) {
+      const d = c.id_verification_data!;
+      const rows: [string, string][] = [
+        ["ID Number", d.id_number || c.id_number || "—"],
+        ["Status", d.status || "—"],
+        ["First Names", d.first_names || "—"],
+        ["Initials", d.initials || "—"],
+        ["Surname", d.surname || c.surname || "—"],
+        ["Date of Birth", d.date_of_birth || "—"],
+        ["Age", d.age || "—"],
+        ["Gender", d.gender || "—"],
+        ["Citizenship", d.citizenship || "—"],
+        ["Dead/Alive", d.dead_alive || "—"],
+      ];
+      const header = `${c.surname}, ${c.first_name}${c.id_number ? ` (${c.id_number})` : ""}`;
+      const blockH = 22 + rows.length * 18 + 14;
+      if (cursorY + blockH > pageHeight - 100) { doc.addPage(); cursorY = margin; }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(header, margin, cursorY);
+      cursorY += 6;
+      autoTable(doc, {
+        startY: cursorY,
+        head: [["Field", "Value"]],
+        body: rows,
+        theme: "grid",
+        styles: { fontSize: 9, cellPadding: 5, textColor: [30, 30, 30] },
+        headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: "bold" },
+        columnStyles: { 0: { cellWidth: 130, fontStyle: "bold" } },
+        margin: { left: margin, right: margin },
+        didParseCell: (data) => {
+          if (data.section === "body" && data.column.index === 1 && data.row.index === 1) {
+            const s = String(data.cell.raw ?? "").toLowerCase();
+            if (/confirm|complete|verified|valid|match/.test(s)) {
+              data.cell.styles.textColor = [22, 163, 74];
+              data.cell.styles.fontStyle = "bold";
+            } else if (s && s !== "—") {
+              data.cell.styles.textColor = [185, 28, 28];
+              data.cell.styles.fontStyle = "bold";
+            }
+          }
+        },
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cursorY = ((doc as any).lastAutoTable?.finalY ?? cursorY) + 16;
+    }
+  }
+
   // T&Cs (always on last page, may add new page)
   if (input.termsAndConditions?.trim()) {
     const raw = input.termsAndConditions.trim();
