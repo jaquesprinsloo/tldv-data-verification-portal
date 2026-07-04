@@ -257,11 +257,6 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       const cand = input.candidates[data.row.index];
       if (!cand?.id_verification_data) return;
       const { x, y: cy, width, height } = data.cell;
-      doc.setFillColor(255, 255, 255);
-      doc.rect(x + 0.5, cy + 0.5, width - 1, height - 1, "F");
-      // Soft highlight background so the clickable area is obvious
-      doc.setFillColor(219, 234, 254); // light blue
-      doc.rect(x + 1, cy + 1, width - 2, height - 2, "F");
       doc.setTextColor(29, 78, 216);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
