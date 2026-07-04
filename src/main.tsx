@@ -107,6 +107,7 @@ if (isPreviewHost || isInIframe || isCandidateRoute || isPrivacyPolicyRoute) {
 // token, regardless of whether the InstallAppButton component is mounted.
 if (
   isCandidateRoute ||
+  isPrivacyPolicyRoute ||
   new URLSearchParams(window.location.search).has("token")
 ) {
   window.addEventListener("beforeinstallprompt", (e) => {
