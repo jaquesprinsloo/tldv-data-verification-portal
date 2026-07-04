@@ -249,40 +249,18 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
 
   const hasIdVer = checks.includes("id_verification");
 
-  // Collected pop-up annotations to add via pdf-lib after the doc is built.
-  // jsPDF's own text annotations get mangled once pdf-lib re-encrypts the
-  // document, so we defer the annotation creation to pdf-lib itself.
-  const pendingAnnotations: Array<{
-    pageIndex: number; // 0-based
-    x: number;         // jsPDF pt from top-left
+  // Name cells we need to turn into internal PDF links pointing to each
+  // candidate's ID Verification appendix page. Filled during didDrawCell,
+  // linked once the appendix pages have been rendered and their page
+  // numbers are known.
+  const nameCellRects: Array<{
+    candIndex: number;
+    pageNumber: number; // 1-based
+    x: number;
     y: number;
     w: number;
     h: number;
-    title: string;
-    contents: string;
   }> = [];
-
-  const buildIdVerContents = (cand: ManualRiskCandidatePdf): string => {
-    const d = cand.id_verification_data!;
-    const rows: Array<[string, string]> = [
-      ["ID Number", d.id_number || cand.id_number || "—"],
-      ["First Names", d.first_names || "—"],
-      ["Initials", d.initials || "—"],
-      ["Surname", d.surname || cand.surname || "—"],
-      ["Date of Birth", d.date_of_birth || "—"],
-      ["Age", d.age || "—"],
-      ["Gender", d.gender || "—"],
-      ["Citizenship", d.citizenship || "—"],
-      ["Status", d.status || "—"],
-      ["Dead / Alive", d.dead_alive || "—"],
-    ];
-    const pad = Math.max(...rows.map(([k]) => k.length));
-    return (
-      "ID Verification Details\n" +
-      "Source: Public databases\n\n" +
-      rows.map(([k, v]) => `${k.padEnd(pad, " ")}  ${v}`).join("\n")
-    );
-  };
 
   autoTable(doc, {
     startY: y + 6,
@@ -319,17 +297,16 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       const cand = realCandidates[data.row.index];
       if (!cand?.id_verification_data) return;
       const { x, y: cy, width, height } = data.cell;
-      // Underline the name to hint at the pop-up
+      // Underline the name to hint at the link
       doc.setDrawColor(29, 78, 216);
       doc.setLineWidth(0.4);
       doc.line(x + 6, cy + height - 5, x + width - 6, cy + height - 5);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const pageNumber = (doc.internal as any).getCurrentPageInfo().pageNumber as number;
-      pendingAnnotations.push({
-        pageIndex: pageNumber - 1,
+      nameCellRects.push({
+        candIndex: data.row.index,
+        pageNumber,
         x, y: cy, w: width, h: height,
-        title: `${cand.surname}, ${cand.first_name}`,
-        contents: buildIdVerContents(cand),
       });
     },
     margin: { left: margin, right: margin },
@@ -379,8 +356,8 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   }
 
 
-  // Small hint below the Check Results table when pop-up notes are attached.
-  if (pendingAnnotations.length) {
+  // Small hint below the Check Results table when links are attached.
+  if (nameCellRects.length) {
     cursorY += 10;
     if (cursorY > pageHeight - 100) { doc.addPage(); cursorY = margin; }
     doc.setFont("helvetica", "italic");
@@ -421,6 +398,85 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     cursorY = renderRichParagraphs(doc, paragraphs, margin, cursorY, maxTextWidth, fontSize, lineHeight);
   }
 
+  // ---------- ID Verification Appendix ----------
+  // Render one appendix page per candidate that has id_verification_data,
+  // then wire each name cell in the Check Results table to link there.
+  const candPageMap = new Map<number, number>(); // candIndex -> 1-based page number
+  if (hasIdVer) {
+    const idVerCands = realCandidates
+      .map((c, i) => ({ c, i }))
+      .filter(({ c }) => !!c.id_verification_data);
+    for (const { c, i } of idVerCands) {
+      doc.addPage();
+      const pageNum = doc.getNumberOfPages();
+      candPageMap.set(i, pageNum);
+      let ay = margin + 10;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text("ID Verification Details", margin, ay);
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(1);
+      doc.line(margin, ay + 4, margin + 150, ay + 4);
+      ay += 22;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(60, 60, 60);
+      doc.text(`Candidate: ${c.surname}, ${c.first_name}`, margin, ay);
+      ay += 14;
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text("Source: Public databases", margin, ay);
+      ay += 10;
+      const d = c.id_verification_data!;
+      const detailRows: Array<[string, string]> = [
+        ["ID Number", d.id_number || c.id_number || "—"],
+        ["First Names", d.first_names || "—"],
+        ["Initials", d.initials || "—"],
+        ["Surname", d.surname || c.surname || "—"],
+        ["Date of Birth", d.date_of_birth || "—"],
+        ["Age", d.age || "—"],
+        ["Gender", d.gender || "—"],
+        ["Citizenship", d.citizenship || "—"],
+        ["Status", d.status || "—"],
+        ["Dead / Alive", d.dead_alive || "—"],
+      ];
+      autoTable(doc, {
+        startY: ay + 4,
+        head: [["Field", "Value"]],
+        body: detailRows,
+        theme: "grid",
+        styles: { fontSize: 10, cellPadding: 6, textColor: [30, 30, 30] },
+        headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: "bold" },
+        columnStyles: { 0: { cellWidth: 140, fontStyle: "bold" } },
+        margin: { left: margin, right: margin },
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const afterY = (doc as any).lastAutoTable?.finalY ?? ay + 200;
+      // "Back to report" link -> page 1
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(29, 78, 216);
+      const backLabel = "\u2190 Back to report";
+      const backWidth = doc.getTextWidth(backLabel);
+      doc.text(backLabel, margin, afterY + 24);
+      doc.setDrawColor(29, 78, 216);
+      doc.setLineWidth(0.4);
+      doc.line(margin, afterY + 26, margin + backWidth, afterY + 26);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (doc as any).link(margin, afterY + 14, backWidth, 14, { pageNumber: 1 });
+      doc.setTextColor(0, 0, 0);
+    }
+    // Wire up name-cell links now that appendix pages exist.
+    for (const rect of nameCellRects) {
+      const target = candPageMap.get(rect.candIndex);
+      if (!target) continue;
+      doc.setPage(rect.pageNumber);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (doc as any).link(rect.x, rect.y, rect.w, rect.h, { pageNumber: target });
+    }
+  }
+
   // Footer on every page
   const pageCount = doc.getNumberOfPages();
   const footerAddress = "Office 3, First Floor, Right Side Wing, Refined Park, 11 Inanda Rd, Hillcrest, Durban, 3610";
@@ -453,35 +509,8 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
 
   const pdfBlob = doc.output("blob");
   const arrayBuffer = await pdfBlob.arrayBuffer();
-  const { PDFDocument, PDFString } = await import("@cantoo/pdf-lib");
+  const { PDFDocument } = await import("@cantoo/pdf-lib");
   const pdfDoc = await PDFDocument.load(new Uint8Array(arrayBuffer));
-
-  // Attach pop-up text annotations to the candidate name cells now, before
-  // encryption, so the contents are written into the encrypted stream cleanly.
-  const pages = pdfDoc.getPages();
-  for (const a of pendingAnnotations) {
-    const page = pages[a.pageIndex];
-    if (!page) continue;
-    const ph = page.getHeight();
-    // Convert jsPDF top-left rect to pdf-lib bottom-left rect
-    const llx = a.x;
-    const lly = ph - (a.y + a.h);
-    const urx = a.x + a.w;
-    const ury = ph - a.y;
-    const annotDict = pdfDoc.context.obj({
-      Type: "Annot",
-      Subtype: "Text",
-      Rect: [llx, lly, urx, ury],
-      Contents: PDFString.of(a.contents),
-      T: PDFString.of(a.title),
-      Name: "Note",
-      Open: false,
-      C: [1, 0.95, 0.4],
-      F: 4, // Print flag
-    });
-    const ref = pdfDoc.context.register(annotDict);
-    page.node.addAnnot(ref);
-  }
 
   pdfDoc.encrypt({
     ownerPassword: "TLDV0011",
