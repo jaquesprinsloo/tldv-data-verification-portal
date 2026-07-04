@@ -98,6 +98,8 @@ export const CHECK_COLUMNS: Record<string, { result: string; notes: string }> = 
   pdp: { result: "pdp_result", notes: "pdp_notes" },
   qualification: { result: "qualification_result", notes: "qualification_notes" },
   criminal: { result: "criminal_result", notes: "criminal_notes" },
+};
+
 export function isPlaceholderCandidate(c: { id_number?: string; surname?: string; first_name?: string }): boolean {
   const id = String(c.id_number ?? "").trim();
   const surname = String(c.surname ?? "").trim();
