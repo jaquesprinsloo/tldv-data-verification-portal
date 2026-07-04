@@ -228,6 +228,9 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     ...checks.map((k) => label(c.results?.[k])),
   ]);
 
+  const nameCellRects: Array<{ page: number; x: number; y: number; w: number; h: number; candidateIndex: number }> = [];
+  const hasIdVer = checks.includes("id_verification");
+
   autoTable(doc, {
     startY: y + 6,
     head,
@@ -247,6 +250,31 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
         data.cell.styles.textColor = RESULT_COLORS[key];
         data.cell.styles.fontStyle = "bold";
       }
+    },
+    didDrawCell: (data) => {
+      if (!hasIdVer) return;
+      if (data.section !== "body" || data.column.index !== 1) return;
+      const cand = input.candidates[data.row.index];
+      if (!cand?.id_verification_data) return;
+      const { x, y: cy, width, height } = data.cell;
+      doc.setFillColor(255, 255, 255);
+      doc.rect(x + 0.5, cy + 0.5, width - 1, height - 1, "F");
+      doc.setTextColor(29, 78, 216);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      const text = `${cand.surname}, ${cand.first_name}`;
+      const tx = x + 6;
+      const ty = cy + height / 2 + 3;
+      doc.text(text, tx, ty);
+      const tw = doc.getTextWidth(text);
+      doc.setDrawColor(29, 78, 216);
+      doc.setLineWidth(0.5);
+      doc.line(tx, ty + 1.5, tx + tw, ty + 1.5);
+      doc.setTextColor(30, 30, 30);
+      doc.setFont("helvetica", "normal");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber as number;
+      nameCellRects.push({ page: pageNumber, x, y: cy, w: width, h: height, candidateIndex: data.row.index });
     },
     margin: { left: margin, right: margin },
   });
@@ -294,6 +322,78 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     }
   }
 
+
+  // ID Verification Details — one block per candidate that has data.
+  const idVerCandidates = hasIdVer
+    ? input.candidates.map((c, i) => ({ c, i })).filter(({ c }) => !!c.id_verification_data)
+    : [];
+  const detailAnchorPage: number[] = [];
+  if (idVerCandidates.length) {
+    cursorY += 24;
+    if (cursorY > pageHeight - 140) { doc.addPage(); cursorY = margin; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text("ID Verification Details", margin, cursorY);
+    doc.setDrawColor(220, 38, 38);
+    doc.line(margin, cursorY + 3, margin + 120, cursorY + 3);
+    cursorY += 16;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.setTextColor(90, 90, 90);
+    const explainer = "Information sourced from public databases. Tap a candidate's name (shown in blue and underlined) in the Check Results table above to jump straight to their ID Verification Details below.";
+    const wrappedExpl = doc.splitTextToSize(explainer, pageWidth - margin * 2);
+    doc.text(wrappedExpl, margin, cursorY);
+    cursorY += wrappedExpl.length * 11 + 8;
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "normal");
+
+    for (const { c, i } of idVerCandidates) {
+      const d = c.id_verification_data!;
+      const rows: Array<[string, string]> = [
+        ["ID Number", d.id_number || c.id_number || "—"],
+        ["First Names", d.first_names || "—"],
+        ["Initials", d.initials || "—"],
+        ["Surname", d.surname || c.surname || "—"],
+        ["Date of Birth", d.date_of_birth || "—"],
+        ["Age", d.age || "—"],
+        ["Gender", d.gender || "—"],
+        ["Citizenship", d.citizenship || "—"],
+        ["Status", d.status || "—"],
+        ["Dead / Alive", d.dead_alive || "—"],
+      ];
+      const heading = `${c.surname}, ${c.first_name} (${c.id_number})`;
+      const blockH = 20 + rows.length * 18 + 12;
+      if (cursorY + blockH > pageHeight - 100) { doc.addPage(); cursorY = margin; }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      detailAnchorPage[i] = (doc as any).internal.getCurrentPageInfo().pageNumber as number;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(heading, margin, cursorY);
+      cursorY += 6;
+      autoTable(doc, {
+        startY: cursorY,
+        head: [["Field", "Value"]],
+        body: rows,
+        theme: "grid",
+        styles: { fontSize: 9, cellPadding: 5, textColor: [30, 30, 30] },
+        headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: "bold" },
+        columnStyles: { 0: { cellWidth: 130, fontStyle: "bold" } },
+        margin: { left: margin, right: margin },
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cursorY = (doc as any).lastAutoTable?.finalY ?? cursorY;
+      cursorY += 14;
+    }
+
+    for (const rect of nameCellRects) {
+      const targetPage = detailAnchorPage[rect.candidateIndex];
+      if (!targetPage) continue;
+      doc.setPage(rect.page);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (doc as any).link(rect.x, rect.y, rect.w, rect.h, { pageNumber: targetPage });
+    }
+  }
 
   // T&Cs (always on last page, may add new page)
   if (input.termsAndConditions?.trim()) {
