@@ -1147,10 +1147,46 @@ function SubmissionDetailsDialog({
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
+
+      // Mirror the Background Screening Report (only) to OneDrive
+      let odWebUrl: string | null = null;
+      let odItemId: string | null = null;
+      let odPath: string | null = null;
+      try {
+        const { data: odData, error: odErr } = await supabase.functions.invoke(
+          "upload-manual-risk-to-onedrive",
+          {
+            body: {
+              fileName: `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`,
+              fileBase64: base64,
+              contentType: "application/pdf",
+              clientName: client?.client_name ?? "Unassigned",
+              orderNumber: sub?.order_number,
+              kind: "report",
+            },
+          },
+        );
+        if (odErr) throw odErr;
+        if ((odData as any)?.success) {
+          odWebUrl = (odData as any).webUrl ?? null;
+          odItemId = (odData as any).itemId ?? null;
+          odPath = (odData as any).fullPath ?? null;
+        } else if ((odData as any)?.error) {
+          throw new Error((odData as any).error);
+        }
+      } catch (e) {
+        toast.warning(`Report emailed, but OneDrive save failed: ${(e as Error).message}`);
+      }
+
       // Mark submission as sent so it moves to Accounts tab
       await sb
         .from("manual_risk_submissions")
-        .update({ sent_at: new Date().toISOString() })
+        .update({
+          sent_at: new Date().toISOString(),
+          report_onedrive_web_url: odWebUrl,
+          report_onedrive_item_id: odItemId,
+          report_onedrive_path: odPath,
+        })
         .eq("id", submissionId);
       qc.invalidateQueries({ queryKey: ["mra-submissions"] });
       onChanged();
