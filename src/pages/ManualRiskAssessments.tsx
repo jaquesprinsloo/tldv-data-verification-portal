@@ -70,6 +70,19 @@ export type SupplierReportFile = {
 };
 
 // Uploads supplier risk report PDF to storage + OneDrive (SupplierReports subfolder)
+async function deleteFromOneDrive(itemId: string | null | undefined): Promise<void> {
+  if (!itemId) return;
+  try {
+    const { data, error } = await supabase.functions.invoke("upload-manual-risk-to-onedrive", {
+      body: { action: "delete", itemId },
+    });
+    if (error) throw error;
+    if ((data as any)?.success === false) throw new Error((data as any)?.error || "OneDrive delete failed");
+  } catch (e) {
+    toast.warning(`OneDrive copy could not be deleted: ${(e as Error).message}`);
+  }
+}
+
 async function uploadSupplierReport(
   file: File,
   submissionId: string,
