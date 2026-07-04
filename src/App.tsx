@@ -19,6 +19,7 @@ const CanDexPreScreening = lazy(() => import("./pages/CanDexPreScreening"));
 const CandexApplication = lazy(() => import("./pages/CandexApplication"));
 const ExaminerPortal = lazy(() => import("./pages/ExaminerPortal"));
 const ManualRiskAssessments = lazy(() => import("./pages/ManualRiskAssessments"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Install = lazy(() => import("./pages/Install"));
 
