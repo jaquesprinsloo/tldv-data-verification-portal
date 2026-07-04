@@ -466,6 +466,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
 
   const pdfBlob = doc.output("blob");
   const arrayBuffer = await pdfBlob.arrayBuffer();
+  const { PDFDocument } = await import("@cantoo/pdf-lib");
   const pdfDoc = await PDFDocument.load(new Uint8Array(arrayBuffer));
   pdfDoc.encrypt({
     ownerPassword: "TLDV0011",
