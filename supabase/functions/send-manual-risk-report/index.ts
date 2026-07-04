@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
                 ${clientName ? `<tr><td style="padding:10px 14px;font-size:13px;color:#6b7280;border-bottom:1px solid #e5e7eb">Client</td><td style="padding:10px 14px;font-size:13px;color:#111;border-bottom:1px solid #e5e7eb;font-weight:600">${esc(clientName)}</td></tr>` : ''}
                 <tr><td style="padding:10px 14px;font-size:13px;color:#6b7280">Report Date</td><td style="padding:10px 14px;font-size:13px;color:#111;font-weight:600">${dateStr}</td></tr>
               </table>
-              <p style="margin:0;font-size:14px;line-height:1.6;color:#333">Warm regards,<br/><strong>Client Service</strong></p>
+              <p style="margin:24px 0;font-size:14px;line-height:1.6;color:#333">Warm regards,<br/><br/><strong>Client Service</strong></p>
             </td></tr>
             <tr><td style="background:#f9fafb;padding:16px 28px;border-top:1px solid #e5e7eb">
               <p style="margin:0;font-size:11px;line-height:1.5;color:#6b7280;text-align:center">
