@@ -64,12 +64,12 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              "You extract South African ID numbers (exactly 13 digits) from documents. Respond with ONLY a JSON object like {\"ids\":[\"1234567890123\",...]}. No prose. If none, return {\"ids\":[]}.",
+              "You extract South African ID Verification records from a supplier vetting report. For each 'VERIFICATION OF ID NUMBER' block found, extract the fields. The ID Number may be MASKED (e.g. '981201XXXXXXX') — return exactly what appears. Respond with ONLY a JSON object of shape:\n{\"records\":[{\"id_number\":\"981201XXXXXXX\",\"id_prefix\":\"981201\",\"status\":\"Confirmed\",\"first_names\":\"NIKESH\",\"initials\":\"N\",\"surname\":\"DHEEPLALL\",\"date_of_birth\":\"1998-12-01\",\"age\":\"27\",\"gender\":\"MALE\",\"citizenship\":\"SOUTH AFRICAN\",\"dead_alive\":\"Alive\"}]}\nRules: id_prefix = the first 6 digits of the ID (digits only). status = the confirmation/verification signal (e.g. 'Confirmed', 'Not Confirmed', 'Completed'). Use null for any missing field. Also return legacy field 'ids' as an array of any FULL 13-digit numbers found. If nothing found, return {\"records\":[],\"ids\":[]}. No prose, no markdown.",
           },
           {
             role: "user",
             content: [
-              { type: "text", text: "Extract every 13-digit South African ID number that appears in this report." },
+              { type: "text", text: "Extract every ID Verification record from this supplier vetting report." },
               { type: "image_url", image_url: { url: dataUrl } },
             ],
           },
@@ -86,17 +86,30 @@ Deno.serve(async (req) => {
     const cleaned = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
 
     let ids: string[] = [];
+    let records: Array<Record<string, unknown>> = [];
     try {
       const parsed = JSON.parse(cleaned);
       if (Array.isArray(parsed?.ids)) ids = parsed.ids.map((x: unknown) => String(x));
+      if (Array.isArray(parsed?.records)) records = parsed.records as Array<Record<string, unknown>>;
     } catch {
-      // fallback: regex on the raw text
       ids = (cleaned.match(/\d{13}/g) ?? []);
     }
-    // Final safety filter
     ids = Array.from(new Set(ids.filter((s) => /^\d{13}$/.test(s))));
 
-    return new Response(JSON.stringify({ success: true, ids }), {
+    // Derive id_prefix defensively; also add full IDs as records if only ids came back.
+    const normRecords = records.map((r) => {
+      const raw = String(r.id_number ?? "");
+      const digits = raw.replace(/\D/g, "");
+      const prefix = String(r.id_prefix ?? digits.slice(0, 6));
+      return { ...r, id_number: raw || null, id_prefix: /^\d{6}$/.test(prefix) ? prefix : null };
+    });
+    for (const full of ids) {
+      if (!normRecords.some((r) => r.id_prefix === full.slice(0, 6))) {
+        normRecords.push({ id_number: full, id_prefix: full.slice(0, 6), status: "Confirmed" });
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, ids, records: normRecords }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: unknown) {
