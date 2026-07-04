@@ -70,6 +70,19 @@ export type SupplierReportFile = {
 };
 
 // Uploads supplier risk report PDF to storage + OneDrive (SupplierReports subfolder)
+async function deleteFromOneDrive(itemId: string | null | undefined): Promise<void> {
+  if (!itemId) return;
+  try {
+    const { data, error } = await supabase.functions.invoke("upload-manual-risk-to-onedrive", {
+      body: { action: "delete", itemId },
+    });
+    if (error) throw error;
+    if ((data as any)?.success === false) throw new Error((data as any)?.error || "OneDrive delete failed");
+  } catch (e) {
+    toast.warning(`OneDrive copy could not be deleted: ${(e as Error).message}`);
+  }
+}
+
 async function uploadSupplierReport(
   file: File,
   submissionId: string,
@@ -451,6 +464,19 @@ export default function ManualRiskAssessments() {
                             onClick={async (e) => {
                               e.stopPropagation();
                               if (!confirm(`Delete submission ${s.order_number}? This permanently removes all candidates and results.`)) return;
+                              // Purge OneDrive copies (report + indemnities + supplier reports)
+                              await deleteFromOneDrive((s as any).report_onedrive_item_id);
+                              for (const f of ((s as any).indemnity_files ?? []) as IndemnityFile[]) {
+                                await deleteFromOneDrive(f.onedrive_item_id);
+                              }
+                              for (const f of ((s as any).supplier_report_files ?? []) as SupplierReportFile[]) {
+                                await deleteFromOneDrive(f.onedrive_item_id);
+                              }
+                              // Also purge storage buckets
+                              const indPaths = (((s as any).indemnity_files ?? []) as IndemnityFile[]).map((f) => f.path);
+                              if (indPaths.length) await supabase.storage.from("manual-risk-indemnities").remove(indPaths);
+                              const supPaths = (((s as any).supplier_report_files ?? []) as SupplierReportFile[]).map((f) => f.path);
+                              if (supPaths.length) await supabase.storage.from("manual-risk-supplier-reports").remove(supPaths);
                               const { error: cErr } = await sb.from("manual_risk_candidates").delete().eq("submission_id", s.id);
                               if (cErr) { toast.error(cErr.message); return; }
                               const { error } = await sb.from("manual_risk_submissions").delete().eq("id", s.id);
@@ -1496,9 +1522,10 @@ function IndemnitySection({
   };
 
   const handleDelete = async (f: IndemnityFile) => {
-    if (!confirm(`Delete indemnity "${f.name}"? This removes it from storage. The OneDrive copy will remain unless removed manually.`)) return;
+    if (!confirm(`Delete indemnity "${f.name}"? This removes it from storage and OneDrive.`)) return;
     try {
       await supabase.storage.from("manual-risk-indemnities").remove([f.path]);
+      await deleteFromOneDrive(f.onedrive_item_id);
       const next = files.filter((x) => x.path !== f.path);
       const { error } = await sb
         .from("manual_risk_submissions")
@@ -1649,9 +1676,10 @@ function SupplierReportSection({
   };
 
   const handleDelete = async (f: SupplierReportFile) => {
-    if (!confirm(`Delete supplier report "${f.name}"? This removes it from storage. The OneDrive copy will remain unless removed manually.`)) return;
+    if (!confirm(`Delete supplier report "${f.name}"? This removes it from storage and OneDrive.`)) return;
     try {
       await supabase.storage.from("manual-risk-supplier-reports").remove([f.path]);
+      await deleteFromOneDrive(f.onedrive_item_id);
       const next = files.filter((x) => x.path !== f.path);
       const { error } = await sb
         .from("manual_risk_submissions")
@@ -2021,6 +2049,19 @@ function ClientAccountDialog({
       if (sub?.invoice_file_path) {
         await supabase.storage.from("invoices").remove([sub.invoice_file_path]);
       }
+      if (sub) {
+        await deleteFromOneDrive((sub as any).report_onedrive_item_id);
+        for (const f of ((sub as any).indemnity_files ?? []) as IndemnityFile[]) {
+          await deleteFromOneDrive(f.onedrive_item_id);
+        }
+        for (const f of ((sub as any).supplier_report_files ?? []) as SupplierReportFile[]) {
+          await deleteFromOneDrive(f.onedrive_item_id);
+        }
+        const indPaths = (((sub as any).indemnity_files ?? []) as IndemnityFile[]).map((f) => f.path);
+        if (indPaths.length) await supabase.storage.from("manual-risk-indemnities").remove(indPaths);
+        const supPaths = (((sub as any).supplier_report_files ?? []) as SupplierReportFile[]).map((f) => f.path);
+        if (supPaths.length) await supabase.storage.from("manual-risk-supplier-reports").remove(supPaths);
+      }
       const { error: cErr } = await sb.from("manual_risk_candidates").delete().eq("submission_id", submissionId);
       if (cErr) throw cErr;
       const { error } = await sb.from("manual_risk_submissions").delete().eq("id", submissionId);
@@ -2043,6 +2084,22 @@ function ClientAccountDialog({
         .filter((s) => selectedSubmissionIds.includes(s.id) && s.invoice_file_path)
         .map((s) => s.invoice_file_path!) as string[];
       if (paths.length) await supabase.storage.from("invoices").remove(paths);
+      const targetSubs = subs.filter((s) => selectedSubmissionIds.includes(s.id));
+      const indPaths: string[] = [];
+      const supPaths: string[] = [];
+      for (const sub of targetSubs) {
+        await deleteFromOneDrive((sub as any).report_onedrive_item_id);
+        for (const f of ((sub as any).indemnity_files ?? []) as IndemnityFile[]) {
+          await deleteFromOneDrive(f.onedrive_item_id);
+          indPaths.push(f.path);
+        }
+        for (const f of ((sub as any).supplier_report_files ?? []) as SupplierReportFile[]) {
+          await deleteFromOneDrive(f.onedrive_item_id);
+          supPaths.push(f.path);
+        }
+      }
+      if (indPaths.length) await supabase.storage.from("manual-risk-indemnities").remove(indPaths);
+      if (supPaths.length) await supabase.storage.from("manual-risk-supplier-reports").remove(supPaths);
       const { error: cErr } = await sb.from("manual_risk_candidates").delete().in("submission_id", selectedSubmissionIds);
       if (cErr) throw cErr;
       const { error } = await sb.from("manual_risk_submissions").delete().in("id", selectedSubmissionIds);
