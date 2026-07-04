@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download, Eye, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify } from "lucide-react";
+import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download, Eye, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -2158,6 +2158,28 @@ function ClientAccountDialog({
     }
   };
 
+  const moveBackToSubmission = async (submissionId: string, orderNumber: string) => {
+    if (!confirm(`Move submission ${orderNumber} back to the Submissions tab? Its sent and invoice details will be cleared.`)) return;
+    try {
+      const sub = subs.find((s) => s.id === submissionId);
+      if (sub?.invoice_file_path) {
+        await supabase.storage.from("invoices").remove([sub.invoice_file_path]);
+      }
+      const { error } = await sb
+        .from("manual_risk_submissions")
+        .update({ sent_at: null, invoiced_at: null, invoice_number: null, invoice_file_path: null })
+        .eq("id", submissionId);
+      if (error) throw error;
+      toast.success(`${orderNumber} moved back to Submissions`);
+      setSelected((prev) => { const n = new Set(prev); n.delete(submissionId); return n; });
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
@@ -2261,6 +2283,14 @@ function ClientAccountDialog({
                       onClick={() => deleteSubmission(r.submissionId, r.orderNumber)}
                     >
                       <Trash2 className="h-4 w-4 text-red-600" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Move back to Submissions"
+                      onClick={() => moveBackToSubmission(r.submissionId, r.orderNumber)}
+                    >
+                      <Undo2 className="h-4 w-4 text-amber-600" />
                     </Button>
                   </TableCell>
                 </TableRow>
