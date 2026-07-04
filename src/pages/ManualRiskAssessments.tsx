@@ -1182,6 +1182,7 @@ function SubmissionDetailsDialog({
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailTo, setEmailTo] = useState("");
   const [emailMsg, setEmailMsg] = useState("");
+  const [ccEmails, setCcEmails] = useState("Admin@tldv.co.za");
   const [sending, setSending] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [reopening, setReopening] = useState(false);
@@ -1290,6 +1291,17 @@ function SubmissionDetailsDialog({
         return;
       }
 
+      const ccList = ccEmails
+        .split(/[,;\s]+/)
+        .map((e) => e.trim())
+        .filter(Boolean);
+      const invalidCc = ccList.filter((e) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+      if (invalidCc.length) {
+        toast.error(`Invalid CC email(s): ${invalidCc.join(", ")}`);
+        setSending(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("send-manual-risk-report", {
         body: {
           message: emailMsg, pdfBase64: base64,
@@ -1298,7 +1310,7 @@ function SubmissionDetailsDialog({
           clientName: client?.client_name ?? null,
           contactName: client?.contact_person ?? null,
           to: clientEmail,
-          cc: "Admin@tldv.co.za",
+          cc: ccList,
         },
       });
       if (error) throw error;
@@ -1346,7 +1358,11 @@ function SubmissionDetailsDialog({
         .eq("id", submissionId);
       qc.invalidateQueries({ queryKey: ["mra-submissions"] });
       onChanged();
-      toast.success(`Report sent to ${clientEmail} with Admin@tldv.co.za CC'd`);
+      toast.success(
+        ccList.length
+          ? `Report sent to ${clientEmail} (CC: ${ccList.join(", ")})`
+          : `Report sent to ${clientEmail}`,
+      );
       setEmailOpen(false); setEmailMsg("");
       onClose();
     } catch (e) { toast.error((e as Error).message); }
@@ -1473,11 +1489,22 @@ function SubmissionDetailsDialog({
             <DialogHeader><DialogTitle>Email Report</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
-                <div className="text-xs text-muted-foreground">Recipient</div>
-                <div className="font-medium">Admin@tldv.co.za</div>
+                <div className="text-xs text-muted-foreground">Recipient (To)</div>
+                <div className="font-medium">{client?.email?.trim() || "— no client email —"}</div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  All risk assessment reports are routed to the admin mailbox only.
+                  The report is sent to the client's email address on file.
                 </div>
+              </div>
+              <div>
+                <Label>CC (comma-separated, optional)</Label>
+                <Input
+                  value={ccEmails}
+                  onChange={(e) => setCcEmails(e.target.value)}
+                  placeholder="e.g. Admin@tldv.co.za, manager@example.com"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Leave blank to send with no CC. Separate multiple addresses with commas.
+                </p>
               </div>
               <div>
                 <Label>Message (optional)</Label>
