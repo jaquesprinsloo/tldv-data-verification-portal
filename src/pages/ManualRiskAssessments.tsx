@@ -698,6 +698,7 @@ function NewSubmissionDialog({
   // batch candidates
   const [batchRows, setBatchRows] = useState<Array<{ id_number: string; surname: string; first_name: string }>>([]);
   const [busy, setBusy] = useState(false);
+  const [indemnityFiles, setIndemnityFiles] = useState<File[]>([]);
 
   useEffect(() => {
     if (clients.length === 0) setClientMode("new");
@@ -782,6 +783,32 @@ function NewSubmissionDialog({
       }));
       const { error: candErr } = await sb.from("manual_risk_candidates").insert(rows);
       if (candErr) throw candErr;
+
+      // Upload indemnity files (storage + OneDrive) and persist metadata
+      if (indemnityFiles.length) {
+        const resolvedClientName =
+          clientMode === "existing"
+            ? clients.find((c) => c.id === resolvedClientId)?.client_name ?? null
+            : clientMode === "new"
+              ? newClient.client_name?.trim() ?? null
+              : null;
+        const uploaded: IndemnityFile[] = [];
+        for (const f of indemnityFiles) {
+          try {
+            const meta = await uploadIndemnity(f, sub.id, orderNumber.trim(), resolvedClientName);
+            uploaded.push(meta);
+          } catch (e) {
+            toast.error(`Indemnity "${f.name}" failed: ${(e as Error).message}`);
+          }
+        }
+        if (uploaded.length) {
+          await sb
+            .from("manual_risk_submissions")
+            .update({ indemnity_files: uploaded })
+            .eq("id", sub.id);
+          toast.success(`${uploaded.length} indemnity file(s) uploaded`);
+        }
+      }
 
       toast.success("Submission created");
       onCreated(sub.id);
