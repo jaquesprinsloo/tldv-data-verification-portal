@@ -1616,14 +1616,20 @@ function SupplierReportSection({
     try {
       const added: SupplierReportFile[] = [];
       const allExtracted = new Set<string>();
+      const allRecords: SupplierIdRecord[] = [];
       for (const f of Array.from(list)) {
         try {
           let ids: string[] = [];
+          let records: SupplierIdRecord[] = [];
           if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
-            try { ids = await extractIdNumbersFromPdf(f); }
-            catch (e) { console.error("PDF extract failed", e); }
+            try {
+              const res = await extractSupplierRecordsFromPdf(f);
+              ids = res.ids;
+              records = res.records;
+            } catch (e) { console.error("PDF extract failed", e); }
           }
           ids.forEach((i) => allExtracted.add(i));
+          records.forEach((r) => allRecords.push(r));
           const meta = await uploadSupplierReport(f, submissionId, submission.order_number, clientName, ids);
           added.push(meta);
         } catch (e) {
@@ -1638,24 +1644,39 @@ function SupplierReportSection({
           .eq("id", submissionId);
         if (error) throw error;
 
-        // Fully automatic: mark id_verification = valid for candidates whose ID
-        // number was found in the supplier report(s).
+        // Fully automatic ID verification. Supplier reports mask most of the ID,
+        // so match candidates by the first 6 digits (date-of-birth prefix). The
+        // outcome is driven by the supplier's own confirmation signal.
         let matched = 0;
+        const sourceLabel = added.map((a) => a.name).join(", ");
         for (const c of candidates) {
-          if (c.id_number && allExtracted.has(c.id_number.trim())) {
-            const note = `Verified against supplier report ${added.map((a) => a.name).join(", ")}`;
-            const { error: uErr } = await sb
-              .from("manual_risk_candidates")
-              .update({
-                id_verification_result: "valid",
-                id_verification_notes: note,
-              })
-              .eq("id", c.id);
-            if (!uErr) matched++;
-          }
+          const candDigits = (c.id_number || "").replace(/\D/g, "");
+          const candPrefix = candDigits.slice(0, 6);
+          if (!/^\d{6}$/.test(candPrefix)) continue;
+          const rec =
+            allRecords.find((r) => r.id_prefix === candPrefix) ||
+            (allExtracted.has(candDigits)
+              ? ({ id_prefix: candPrefix, status: "Confirmed" } as SupplierIdRecord)
+              : undefined);
+          if (!rec) continue;
+          const confirmed = /confirm|complete|verified|valid|match/i.test(String(rec.status ?? ""));
+          const result = confirmed ? "valid" : "invalid";
+          const noteParts = [
+            `Matched supplier report ${sourceLabel} on ID prefix ${candPrefix}`,
+            rec.status ? `Status: ${rec.status}` : null,
+          ].filter(Boolean);
+          const { error: uErr } = await sb
+            .from("manual_risk_candidates")
+            .update({
+              id_verification_result: result,
+              id_verification_notes: noteParts.join(" • "),
+              id_verification_data: rec as unknown as Record<string, unknown>,
+            })
+            .eq("id", c.id);
+          if (!uErr) matched++;
         }
         toast.success(
-          `${added.length} supplier report(s) uploaded. ${allExtracted.size} ID number(s) extracted, ${matched} candidate(s) auto-verified.`,
+          `${added.length} supplier report(s) uploaded. ${allRecords.length || allExtracted.size} record(s) extracted, ${matched} candidate(s) auto-verified.`,
         );
         onChanged();
       }
