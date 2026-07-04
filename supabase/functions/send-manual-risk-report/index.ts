@@ -91,7 +91,8 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: 'PreAppliCheck <no-reply@tldv.co.za>',
         reply_to: 'no-reply@tldv.co.za',
-        to: clean,
+        to: toClean,
+        ...(ccClean.length ? { cc: ccClean } : {}),
         subject: finalSubject,
         html,
         attachments: [
@@ -108,7 +109,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, id: resendData?.id ?? null, recipients: clean }), {
+    return new Response(JSON.stringify({ ok: true, id: resendData?.id ?? null, recipients: toClean, cc: ccClean }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
