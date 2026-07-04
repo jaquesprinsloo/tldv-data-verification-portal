@@ -1543,10 +1543,6 @@ function IndemnitySection({
   );
 }
 
-function ResultCell({
-// (moved) — SupplierReportSection defined below
-}
-
 function SupplierReportSection({
   submissionId, submission, candidates, clientName, onChanged,
 }: {
