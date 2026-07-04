@@ -239,7 +239,8 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     (k) => CHECK_META[k],
   );
   const head = [["#", "Candidate", "ID Number", ...checks.map((k) => CHECK_META[k].short)]];
-  const body = input.candidates.map((c, idx) => [
+  const realCandidates = input.candidates.filter((c) => !isPlaceholderCandidate(c));
+  const body = realCandidates.map((c, idx) => [
     String(idx + 1),
     `${c.surname}, ${c.first_name}`,
     c.id_number,
