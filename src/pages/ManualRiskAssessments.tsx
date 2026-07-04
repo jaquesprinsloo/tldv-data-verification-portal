@@ -1027,8 +1027,16 @@ function SubmissionDetailsDialog({
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
+      // Mark submission as sent so it moves to Accounts tab
+      await sb
+        .from("manual_risk_submissions")
+        .update({ sent_at: new Date().toISOString() })
+        .eq("id", submissionId);
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      onChanged();
       toast.success("Report sent to Admin@tldv.co.za");
       setEmailOpen(false); setEmailMsg("");
+      onClose();
     } catch (e) { toast.error((e as Error).message); }
     finally { setSending(false); }
   };
