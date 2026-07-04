@@ -893,9 +893,13 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          invoice_file_path: string | null
+          invoice_number: string | null
+          invoiced_at: string | null
           notes: string | null
           order_number: string
           requested_checks: string[]
+          sent_at: string | null
           status: string
           submission_type: string
           updated_at: string
@@ -905,9 +909,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          invoice_file_path?: string | null
+          invoice_number?: string | null
+          invoiced_at?: string | null
           notes?: string | null
           order_number: string
           requested_checks?: string[]
+          sent_at?: string | null
           status?: string
           submission_type: string
           updated_at?: string
@@ -917,9 +925,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          invoice_file_path?: string | null
+          invoice_number?: string | null
+          invoiced_at?: string | null
           notes?: string | null
           order_number?: string
           requested_checks?: string[]
+          sent_at?: string | null
           status?: string
           submission_type?: string
           updated_at?: string

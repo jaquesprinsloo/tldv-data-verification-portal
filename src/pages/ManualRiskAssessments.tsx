@@ -39,6 +39,10 @@ type Submission = {
   submission_type: "single" | "batch"; status: "open" | "completed";
   notes: string | null; created_at: string;
   requested_checks: string[] | null;
+  sent_at: string | null;
+  invoiced_at: string | null;
+  invoice_number: string | null;
+  invoice_file_path: string | null;
 };
 type Candidate = {
   id: string; submission_id: string; id_number: string;
@@ -125,6 +129,15 @@ export default function ManualRiskAssessments() {
     return m;
   }, [clients]);
 
+  const openSubmissions = useMemo(
+    () => submissions.filter((s) => !s.sent_at),
+    [submissions],
+  );
+  const sentSubmissions = useMemo(
+    () => submissions.filter((s) => !!s.sent_at),
+    [submissions],
+  );
+
   const previewPdf = async (submissionId: string) => {
     setPreviewing(submissionId);
     try {
@@ -199,6 +212,7 @@ export default function ManualRiskAssessments() {
         <Tabs defaultValue="submissions">
           <TabsList>
             <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />Submissions</TabsTrigger>
+            <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
             <TabsTrigger value="settings">T&amp;Cs</TabsTrigger>
           </TabsList>
@@ -206,7 +220,7 @@ export default function ManualRiskAssessments() {
           <TabsContent value="submissions" className="mt-4">
             <Card className="p-4">
               <div className="flex justify-between items-center mb-4">
-                <p className="text-sm text-muted-foreground">{submissions.length} submission(s)</p>
+                <p className="text-sm text-muted-foreground">{openSubmissions.length} submission(s)</p>
                 <Button onClick={() => setNewSubOpen(true)} className="bg-red-600 hover:bg-red-700">
                   <Plus className="h-4 w-4 mr-2" /> New Submission
                 </Button>
@@ -225,14 +239,14 @@ export default function ManualRiskAssessments() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {submissions.length === 0 && (
+                    {openSubmissions.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                           No submissions yet — click "New Submission" to create one.
                         </TableCell>
                       </TableRow>
                     )}
-                    {submissions.map((s) => (
+                    {openSubmissions.map((s) => (
                       <TableRow key={s.id} className="cursor-pointer" onClick={() => setDetailsSubId(s.id)}>
                         <TableCell className="font-mono">{s.order_number}</TableCell>
                         <TableCell>{s.client_id ? clientById.get(s.client_id)?.client_name ?? "—" : "—"}</TableCell>
@@ -285,6 +299,14 @@ export default function ManualRiskAssessments() {
                 </Table>
               </div>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="accounts" className="mt-4">
+            <AccountsTab
+              submissions={sentSubmissions}
+              clients={clients}
+              onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
+            />
           </TabsContent>
 
           <TabsContent value="clients" className="mt-4">
@@ -1005,8 +1027,16 @@ function SubmissionDetailsDialog({
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
+      // Mark submission as sent so it moves to Accounts tab
+      await sb
+        .from("manual_risk_submissions")
+        .update({ sent_at: new Date().toISOString() })
+        .eq("id", submissionId);
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      onChanged();
       toast.success("Report sent to Admin@tldv.co.za");
       setEmailOpen(false); setEmailMsg("");
+      onClose();
     } catch (e) { toast.error((e as Error).message); }
     finally { setSending(false); }
   };
@@ -1151,5 +1181,391 @@ function ResultCell({
         </SelectContent>
       </Select>
     </div>
+  );
+}
+
+// ---------- Accounts tab ----------
+
+type AccountRow = {
+  submissionId: string;
+  candidateId: string;
+  orderNumber: string;
+  sentAt: string;
+  invoicedAt: string | null;
+  invoiceNumber: string | null;
+  invoiceFilePath: string | null;
+  idNumber: string;
+  surname: string;
+  firstName: string;
+};
+
+function AccountsTab({
+  submissions, clients, onChanged,
+}: {
+  submissions: Submission[];
+  clients: Client[];
+  onChanged: () => void;
+}) {
+  const [openClientId, setOpenClientId] = useState<string | "unassigned" | null>(null);
+
+  // Group sent submissions by client
+  const groups = useMemo(() => {
+    const m = new Map<string, { client: Client | null; subs: Submission[] }>();
+    for (const s of submissions) {
+      const key = s.client_id ?? "__unassigned__";
+      if (!m.has(key)) {
+        const client = s.client_id ? clients.find((c) => c.id === s.client_id) ?? null : null;
+        m.set(key, { client, subs: [] });
+      }
+      m.get(key)!.subs.push(s);
+    }
+    return Array.from(m.entries()).map(([key, v]) => ({
+      key,
+      client: v.client,
+      name: v.client?.client_name ?? "Unassigned",
+      subs: v.subs,
+      pendingInvoice: v.subs.filter((s) => !s.invoiced_at).length,
+    })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [submissions, clients]);
+
+  return (
+    <Card className="p-4">
+      <div className="mb-4">
+        <p className="text-sm text-muted-foreground">
+          {submissions.length} sent check(s) across {groups.length} client account(s). Select a client to export or invoice.
+        </p>
+      </div>
+
+      {groups.length === 0 ? (
+        <div className="text-center text-muted-foreground py-8">
+          No sent submissions yet. Once you email a report from the Submissions tab it will appear here under its client.
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Client</TableHead>
+              <TableHead className="text-center">Sent checks</TableHead>
+              <TableHead className="text-center">Awaiting invoice</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {groups.map((g) => (
+              <TableRow key={g.key}>
+                <TableCell className="font-medium">{g.name}</TableCell>
+                <TableCell className="text-center">{g.subs.length}</TableCell>
+                <TableCell className="text-center">
+                  <Badge className={g.pendingInvoice ? "bg-amber-600" : "bg-emerald-600"}>
+                    {g.pendingInvoice}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button size="sm" variant="outline" onClick={() => setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key)}>
+                    Open account
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+
+      {openClientId && (
+        <ClientAccountDialog
+          groupKey={openClientId === "unassigned" ? "__unassigned__" : openClientId}
+          onClose={() => setOpenClientId(null)}
+          submissions={submissions}
+          clients={clients}
+          onChanged={onChanged}
+        />
+      )}
+    </Card>
+  );
+}
+
+function ClientAccountDialog({
+  groupKey, onClose, submissions, clients, onChanged,
+}: {
+  groupKey: string;
+  onClose: () => void;
+  submissions: Submission[];
+  clients: Client[];
+  onChanged: () => void;
+}) {
+  const qc = useQueryClient();
+  const client = groupKey === "__unassigned__" ? null : clients.find((c) => c.id === groupKey) ?? null;
+  const clientName = client?.client_name ?? "Unassigned";
+  const subs = useMemo(
+    () => submissions
+      .filter((s) => (s.client_id ?? "__unassigned__") === groupKey)
+      .sort((a, b) => (b.sent_at ?? "").localeCompare(a.sent_at ?? "")),
+    [submissions, groupKey],
+  );
+
+  // Date range filter
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  // Load all candidates for these submissions
+  const submissionIds = useMemo(() => subs.map((s) => s.id), [subs]);
+  const { data: candidates = [] } = useQuery<Candidate[]>({
+    queryKey: ["mra-account-cands", groupKey, submissionIds.join(",")],
+    enabled: submissionIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await sb.from("manual_risk_candidates")
+        .select("*").in("submission_id", submissionIds)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return data as Candidate[];
+    },
+  });
+
+  const rows: AccountRow[] = useMemo(() => {
+    const bySub = new Map(subs.map((s) => [s.id, s]));
+    const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
+    const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
+    return candidates
+      .map((c) => {
+        const s = bySub.get(c.submission_id);
+        if (!s || !s.sent_at) return null;
+        const sentTs = new Date(s.sent_at).getTime();
+        if (from !== null && sentTs < from) return null;
+        if (to !== null && sentTs > to) return null;
+        return {
+          submissionId: s.id,
+          candidateId: c.id,
+          orderNumber: s.order_number,
+          sentAt: s.sent_at,
+          invoicedAt: s.invoiced_at,
+          invoiceNumber: s.invoice_number,
+          invoiceFilePath: s.invoice_file_path,
+          idNumber: c.id_number,
+          surname: c.surname,
+          firstName: c.first_name,
+        } as AccountRow;
+      })
+      .filter((r): r is AccountRow => r !== null);
+  }, [candidates, subs, fromDate, toDate]);
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  useEffect(() => { setSelected(new Set()); }, [groupKey]);
+
+  const toggleAll = () => {
+    if (selected.size === rows.length) setSelected(new Set());
+    else setSelected(new Set(rows.map((r) => r.submissionId)));
+  };
+  const toggleOne = (subId: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(subId)) next.delete(subId); else next.add(subId);
+      return next;
+    });
+  };
+
+  const selectedSubmissionIds = useMemo(
+    () => Array.from(new Set(rows.filter((r) => selected.has(r.submissionId)).map((r) => r.submissionId))),
+    [rows, selected],
+  );
+
+  const exportExcel = () => {
+    const source = rows.filter((r) => selected.size === 0 || selected.has(r.submissionId));
+    if (!source.length) { toast.error("No rows to export"); return; }
+    const wsData = [
+      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #"],
+      ...source.map((r) => [
+        clientName,
+        r.orderNumber,
+        new Date(r.sentAt).toLocaleDateString(),
+        r.firstName,
+        r.surname,
+        r.idNumber,
+        r.invoicedAt ? new Date(r.invoicedAt).toLocaleDateString() : "",
+        r.invoiceNumber ?? "",
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Checks");
+    const safe = clientName.replace(/[^a-z0-9]+/gi, "_");
+    const range = fromDate || toDate ? `_${fromDate || "start"}_to_${toDate || "today"}` : "";
+    XLSX.writeFile(wb, `${safe}_Checks${range}.xlsx`);
+    toast.success(`Exported ${source.length} row(s)`);
+  };
+
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const markInvoiced = async () => {
+    if (!selectedSubmissionIds.length) { toast.error("Select at least one submission first"); return; }
+    if (!invoiceFile) { toast.error("Attach the invoice file"); return; }
+    setUploading(true);
+    try {
+      const ext = invoiceFile.name.split(".").pop() ?? "pdf";
+      const path = `manual-risk/${groupKey}/${Date.now()}_${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("invoices").upload(path, invoiceFile, {
+        contentType: invoiceFile.type || "application/pdf",
+        upsert: false,
+      });
+      if (upErr) throw upErr;
+
+      const { error } = await sb
+        .from("manual_risk_submissions")
+        .update({
+          invoiced_at: new Date().toISOString(),
+          invoice_number: invoiceNumber.trim() || null,
+          invoice_file_path: path,
+        })
+        .in("id", selectedSubmissionIds);
+      if (error) throw error;
+
+      toast.success(`${selectedSubmissionIds.length} submission(s) marked invoiced`);
+      setInvoiceOpen(false);
+      setInvoiceFile(null);
+      setInvoiceNumber("");
+      setSelected(new Set());
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const viewInvoice = async (path: string) => {
+    const { data, error } = await supabase.storage.from("invoices").createSignedUrl(path, 300);
+    if (error) { toast.error(error.message); return; }
+    window.open(data.signedUrl, "_blank");
+  };
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{clientName} — Account</DialogTitle>
+          <DialogDescription>
+            {rows.length} check(s) shown • {selectedSubmissionIds.length} submission(s) selected
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-wrap items-end gap-3 mb-3">
+          <div>
+            <Label className="text-xs">From (sent date)</Label>
+            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-8 w-40" />
+          </div>
+          <div>
+            <Label className="text-xs">To</Label>
+            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-8 w-40" />
+          </div>
+          {(fromDate || toDate) && (
+            <Button variant="ghost" size="sm" onClick={() => { setFromDate(""); setToDate(""); }}>Clear</Button>
+          )}
+          <div className="flex-1" />
+          <Button variant="outline" onClick={exportExcel}>
+            <FileDown className="h-4 w-4 mr-2" /> Export to Excel
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700"
+            onClick={() => setInvoiceOpen(true)}
+            disabled={!selectedSubmissionIds.length}
+          >
+            <FileText className="h-4 w-4 mr-2" /> Mark as Invoiced
+          </Button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={rows.length > 0 && selected.size === new Set(rows.map(r => r.submissionId)).size}
+                    onCheckedChange={toggleAll}
+                  />
+                </TableHead>
+                <TableHead>Order #</TableHead>
+                <TableHead>Sent</TableHead>
+                <TableHead>Candidate</TableHead>
+                <TableHead>ID Number</TableHead>
+                <TableHead>Invoice</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
+                    No checks in this range.
+                  </TableCell>
+                </TableRow>
+              )}
+              {rows.map((r) => (
+                <TableRow key={r.candidateId}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(r.submissionId)}
+                      onCheckedChange={() => toggleOne(r.submissionId)}
+                    />
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
+                  <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
+                  <TableCell>{r.surname}, {r.firstName}</TableCell>
+                  <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
+                  <TableCell>
+                    {r.invoicedAt ? (
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-emerald-600">Invoiced</Badge>
+                        {r.invoiceFilePath && (
+                          <Button variant="ghost" size="icon" title="View invoice" onClick={() => viewInvoice(r.invoiceFilePath!)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <Badge variant="outline">Pending</Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+
+        <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Attach Invoice</DialogTitle>
+              <DialogDescription>
+                Marking {selectedSubmissionIds.length} submission(s) as invoiced for {clientName}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <Label>Invoice number (optional)</Label>
+                <Input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="e.g. INV-2026-0142" />
+              </div>
+              <div>
+                <Label>Invoice file (PDF)</Label>
+                <Input type="file" accept="application/pdf,.pdf" onChange={(e) => setInvoiceFile(e.target.files?.[0] ?? null)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setInvoiceOpen(false)}>Cancel</Button>
+              <Button className="bg-red-600 hover:bg-red-700" onClick={markInvoiced} disabled={uploading}>
+                {uploading ? "Uploading..." : "Save Invoice"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </DialogContent>
+    </Dialog>
   );
 }
