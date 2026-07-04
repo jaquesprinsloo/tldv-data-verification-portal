@@ -223,7 +223,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   if (input.clientEmail) { doc.text(`Email: ${input.clientEmail}`, margin, y); y += 14; }
   doc.text(`Submission Type: ${input.submissionType === "single" ? "Single Candidate" : "Batch"}`, margin, y);
   y += 14;
-  doc.text(`Candidates on report: ${input.candidates.length}`, margin, y);
+  doc.text(`Candidates on report: ${realCandidates.length}`, margin, y);
   y += 22;
 
   // Results section title
