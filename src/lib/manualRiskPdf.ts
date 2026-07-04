@@ -168,6 +168,7 @@ async function loadImageAsDataUrl(src: string): Promise<string> {
 }
 
 export async function generateManualRiskPdf(input: ManualRiskReportInput): Promise<Blob> {
+  const realCandidates = input.candidates.filter((c) => !isPlaceholderCandidate(c));
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
