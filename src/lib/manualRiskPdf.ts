@@ -247,7 +247,6 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     ...checks.map((k) => label(c.results?.[k])),
   ]);
 
-  const nameCellRects: Array<{ page: number; x: number; y: number; w: number; h: number; candidateIndex: number; textEndX: number; textY: number }> = [];
   const hasIdVer = checks.includes("id_verification");
 
   autoTable(doc, {
@@ -263,14 +262,6 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     },
     didParseCell: (data) => {
       if (data.section !== "body") return;
-      // Blank out the name cell text when we're going to draw our own styled/underlined version.
-      if (data.column.index === 1 && hasIdVer) {
-        const cand = realCandidates[data.row.index];
-        if (cand?.id_verification_data) {
-          data.cell.text = [""];
-        }
-        return;
-      }
       if (data.column.index < 3) return;
       const cand = realCandidates[data.row.index];
       const key = cand.results?.[checks[data.column.index - 3]];
@@ -278,29 +269,6 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
         data.cell.styles.textColor = RESULT_COLORS[key];
         data.cell.styles.fontStyle = "bold";
       }
-    },
-    didDrawCell: (data) => {
-      if (!hasIdVer) return;
-      if (data.section !== "body" || data.column.index !== 1) return;
-      const cand = realCandidates[data.row.index];
-      if (!cand?.id_verification_data) return;
-      const { x, y: cy, width, height } = data.cell;
-      doc.setTextColor(29, 78, 216);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      const text = `${cand.surname}, ${cand.first_name}`;
-      const tx = x + 6;
-      const ty = cy + height / 2 + 3;
-      doc.text(text, tx, ty);
-      const tw = doc.getTextWidth(text);
-      doc.setDrawColor(29, 78, 216);
-      doc.setLineWidth(0.5);
-      doc.line(tx, ty + 1.5, tx + tw, ty + 1.5);
-      doc.setTextColor(30, 30, 30);
-      doc.setFont("helvetica", "normal");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber as number;
-      nameCellRects.push({ page: pageNumber, x, y: cy, w: width, h: height, candidateIndex: data.row.index, textEndX: tx + tw, textY: ty });
     },
     margin: { left: margin, right: margin },
   });
