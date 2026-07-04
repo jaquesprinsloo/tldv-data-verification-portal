@@ -2158,6 +2158,28 @@ function ClientAccountDialog({
     }
   };
 
+  const moveBackToSubmission = async (submissionId: string, orderNumber: string) => {
+    if (!confirm(`Move submission ${orderNumber} back to the Submissions tab? Its sent and invoice details will be cleared.`)) return;
+    try {
+      const sub = subs.find((s) => s.id === submissionId);
+      if (sub?.invoice_file_path) {
+        await supabase.storage.from("invoices").remove([sub.invoice_file_path]);
+      }
+      const { error } = await sb
+        .from("manual_risk_submissions")
+        .update({ sent_at: null, invoiced_at: null, invoice_number: null, invoice_file_path: null })
+        .eq("id", submissionId);
+      if (error) throw error;
+      toast.success(`${orderNumber} moved back to Submissions`);
+      setSelected((prev) => { const n = new Set(prev); n.delete(submissionId); return n; });
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
