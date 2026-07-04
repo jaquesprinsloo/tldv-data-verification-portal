@@ -345,7 +345,14 @@ export default function ManualRiskAssessments() {
           results[k] = c[CHECK_COLUMNS[k].result] ?? null;
           notes[k] = c[CHECK_COLUMNS[k].notes] ?? null;
         }
-        return { id_number: c.id_number, surname: c.surname, first_name: c.first_name, results, notes };
+        return {
+          id_number: c.id_number,
+          surname: c.surname,
+          first_name: c.first_name,
+          results,
+          notes,
+          id_verification_data: c.id_verification_data ?? null,
+        };
       });
 
       const blob = await generateManualRiskPdf({
@@ -1231,7 +1238,14 @@ function SubmissionDetailsDialog({
         results[k] = c[CHECK_COLUMNS[k].result] ?? null;
         notes[k] = c[CHECK_COLUMNS[k].notes] ?? null;
       }
-      return { id_number: c.id_number, surname: c.surname, first_name: c.first_name, results, notes };
+      return {
+        id_number: c.id_number,
+        surname: c.surname,
+        first_name: c.first_name,
+        results,
+        notes,
+        id_verification_data: (c as any).id_verification_data ?? null,
+      };
     });
     return await generateManualRiskPdf({
       orderNumber: sub?.order_number ?? "",
