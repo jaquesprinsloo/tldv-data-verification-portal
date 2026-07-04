@@ -362,7 +362,6 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       const d = cand?.id_verification_data;
       if (!d) continue;
       const lines = [
-        `${cand.surname}, ${cand.first_name}`,
         `ID Number:    ${d.id_number || cand.id_number || "—"}`,
         `First Names:  ${d.first_names || "—"}`,
         `Initials:     ${d.initials || "—"}`,
@@ -375,11 +374,14 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
         `Dead / Alive: ${d.dead_alive || "—"}`,
       ];
       doc.setPage(rect.page);
+      const iconSize = 8;
+      const iconX = Math.min(rect.textEndX + 4, rect.x + rect.w - iconSize - 2);
+      const iconY = rect.textY - iconSize + 2;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (doc as any).createAnnotation({
         type: "text",
         title: `${cand.surname}, ${cand.first_name} — ID Verification Details`,
-        bounds: { x: rect.x, y: rect.y, w: rect.w, h: rect.h },
+        bounds: { x: iconX, y: iconY, w: iconSize, h: iconSize },
         contents: lines.join("\n"),
         open: false,
       });
