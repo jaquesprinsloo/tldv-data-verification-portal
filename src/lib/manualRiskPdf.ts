@@ -247,7 +247,6 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     ...checks.map((k) => label(c.results?.[k])),
   ]);
 
-  const nameCellRects: Array<{ page: number; x: number; y: number; w: number; h: number; candidateIndex: number; textEndX: number; textY: number }> = [];
   const hasIdVer = checks.includes("id_verification");
 
   autoTable(doc, {
@@ -263,14 +262,6 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     },
     didParseCell: (data) => {
       if (data.section !== "body") return;
-      // Blank out the name cell text when we're going to draw our own styled/underlined version.
-      if (data.column.index === 1 && hasIdVer) {
-        const cand = realCandidates[data.row.index];
-        if (cand?.id_verification_data) {
-          data.cell.text = [""];
-        }
-        return;
-      }
       if (data.column.index < 3) return;
       const cand = realCandidates[data.row.index];
       const key = cand.results?.[checks[data.column.index - 3]];
@@ -278,29 +269,6 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
         data.cell.styles.textColor = RESULT_COLORS[key];
         data.cell.styles.fontStyle = "bold";
       }
-    },
-    didDrawCell: (data) => {
-      if (!hasIdVer) return;
-      if (data.section !== "body" || data.column.index !== 1) return;
-      const cand = realCandidates[data.row.index];
-      if (!cand?.id_verification_data) return;
-      const { x, y: cy, width, height } = data.cell;
-      doc.setTextColor(29, 78, 216);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      const text = `${cand.surname}, ${cand.first_name}`;
-      const tx = x + 6;
-      const ty = cy + height / 2 + 3;
-      doc.text(text, tx, ty);
-      const tw = doc.getTextWidth(text);
-      doc.setDrawColor(29, 78, 216);
-      doc.setLineWidth(0.5);
-      doc.line(tx, ty + 1.5, tx + tw, ty + 1.5);
-      doc.setTextColor(30, 30, 30);
-      doc.setFont("helvetica", "normal");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber as number;
-      nameCellRects.push({ page: pageNumber, x, y: cy, w: width, h: height, candidateIndex: data.row.index, textEndX: tx + tw, textY: ty });
     },
     margin: { left: margin, right: margin },
   });
@@ -368,42 +336,48 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     doc.setFont("helvetica", "italic");
     doc.setFontSize(9);
     doc.setTextColor(90, 90, 90);
-    const explainer = "Information sourced from public databases. To view a candidate's ID Verification details, click on their name (shown in blue and underlined) in the Check Results table above — the details will appear in a pop-up note.";
+    const explainer = "Information sourced from public databases.";
     const wrappedExpl = doc.splitTextToSize(explainer, pageWidth - margin * 2);
     doc.text(wrappedExpl, margin, cursorY);
     cursorY += wrappedExpl.length * 11 + 4;
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "normal");
 
-    // Build a pop-up text annotation on each name cell containing the details.
-    for (const rect of nameCellRects) {
-      const cand = realCandidates[rect.candidateIndex];
-      const d = cand?.id_verification_data;
-      if (!d) continue;
-      const lines = [
-        `ID Number:    ${d.id_number || cand.id_number || "—"}`,
-        `First Names:  ${d.first_names || "—"}`,
-        `Initials:     ${d.initials || "—"}`,
-        `Surname:      ${d.surname || cand.surname || "—"}`,
-        `Date of Birth:${d.date_of_birth || "—"}`,
-        `Age:          ${d.age || "—"}`,
-        `Gender:       ${d.gender || "—"}`,
-        `Citizenship:  ${d.citizenship || "—"}`,
-        `Status:       ${d.status || "—"}`,
-        `Dead / Alive: ${d.dead_alive || "—"}`,
-      ];
-      doc.setPage(rect.page);
-      const iconSize = 8;
-      const iconX = Math.min(rect.textEndX + 4, rect.x + rect.w - iconSize - 2);
-      const iconY = rect.textY - iconSize + 2;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (doc as any).createAnnotation({
-        type: "text",
-        title: `${cand.surname}, ${cand.first_name} — ID Verification Details`,
-        bounds: { x: iconX, y: iconY, w: iconSize, h: iconSize },
-        contents: lines.join("\n"),
-        open: false,
+    // Render each candidate's ID verification details as an inline table.
+    for (const { c: cand, i: idx } of idVerCandidates) {
+      const d = cand.id_verification_data!;
+      if (cursorY > pageHeight - 160) { doc.addPage(); cursorY = margin; }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(29, 78, 216);
+      const heading = `${idx + 1}. ${cand.surname}, ${cand.first_name}`;
+      doc.text(heading, margin, cursorY);
+      doc.setTextColor(0, 0, 0);
+      cursorY += 6;
+      autoTable(doc, {
+        startY: cursorY,
+        theme: "grid",
+        styles: { fontSize: 9, cellPadding: 4, textColor: [30, 30, 30] },
+        columnStyles: {
+          0: { cellWidth: 110, fontStyle: "bold", fillColor: [245, 245, 245] },
+          1: { cellWidth: "auto" },
+        },
+        body: [
+          ["ID Number", d.id_number || cand.id_number || "—"],
+          ["First Names", d.first_names || "—"],
+          ["Initials", d.initials || "—"],
+          ["Surname", d.surname || cand.surname || "—"],
+          ["Date of Birth", d.date_of_birth || "—"],
+          ["Age", d.age || "—"],
+          ["Gender", d.gender || "—"],
+          ["Citizenship", d.citizenship || "—"],
+          ["Status", d.status || "—"],
+          ["Dead / Alive", d.dead_alive || "—"],
+        ],
+        margin: { left: margin, right: margin },
       });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cursorY = (doc as any).lastAutoTable.finalY + 12;
     }
   }
 
