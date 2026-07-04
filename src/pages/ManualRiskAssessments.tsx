@@ -399,7 +399,7 @@ export default function ManualRiskAssessments() {
           <h1 className="text-2xl font-bold">Manual Risk Assessments</h1>
         </div>
 
-        <Tabs defaultValue="submissions">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />Submissions</TabsTrigger>
             <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
@@ -544,6 +544,7 @@ export default function ManualRiskAssessments() {
           clients={clients}
           userName={userName}
           onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
+          onSent={() => setActiveTab("accounts")}
         />
       )}
 
