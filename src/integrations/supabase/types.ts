@@ -893,11 +893,15 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          indemnity_files: Json
           invoice_file_path: string | null
           invoice_number: string | null
           invoiced_at: string | null
           notes: string | null
           order_number: string
+          report_onedrive_item_id: string | null
+          report_onedrive_path: string | null
+          report_onedrive_web_url: string | null
           requested_checks: string[]
           sent_at: string | null
           status: string
@@ -909,11 +913,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          indemnity_files?: Json
           invoice_file_path?: string | null
           invoice_number?: string | null
           invoiced_at?: string | null
           notes?: string | null
           order_number: string
+          report_onedrive_item_id?: string | null
+          report_onedrive_path?: string | null
+          report_onedrive_web_url?: string | null
           requested_checks?: string[]
           sent_at?: string | null
           status?: string
@@ -925,11 +933,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          indemnity_files?: Json
           invoice_file_path?: string | null
           invoice_number?: string | null
           invoiced_at?: string | null
           notes?: string | null
           order_number?: string
+          report_onedrive_item_id?: string | null
+          report_onedrive_path?: string | null
+          report_onedrive_web_url?: string | null
           requested_checks?: string[]
           sent_at?: string | null
           status?: string
