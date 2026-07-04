@@ -312,7 +312,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     }
     return null;
   };
-  const withNotes = input.candidates.filter((c) =>
+  const withNotes = realCandidates.filter((c) =>
     checks.some((k) => autoNoteFor(k, c.results?.[k])),
   );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
