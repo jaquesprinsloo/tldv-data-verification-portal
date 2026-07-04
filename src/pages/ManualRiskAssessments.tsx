@@ -23,7 +23,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
+import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, isPlaceholderCandidate, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
 import { Checkbox } from "@/components/ui/checkbox";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -339,7 +339,9 @@ export default function ManualRiskAssessments() {
         : ["id_verification", "credit", "criminal"]
       ).filter((k) => CHECK_COLUMNS[k]);
 
-      const pdfCandidates: ManualRiskCandidatePdf[] = (cands ?? []).map((c: any) => {
+      const pdfCandidates: ManualRiskCandidatePdf[] = (cands ?? [])
+        .filter((c: any) => !isPlaceholderCandidate(c))
+        .map((c: any) => {
         const results: Record<string, string | null> = {};
         const notes: Record<string, string | null> = {};
         for (const k of activeChecks) {
@@ -857,6 +859,7 @@ function NewSubmissionDialog({
         // skip header row if it doesn't look like an ID (13 digits)
         if (i === 0 && !/^\d{6,}$/.test(a)) continue;
         if (!a || !b || !c) continue;
+        if (isPlaceholderCandidate({ id_number: a, surname: b, first_name: c })) continue;
         parsed.push({ id_number: a, surname: b, first_name: c });
       }
       if (!parsed.length) { toast.error("No candidate rows found. Use Column A=ID, B=Surname, C=First Name."); return; }
@@ -1183,7 +1186,7 @@ function SubmissionDetailsDialog({
   const [downloading, setDownloading] = useState(false);
   const [reopening, setReopening] = useState(false);
 
-  useEffect(() => { setLocal(candidates); }, [candidates]);
+  useEffect(() => { setLocal(candidates.filter((c) => !isPlaceholderCandidate(c))); }, [candidates]);
 
   const client = sub?.client_id ? clients.find((c) => c.id === sub.client_id) : undefined;
   useEffect(() => { if (client?.email) setEmailTo(client.email); }, [client?.email]);
@@ -1969,6 +1972,7 @@ function ClientAccountDialog({
     const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
     const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
     return candidates
+      .filter((c) => !isPlaceholderCandidate(c))
       .map((c) => {
         const s = bySub.get(c.submission_id);
         if (!s || !s.sent_at) return null;

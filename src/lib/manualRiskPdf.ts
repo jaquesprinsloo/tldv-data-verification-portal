@@ -100,6 +100,24 @@ export const CHECK_COLUMNS: Record<string, { result: string; notes: string }> = 
   criminal: { result: "criminal_result", notes: "criminal_notes" },
 };
 
+export function isPlaceholderCandidate(c: { id_number?: string; surname?: string; first_name?: string }): boolean {
+  const id = String(c.id_number ?? "").trim();
+  const surname = String(c.surname ?? "").trim();
+  const firstName = String(c.first_name ?? "").trim();
+  const known = [
+    "ID Number (Required)",
+    "Surname (Required)",
+    "First Name (Required)",
+    "ID Number *",
+    "Surname *",
+    "First Name *",
+  ];
+  if (known.includes(id) || known.includes(surname) || known.includes(firstName)) return true;
+  if (id.toLowerCase().includes("required") && surname.toLowerCase().includes("required") && firstName.toLowerCase().includes("required")) return true;
+  return false;
+}
+
+
 const RESULT_LABELS: Record<string, string> = {
   valid: "Valid",
   invalid: "Invalid",
@@ -150,6 +168,7 @@ async function loadImageAsDataUrl(src: string): Promise<string> {
 }
 
 export async function generateManualRiskPdf(input: ManualRiskReportInput): Promise<Blob> {
+  const realCandidates = input.candidates.filter((c) => !isPlaceholderCandidate(c));
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -205,7 +224,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   if (input.clientEmail) { doc.text(`Email: ${input.clientEmail}`, margin, y); y += 14; }
   doc.text(`Submission Type: ${input.submissionType === "single" ? "Single Candidate" : "Batch"}`, margin, y);
   y += 14;
-  doc.text(`Candidates on report: ${input.candidates.length}`, margin, y);
+  doc.text(`Candidates on report: ${realCandidates.length}`, margin, y);
   y += 22;
 
   // Results section title
@@ -221,7 +240,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     (k) => CHECK_META[k],
   );
   const head = [["#", "Candidate", "ID Number", ...checks.map((k) => CHECK_META[k].short)]];
-  const body = input.candidates.map((c, idx) => [
+  const body = realCandidates.map((c, idx) => [
     String(idx + 1),
     `${c.surname}, ${c.first_name}`,
     c.id_number,
@@ -246,14 +265,14 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       if (data.section !== "body") return;
       // Blank out the name cell text when we're going to draw our own styled/underlined version.
       if (data.column.index === 1 && hasIdVer) {
-        const cand = input.candidates[data.row.index];
+        const cand = realCandidates[data.row.index];
         if (cand?.id_verification_data) {
           data.cell.text = [""];
         }
         return;
       }
       if (data.column.index < 3) return;
-      const cand = input.candidates[data.row.index];
+      const cand = realCandidates[data.row.index];
       const key = cand.results?.[checks[data.column.index - 3]];
       if (key && RESULT_COLORS[key]) {
         data.cell.styles.textColor = RESULT_COLORS[key];
@@ -263,7 +282,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     didDrawCell: (data) => {
       if (!hasIdVer) return;
       if (data.section !== "body" || data.column.index !== 1) return;
-      const cand = input.candidates[data.row.index];
+      const cand = realCandidates[data.row.index];
       if (!cand?.id_verification_data) return;
       const { x, y: cy, width, height } = data.cell;
       doc.setTextColor(29, 78, 216);
@@ -293,7 +312,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     }
     return null;
   };
-  const withNotes = input.candidates.filter((c) =>
+  const withNotes = realCandidates.filter((c) =>
     checks.some((k) => autoNoteFor(k, c.results?.[k])),
   );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -334,7 +353,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   // attached as PDF pop-up note annotations on each candidate's name in the
   // Check Results table (click the blue underlined name to view).
   const idVerCandidates = hasIdVer
-    ? input.candidates.map((c, i) => ({ c, i })).filter(({ c }) => !!c.id_verification_data)
+    ? realCandidates.map((c, i) => ({ c, i })).filter(({ c }) => !!c.id_verification_data)
     : [];
   if (idVerCandidates.length) {
     cursorY += 24;
@@ -358,7 +377,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
 
     // Build a pop-up text annotation on each name cell containing the details.
     for (const rect of nameCellRects) {
-      const cand = input.candidates[rect.candidateIndex];
+      const cand = realCandidates[rect.candidateIndex];
       const d = cand?.id_verification_data;
       if (!d) continue;
       const lines = [
