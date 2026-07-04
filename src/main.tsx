@@ -79,7 +79,9 @@ const isCandidateRoute =
   window.location.pathname === "/candex-apply" ||
   window.location.pathname === "/preapplicheck-apply";
 
-if (isPreviewHost || isInIframe || isCandidateRoute) {
+const isPrivacyPolicyRoute = window.location.pathname === "/privacy-policy";
+
+if (isPreviewHost || isInIframe || isCandidateRoute || isPrivacyPolicyRoute) {
   void unregisterServiceWorkers();
 } else {
   const updateSW = registerSW({
@@ -105,6 +107,7 @@ if (isPreviewHost || isInIframe || isCandidateRoute) {
 // token, regardless of whether the InstallAppButton component is mounted.
 if (
   isCandidateRoute ||
+  isPrivacyPolicyRoute ||
   new URLSearchParams(window.location.search).has("token")
 ) {
   window.addEventListener("beforeinstallprompt", (e) => {
