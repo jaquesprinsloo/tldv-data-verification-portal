@@ -1509,9 +1509,10 @@ function IndemnitySection({
   };
 
   const handleDelete = async (f: IndemnityFile) => {
-    if (!confirm(`Delete indemnity "${f.name}"? This removes it from storage. The OneDrive copy will remain unless removed manually.`)) return;
+    if (!confirm(`Delete indemnity "${f.name}"? This removes it from storage and OneDrive.`)) return;
     try {
       await supabase.storage.from("manual-risk-indemnities").remove([f.path]);
+      await deleteFromOneDrive(f.onedrive_item_id);
       const next = files.filter((x) => x.path !== f.path);
       const { error } = await sb
         .from("manual_risk_submissions")
@@ -1662,9 +1663,10 @@ function SupplierReportSection({
   };
 
   const handleDelete = async (f: SupplierReportFile) => {
-    if (!confirm(`Delete supplier report "${f.name}"? This removes it from storage. The OneDrive copy will remain unless removed manually.`)) return;
+    if (!confirm(`Delete supplier report "${f.name}"? This removes it from storage and OneDrive.`)) return;
     try {
       await supabase.storage.from("manual-risk-supplier-reports").remove([f.path]);
+      await deleteFromOneDrive(f.onedrive_item_id);
       const next = files.filter((x) => x.path !== f.path);
       const { error } = await sb
         .from("manual_risk_submissions")
