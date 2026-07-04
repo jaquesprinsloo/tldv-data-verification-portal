@@ -255,6 +255,7 @@ export default function ManualRiskAssessments() {
   const [detailsSubId, setDetailsSubId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [previewReport, setPreviewReport] = useState<{ blob: Blob; title: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("submissions");
 
   const closePreviewReport = () => {
     setPreviewReport(null);
@@ -1153,11 +1154,12 @@ function NewSubmissionDialog({
 // ---------- Submission details / results dialog ----------
 
 function SubmissionDetailsDialog({
-  submissionId, onClose, clients, userName, onChanged,
+  submissionId, onClose, clients, userName, onChanged, onSent,
 }: {
   submissionId: string; onClose: () => void;
   clients: Client[]; userName: string;
   onChanged: () => void;
+  onSent?: () => void;
 }) {
   const qc = useQueryClient();
   const { data: sub } = useQuery<Submission | null>({
