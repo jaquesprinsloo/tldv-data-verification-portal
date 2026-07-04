@@ -1183,7 +1183,7 @@ function SubmissionDetailsDialog({
   const [downloading, setDownloading] = useState(false);
   const [reopening, setReopening] = useState(false);
 
-  useEffect(() => { setLocal(candidates); }, [candidates]);
+  useEffect(() => { setLocal(candidates.filter((c) => !isPlaceholderCandidate(c))); }, [candidates]);
 
   const client = sub?.client_id ? clients.find((c) => c.id === sub.client_id) : undefined;
   useEffect(() => { if (client?.email) setEmailTo(client.email); }, [client?.email]);
