@@ -249,6 +249,41 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
 
   const hasIdVer = checks.includes("id_verification");
 
+  // Collected pop-up annotations to add via pdf-lib after the doc is built.
+  // jsPDF's own text annotations get mangled once pdf-lib re-encrypts the
+  // document, so we defer the annotation creation to pdf-lib itself.
+  const pendingAnnotations: Array<{
+    pageIndex: number; // 0-based
+    x: number;         // jsPDF pt from top-left
+    y: number;
+    w: number;
+    h: number;
+    title: string;
+    contents: string;
+  }> = [];
+
+  const buildIdVerContents = (cand: ManualRiskCandidatePdf): string => {
+    const d = cand.id_verification_data!;
+    const rows: Array<[string, string]> = [
+      ["ID Number", d.id_number || cand.id_number || "—"],
+      ["First Names", d.first_names || "—"],
+      ["Initials", d.initials || "—"],
+      ["Surname", d.surname || cand.surname || "—"],
+      ["Date of Birth", d.date_of_birth || "—"],
+      ["Age", d.age || "—"],
+      ["Gender", d.gender || "—"],
+      ["Citizenship", d.citizenship || "—"],
+      ["Status", d.status || "—"],
+      ["Dead / Alive", d.dead_alive || "—"],
+    ];
+    const pad = Math.max(...rows.map(([k]) => k.length));
+    return (
+      "ID Verification Details\n" +
+      "Source: Public databases\n\n" +
+      rows.map(([k, v]) => `${k.padEnd(pad, " ")}  ${v}`).join("\n")
+    );
+  };
+
   autoTable(doc, {
     startY: y + 6,
     head,
@@ -262,6 +297,14 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     },
     didParseCell: (data) => {
       if (data.section !== "body") return;
+      // Style candidate name as a clickable link when ID verification data exists.
+      if (data.column.index === 1 && hasIdVer) {
+        const cand = realCandidates[data.row.index];
+        if (cand?.id_verification_data) {
+          data.cell.styles.textColor = [29, 78, 216];
+          data.cell.styles.fontStyle = "bold";
+        }
+      }
       if (data.column.index < 3) return;
       const cand = realCandidates[data.row.index];
       const key = cand.results?.[checks[data.column.index - 3]];
@@ -269,6 +312,25 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
         data.cell.styles.textColor = RESULT_COLORS[key];
         data.cell.styles.fontStyle = "bold";
       }
+    },
+    didDrawCell: (data) => {
+      if (data.section !== "body") return;
+      if (data.column.index !== 1 || !hasIdVer) return;
+      const cand = realCandidates[data.row.index];
+      if (!cand?.id_verification_data) return;
+      const { x, y: cy, width, height } = data.cell;
+      // Underline the name to hint at the pop-up
+      doc.setDrawColor(29, 78, 216);
+      doc.setLineWidth(0.4);
+      doc.line(x + 6, cy + height - 5, x + width - 6, cy + height - 5);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pageNumber = (doc.internal as any).getCurrentPageInfo().pageNumber as number;
+      pendingAnnotations.push({
+        pageIndex: pageNumber - 1,
+        x, y: cy, w: width, h: height,
+        title: `${cand.surname}, ${cand.first_name}`,
+        contents: buildIdVerContents(cand),
+      });
     },
     margin: { left: margin, right: margin },
   });
@@ -317,68 +379,19 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   }
 
 
-  // ID Verification Details — heading + explainer only. The actual details are
-  // attached as PDF pop-up note annotations on each candidate's name in the
-  // Check Results table (click the blue underlined name to view).
-  const idVerCandidates = hasIdVer
-    ? realCandidates.map((c, i) => ({ c, i })).filter(({ c }) => !!c.id_verification_data)
-    : [];
-  if (idVerCandidates.length) {
-    cursorY += 24;
-    if (cursorY > pageHeight - 120) { doc.addPage(); cursorY = margin; }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
-    doc.text("ID Verification Details", margin, cursorY);
-    doc.setDrawColor(220, 38, 38);
-    doc.line(margin, cursorY + 3, margin + 120, cursorY + 3);
-    cursorY += 16;
+  // Small hint below the Check Results table when pop-up notes are attached.
+  if (pendingAnnotations.length) {
+    cursorY += 10;
+    if (cursorY > pageHeight - 100) { doc.addPage(); cursorY = margin; }
     doc.setFont("helvetica", "italic");
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(90, 90, 90);
-    const explainer = "Information sourced from public databases.";
-    const wrappedExpl = doc.splitTextToSize(explainer, pageWidth - margin * 2);
-    doc.text(wrappedExpl, margin, cursorY);
-    cursorY += wrappedExpl.length * 11 + 4;
+    doc.text(
+      "Click a candidate's name to view ID verification details (sourced from public databases).",
+      margin,
+      cursorY,
+    );
     doc.setTextColor(0, 0, 0);
-    doc.setFont("helvetica", "normal");
-
-    // Render each candidate's ID verification details as an inline table.
-    for (const { c: cand, i: idx } of idVerCandidates) {
-      const d = cand.id_verification_data!;
-      if (cursorY > pageHeight - 160) { doc.addPage(); cursorY = margin; }
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(29, 78, 216);
-      const heading = `${idx + 1}. ${cand.surname}, ${cand.first_name}`;
-      doc.text(heading, margin, cursorY);
-      doc.setTextColor(0, 0, 0);
-      cursorY += 6;
-      autoTable(doc, {
-        startY: cursorY,
-        theme: "grid",
-        styles: { fontSize: 9, cellPadding: 4, textColor: [30, 30, 30] },
-        columnStyles: {
-          0: { cellWidth: 110, fontStyle: "bold", fillColor: [245, 245, 245] },
-          1: { cellWidth: "auto" },
-        },
-        body: [
-          ["ID Number", d.id_number || cand.id_number || "—"],
-          ["First Names", d.first_names || "—"],
-          ["Initials", d.initials || "—"],
-          ["Surname", d.surname || cand.surname || "—"],
-          ["Date of Birth", d.date_of_birth || "—"],
-          ["Age", d.age || "—"],
-          ["Gender", d.gender || "—"],
-          ["Citizenship", d.citizenship || "—"],
-          ["Status", d.status || "—"],
-          ["Dead / Alive", d.dead_alive || "—"],
-        ],
-        margin: { left: margin, right: margin },
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      cursorY = (doc as any).lastAutoTable.finalY + 12;
-    }
   }
 
   // T&Cs (always on last page, may add new page)
@@ -440,8 +453,36 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
 
   const pdfBlob = doc.output("blob");
   const arrayBuffer = await pdfBlob.arrayBuffer();
-  const { PDFDocument } = await import("@cantoo/pdf-lib");
+  const { PDFDocument, PDFString } = await import("@cantoo/pdf-lib");
   const pdfDoc = await PDFDocument.load(new Uint8Array(arrayBuffer));
+
+  // Attach pop-up text annotations to the candidate name cells now, before
+  // encryption, so the contents are written into the encrypted stream cleanly.
+  const pages = pdfDoc.getPages();
+  for (const a of pendingAnnotations) {
+    const page = pages[a.pageIndex];
+    if (!page) continue;
+    const ph = page.getHeight();
+    // Convert jsPDF top-left rect to pdf-lib bottom-left rect
+    const llx = a.x;
+    const lly = ph - (a.y + a.h);
+    const urx = a.x + a.w;
+    const ury = ph - a.y;
+    const annotDict = pdfDoc.context.obj({
+      Type: "Annot",
+      Subtype: "Text",
+      Rect: [llx, lly, urx, ury],
+      Contents: PDFString.of(a.contents),
+      T: PDFString.of(a.title),
+      Name: "Note",
+      Open: false,
+      C: [1, 0.95, 0.4],
+      F: 4, // Print flag
+    });
+    const ref = pdfDoc.context.register(annotDict);
+    page.node.addAnnot(ref);
+  }
+
   pdfDoc.encrypt({
     ownerPassword: "TLDV0011",
     permissions: {
