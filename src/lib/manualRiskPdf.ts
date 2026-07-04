@@ -243,7 +243,16 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       2: { cellWidth: 90 },
     },
     didParseCell: (data) => {
-      if (data.section !== "body" || data.column.index < 3) return;
+      if (data.section !== "body") return;
+      // Blank out the name cell text when we're going to draw our own styled/underlined version.
+      if (data.column.index === 1 && hasIdVer) {
+        const cand = input.candidates[data.row.index];
+        if (cand?.id_verification_data) {
+          data.cell.text = [""];
+        }
+        return;
+      }
+      if (data.column.index < 3) return;
       const cand = input.candidates[data.row.index];
       const key = cand.results?.[checks[data.column.index - 3]];
       if (key && RESULT_COLORS[key]) {
