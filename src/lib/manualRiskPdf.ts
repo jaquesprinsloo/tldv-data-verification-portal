@@ -228,7 +228,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     ...checks.map((k) => label(c.results?.[k])),
   ]);
 
-  const nameCellRects: Array<{ page: number; x: number; y: number; w: number; h: number; candidateIndex: number }> = [];
+  const nameCellRects: Array<{ page: number; x: number; y: number; w: number; h: number; candidateIndex: number; textEndX: number; textY: number }> = [];
   const hasIdVer = checks.includes("id_verification");
 
   autoTable(doc, {
