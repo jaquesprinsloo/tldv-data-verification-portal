@@ -281,7 +281,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       doc.setFont("helvetica", "normal");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber as number;
-      nameCellRects.push({ page: pageNumber, x, y: cy, w: width, h: height, candidateIndex: data.row.index });
+      nameCellRects.push({ page: pageNumber, x, y: cy, w: width, h: height, candidateIndex: data.row.index, textEndX: tx + tw, textY: ty });
     },
     margin: { left: margin, right: margin },
   });
