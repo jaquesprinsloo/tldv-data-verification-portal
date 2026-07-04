@@ -110,7 +110,9 @@ Deno.serve(async (req) => {
 
     const client = sanitize(clientName || "Unassigned");
     const order = sanitize(orderNumber);
-    const subFolder = kind === "indemnity" ? "/Indemnities" : "";
+    const subFolder =
+      kind === "indemnity" ? "/Indemnities" :
+      kind === "supplier" ? "/SupplierReports" : "";
     const folderPath = `PreAppliCheck/ManualRiskAssessments/${client}/${order}${subFolder}`;
     const safeFileName = sanitize(fileName.replace(/\//g, "_"));
     const fullPath = `${folderPath}/${safeFileName}`;

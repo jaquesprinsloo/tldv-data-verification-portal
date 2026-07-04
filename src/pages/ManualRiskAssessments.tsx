@@ -47,6 +47,7 @@ type Submission = {
   report_onedrive_web_url: string | null;
   report_onedrive_item_id: string | null;
   report_onedrive_path: string | null;
+  supplier_report_files: SupplierReportFile[] | null;
 };
 export type IndemnityFile = {
   name: string;
@@ -57,6 +58,82 @@ export type IndemnityFile = {
   onedrive_web_url?: string | null;
   onedrive_item_id?: string | null;
 };
+export type SupplierReportFile = {
+  name: string;
+  path: string; // storage path in manual-risk-supplier-reports bucket
+  uploaded_at: string;
+  size?: number;
+  content_type?: string;
+  onedrive_web_url?: string | null;
+  onedrive_item_id?: string | null;
+  extracted_id_numbers?: string[];
+};
+
+// Uploads supplier risk report PDF to storage + OneDrive (SupplierReports subfolder)
+async function uploadSupplierReport(
+  file: File,
+  submissionId: string,
+  orderNumber: string,
+  clientName: string | null,
+  extractedIds: string[],
+): Promise<SupplierReportFile> {
+  const path = `${submissionId}/${Date.now()}_${crypto.randomUUID()}_${file.name.replace(/[^\w.\-]+/g, "_")}`;
+  const { error: upErr } = await supabase.storage
+    .from("manual-risk-supplier-reports")
+    .upload(path, file, { contentType: file.type || "application/pdf", upsert: false });
+  if (upErr) throw upErr;
+
+  let onedrive_web_url: string | null = null;
+  let onedrive_item_id: string | null = null;
+  try {
+    const base64 = await blobToBase64(file);
+    const { data, error } = await supabase.functions.invoke("upload-manual-risk-to-onedrive", {
+      body: {
+        fileName: file.name,
+        fileBase64: base64,
+        contentType: file.type || "application/pdf",
+        clientName: clientName ?? "Unassigned",
+        orderNumber,
+        kind: "supplier",
+      },
+    });
+    if (error) throw error;
+    if ((data as any)?.success) {
+      onedrive_web_url = (data as any).webUrl ?? null;
+      onedrive_item_id = (data as any).itemId ?? null;
+    } else if ((data as any)?.error) {
+      throw new Error((data as any).error);
+    }
+  } catch (e) {
+    toast.warning(`Uploaded "${file.name}" to storage, but OneDrive mirror failed: ${(e as Error).message}`);
+  }
+
+  return {
+    name: file.name,
+    path,
+    uploaded_at: new Date().toISOString(),
+    size: file.size,
+    content_type: file.type || "application/pdf",
+    onedrive_web_url,
+    onedrive_item_id,
+    extracted_id_numbers: extractedIds,
+  };
+}
+
+// Extract SA 13-digit ID numbers from a PDF via pdfjs text extraction
+async function extractIdNumbersFromPdf(file: File): Promise<string[]> {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let fullText = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    fullText += " " + content.items.map((it: any) => it.str ?? "").join(" ");
+  }
+  const compact = fullText.replace(/\s+/g, "");
+  const matches = compact.match(/\d{13}/g) ?? [];
+  return Array.from(new Set(matches));
+}
 
 // Uploads a single file to the manual-risk-indemnities storage bucket
 // AND mirrors it to OneDrive, returning the metadata to persist.
@@ -1240,6 +1317,19 @@ function SubmissionDetailsDialog({
           }}
         />
 
+        <SupplierReportSection
+          submissionId={submissionId}
+          submission={sub}
+          candidates={local}
+          clientName={client?.client_name ?? null}
+          onChanged={() => {
+            refetch();
+            qc.invalidateQueries({ queryKey: ["mra-sub", submissionId] });
+            qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+            onChanged();
+          }}
+        />
+
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -1438,6 +1528,167 @@ function IndemnitySection({
                 )}
               </div>
               <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" title="View" onClick={() => handleView(f)}>
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" title="Delete" onClick={() => handleDelete(f)}>
+                  <Trash2 className="h-4 w-4 text-red-600" />
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function SupplierReportSection({
+  submissionId, submission, candidates, clientName, onChanged,
+}: {
+  submissionId: string;
+  submission: Submission;
+  candidates: Candidate[];
+  clientName: string | null;
+  onChanged: () => void;
+}) {
+  const files: SupplierReportFile[] = Array.isArray(submission.supplier_report_files)
+    ? submission.supplier_report_files
+    : [];
+  const [processing, setProcessing] = useState(false);
+
+  const handleAdd = async (list: FileList | null) => {
+    if (!list || !list.length) return;
+    setProcessing(true);
+    try {
+      const added: SupplierReportFile[] = [];
+      const allExtracted = new Set<string>();
+      for (const f of Array.from(list)) {
+        try {
+          let ids: string[] = [];
+          if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
+            try { ids = await extractIdNumbersFromPdf(f); }
+            catch (e) { console.error("PDF extract failed", e); }
+          }
+          ids.forEach((i) => allExtracted.add(i));
+          const meta = await uploadSupplierReport(f, submissionId, submission.order_number, clientName, ids);
+          added.push(meta);
+        } catch (e) {
+          toast.error(`Failed "${f.name}": ${(e as Error).message}`);
+        }
+      }
+      if (added.length) {
+        const next = [...files, ...added];
+        const { error } = await sb
+          .from("manual_risk_submissions")
+          .update({ supplier_report_files: next })
+          .eq("id", submissionId);
+        if (error) throw error;
+
+        // Fully automatic: mark id_verification = valid for candidates whose ID
+        // number was found in the supplier report(s).
+        let matched = 0;
+        for (const c of candidates) {
+          if (c.id_number && allExtracted.has(c.id_number.trim())) {
+            const note = `Verified against supplier report ${added.map((a) => a.name).join(", ")}`;
+            const { error: uErr } = await sb
+              .from("manual_risk_candidates")
+              .update({
+                id_verification_result: "valid",
+                id_verification_notes: note,
+              })
+              .eq("id", c.id);
+            if (!uErr) matched++;
+          }
+        }
+        toast.success(
+          `${added.length} supplier report(s) uploaded. ${allExtracted.size} ID number(s) extracted, ${matched} candidate(s) auto-verified.`,
+        );
+        onChanged();
+      }
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleView = async (f: SupplierReportFile) => {
+    const { data, error } = await supabase.storage
+      .from("manual-risk-supplier-reports")
+      .createSignedUrl(f.path, 300);
+    if (error) { toast.error(error.message); return; }
+    window.open(data.signedUrl, "_blank");
+  };
+
+  const handleDelete = async (f: SupplierReportFile) => {
+    if (!confirm(`Delete supplier report "${f.name}"? This removes it from storage. The OneDrive copy will remain unless removed manually.`)) return;
+    try {
+      await supabase.storage.from("manual-risk-supplier-reports").remove([f.path]);
+      const next = files.filter((x) => x.path !== f.path);
+      const { error } = await sb
+        .from("manual_risk_submissions")
+        .update({ supplier_report_files: next })
+        .eq("id", submissionId);
+      if (error) throw error;
+      toast.success("Supplier report deleted");
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  return (
+    <div className="border rounded-md p-3 mb-3 bg-muted/30">
+      <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        <div>
+          <div className="font-semibold text-sm flex items-center gap-2">
+            <FileText className="h-4 w-4" /> Supplier Risk Reports ({files.length})
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Upload the Risk Assessment received from your service provider. Candidate ID numbers are
+            extracted automatically and matching candidates are marked ID Verified.
+          </p>
+        </div>
+        <label className="cursor-pointer">
+          <input
+            type="file"
+            className="hidden"
+            accept="application/pdf,.pdf"
+            multiple
+            disabled={processing}
+            onChange={(e) => { handleAdd(e.target.files); e.currentTarget.value = ""; }}
+          />
+          <span className="inline-flex items-center gap-2 h-9 px-3 rounded-md text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+            <Upload className="h-4 w-4" /> {processing ? "Processing..." : "Upload Supplier Report"}
+          </span>
+        </label>
+      </div>
+      {files.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No supplier reports uploaded yet.</p>
+      ) : (
+        <ul className="space-y-1">
+          {files.map((f) => (
+            <li key={f.path} className="flex items-center justify-between border rounded bg-background px-2 py-1 text-sm gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate">
+                  <span className="truncate font-medium">{f.name}</span>
+                  {f.onedrive_web_url && (
+                    <a
+                      href={f.onedrive_web_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="ml-2 text-xs text-red-600 hover:underline"
+                    >
+                      OneDrive ↗
+                    </a>
+                  )}
+                </div>
+                {f.extracted_id_numbers && f.extracted_id_numbers.length > 0 && (
+                  <div className="text-xs text-muted-foreground truncate">
+                    Extracted IDs: {f.extracted_id_numbers.join(", ")}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
                 <Button variant="ghost" size="icon" title="View" onClick={() => handleView(f)}>
                   <Eye className="h-4 w-4" />
                 </Button>
