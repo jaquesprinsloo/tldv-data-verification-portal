@@ -2284,6 +2284,14 @@ function ClientAccountDialog({
                     >
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Move back to Submissions"
+                      onClick={() => moveBackToSubmission(r.submissionId, r.orderNumber)}
+                    >
+                      <Undo2 className="h-4 w-4 text-amber-600" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
