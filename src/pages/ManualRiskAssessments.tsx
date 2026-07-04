@@ -1229,6 +1229,17 @@ function SubmissionDetailsDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <IndemnitySection
+          submissionId={submissionId}
+          submission={sub}
+          clientName={client?.client_name ?? null}
+          onChanged={() => {
+            qc.invalidateQueries({ queryKey: ["mra-sub", submissionId] });
+            qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+            onChanged();
+          }}
+        />
+
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
