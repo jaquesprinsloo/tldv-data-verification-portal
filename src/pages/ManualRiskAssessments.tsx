@@ -212,6 +212,7 @@ export default function ManualRiskAssessments() {
         <Tabs defaultValue="submissions">
           <TabsList>
             <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />Submissions</TabsTrigger>
+            <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
             <TabsTrigger value="settings">T&amp;Cs</TabsTrigger>
           </TabsList>
@@ -219,7 +220,7 @@ export default function ManualRiskAssessments() {
           <TabsContent value="submissions" className="mt-4">
             <Card className="p-4">
               <div className="flex justify-between items-center mb-4">
-                <p className="text-sm text-muted-foreground">{submissions.length} submission(s)</p>
+                <p className="text-sm text-muted-foreground">{openSubmissions.length} submission(s)</p>
                 <Button onClick={() => setNewSubOpen(true)} className="bg-red-600 hover:bg-red-700">
                   <Plus className="h-4 w-4 mr-2" /> New Submission
                 </Button>
@@ -238,14 +239,14 @@ export default function ManualRiskAssessments() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {submissions.length === 0 && (
+                    {openSubmissions.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                           No submissions yet — click "New Submission" to create one.
                         </TableCell>
                       </TableRow>
                     )}
-                    {submissions.map((s) => (
+                    {openSubmissions.map((s) => (
                       <TableRow key={s.id} className="cursor-pointer" onClick={() => setDetailsSubId(s.id)}>
                         <TableCell className="font-mono">{s.order_number}</TableCell>
                         <TableCell>{s.client_id ? clientById.get(s.client_id)?.client_name ?? "—" : "—"}</TableCell>
@@ -298,6 +299,14 @@ export default function ManualRiskAssessments() {
                 </Table>
               </div>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="accounts" className="mt-4">
+            <AccountsTab
+              submissions={sentSubmissions}
+              clients={clients}
+              onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
+            />
           </TabsContent>
 
           <TabsContent value="clients" className="mt-4">
