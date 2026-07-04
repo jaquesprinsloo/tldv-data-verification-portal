@@ -282,7 +282,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     didDrawCell: (data) => {
       if (!hasIdVer) return;
       if (data.section !== "body" || data.column.index !== 1) return;
-      const cand = input.candidates[data.row.index];
+      const cand = realCandidates[data.row.index];
       if (!cand?.id_verification_data) return;
       const { x, y: cy, width, height } = data.cell;
       doc.setTextColor(29, 78, 216);
