@@ -1283,6 +1283,13 @@ function SubmissionDetailsDialog({
     try {
       const blob = await buildPdfBlob();
       const base64 = await blobToBase64(blob);
+      const clientEmail = client?.email?.trim() || "";
+      if (!clientEmail) {
+        toast.error("Client email is required to send the report");
+        setSending(false);
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("send-manual-risk-report", {
         body: {
           message: emailMsg, pdfBase64: base64,
@@ -1290,6 +1297,8 @@ function SubmissionDetailsDialog({
           orderNumber: sub?.order_number,
           clientName: client?.client_name ?? null,
           contactName: client?.contact_person ?? null,
+          to: clientEmail,
+          cc: "Admin@tldv.co.za",
         },
       });
       if (error) throw error;
@@ -1337,7 +1346,7 @@ function SubmissionDetailsDialog({
         .eq("id", submissionId);
       qc.invalidateQueries({ queryKey: ["mra-submissions"] });
       onChanged();
-      toast.success("Report sent to Admin@tldv.co.za");
+      toast.success(`Report sent to ${clientEmail} with Admin@tldv.co.za CC'd`);
       setEmailOpen(false); setEmailMsg("");
       onClose();
     } catch (e) { toast.error((e as Error).message); }
