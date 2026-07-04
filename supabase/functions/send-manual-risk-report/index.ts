@@ -79,6 +79,9 @@ Deno.serve(async (req) => {
               <p style="margin:8px 0 0;font-size:11px;color:#9ca3af;text-align:center">
                 PreAppliCheck is a division of True Lie Detectors &amp; Vetting.
               </p>
+              <p style="margin:8px 0 0;font-size:11px;color:#9ca3af;text-align:center">
+                <a href="https://portal.tldv.co.za/privacy-policy" style="color:#6b7280;text-decoration:underline">Privacy Policy</a>
+              </p>
             </td></tr>
           </table>
         </td></tr>
