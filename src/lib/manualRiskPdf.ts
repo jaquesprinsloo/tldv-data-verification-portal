@@ -230,9 +230,9 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   // Results section title
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text("Check Results", margin, y);
+  doc.text("Background Screening Report Summary", margin, y);
   doc.setDrawColor(220, 38, 38);
-  doc.line(margin, y + 3, margin + 75, y + 3);
+  doc.line(margin, y + 3, margin + 220, y + 3);
   y += 12;
 
   // Table
