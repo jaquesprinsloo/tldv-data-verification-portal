@@ -464,6 +464,19 @@ export default function ManualRiskAssessments() {
                             onClick={async (e) => {
                               e.stopPropagation();
                               if (!confirm(`Delete submission ${s.order_number}? This permanently removes all candidates and results.`)) return;
+                              // Purge OneDrive copies (report + indemnities + supplier reports)
+                              await deleteFromOneDrive((s as any).report_onedrive_item_id);
+                              for (const f of ((s as any).indemnity_files ?? []) as IndemnityFile[]) {
+                                await deleteFromOneDrive(f.onedrive_item_id);
+                              }
+                              for (const f of ((s as any).supplier_report_files ?? []) as SupplierReportFile[]) {
+                                await deleteFromOneDrive(f.onedrive_item_id);
+                              }
+                              // Also purge storage buckets
+                              const indPaths = (((s as any).indemnity_files ?? []) as IndemnityFile[]).map((f) => f.path);
+                              if (indPaths.length) await supabase.storage.from("manual-risk-indemnities").remove(indPaths);
+                              const supPaths = (((s as any).supplier_report_files ?? []) as SupplierReportFile[]).map((f) => f.path);
+                              if (supPaths.length) await supabase.storage.from("manual-risk-supplier-reports").remove(supPaths);
                               const { error: cErr } = await sb.from("manual_risk_candidates").delete().eq("submission_id", s.id);
                               if (cErr) { toast.error(cErr.message); return; }
                               const { error } = await sb.from("manual_risk_submissions").delete().eq("id", s.id);
