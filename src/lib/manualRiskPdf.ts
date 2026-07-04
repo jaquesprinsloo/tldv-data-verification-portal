@@ -98,7 +98,23 @@ export const CHECK_COLUMNS: Record<string, { result: string; notes: string }> = 
   pdp: { result: "pdp_result", notes: "pdp_notes" },
   qualification: { result: "qualification_result", notes: "qualification_notes" },
   criminal: { result: "criminal_result", notes: "criminal_notes" },
-};
+export function isPlaceholderCandidate(c: { id_number?: string; surname?: string; first_name?: string }): boolean {
+  const id = String(c.id_number ?? "").trim();
+  const surname = String(c.surname ?? "").trim();
+  const firstName = String(c.first_name ?? "").trim();
+  const known = [
+    "ID Number (Required)",
+    "Surname (Required)",
+    "First Name (Required)",
+    "ID Number *",
+    "Surname *",
+    "First Name *",
+  ];
+  if (known.includes(id) || known.includes(surname) || known.includes(firstName)) return true;
+  if (id.toLowerCase().includes("required") && surname.toLowerCase().includes("required") && firstName.toLowerCase().includes("required")) return true;
+  return false;
+}
+
 
 const RESULT_LABELS: Record<string, string> = {
   valid: "Valid",
