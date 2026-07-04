@@ -312,7 +312,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
     doc.text(
-      "Information sourced from public databases via the supplier report. Not independently verified.",
+      "Information sourced from public databases via the supplier report.",
       margin, cursorY + 8,
     );
     cursorY += 16;
