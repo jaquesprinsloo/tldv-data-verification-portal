@@ -967,6 +967,35 @@ function NewSubmissionDialog({
               </div>
             )}
 
+            <div className="space-y-2 border-t pt-4">
+              <Label>Indemnity Forms (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Upload signed candidate indemnity forms. They stay with the submission and are saved to OneDrive — they are <strong>not</strong> attached when the Background Screening Report is emailed.
+              </p>
+              <Input
+                type="file"
+                accept="application/pdf,.pdf,image/*"
+                multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  setIndemnityFiles((prev) => [...prev, ...files]);
+                  e.currentTarget.value = "";
+                }}
+              />
+              {indemnityFiles.length > 0 && (
+                <ul className="text-xs space-y-1 mt-2">
+                  {indemnityFiles.map((f, i) => (
+                    <li key={i} className="flex items-center justify-between border rounded px-2 py-1">
+                      <span className="truncate mr-2">{f.name} <span className="text-muted-foreground">({Math.round(f.size / 1024)} KB)</span></span>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => setIndemnityFiles((prev) => prev.filter((_, ix) => ix !== i))}>
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
               <Button onClick={submit} className="bg-red-600 hover:bg-red-700" disabled={busy}>
