@@ -133,48 +133,45 @@ async function uploadSupplierReport(
   };
 }
 
-// Extract SA 13-digit ID numbers from a PDF.
-// 1) Try local pdfjs text extraction (fast, works for digital PDFs).
-// 2) If nothing found (scanned/image PDF), fall back to server OCR via
-//    the extract-supplier-report-ids edge function.
-async function extractIdNumbersFromPdf(file: File): Promise<string[]> {
-  let localIds: string[] = [];
-  try {
-    const buf = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-    let fullText = "";
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      fullText += " " + content.items.map((it: any) => it.str ?? "").join(" ");
-    }
-    const compact = fullText.replace(/\s+/g, "");
-    localIds = Array.from(new Set(compact.match(/\d{13}/g) ?? []));
-  } catch (e) {
-    console.warn("Local PDF text extraction failed", e);
-  }
+// Structured record extracted per candidate from a supplier vetting report.
+export type SupplierIdRecord = {
+  id_number: string | null;   // may be masked e.g. "981201XXXXXXX"
+  id_prefix: string | null;   // first 6 digits, used to match candidates
+  status: string | null;      // e.g. "Confirmed"
+  first_names?: string | null;
+  initials?: string | null;
+  surname?: string | null;
+  date_of_birth?: string | null;
+  age?: string | null;
+  gender?: string | null;
+  citizenship?: string | null;
+  dead_alive?: string | null;
+};
 
-  // If local extraction found IDs, trust it. Otherwise always fall back
-  // to server-side OCR — digital text alone doesn't guarantee IDs weren't
-  // split by columns, dashes, or embedded in images.
-  if (localIds.length > 0) return localIds;
-
-  // Fall back to server-side OCR
+// Extract ID Verification records from a supplier report PDF via the
+// extract-supplier-report-ids edge function (Gemini OCR).
+async function extractSupplierRecordsFromPdf(
+  file: File,
+): Promise<{ ids: string[]; records: SupplierIdRecord[] }> {
   try {
     const base64 = await blobToBase64(file);
     const { data, error } = await supabase.functions.invoke("extract-supplier-report-ids", {
       body: { fileBase64: base64, contentType: file.type || "application/pdf" },
     });
     if (error) throw error;
-    if ((data as any)?.success && Array.isArray((data as any).ids)) {
-      return Array.from(new Set((data as any).ids as string[]));
+    if ((data as any)?.success) {
+      const ids = Array.isArray((data as any).ids) ? ((data as any).ids as string[]) : [];
+      const records = Array.isArray((data as any).records)
+        ? ((data as any).records as SupplierIdRecord[])
+        : [];
+      return { ids, records };
     }
     if ((data as any)?.error) throw new Error((data as any).error);
   } catch (e) {
-    console.error("OCR fallback failed", e);
+    console.error("Supplier report extraction failed", e);
     toast.warning(`ID auto-extraction failed: ${(e as Error).message}`);
   }
-  return localIds;
+  return { ids: [], records: [] };
 }
 
 // Uploads a single file to the manual-risk-indemnities storage bucket
@@ -348,7 +345,14 @@ export default function ManualRiskAssessments() {
           results[k] = c[CHECK_COLUMNS[k].result] ?? null;
           notes[k] = c[CHECK_COLUMNS[k].notes] ?? null;
         }
-        return { id_number: c.id_number, surname: c.surname, first_name: c.first_name, results, notes };
+        return {
+          id_number: c.id_number,
+          surname: c.surname,
+          first_name: c.first_name,
+          results,
+          notes,
+          id_verification_data: c.id_verification_data ?? null,
+        };
       });
 
       const blob = await generateManualRiskPdf({
@@ -1234,7 +1238,14 @@ function SubmissionDetailsDialog({
         results[k] = c[CHECK_COLUMNS[k].result] ?? null;
         notes[k] = c[CHECK_COLUMNS[k].notes] ?? null;
       }
-      return { id_number: c.id_number, surname: c.surname, first_name: c.first_name, results, notes };
+      return {
+        id_number: c.id_number,
+        surname: c.surname,
+        first_name: c.first_name,
+        results,
+        notes,
+        id_verification_data: (c as any).id_verification_data ?? null,
+      };
     });
     return await generateManualRiskPdf({
       orderNumber: sub?.order_number ?? "",
@@ -1619,14 +1630,20 @@ function SupplierReportSection({
     try {
       const added: SupplierReportFile[] = [];
       const allExtracted = new Set<string>();
+      const allRecords: SupplierIdRecord[] = [];
       for (const f of Array.from(list)) {
         try {
           let ids: string[] = [];
+          let records: SupplierIdRecord[] = [];
           if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
-            try { ids = await extractIdNumbersFromPdf(f); }
-            catch (e) { console.error("PDF extract failed", e); }
+            try {
+              const res = await extractSupplierRecordsFromPdf(f);
+              ids = res.ids;
+              records = res.records;
+            } catch (e) { console.error("PDF extract failed", e); }
           }
           ids.forEach((i) => allExtracted.add(i));
+          records.forEach((r) => allRecords.push(r));
           const meta = await uploadSupplierReport(f, submissionId, submission.order_number, clientName, ids);
           added.push(meta);
         } catch (e) {
@@ -1641,24 +1658,39 @@ function SupplierReportSection({
           .eq("id", submissionId);
         if (error) throw error;
 
-        // Fully automatic: mark id_verification = valid for candidates whose ID
-        // number was found in the supplier report(s).
+        // Fully automatic ID verification. Supplier reports mask most of the ID,
+        // so match candidates by the first 6 digits (date-of-birth prefix). The
+        // outcome is driven by the supplier's own confirmation signal.
         let matched = 0;
+        const sourceLabel = added.map((a) => a.name).join(", ");
         for (const c of candidates) {
-          if (c.id_number && allExtracted.has(c.id_number.trim())) {
-            const note = `Verified against supplier report ${added.map((a) => a.name).join(", ")}`;
-            const { error: uErr } = await sb
-              .from("manual_risk_candidates")
-              .update({
-                id_verification_result: "valid",
-                id_verification_notes: note,
-              })
-              .eq("id", c.id);
-            if (!uErr) matched++;
-          }
+          const candDigits = (c.id_number || "").replace(/\D/g, "");
+          const candPrefix = candDigits.slice(0, 6);
+          if (!/^\d{6}$/.test(candPrefix)) continue;
+          const rec =
+            allRecords.find((r) => r.id_prefix === candPrefix) ||
+            (allExtracted.has(candDigits)
+              ? ({ id_prefix: candPrefix, status: "Confirmed" } as SupplierIdRecord)
+              : undefined);
+          if (!rec) continue;
+          const confirmed = /confirm|complete|verified|valid|match/i.test(String(rec.status ?? ""));
+          const result = confirmed ? "valid" : "invalid";
+          const noteParts = [
+            `Matched supplier report ${sourceLabel} on ID prefix ${candPrefix}`,
+            rec.status ? `Status: ${rec.status}` : null,
+          ].filter(Boolean);
+          const { error: uErr } = await sb
+            .from("manual_risk_candidates")
+            .update({
+              id_verification_result: result,
+              id_verification_notes: noteParts.join(" • "),
+              id_verification_data: rec as unknown as Record<string, unknown>,
+            })
+            .eq("id", c.id);
+          if (!uErr) matched++;
         }
         toast.success(
-          `${added.length} supplier report(s) uploaded. ${allExtracted.size} ID number(s) extracted, ${matched} candidate(s) auto-verified.`,
+          `${added.length} supplier report(s) uploaded. ${allRecords.length || allExtracted.size} record(s) extracted, ${matched} candidate(s) auto-verified.`,
         );
         onChanged();
       }
