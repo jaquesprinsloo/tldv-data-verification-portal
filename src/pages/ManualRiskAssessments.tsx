@@ -859,6 +859,7 @@ function NewSubmissionDialog({
         // skip header row if it doesn't look like an ID (13 digits)
         if (i === 0 && !/^\d{6,}$/.test(a)) continue;
         if (!a || !b || !c) continue;
+        if (isPlaceholderCandidate({ id_number: a, surname: b, first_name: c })) continue;
         parsed.push({ id_number: a, surname: b, first_name: c });
       }
       if (!parsed.length) { toast.error("No candidate rows found. Use Column A=ID, B=Surname, C=First Name."); return; }
