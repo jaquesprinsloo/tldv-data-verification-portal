@@ -39,6 +39,10 @@ type Submission = {
   submission_type: "single" | "batch"; status: "open" | "completed";
   notes: string | null; created_at: string;
   requested_checks: string[] | null;
+  sent_at: string | null;
+  invoiced_at: string | null;
+  invoice_number: string | null;
+  invoice_file_path: string | null;
 };
 type Candidate = {
   id: string; submission_id: string; id_number: string;
