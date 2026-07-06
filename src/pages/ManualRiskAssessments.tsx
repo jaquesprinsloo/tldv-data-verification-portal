@@ -378,6 +378,8 @@ export default function ManualRiskAssessments() {
     } finally {
       setPreviewing(null);
     }
+  };
+
   const resendConfirmation = async (submissionId: string) => {
     setResendingId(submissionId);
     try {
