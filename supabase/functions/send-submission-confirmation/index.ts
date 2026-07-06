@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
               </table>
               ${candidatesHtml}
               <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#333">
-                If you have any questions in the meantime, simply reply to this email and our team will assist.
+                If you have any questions simply send an email to <a href="mailto:admin@tldv.co.za" style="color:#111;text-decoration:underline">admin@tldv.co.za</a> and we will assist you.
               </p>
               <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#333">Warm regards,<br/><br/><strong>Client Service</strong></p>
             </td></tr>
