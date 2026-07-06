@@ -69,3 +69,6 @@ verify_jwt = false
 
 [functions.get-popia-indemnity]
 verify_jwt = false
+
+[functions.send-submission-confirmation]
+verify_jwt = true
