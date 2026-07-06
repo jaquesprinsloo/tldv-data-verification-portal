@@ -378,7 +378,53 @@ export default function ManualRiskAssessments() {
     } finally {
       setPreviewing(null);
     }
+  const resendConfirmation = async (submissionId: string) => {
+    setResendingId(submissionId);
+    try {
+      const sub = submissions.find((s) => s.id === submissionId);
+      if (!sub) throw new Error("Submission not found");
+      const client = sub.client_id ? clientById.get(sub.client_id) : undefined;
+      const toEmail = client?.email?.trim();
+      if (!toEmail) {
+        toast.error("Cannot resend confirmation: client has no email address");
+        return;
+      }
+      const { data: cands, error: candsErr } = await sb
+        .from("manual_risk_candidates")
+        .select("first_name, surname, id_number")
+        .eq("submission_id", submissionId)
+        .order("sort_order", { ascending: true });
+      if (candsErr) throw candsErr;
+      const emailCandidates = (cands ?? [])
+        .filter((c: any) => !isPlaceholderCandidate(c as Candidate))
+        .map((c: any) => ({
+          first_name: (c.first_name ?? "").trim(),
+          surname: (c.surname ?? "").trim(),
+          id_number: (c.id_number ?? "").trim(),
+        }));
+      if (!emailCandidates.length) {
+        toast.error("Cannot resend confirmation: no candidates found");
+        return;
+      }
+      const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
+        body: {
+          to: toEmail,
+          cc: "admin@tldv.co.za",
+          orderNumber: sub.order_number.trim(),
+          clientName: client?.client_name ?? undefined,
+          contactName: client?.contact_person ?? undefined,
+          candidates: emailCandidates,
+        },
+      });
+      if (mailErr) throw mailErr;
+      toast.success("Confirmation email resent to client");
+    } catch (e) {
+      toast.error("Failed to resend confirmation: " + (e as Error).message);
+    } finally {
+      setResendingId(null);
+    }
   };
+
 
   if (allowed === null) {
     return <div className="min-h-screen flex items-center justify-center bg-black text-white">Loading...</div>;
