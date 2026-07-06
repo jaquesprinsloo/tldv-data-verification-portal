@@ -954,6 +954,38 @@ function NewSubmissionDialog({
 
       toast.success("Submission created");
       onCreated(sub.id);
+
+      // Fire-and-forget confirmation email to the client
+      try {
+        const resolvedClient =
+          clientMode === "existing"
+            ? clients.find((c) => c.id === resolvedClientId)
+            : clientMode === "new"
+              ? {
+                  client_name: newClient.client_name?.trim() ?? null,
+                  contact_person: newClient.contact_person?.trim() ?? null,
+                  email: newClient.email?.trim() ?? null,
+                }
+              : null;
+        const toEmail = resolvedClient?.email?.trim();
+        if (toEmail) {
+          const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
+            body: {
+              to: toEmail,
+              orderNumber: orderNumber.trim(),
+              clientName: resolvedClient?.client_name ?? undefined,
+              contactName: resolvedClient?.contact_person ?? undefined,
+            },
+          });
+          if (mailErr) {
+            toast.error("Submission saved, but confirmation email failed: " + mailErr.message);
+          } else {
+            toast.success("Confirmation email sent to client");
+          }
+        }
+      } catch (e) {
+        toast.error("Submission saved, but confirmation email failed: " + (e as Error).message);
+      }
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
