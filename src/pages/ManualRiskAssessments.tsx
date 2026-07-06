@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download, Eye, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo2 } from "lucide-react";
+import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download, Eye, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -256,6 +256,7 @@ export default function ManualRiskAssessments() {
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [previewReport, setPreviewReport] = useState<{ blob: Blob; title: string } | null>(null);
   const [activeTab, setActiveTab] = useState<string>("submissions");
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   const closePreviewReport = () => {
     setPreviewReport(null);
@@ -379,6 +380,54 @@ export default function ManualRiskAssessments() {
     }
   };
 
+  const resendConfirmation = async (submissionId: string) => {
+    setResendingId(submissionId);
+    try {
+      const sub = submissions.find((s) => s.id === submissionId);
+      if (!sub) throw new Error("Submission not found");
+      const client = sub.client_id ? clientById.get(sub.client_id) : undefined;
+      const toEmail = client?.email?.trim();
+      if (!toEmail) {
+        toast.error("Cannot resend confirmation: client has no email address");
+        return;
+      }
+      const { data: cands, error: candsErr } = await sb
+        .from("manual_risk_candidates")
+        .select("first_name, surname, id_number")
+        .eq("submission_id", submissionId)
+        .order("sort_order", { ascending: true });
+      if (candsErr) throw candsErr;
+      const emailCandidates = (cands ?? [])
+        .filter((c: any) => !isPlaceholderCandidate(c as Candidate))
+        .map((c: any) => ({
+          first_name: (c.first_name ?? "").trim(),
+          surname: (c.surname ?? "").trim(),
+          id_number: (c.id_number ?? "").trim(),
+        }));
+      if (!emailCandidates.length) {
+        toast.error("Cannot resend confirmation: no candidates found");
+        return;
+      }
+      const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
+        body: {
+          to: toEmail,
+          cc: "admin@tldv.co.za",
+          orderNumber: sub.order_number.trim(),
+          clientName: client?.client_name ?? undefined,
+          contactName: client?.contact_person ?? undefined,
+          candidates: emailCandidates,
+        },
+      });
+      if (mailErr) throw mailErr;
+      toast.success("Confirmation email resent to client");
+    } catch (e) {
+      toast.error("Failed to resend confirmation: " + (e as Error).message);
+    } finally {
+      setResendingId(null);
+    }
+  };
+
+
   if (allowed === null) {
     return <div className="min-h-screen flex items-center justify-center bg-black text-white">Loading...</div>;
   }
@@ -465,6 +514,22 @@ export default function ManualRiskAssessments() {
                           </Button>
                           <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setDetailsSubId(s.id); }}>
                             Open
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await resendConfirmation(s.id);
+                            }}
+                            disabled={resendingId === s.id}
+                            title="Resend submission confirmation"
+                          >
+                            {resendingId === s.id ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Mail className="h-4 w-4" />
+                            )}
                           </Button>
                           <Button
                             variant="ghost"
