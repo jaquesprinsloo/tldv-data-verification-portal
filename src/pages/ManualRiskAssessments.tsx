@@ -256,6 +256,7 @@ export default function ManualRiskAssessments() {
   const [previewing, setPreviewing] = useState<string | null>(null);
   const [previewReport, setPreviewReport] = useState<{ blob: Blob; title: string } | null>(null);
   const [activeTab, setActiveTab] = useState<string>("submissions");
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   const closePreviewReport = () => {
     setPreviewReport(null);
