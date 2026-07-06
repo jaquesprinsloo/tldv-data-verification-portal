@@ -969,12 +969,18 @@ function NewSubmissionDialog({
               : null;
         const toEmail = resolvedClient?.email?.trim();
         if (toEmail) {
+          const emailCandidates = candidates.map((c) => ({
+            first_name: c.first_name.trim(),
+            surname: c.surname.trim(),
+            id_number: c.id_number.trim(),
+          }));
           const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
             body: {
               to: toEmail,
               orderNumber: orderNumber.trim(),
               clientName: resolvedClient?.client_name ?? undefined,
               contactName: resolvedClient?.contact_person ?? undefined,
+              candidates: emailCandidates,
             },
           });
           if (mailErr) {
