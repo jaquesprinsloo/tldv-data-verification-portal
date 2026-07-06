@@ -1,5 +1,5 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
-import { LOGO_BASE64 } from '../send-manual-risk-report/logo.ts';
+import { LOGO_BASE64 } from './logo.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 
