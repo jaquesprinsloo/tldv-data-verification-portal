@@ -525,7 +525,11 @@ export default function ManualRiskAssessments() {
                             disabled={resendingId === s.id}
                             title="Resend submission confirmation"
                           >
-                            {resendingId === s.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                            {resendingId === s.id ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Mail className="h-4 w-4" />
+                            )}
                           </Button>
                           <Button
                             variant="ghost"
