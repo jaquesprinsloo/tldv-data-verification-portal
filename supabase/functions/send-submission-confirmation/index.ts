@@ -20,9 +20,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { to, cc, orderNumber, clientName, contactName } = body as {
+    const { to, cc, orderNumber, clientName, contactName, candidates } = body as {
       to?: string; cc?: string | string[];
       orderNumber?: string; clientName?: string; contactName?: string;
+      candidates?: Array<{ first_name?: string; surname?: string; id_number?: string }>;
     };
 
     const toClean = to && to.trim() ? [to.trim()] : [];
@@ -37,6 +38,29 @@ Deno.serve(async (req) => {
     }
 
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const maskId = (id: string) => {
+      const digits = (id || '').replace(/\D/g, '');
+      if (!digits) return '';
+      const visible = digits.slice(0, 6);
+      const masked = '*'.repeat(Math.max(0, digits.length - 6));
+      return visible + masked;
+    };
+    const candidateList = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
+    const candidatesHtml = candidateList.length
+      ? `<h3 style="margin:0 0 10px;font-size:14px;color:#111">Candidates included in this submission</h3>
+         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:6px;margin:0 0 20px;border-collapse:separate">
+           <tr>
+             <th align="left" style="padding:10px 14px;font-size:12px;color:#6b7280;background:#f9fafb;border-bottom:1px solid #e5e7eb">Name</th>
+             <th align="left" style="padding:10px 14px;font-size:12px;color:#6b7280;background:#f9fafb;border-bottom:1px solid #e5e7eb">ID Number</th>
+           </tr>
+           ${candidateList.map((c, i) => {
+             const name = `${esc((c.first_name || '').trim())} ${esc((c.surname || '').trim())}`.trim() || '—';
+             const idMasked = esc(maskId(c.id_number || ''));
+             const border = i === candidateList.length - 1 ? '' : 'border-bottom:1px solid #e5e7eb;';
+             return `<tr><td style="padding:10px 14px;font-size:13px;color:#111;${border}">${name}</td><td style="padding:10px 14px;font-size:13px;color:#111;font-family:'Courier New',monospace;${border}">${idMasked}</td></tr>`;
+           }).join('')}
+         </table>`
+      : '';
     const greetingName = (contactName && contactName.trim()) ? esc(contactName.trim()) : '';
     const greetingLine = greetingName ? `Good day ${greetingName},` : 'Good day,';
     const dateStr = new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -62,6 +86,7 @@ Deno.serve(async (req) => {
                 ${clientName ? `<tr><td style="padding:10px 14px;font-size:13px;color:#6b7280;border-bottom:1px solid #e5e7eb">Client</td><td style="padding:10px 14px;font-size:13px;color:#111;border-bottom:1px solid #e5e7eb;font-weight:600">${esc(clientName)}</td></tr>` : ''}
                 <tr><td style="padding:10px 14px;font-size:13px;color:#6b7280">Submission Date</td><td style="padding:10px 14px;font-size:13px;color:#111;font-weight:600">${dateStr}</td></tr>
               </table>
+              ${candidatesHtml}
               <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#333">
                 If you have any questions in the meantime, simply reply to this email and our team will assist.
               </p>
