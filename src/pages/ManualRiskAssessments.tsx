@@ -520,6 +520,18 @@ export default function ManualRiskAssessments() {
                             size="icon"
                             onClick={async (e) => {
                               e.stopPropagation();
+                              await resendConfirmation(s.id);
+                            }}
+                            disabled={resendingId === s.id}
+                            title="Resend submission confirmation"
+                          >
+                            {resendingId === s.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={async (e) => {
+                              e.stopPropagation();
                               if (!confirm(`Delete submission ${s.order_number}? This permanently removes all candidates and results.`)) return;
                               // Purge OneDrive copies (report + indemnities + supplier reports)
                               await deleteFromOneDrive((s as any).report_onedrive_item_id);
