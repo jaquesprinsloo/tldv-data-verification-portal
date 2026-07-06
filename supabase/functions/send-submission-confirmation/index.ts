@@ -81,6 +81,9 @@ Deno.serve(async (req) => {
               <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#333">
                 We are now awaiting verification confirmation on the below listed candidate/s. Once received, the results will be sent to you. You should receive final feedback within <strong>24 to 48 working hours</strong>.
               </p>
+              <p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#6b7280;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:14px">
+                <strong style="color:#374151">Please note:</strong> Feedback timelines are based on the operational hours of verification agents and governmental departments. If a department is not operating during the submission window, the verification process will only commence when their next operating hours begin.
+              </p>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:6px;margin:0 0 20px">
                 ${orderNumber ? `<tr><td style="padding:10px 14px;font-size:13px;color:#6b7280;border-bottom:1px solid #e5e7eb;width:140px">Order Number</td><td style="padding:10px 14px;font-size:13px;color:#111;border-bottom:1px solid #e5e7eb;font-weight:600">${esc(orderNumber)}</td></tr>` : ''}
                 ${clientName ? `<tr><td style="padding:10px 14px;font-size:13px;color:#6b7280;border-bottom:1px solid #e5e7eb">Client</td><td style="padding:10px 14px;font-size:13px;color:#111;border-bottom:1px solid #e5e7eb;font-weight:600">${esc(clientName)}</td></tr>` : ''}
