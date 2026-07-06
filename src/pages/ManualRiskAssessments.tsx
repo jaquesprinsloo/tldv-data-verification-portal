@@ -977,6 +977,7 @@ function NewSubmissionDialog({
           const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
             body: {
               to: toEmail,
+              cc: "admin@tldv.co.za",
               orderNumber: orderNumber.trim(),
               clientName: resolvedClient?.client_name ?? undefined,
               contactName: resolvedClient?.contact_person ?? undefined,
