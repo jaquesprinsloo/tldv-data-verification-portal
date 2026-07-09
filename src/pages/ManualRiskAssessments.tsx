@@ -725,6 +725,7 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
       email: editing.email?.trim() || null,
       phone: editing.phone?.trim() || null,
       address: editing.address?.trim() || null,
+      cc_emails: editing.cc_emails?.trim() || null,
     };
     if (editing.id) {
       const { error } = await sb.from("manual_risk_clients").update(payload).eq("id", editing.id);
