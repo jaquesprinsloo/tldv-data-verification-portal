@@ -830,6 +830,7 @@ export type Database = {
       manual_risk_clients: {
         Row: {
           address: string | null
+          cc_emails: string | null
           client_name: string
           contact_person: string | null
           created_at: string
@@ -841,6 +842,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          cc_emails?: string | null
           client_name: string
           contact_person?: string | null
           created_at?: string
@@ -852,6 +854,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          cc_emails?: string | null
           client_name?: string
           contact_person?: string | null
           created_at?: string
