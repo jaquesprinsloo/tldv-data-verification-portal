@@ -33,6 +33,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 type Client = {
   id: string; client_name: string; contact_person: string | null;
   email: string | null; phone: string | null; address: string | null;
+  cc_emails: string | null;
 };
 type Submission = {
   id: string; order_number: string; client_id: string | null;
