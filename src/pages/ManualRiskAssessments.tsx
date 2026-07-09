@@ -412,7 +412,7 @@ export default function ManualRiskAssessments() {
       const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
         body: {
           to: toEmail,
-          cc: "admin@tldv.co.za",
+          cc: ["admin@tldv.co.za", ...(client?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? [])],
           orderNumber: sub.order_number.trim(),
           clientName: client?.client_name ?? undefined,
           contactName: client?.contact_person ?? undefined,
