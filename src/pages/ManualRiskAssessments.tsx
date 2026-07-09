@@ -1171,6 +1171,8 @@ function NewSubmissionDialog({
                     onChange={(e) => setNewClient((p) => ({ ...p, contact_person: e.target.value }))} />
                   <Input placeholder="Email" value={newClient.email ?? ""}
                     onChange={(e) => setNewClient((p) => ({ ...p, email: e.target.value }))} />
+                  <Input placeholder="CC emails (comma-separated)" value={newClient.cc_emails ?? ""}
+                    onChange={(e) => setNewClient((p) => ({ ...p, cc_emails: e.target.value }))} />
                   <Input placeholder="Phone" value={newClient.phone ?? ""}
                     onChange={(e) => setNewClient((p) => ({ ...p, phone: e.target.value }))} />
                   <label className="flex items-center gap-2 text-sm">
