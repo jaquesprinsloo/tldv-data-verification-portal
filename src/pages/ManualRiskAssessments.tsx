@@ -33,6 +33,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 type Client = {
   id: string; client_name: string; contact_person: string | null;
   email: string | null; phone: string | null; address: string | null;
+  cc_emails: string | null;
 };
 type Submission = {
   id: string; order_number: string; client_id: string | null;
@@ -411,7 +412,7 @@ export default function ManualRiskAssessments() {
       const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
         body: {
           to: toEmail,
-          cc: "admin@tldv.co.za",
+          cc: ["admin@tldv.co.za", ...(client?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? [])],
           orderNumber: sub.order_number.trim(),
           clientName: client?.client_name ?? undefined,
           contactName: client?.contact_person ?? undefined,
@@ -724,6 +725,7 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
       email: editing.email?.trim() || null,
       phone: editing.phone?.trim() || null,
       address: editing.address?.trim() || null,
+      cc_emails: editing.cc_emails?.trim() || null,
     };
     if (editing.id) {
       const { error } = await sb.from("manual_risk_clients").update(payload).eq("id", editing.id);
@@ -790,6 +792,16 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
             <div><Label>Client Name *</Label><Input value={editing?.client_name ?? ""} onChange={(e) => setEditing((p) => ({ ...p, client_name: e.target.value }))} /></div>
             <div><Label>Contact Person</Label><Input value={editing?.contact_person ?? ""} onChange={(e) => setEditing((p) => ({ ...p, contact_person: e.target.value }))} /></div>
             <div><Label>Email</Label><Input type="email" value={editing?.email ?? ""} onChange={(e) => setEditing((p) => ({ ...p, email: e.target.value }))} /></div>
+            <div>
+              <Label>CC Emails</Label>
+              <Input
+                type="text"
+                placeholder="cc1@example.com, cc2@example.com"
+                value={editing?.cc_emails ?? ""}
+                onChange={(e) => setEditing((p) => ({ ...p, cc_emails: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Comma-separated. These addresses are CC'd on confirmation emails.</p>
+            </div>
             <div><Label>Phone</Label><Input value={editing?.phone ?? ""} onChange={(e) => setEditing((p) => ({ ...p, phone: e.target.value }))} /></div>
             <div><Label>Address</Label><Textarea value={editing?.address ?? ""} onChange={(e) => setEditing((p) => ({ ...p, address: e.target.value }))} /></div>
           </div>
@@ -954,6 +966,7 @@ function NewSubmissionDialog({
             email: newClient.email?.trim() || null,
             phone: newClient.phone?.trim() || null,
             address: newClient.address?.trim() || null,
+            cc_emails: newClient.cc_emails?.trim() || null,
             created_by: userId,
           })
           .select("id").single();
@@ -1030,6 +1043,7 @@ function NewSubmissionDialog({
                   client_name: newClient.client_name?.trim() ?? null,
                   contact_person: newClient.contact_person?.trim() ?? null,
                   email: newClient.email?.trim() ?? null,
+                  cc_emails: newClient.cc_emails?.trim() ?? null,
                 }
               : null;
         const toEmail = resolvedClient?.email?.trim();
@@ -1042,7 +1056,7 @@ function NewSubmissionDialog({
           const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
             body: {
               to: toEmail,
-              cc: "admin@tldv.co.za",
+              cc: ["admin@tldv.co.za", ...((resolvedClient as any)?.cc_emails?.split(",").map((s: string) => s.trim()).filter(Boolean) ?? [])],
               orderNumber: orderNumber.trim(),
               clientName: resolvedClient?.client_name ?? undefined,
               contactName: resolvedClient?.contact_person ?? undefined,
@@ -1158,6 +1172,8 @@ function NewSubmissionDialog({
                     onChange={(e) => setNewClient((p) => ({ ...p, contact_person: e.target.value }))} />
                   <Input placeholder="Email" value={newClient.email ?? ""}
                     onChange={(e) => setNewClient((p) => ({ ...p, email: e.target.value }))} />
+                  <Input placeholder="CC emails (comma-separated)" value={newClient.cc_emails ?? ""}
+                    onChange={(e) => setNewClient((p) => ({ ...p, cc_emails: e.target.value }))} />
                   <Input placeholder="Phone" value={newClient.phone ?? ""}
                     onChange={(e) => setNewClient((p) => ({ ...p, phone: e.target.value }))} />
                   <label className="flex items-center gap-2 text-sm">
