@@ -1043,6 +1043,7 @@ function NewSubmissionDialog({
                   client_name: newClient.client_name?.trim() ?? null,
                   contact_person: newClient.contact_person?.trim() ?? null,
                   email: newClient.email?.trim() ?? null,
+                  cc_emails: newClient.cc_emails?.trim() ?? null,
                 }
               : null;
         const toEmail = resolvedClient?.email?.trim();
@@ -1055,7 +1056,7 @@ function NewSubmissionDialog({
           const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
             body: {
               to: toEmail,
-              cc: "admin@tldv.co.za",
+              cc: ["admin@tldv.co.za", ...((resolvedClient as any)?.cc_emails?.split(",").map((s: string) => s.trim()).filter(Boolean) ?? [])],
               orderNumber: orderNumber.trim(),
               clientName: resolvedClient?.client_name ?? undefined,
               contactName: resolvedClient?.contact_person ?? undefined,
