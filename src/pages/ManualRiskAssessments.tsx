@@ -966,6 +966,7 @@ function NewSubmissionDialog({
             email: newClient.email?.trim() || null,
             phone: newClient.phone?.trim() || null,
             address: newClient.address?.trim() || null,
+            cc_emails: newClient.cc_emails?.trim() || null,
             created_by: userId,
           })
           .select("id").single();
