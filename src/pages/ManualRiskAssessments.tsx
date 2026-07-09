@@ -792,6 +792,16 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
             <div><Label>Client Name *</Label><Input value={editing?.client_name ?? ""} onChange={(e) => setEditing((p) => ({ ...p, client_name: e.target.value }))} /></div>
             <div><Label>Contact Person</Label><Input value={editing?.contact_person ?? ""} onChange={(e) => setEditing((p) => ({ ...p, contact_person: e.target.value }))} /></div>
             <div><Label>Email</Label><Input type="email" value={editing?.email ?? ""} onChange={(e) => setEditing((p) => ({ ...p, email: e.target.value }))} /></div>
+            <div>
+              <Label>CC Emails</Label>
+              <Input
+                type="text"
+                placeholder="cc1@example.com, cc2@example.com"
+                value={editing?.cc_emails ?? ""}
+                onChange={(e) => setEditing((p) => ({ ...p, cc_emails: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Comma-separated. These addresses are CC'd on confirmation emails.</p>
+            </div>
             <div><Label>Phone</Label><Input value={editing?.phone ?? ""} onChange={(e) => setEditing((p) => ({ ...p, phone: e.target.value }))} /></div>
             <div><Label>Address</Label><Textarea value={editing?.address ?? ""} onChange={(e) => setEditing((p) => ({ ...p, address: e.target.value }))} /></div>
           </div>
