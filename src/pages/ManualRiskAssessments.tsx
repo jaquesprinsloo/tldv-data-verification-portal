@@ -1314,6 +1314,19 @@ function SubmissionDetailsDialog({
 
   const client = sub?.client_id ? clients.find((c) => c.id === sub.client_id) : undefined;
   useEffect(() => { if (client?.email) setEmailTo(client.email); }, [client?.email]);
+  useEffect(() => {
+    const extras = client?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+    const base = ["Admin@tldv.co.za", ...extras];
+    // De-dupe case-insensitively while preserving order
+    const seen = new Set<string>();
+    const merged = base.filter((e) => {
+      const k = e.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    setCcEmails(merged.join(", "));
+  }, [client?.cc_emails]);
 
   const updateRow = (idx: number, patch: Partial<Candidate>) => {
     setLocal((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
