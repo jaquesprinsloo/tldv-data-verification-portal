@@ -107,6 +107,9 @@ Deno.serve(async (req) => {
                 A division of True Lie Detectors &amp; Vetting
               </p>
               <p style="margin:0 0 12px;font-size:11px;line-height:1.5;color:#6b7280;text-align:center">
+                <a href="https://preapplicheck.co.za" style="color:#6b7280;text-decoration:underline">preapplicheck.co.za</a>
+              </p>
+              <p style="margin:0 0 12px;font-size:11px;line-height:1.5;color:#6b7280;text-align:center">
                 This email and any attachments are confidential and intended solely for the named recipient. If you have received this email in error, please notify the sender immediately and delete it from your system.
               </p>
               <p style="margin:0 0 12px;font-size:11px;line-height:1.5;color:#6b7280;text-align:center">
