@@ -2026,6 +2026,34 @@ function AccountsTab({
   onChanged: () => void;
 }) {
   const [openClientId, setOpenClientId] = useState<string | "unassigned" | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const trimmedQuery = searchQuery.trim();
+  const searchActive = trimmedQuery.length >= 2;
+
+  const sentSubmissionIds = useMemo(() => submissions.map((s) => s.id), [submissions]);
+
+  const { data: searchCandidates = [], isFetching: searching } = useQuery<(Candidate & { submission_id: string })[]>({
+    queryKey: ["mra-accounts-search", trimmedQuery, sentSubmissionIds.join(",")],
+    enabled: searchActive && sentSubmissionIds.length > 0,
+    queryFn: async () => {
+      const q = trimmedQuery.replace(/[%,]/g, " ");
+      const { data, error } = await sb.from("manual_risk_candidates")
+        .select("*")
+        .in("submission_id", sentSubmissionIds)
+        .or(`first_name.ilike.%${q}%,surname.ilike.%${q}%,id_number.ilike.%${q}%`)
+        .limit(200);
+      if (error) throw error;
+      return (data as Candidate[]).filter((c) => !isPlaceholderCandidate(c)) as any;
+    },
+  });
+
+  const searchResults = useMemo(() => {
+    return searchCandidates.map((c) => {
+      const sub = submissions.find((s) => s.id === c.submission_id) || null;
+      const client = sub?.client_id ? clients.find((cl) => cl.id === sub.client_id) ?? null : null;
+      return { c, sub, client };
+    }).filter((r) => r.sub);
+  }, [searchCandidates, submissions, clients]);
 
   // Group sent submissions by client
   const groups = useMemo(() => {
@@ -2053,6 +2081,55 @@ function AccountsTab({
         <p className="text-sm text-muted-foreground">
           {submissions.length} sent check(s) across {groups.length} client account(s). Select a client to export or invoice.
         </p>
+      </div>
+
+      <div className="mb-4">
+        <Label htmlFor="account-search" className="text-sm">Search candidates</Label>
+        <Input
+          id="account-search"
+          placeholder="Type name, surname, or ID number…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="mt-1"
+        />
+        {searchActive && (
+          <div className="mt-3 border rounded-md">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>First name</TableHead>
+                  <TableHead>Surname</TableHead>
+                  <TableHead>ID number</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Order #</TableHead>
+                  <TableHead>Sent</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {searching && searchResults.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-4">Searching…</TableCell></TableRow>
+                ) : searchResults.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-4">No matching candidates found.</TableCell></TableRow>
+                ) : searchResults.map(({ c, sub, client }) => (
+                  <TableRow key={c.id}>
+                    <TableCell>{c.first_name}</TableCell>
+                    <TableCell>{c.surname}</TableCell>
+                    <TableCell>{c.id_number}</TableCell>
+                    <TableCell>{client?.client_name ?? "Unassigned"}</TableCell>
+                    <TableCell>{sub!.order_number}</TableCell>
+                    <TableCell>{sub!.sent_at ? new Date(sub!.sent_at).toLocaleDateString() : "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="outline" onClick={() => setOpenClientId(sub!.client_id ?? "unassigned")}>
+                        Open account
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       {groups.length === 0 ? (
