@@ -756,6 +756,8 @@ export type Database = {
           id_verification_data: Json | null
           id_verification_notes: string | null
           id_verification_result: string | null
+          is_tldv_internal: boolean
+          override_client_id: string | null
           pdp_notes: string | null
           pdp_result: string | null
           qualification_notes: string | null
@@ -781,6 +783,8 @@ export type Database = {
           id_verification_data?: Json | null
           id_verification_notes?: string | null
           id_verification_result?: string | null
+          is_tldv_internal?: boolean
+          override_client_id?: string | null
           pdp_notes?: string | null
           pdp_result?: string | null
           qualification_notes?: string | null
@@ -806,6 +810,8 @@ export type Database = {
           id_verification_data?: Json | null
           id_verification_notes?: string | null
           id_verification_result?: string | null
+          is_tldv_internal?: boolean
+          override_client_id?: string | null
           pdp_notes?: string | null
           pdp_result?: string | null
           qualification_notes?: string | null
@@ -818,6 +824,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "manual_risk_candidates_override_client_id_fkey"
+            columns: ["override_client_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "manual_risk_candidates_submission_id_fkey"
             columns: ["submission_id"]
@@ -837,6 +850,7 @@ export type Database = {
           created_by: string | null
           email: string | null
           id: string
+          is_regular: boolean
           phone: string | null
           updated_at: string
         }
@@ -849,6 +863,7 @@ export type Database = {
           created_by?: string | null
           email?: string | null
           id?: string
+          is_regular?: boolean
           phone?: string | null
           updated_at?: string
         }
@@ -861,6 +876,7 @@ export type Database = {
           created_by?: string | null
           email?: string | null
           id?: string
+          is_regular?: boolean
           phone?: string | null
           updated_at?: string
         }

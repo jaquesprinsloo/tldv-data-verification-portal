@@ -7,6 +7,7 @@ import * as XLSX from "xlsx";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download, Eye, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo2, RefreshCw } from "lucide-react";
+import { Star, ArrowRightLeft, Percent } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +35,7 @@ type Client = {
   id: string; client_name: string; contact_person: string | null;
   email: string | null; phone: string | null; address: string | null;
   cc_emails: string | null;
+  is_regular?: boolean;
 };
 type Submission = {
   id: string; order_number: string; client_id: string | null;
@@ -726,6 +728,7 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
       phone: editing.phone?.trim() || null,
       address: editing.address?.trim() || null,
       cc_emails: editing.cc_emails?.trim() || null,
+      is_regular: !!editing.is_regular,
     };
     if (editing.id) {
       const { error } = await sb.from("manual_risk_clients").update(payload).eq("id", editing.id);
@@ -770,7 +773,14 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
           )}
           {clients.map((c) => (
             <TableRow key={c.id}>
-              <TableCell className="font-medium">{c.client_name}</TableCell>
+              <TableCell className="font-medium">
+                <div className="flex items-center gap-2">
+                  {c.client_name}
+                  {c.is_regular && (
+                    <Badge className="bg-amber-500 text-white gap-1"><Star className="h-3 w-3 fill-current" /> Regular</Badge>
+                  )}
+                </div>
+              </TableCell>
               <TableCell>{c.contact_person ?? "—"}</TableCell>
               <TableCell>{c.email ?? "—"}</TableCell>
               <TableCell>{c.phone ?? "—"}</TableCell>
@@ -804,6 +814,17 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
             </div>
             <div><Label>Phone</Label><Input value={editing?.phone ?? ""} onChange={(e) => setEditing((p) => ({ ...p, phone: e.target.value }))} /></div>
             <div><Label>Address</Label><Textarea value={editing?.address ?? ""} onChange={(e) => setEditing((p) => ({ ...p, address: e.target.value }))} /></div>
+            <div className="flex items-center gap-2 pt-1">
+              <Checkbox
+                id="mra-client-regular"
+                checked={!!editing?.is_regular}
+                onCheckedChange={(v) => setEditing((p) => ({ ...p, is_regular: !!v }))}
+              />
+              <label htmlFor="mra-client-regular" className="text-sm cursor-pointer flex items-center gap-1">
+                <Star className="h-3.5 w-3.5 text-amber-500" />
+                Regular pre-employment client
+              </label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
@@ -2016,6 +2037,9 @@ type AccountRow = {
   idNumber: string;
   surname: string;
   firstName: string;
+  isTldvInternal: boolean;
+  overrideClientId: string | null;
+  originalClientId: string | null;
 };
 
 function AccountsTab({
@@ -2029,8 +2053,23 @@ function AccountsTab({
   const [searchQuery, setSearchQuery] = useState("");
   const trimmedQuery = searchQuery.trim();
   const searchActive = trimmedQuery.length >= 2;
+  const [filterRegular, setFilterRegular] = useState(false);
+  const [sortByRegular, setSortByRegular] = useState(false);
 
   const sentSubmissionIds = useMemo(() => submissions.map((s) => s.id), [submissions]);
+
+  // Load ALL candidates for sent submissions so we can count checks (per-candidate)
+  // and honor override_client_id when grouping them under accounts.
+  const { data: allCandidates = [] } = useQuery<Candidate[]>({
+    queryKey: ["mra-accounts-all-cands", sentSubmissionIds.join(",")],
+    enabled: sentSubmissionIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await sb.from("manual_risk_candidates")
+        .select("*").in("submission_id", sentSubmissionIds);
+      if (error) throw error;
+      return (data as Candidate[]).filter((c) => !isPlaceholderCandidate(c));
+    },
+  });
 
   const { data: searchCandidates = [], isFetching: searching } = useQuery<(Candidate & { submission_id: string })[]>({
     queryKey: ["mra-accounts-search", trimmedQuery, sentSubmissionIds.join(",")],
@@ -2050,37 +2089,80 @@ function AccountsTab({
   const searchResults = useMemo(() => {
     return searchCandidates.map((c) => {
       const sub = submissions.find((s) => s.id === c.submission_id) || null;
-      const client = sub?.client_id ? clients.find((cl) => cl.id === sub.client_id) ?? null : null;
+      const effClientId = (c as any).override_client_id ?? sub?.client_id ?? null;
+      const client = effClientId ? clients.find((cl) => cl.id === effClientId) ?? null : null;
       return { c, sub, client };
     }).filter((r) => r.sub);
   }, [searchCandidates, submissions, clients]);
 
-  // Group sent submissions by client
+  // Group by EFFECTIVE client (override_client_id on the candidate wins over
+  // the submission's client_id) and count per-candidate.
   const groups = useMemo(() => {
-    const m = new Map<string, { client: Client | null; subs: Submission[] }>();
-    for (const s of submissions) {
-      const key = s.client_id ?? "__unassigned__";
+    const subMap = new Map(submissions.map((s) => [s.id, s]));
+    const m = new Map<string, { client: Client | null; candCount: number; subIds: Set<string> }>();
+    for (const c of allCandidates) {
+      const sub = subMap.get(c.submission_id);
+      if (!sub) continue;
+      const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
+      const key = effId;
       if (!m.has(key)) {
-        const client = s.client_id ? clients.find((c) => c.id === s.client_id) ?? null : null;
-        m.set(key, { client, subs: [] });
+        const client = key === "__unassigned__" ? null : clients.find((cl) => cl.id === key) ?? null;
+        m.set(key, { client, candCount: 0, subIds: new Set() });
       }
-      m.get(key)!.subs.push(s);
+      const g = m.get(key)!;
+      g.candCount += 1;
+      g.subIds.add(sub.id);
     }
-    return Array.from(m.entries()).map(([key, v]) => ({
-      key,
-      client: v.client,
-      name: v.client?.client_name ?? "Unassigned",
-      subs: v.subs,
-      pendingInvoice: v.subs.filter((s) => !s.invoiced_at).length,
-    })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [submissions, clients]);
+    return Array.from(m.entries()).map(([key, v]) => {
+      const relatedSubs = Array.from(v.subIds).map((id) => subMap.get(id)!).filter(Boolean);
+      return {
+        key,
+        client: v.client,
+        name: v.client?.client_name ?? "Unassigned",
+        isRegular: !!v.client?.is_regular,
+        checkCount: v.candCount,
+        pendingInvoice: relatedSubs.filter((s) => !s.invoiced_at).length,
+      };
+    }).sort((a, b) => {
+      if (sortByRegular && a.isRegular !== b.isRegular) return a.isRegular ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [allCandidates, submissions, clients, sortByRegular]);
+
+  const visibleGroups = useMemo(
+    () => (filterRegular ? groups.filter((g) => g.isRegular) : groups),
+    [groups, filterRegular],
+  );
+
+  const totalChecks = allCandidates.length;
 
   return (
     <Card className="p-4">
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <p className="text-sm text-muted-foreground">
-          {submissions.length} sent check(s) across {groups.length} client account(s). Select a client to export or invoice.
+          {totalChecks} sent check(s) across {groups.length} client account(s). Each candidate counts as one check.
         </p>
+        <div className="flex-1" />
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="mra-filter-regular"
+            checked={filterRegular}
+            onCheckedChange={(v) => setFilterRegular(!!v)}
+          />
+          <label htmlFor="mra-filter-regular" className="text-xs cursor-pointer flex items-center gap-1">
+            <Star className="h-3 w-3 text-amber-500" /> Regulars only
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="mra-sort-regular"
+            checked={sortByRegular}
+            onCheckedChange={(v) => setSortByRegular(!!v)}
+          />
+          <label htmlFor="mra-sort-regular" className="text-xs cursor-pointer">
+            Sort regulars first
+          </label>
+        </div>
       </div>
 
       <div className="mb-4">
@@ -2120,7 +2202,10 @@ function AccountsTab({
                     <TableCell>{sub!.order_number}</TableCell>
                     <TableCell>{sub!.sent_at ? new Date(sub!.sent_at).toLocaleDateString() : "—"}</TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="outline" onClick={() => setOpenClientId(sub!.client_id ?? "unassigned")}>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        const effId = (c as any).override_client_id ?? sub!.client_id ?? null;
+                        setOpenClientId(effId ?? "unassigned");
+                      }}>
                         Open account
                       </Button>
                     </TableCell>
@@ -2132,9 +2217,11 @@ function AccountsTab({
         )}
       </div>
 
-      {groups.length === 0 ? (
+      {visibleGroups.length === 0 ? (
         <div className="text-center text-muted-foreground py-8">
-          No sent submissions yet. Once you email a report from the Submissions tab it will appear here under its client.
+          {groups.length === 0
+            ? "No sent submissions yet. Once you email a report from the Submissions tab it will appear here under its client."
+            : "No regular accounts to show. Toggle 'Regulars only' off to see all accounts."}
         </div>
       ) : (
         <Table>
@@ -2147,10 +2234,17 @@ function AccountsTab({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {groups.map((g) => (
+            {visibleGroups.map((g) => (
               <TableRow key={g.key}>
-                <TableCell className="font-medium">{g.name}</TableCell>
-                <TableCell className="text-center">{g.subs.length}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    {g.name}
+                    {g.isRegular && (
+                      <Badge className="bg-amber-500 text-white gap-1"><Star className="h-3 w-3 fill-current" /> Regular</Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="text-center">{g.checkCount}</TableCell>
                 <TableCell className="text-center">
                   <Badge className={g.pendingInvoice ? "bg-amber-600" : "bg-emerald-600"}>
                     {g.pendingInvoice}
@@ -2192,10 +2286,11 @@ function ClientAccountDialog({
   const qc = useQueryClient();
   const client = groupKey === "__unassigned__" ? null : clients.find((c) => c.id === groupKey) ?? null;
   const clientName = client?.client_name ?? "Unassigned";
-  const subs = useMemo(
-    () => submissions
-      .filter((s) => (s.client_id ?? "__unassigned__") === groupKey)
-      .sort((a, b) => (b.sent_at ?? "").localeCompare(a.sent_at ?? "")),
+  // Original submissions of this account (used for delete/back-to-submissions on
+  // whole-submission actions). Do not filter for candidates because a candidate
+  // may have been moved INTO this account from another submission via override.
+  const ownSubs = useMemo(
+    () => submissions.filter((s) => (s.client_id ?? "__unassigned__") === groupKey),
     [submissions, groupKey],
   );
 
@@ -2203,28 +2298,56 @@ function ClientAccountDialog({
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  // Load all candidates for these submissions
-  const submissionIds = useMemo(() => subs.map((s) => s.id), [subs]);
+  // Load candidates: (a) those from this account's own submissions,
+  // and (b) those moved into this account via override_client_id from other subs.
+  const ownSubIds = useMemo(() => ownSubs.map((s) => s.id), [ownSubs]);
   const { data: candidates = [] } = useQuery<Candidate[]>({
-    queryKey: ["mra-account-cands", groupKey, submissionIds.join(",")],
-    enabled: submissionIds.length > 0,
+    queryKey: ["mra-account-cands", groupKey, ownSubIds.join(",")],
     queryFn: async () => {
-      const { data, error } = await sb.from("manual_risk_candidates")
-        .select("*").in("submission_id", submissionIds)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return data as Candidate[];
+      // Own submissions' candidates
+      let own: Candidate[] = [];
+      if (ownSubIds.length > 0) {
+        const { data, error } = await sb.from("manual_risk_candidates")
+          .select("*").in("submission_id", ownSubIds)
+          .order("sort_order", { ascending: true });
+        if (error) throw error;
+        own = data as Candidate[];
+      }
+      // Candidates moved INTO this account from other submissions.
+      let moved: Candidate[] = [];
+      if (groupKey !== "__unassigned__") {
+        const { data, error } = await sb.from("manual_risk_candidates")
+          .select("*").eq("override_client_id", groupKey);
+        if (error) throw error;
+        moved = data as Candidate[];
+      }
+      // De-duplicate (a candidate could match both if it belongs here originally)
+      const seen = new Set<string>();
+      return [...own, ...moved].filter((c) => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
     },
   });
 
+  // All submissions map for lookups (a moved-in candidate references a sub that
+  // isn't in ownSubs).
+  const subById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions]);
+
   const rows: AccountRow[] = useMemo(() => {
-    const bySub = new Map(subs.map((s) => [s.id, s]));
     const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
     const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
     return candidates
       .filter((c) => !isPlaceholderCandidate(c))
+      .filter((c) => {
+        // Effective client for this candidate must equal groupKey
+        const s = subById.get(c.submission_id);
+        const effId = (c as any).override_client_id ?? s?.client_id ?? "__unassigned__";
+        return effId === groupKey;
+      })
       .map((c) => {
-        const s = bySub.get(c.submission_id);
+        const s = subById.get(c.submission_id);
         if (!s || !s.sent_at) return null;
         const sentTs = new Date(s.sent_at).getTime();
         if (from !== null && sentTs < from) return null;
@@ -2240,36 +2363,44 @@ function ClientAccountDialog({
           idNumber: c.id_number,
           surname: c.surname,
           firstName: c.first_name,
+          isTldvInternal: !!(c as any).is_tldv_internal,
+          overrideClientId: (c as any).override_client_id ?? null,
+          originalClientId: s.client_id,
         } as AccountRow;
       })
       .filter((r): r is AccountRow => r !== null);
-  }, [candidates, subs, fromDate, toDate]);
+  }, [candidates, subById, fromDate, toDate, groupKey]);
 
+  // Selection is per-candidate now.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useEffect(() => { setSelected(new Set()); }, [groupKey]);
 
   const toggleAll = () => {
     if (selected.size === rows.length) setSelected(new Set());
-    else setSelected(new Set(rows.map((r) => r.submissionId)));
+    else setSelected(new Set(rows.map((r) => r.candidateId)));
   };
-  const toggleOne = (subId: string) => {
+  const toggleOne = (candId: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(subId)) next.delete(subId); else next.add(subId);
+      if (next.has(candId)) next.delete(candId); else next.add(candId);
       return next;
     });
   };
 
+  const selectedCandidateIds = useMemo(
+    () => rows.filter((r) => selected.has(r.candidateId)).map((r) => r.candidateId),
+    [rows, selected],
+  );
   const selectedSubmissionIds = useMemo(
-    () => Array.from(new Set(rows.filter((r) => selected.has(r.submissionId)).map((r) => r.submissionId))),
+    () => Array.from(new Set(rows.filter((r) => selected.has(r.candidateId)).map((r) => r.submissionId))),
     [rows, selected],
   );
 
   const exportExcel = () => {
-    const source = rows.filter((r) => selected.size === 0 || selected.has(r.submissionId));
+    const source = rows.filter((r) => selected.size === 0 || selected.has(r.candidateId));
     if (!source.length) { toast.error("No rows to export"); return; }
     const wsData = [
-      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #"],
+      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount"],
       ...source.map((r) => [
         clientName,
         r.orderNumber,
@@ -2279,16 +2410,57 @@ function ClientAccountDialog({
         r.idNumber,
         r.invoicedAt ? new Date(r.invoicedAt).toLocaleDateString() : "",
         r.invoiceNumber ?? "",
+        r.isTldvInternal ? "100% (TLDV internal)" : "",
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }];
+    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Checks");
     const safe = clientName.replace(/[^a-z0-9]+/gi, "_");
     const range = fromDate || toDate ? `_${fromDate || "start"}_to_${toDate || "today"}` : "";
     XLSX.writeFile(wb, `${safe}_Checks${range}.xlsx`);
     toast.success(`Exported ${source.length} row(s)`);
+  };
+
+  // -- Mark / unmark TLDV internal --
+  const setTldvInternal = async (value: boolean) => {
+    if (!selectedCandidateIds.length) { toast.error("Select at least one check first"); return; }
+    const { error } = await sb.from("manual_risk_candidates")
+      .update({ is_tldv_internal: value })
+      .in("id", selectedCandidateIds);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${selectedCandidateIds.length} check(s) ${value ? "marked as TLDV internal (100% discount)" : "unmarked"}`);
+    setSelected(new Set());
+    qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
+    qc.invalidateQueries({ queryKey: ["mra-accounts-all-cands"] });
+    onChanged();
+  };
+
+  // -- Move checks to another account --
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<string>("");
+  const moveChecks = async () => {
+    if (!selectedCandidateIds.length) { toast.error("Select at least one check first"); return; }
+    if (!moveTarget) { toast.error("Choose a target account"); return; }
+    // If target equals current, clear override (send it home).
+    let payload: any;
+    if (moveTarget === "__clear__") {
+      payload = { override_client_id: null };
+    } else {
+      payload = { override_client_id: moveTarget };
+    }
+    const { error } = await sb.from("manual_risk_candidates")
+      .update(payload)
+      .in("id", selectedCandidateIds);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${selectedCandidateIds.length} check(s) moved`);
+    setMoveOpen(false);
+    setMoveTarget("");
+    setSelected(new Set());
+    qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
+    qc.invalidateQueries({ queryKey: ["mra-accounts-all-cands"] });
+    onChanged();
   };
 
   const [invoiceOpen, setInvoiceOpen] = useState(false);
@@ -2343,7 +2515,7 @@ function ClientAccountDialog({
   const deleteSubmission = async (submissionId: string, orderNumber: string) => {
     if (!confirm(`Delete submission ${orderNumber}? This removes the submission and all its candidates permanently.`)) return;
     try {
-      const sub = subs.find((s) => s.id === submissionId);
+      const sub = ownSubs.find((s) => s.id === submissionId);
       if (sub?.invoice_file_path) {
         await supabase.storage.from("invoices").remove([sub.invoice_file_path]);
       }
@@ -2378,11 +2550,11 @@ function ClientAccountDialog({
     if (!selectedSubmissionIds.length) return;
     if (!confirm(`Delete ${selectedSubmissionIds.length} submission(s)? This removes them and all their candidates permanently.`)) return;
     try {
-      const paths = subs
+      const paths = ownSubs
         .filter((s) => selectedSubmissionIds.includes(s.id) && s.invoice_file_path)
         .map((s) => s.invoice_file_path!) as string[];
       if (paths.length) await supabase.storage.from("invoices").remove(paths);
-      const targetSubs = subs.filter((s) => selectedSubmissionIds.includes(s.id));
+      const targetSubs = ownSubs.filter((s) => selectedSubmissionIds.includes(s.id));
       const indPaths: string[] = [];
       const supPaths: string[] = [];
       for (const sub of targetSubs) {
@@ -2415,7 +2587,7 @@ function ClientAccountDialog({
   const moveBackToSubmission = async (submissionId: string, orderNumber: string) => {
     if (!confirm(`Move submission ${orderNumber} back to the Submissions tab? Its sent and invoice details will be cleared.`)) return;
     try {
-      const sub = subs.find((s) => s.id === submissionId);
+      const sub = ownSubs.find((s) => s.id === submissionId);
       if (sub?.invoice_file_path) {
         await supabase.storage.from("invoices").remove([sub.invoice_file_path]);
       }
@@ -2461,6 +2633,30 @@ function ClientAccountDialog({
             <FileDown className="h-4 w-4 mr-2" /> Export to Excel
           </Button>
           <Button
+            variant="outline"
+            onClick={() => setTldvInternal(true)}
+            disabled={!selectedCandidateIds.length}
+            title="Mark selected check(s) as TLDV internal pre-employment (100% discount, still counted)"
+          >
+            <Percent className="h-4 w-4 mr-2" /> Mark TLDV Internal
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setTldvInternal(false)}
+            disabled={!selectedCandidateIds.length}
+            title="Remove the TLDV internal / 100% discount flag from selected check(s)"
+          >
+            Unmark
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setMoveOpen(true)}
+            disabled={!selectedCandidateIds.length}
+            title="Move selected check(s) to a different client account"
+          >
+            <ArrowRightLeft className="h-4 w-4 mr-2" /> Move to Account
+          </Button>
+          <Button
             className="bg-red-600 hover:bg-red-700"
             onClick={() => setInvoiceOpen(true)}
             disabled={!selectedSubmissionIds.length}
@@ -2483,7 +2679,7 @@ function ClientAccountDialog({
               <TableRow>
                 <TableHead className="w-10">
                   <Checkbox
-                    checked={rows.length > 0 && selected.size === new Set(rows.map(r => r.submissionId)).size}
+                    checked={rows.length > 0 && selected.size === rows.length}
                     onCheckedChange={toggleAll}
                   />
                 </TableHead>
@@ -2491,6 +2687,7 @@ function ClientAccountDialog({
                 <TableHead>Sent</TableHead>
                 <TableHead>Candidate</TableHead>
                 <TableHead>ID Number</TableHead>
+                <TableHead>Discount</TableHead>
                 <TableHead>Invoice</TableHead>
                 <TableHead className="w-10"></TableHead>
               </TableRow>
@@ -2498,7 +2695,7 @@ function ClientAccountDialog({
             <TableBody>
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
                     No checks in this range.
                   </TableCell>
                 </TableRow>
@@ -2507,14 +2704,30 @@ function ClientAccountDialog({
                 <TableRow key={r.candidateId}>
                   <TableCell>
                     <Checkbox
-                      checked={selected.has(r.submissionId)}
-                      onCheckedChange={() => toggleOne(r.submissionId)}
+                      checked={selected.has(r.candidateId)}
+                      onCheckedChange={() => toggleOne(r.candidateId)}
                     />
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
                   <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
-                  <TableCell>{r.surname}, {r.firstName}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span>{r.surname}, {r.firstName}</span>
+                      {r.overrideClientId && (
+                        <Badge variant="outline" className="text-[10px]" title="Moved from another account">Moved in</Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
+                  <TableCell>
+                    {r.isTldvInternal ? (
+                      <Badge className="bg-blue-600 gap-1">
+                        <Percent className="h-3 w-3" /> Discounted 100%
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {r.invoicedAt ? (
                       <div className="flex items-center gap-2">
@@ -2556,6 +2769,39 @@ function ClientAccountDialog({
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
         </DialogFooter>
+
+        <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Move check(s) to another account</DialogTitle>
+              <DialogDescription>
+                Reassign {selectedCandidateIds.length} selected check(s) to a different client account.
+                The submission itself is not changed — only the account these checks are counted under.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label>Target account</Label>
+              <Select value={moveTarget} onValueChange={setMoveTarget}>
+                <SelectTrigger><SelectValue placeholder="Choose an account…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__clear__">↩ Reset to original submission's client</SelectItem>
+                  {clients
+                    .filter((c) => c.id !== groupKey)
+                    .sort((a, b) => a.client_name.localeCompare(b.client_name))
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.client_name}{c.is_regular ? " ★" : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMoveOpen(false)}>Cancel</Button>
+              <Button className="bg-red-600 hover:bg-red-700" onClick={moveChecks}>Move</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
           <DialogContent>
