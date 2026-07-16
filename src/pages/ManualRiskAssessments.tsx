@@ -2148,6 +2148,7 @@ type AccountRow = {
   surname: string;
   firstName: string;
   isTldvInternal: boolean;
+  isPtvsDiscount: boolean;
   overrideClientId: string | null;
   originalClientId: string | null;
 };
