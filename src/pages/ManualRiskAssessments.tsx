@@ -2633,6 +2633,30 @@ function ClientAccountDialog({
             <FileDown className="h-4 w-4 mr-2" /> Export to Excel
           </Button>
           <Button
+            variant="outline"
+            onClick={() => setTldvInternal(true)}
+            disabled={!selectedCandidateIds.length}
+            title="Mark selected check(s) as TLDV internal pre-employment (100% discount, still counted)"
+          >
+            <Percent className="h-4 w-4 mr-2" /> Mark TLDV Internal
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setTldvInternal(false)}
+            disabled={!selectedCandidateIds.length}
+            title="Remove the TLDV internal / 100% discount flag from selected check(s)"
+          >
+            Unmark
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setMoveOpen(true)}
+            disabled={!selectedCandidateIds.length}
+            title="Move selected check(s) to a different client account"
+          >
+            <ArrowRightLeft className="h-4 w-4 mr-2" /> Move to Account
+          </Button>
+          <Button
             className="bg-red-600 hover:bg-red-700"
             onClick={() => setInvoiceOpen(true)}
             disabled={!selectedSubmissionIds.length}
@@ -2655,7 +2679,7 @@ function ClientAccountDialog({
               <TableRow>
                 <TableHead className="w-10">
                   <Checkbox
-                    checked={rows.length > 0 && selected.size === new Set(rows.map(r => r.submissionId)).size}
+                    checked={rows.length > 0 && selected.size === rows.length}
                     onCheckedChange={toggleAll}
                   />
                 </TableHead>
@@ -2663,6 +2687,7 @@ function ClientAccountDialog({
                 <TableHead>Sent</TableHead>
                 <TableHead>Candidate</TableHead>
                 <TableHead>ID Number</TableHead>
+                <TableHead>Discount</TableHead>
                 <TableHead>Invoice</TableHead>
                 <TableHead className="w-10"></TableHead>
               </TableRow>
@@ -2670,7 +2695,7 @@ function ClientAccountDialog({
             <TableBody>
               {rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
                     No checks in this range.
                   </TableCell>
                 </TableRow>
@@ -2679,14 +2704,30 @@ function ClientAccountDialog({
                 <TableRow key={r.candidateId}>
                   <TableCell>
                     <Checkbox
-                      checked={selected.has(r.submissionId)}
-                      onCheckedChange={() => toggleOne(r.submissionId)}
+                      checked={selected.has(r.candidateId)}
+                      onCheckedChange={() => toggleOne(r.candidateId)}
                     />
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
                   <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
-                  <TableCell>{r.surname}, {r.firstName}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span>{r.surname}, {r.firstName}</span>
+                      {r.overrideClientId && (
+                        <Badge variant="outline" className="text-[10px]" title="Moved from another account">Moved in</Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
+                  <TableCell>
+                    {r.isTldvInternal ? (
+                      <Badge className="bg-blue-600 gap-1">
+                        <Percent className="h-3 w-3" /> Discounted 100%
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {r.invoicedAt ? (
                       <div className="flex items-center gap-2">
@@ -2728,6 +2769,39 @@ function ClientAccountDialog({
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
         </DialogFooter>
+
+        <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Move check(s) to another account</DialogTitle>
+              <DialogDescription>
+                Reassign {selectedCandidateIds.length} selected check(s) to a different client account.
+                The submission itself is not changed — only the account these checks are counted under.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label>Target account</Label>
+              <Select value={moveTarget} onValueChange={setMoveTarget}>
+                <SelectTrigger><SelectValue placeholder="Choose an account…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__clear__">↩ Reset to original submission's client</SelectItem>
+                  {clients
+                    .filter((c) => c.id !== groupKey)
+                    .sort((a, b) => a.client_name.localeCompare(b.client_name))
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.client_name}{c.is_regular ? " ★" : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMoveOpen(false)}>Cancel</Button>
+              <Button className="bg-red-600 hover:bg-red-700" onClick={moveChecks}>Move</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
           <DialogContent>
