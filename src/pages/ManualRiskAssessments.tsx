@@ -1530,12 +1530,68 @@ function SubmissionDetailsDialog({
     finally { setSending(false); }
   };
 
-  const reopenSubmission = async () => {
-    // (see below)
-    return _reopenSubmissionImpl();
+  const openEditChecks = () => {
+    setPendingChecks(activeChecks.slice());
+    setEditChecksOpen(true);
   };
 
-  const _reopenSubmissionImpl = async () => {
+  const saveCheckSelection = async () => {
+    if (!pendingChecks.length) { toast.error("Select at least one check"); return; }
+    setSavingChecks(true);
+    try {
+      const before = new Set(activeChecks);
+      const after = new Set(pendingChecks);
+      const removed = [...before].filter((k) => !after.has(k));
+
+      // Clear result/notes columns for checks that were removed, so stale data
+      // from the wrong check doesn't linger on candidates.
+      if (removed.length) {
+        const clearPatch: Record<string, any> = {};
+        for (const k of removed) {
+          const cols = CHECK_COLUMNS[k];
+          if (!cols) continue;
+          clearPatch[cols.result] = null;
+          clearPatch[cols.notes] = null;
+        }
+        if (Object.keys(clearPatch).length) {
+          const { error: candErr } = await sb
+            .from("manual_risk_candidates")
+            .update(clearPatch)
+            .eq("submission_id", submissionId);
+          if (candErr) throw candErr;
+        }
+      }
+
+      // If the submission was already marked completed but the new selection now
+      // includes an unfilled check, revert status to "open" so results can be captured.
+      const nextStatus =
+        sub?.status === "completed" && removed.length !== pendingChecks.length
+          ? "open"
+          : sub?.status;
+
+      const { error } = await sb
+        .from("manual_risk_submissions")
+        .update({
+          requested_checks: pendingChecks,
+          ...(nextStatus && nextStatus !== sub?.status ? { status: nextStatus } : {}),
+        })
+        .eq("id", submissionId);
+      if (error) throw error;
+
+      toast.success("Check selection updated");
+      setEditChecksOpen(false);
+      refetch();
+      qc.invalidateQueries({ queryKey: ["mra-sub", submissionId] });
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSavingChecks(false);
+    }
+  };
+
+  const reopenSubmission = async () => {
     setReopening(true);
     try {
       const { error } = await sb
