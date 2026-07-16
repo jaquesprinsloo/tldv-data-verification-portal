@@ -756,6 +756,7 @@ export type Database = {
           id_verification_data: Json | null
           id_verification_notes: string | null
           id_verification_result: string | null
+          is_ptvs_discount: boolean
           is_tldv_internal: boolean
           override_client_id: string | null
           pdp_notes: string | null
@@ -783,6 +784,7 @@ export type Database = {
           id_verification_data?: Json | null
           id_verification_notes?: string | null
           id_verification_result?: string | null
+          is_ptvs_discount?: boolean
           is_tldv_internal?: boolean
           override_client_id?: string | null
           pdp_notes?: string | null
@@ -810,6 +812,7 @@ export type Database = {
           id_verification_data?: Json | null
           id_verification_notes?: string | null
           id_verification_result?: string | null
+          is_ptvs_discount?: boolean
           is_tldv_internal?: boolean
           override_client_id?: string | null
           pdp_notes?: string | null
