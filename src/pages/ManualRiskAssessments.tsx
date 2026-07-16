@@ -1750,6 +1750,44 @@ function SubmissionDetailsDialog({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={editChecksOpen} onOpenChange={setEditChecksOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Check Selection</DialogTitle>
+              <DialogDescription>
+                Correct the checks requested for this submission. Removing a check
+                will clear any captured results/notes for that check on every candidate.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              {Object.keys(CHECK_META)
+                .filter((k) => CHECK_COLUMNS[k])
+                .map((k) => {
+                  const checked = pendingChecks.includes(k);
+                  return (
+                    <label key={k} className="flex items-center gap-2 rounded border px-3 py-2 cursor-pointer hover:bg-muted/40">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          setPendingChecks((prev) =>
+                            v ? [...prev, k] : prev.filter((x) => x !== k),
+                          );
+                        }}
+                      />
+                      <span className="text-sm">{CHECK_META[k].label}</span>
+                    </label>
+                  );
+                })}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditChecksOpen(false)}>Cancel</Button>
+              <Button onClick={saveCheckSelection} disabled={savingChecks} className="bg-red-600 hover:bg-red-700">
+                {savingChecks ? "Saving..." : "Save"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );
