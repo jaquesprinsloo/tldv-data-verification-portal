@@ -2864,13 +2864,21 @@ function ClientAccountDialog({
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
                   <TableCell>
-                    {r.isTldvInternal ? (
-                      <Badge className="bg-blue-600 gap-1">
-                        <Percent className="h-3 w-3" /> Discounted 100%
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
+                    <div className="flex flex-wrap gap-1">
+                      {r.isTldvInternal && (
+                        <Badge className="bg-blue-600 gap-1">
+                          <Percent className="h-3 w-3" /> Discounted 100%
+                        </Badge>
+                      )}
+                      {r.isPtvsDiscount && (
+                        <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
+                          <Percent className="h-3 w-3" /> PTVS Discount
+                        </Badge>
+                      )}
+                      {!r.isTldvInternal && !r.isPtvsDiscount && (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {r.invoicedAt ? (
