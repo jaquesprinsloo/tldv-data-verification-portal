@@ -2474,6 +2474,7 @@ function ClientAccountDialog({
           surname: c.surname,
           firstName: c.first_name,
           isTldvInternal: !!(c as any).is_tldv_internal,
+          isPtvsDiscount: !!(c as any).is_ptvs_discount,
           overrideClientId: (c as any).override_client_id ?? null,
           originalClientId: s.client_id,
         } as AccountRow;
@@ -2510,7 +2511,7 @@ function ClientAccountDialog({
     const source = rows.filter((r) => selected.size === 0 || selected.has(r.candidateId));
     if (!source.length) { toast.error("No rows to export"); return; }
     const wsData = [
-      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount"],
+      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount", "PTVS"],
       ...source.map((r) => [
         clientName,
         r.orderNumber,
@@ -2521,10 +2522,11 @@ function ClientAccountDialog({
         r.invoicedAt ? new Date(r.invoicedAt).toLocaleDateString() : "",
         r.invoiceNumber ?? "",
         r.isTldvInternal ? "100% (TLDV internal)" : "",
+        r.isPtvsDiscount ? "PTVS discount" : "",
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 20 }];
+    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 20 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Checks");
     const safe = clientName.replace(/[^a-z0-9]+/gi, "_");
@@ -2541,6 +2543,20 @@ function ClientAccountDialog({
       .in("id", selectedCandidateIds);
     if (error) { toast.error(error.message); return; }
     toast.success(`${selectedCandidateIds.length} check(s) ${value ? "marked as TLDV internal (100% discount)" : "unmarked"}`);
+    setSelected(new Set());
+    qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
+    qc.invalidateQueries({ queryKey: ["mra-accounts-all-cands"] });
+    onChanged();
+  };
+
+  // -- Mark / unmark PTVS discount --
+  const setPtvsDiscount = async (value: boolean) => {
+    if (!selectedCandidateIds.length) { toast.error("Select at least one check first"); return; }
+    const { error } = await sb.from("manual_risk_candidates")
+      .update({ is_ptvs_discount: value } as any)
+      .in("id", selectedCandidateIds);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${selectedCandidateIds.length} check(s) ${value ? "marked as PTVS discount" : "unmarked"}`);
     setSelected(new Set());
     qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
     qc.invalidateQueries({ queryKey: ["mra-accounts-all-cands"] });
