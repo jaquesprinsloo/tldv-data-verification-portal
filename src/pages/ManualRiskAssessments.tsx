@@ -1531,6 +1531,11 @@ function SubmissionDetailsDialog({
   };
 
   const reopenSubmission = async () => {
+    // (see below)
+    return _reopenSubmissionImpl();
+  };
+
+  const _reopenSubmissionImpl = async () => {
     setReopening(true);
     try {
       const { error } = await sb
