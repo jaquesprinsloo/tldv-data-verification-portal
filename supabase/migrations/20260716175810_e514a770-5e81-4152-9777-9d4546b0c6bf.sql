@@ -1,0 +1,1 @@
+ALTER TABLE public.manual_risk_candidates ADD COLUMN IF NOT EXISTS is_ptvs_discount boolean NOT NULL DEFAULT false;
