@@ -2515,7 +2515,7 @@ function ClientAccountDialog({
   const deleteSubmission = async (submissionId: string, orderNumber: string) => {
     if (!confirm(`Delete submission ${orderNumber}? This removes the submission and all its candidates permanently.`)) return;
     try {
-      const sub = subs.find((s) => s.id === submissionId);
+      const sub = ownSubs.find((s) => s.id === submissionId);
       if (sub?.invoice_file_path) {
         await supabase.storage.from("invoices").remove([sub.invoice_file_path]);
       }
@@ -2554,7 +2554,7 @@ function ClientAccountDialog({
         .filter((s) => selectedSubmissionIds.includes(s.id) && s.invoice_file_path)
         .map((s) => s.invoice_file_path!) as string[];
       if (paths.length) await supabase.storage.from("invoices").remove(paths);
-      const targetSubs = subs.filter((s) => selectedSubmissionIds.includes(s.id));
+      const targetSubs = ownSubs.filter((s) => selectedSubmissionIds.includes(s.id));
       const indPaths: string[] = [];
       const supPaths: string[] = [];
       for (const sub of targetSubs) {
@@ -2587,7 +2587,7 @@ function ClientAccountDialog({
   const moveBackToSubmission = async (submissionId: string, orderNumber: string) => {
     if (!confirm(`Move submission ${orderNumber} back to the Submissions tab? Its sent and invoice details will be cleared.`)) return;
     try {
-      const sub = subs.find((s) => s.id === submissionId);
+      const sub = ownSubs.find((s) => s.id === submissionId);
       if (sub?.invoice_file_path) {
         await supabase.storage.from("invoices").remove([sub.invoice_file_path]);
       }
