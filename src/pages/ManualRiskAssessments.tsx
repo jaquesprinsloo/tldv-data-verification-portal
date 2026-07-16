@@ -1330,6 +1330,9 @@ function SubmissionDetailsDialog({
   const [sending, setSending] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [reopening, setReopening] = useState(false);
+  const [editChecksOpen, setEditChecksOpen] = useState(false);
+  const [pendingChecks, setPendingChecks] = useState<string[]>([]);
+  const [savingChecks, setSavingChecks] = useState(false);
 
   useEffect(() => { setLocal(candidates.filter((c) => !isPlaceholderCandidate(c))); }, [candidates]);
 
