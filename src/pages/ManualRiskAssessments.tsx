@@ -1330,6 +1330,9 @@ function SubmissionDetailsDialog({
   const [sending, setSending] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [reopening, setReopening] = useState(false);
+  const [editChecksOpen, setEditChecksOpen] = useState(false);
+  const [pendingChecks, setPendingChecks] = useState<string[]>([]);
+  const [savingChecks, setSavingChecks] = useState(false);
 
   useEffect(() => { setLocal(candidates.filter((c) => !isPlaceholderCandidate(c))); }, [candidates]);
 
@@ -1527,6 +1530,67 @@ function SubmissionDetailsDialog({
     finally { setSending(false); }
   };
 
+  const openEditChecks = () => {
+    setPendingChecks(activeChecks.slice());
+    setEditChecksOpen(true);
+  };
+
+  const saveCheckSelection = async () => {
+    if (!pendingChecks.length) { toast.error("Select at least one check"); return; }
+    setSavingChecks(true);
+    try {
+      const before = new Set(activeChecks);
+      const after = new Set(pendingChecks);
+      const removed = [...before].filter((k) => !after.has(k));
+
+      // Clear result/notes columns for checks that were removed, so stale data
+      // from the wrong check doesn't linger on candidates.
+      if (removed.length) {
+        const clearPatch: Record<string, any> = {};
+        for (const k of removed) {
+          const cols = CHECK_COLUMNS[k];
+          if (!cols) continue;
+          clearPatch[cols.result] = null;
+          clearPatch[cols.notes] = null;
+        }
+        if (Object.keys(clearPatch).length) {
+          const { error: candErr } = await sb
+            .from("manual_risk_candidates")
+            .update(clearPatch)
+            .eq("submission_id", submissionId);
+          if (candErr) throw candErr;
+        }
+      }
+
+      // If the submission was already marked completed but the new selection now
+      // includes an unfilled check, revert status to "open" so results can be captured.
+      const nextStatus =
+        sub?.status === "completed" && removed.length !== pendingChecks.length
+          ? "open"
+          : sub?.status;
+
+      const { error } = await sb
+        .from("manual_risk_submissions")
+        .update({
+          requested_checks: pendingChecks,
+          ...(nextStatus && nextStatus !== sub?.status ? { status: nextStatus } : {}),
+        })
+        .eq("id", submissionId);
+      if (error) throw error;
+
+      toast.success("Check selection updated");
+      setEditChecksOpen(false);
+      refetch();
+      qc.invalidateQueries({ queryKey: ["mra-sub", submissionId] });
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSavingChecks(false);
+    }
+  };
+
   const reopenSubmission = async () => {
     setReopening(true);
     try {
@@ -1620,6 +1684,14 @@ function SubmissionDetailsDialog({
         <DialogFooter className="flex-col sm:flex-row gap-2 items-stretch sm:items-center">
           <Button variant="outline" onClick={onClose}>Close</Button>
           <div className="flex-1" />
+          <Button
+            variant="outline"
+            onClick={openEditChecks}
+            title="Change which checks are requested for this submission (fix wrong check selection)"
+          >
+            <ClipboardList className="h-4 w-4 mr-2" />
+            Edit Check Selection
+          </Button>
           {sub.status === "completed" && (
             <Button
               variant="outline"
@@ -1674,6 +1746,44 @@ function SubmissionDetailsDialog({
               <Button variant="outline" onClick={() => setEmailOpen(false)}>Cancel</Button>
               <Button onClick={sendEmail} disabled={sending} className="bg-red-600 hover:bg-red-700">
                 {sending ? "Sending..." : "Send"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={editChecksOpen} onOpenChange={setEditChecksOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Check Selection</DialogTitle>
+              <DialogDescription>
+                Correct the checks requested for this submission. Removing a check
+                will clear any captured results/notes for that check on every candidate.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              {Object.keys(CHECK_META)
+                .filter((k) => CHECK_COLUMNS[k])
+                .map((k) => {
+                  const checked = pendingChecks.includes(k);
+                  return (
+                    <label key={k} className="flex items-center gap-2 rounded border px-3 py-2 cursor-pointer hover:bg-muted/40">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          setPendingChecks((prev) =>
+                            v ? [...prev, k] : prev.filter((x) => x !== k),
+                          );
+                        }}
+                      />
+                      <span className="text-sm">{CHECK_META[k].label}</span>
+                    </label>
+                  );
+                })}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditChecksOpen(false)}>Cancel</Button>
+              <Button onClick={saveCheckSelection} disabled={savingChecks} className="bg-red-600 hover:bg-red-700">
+                {savingChecks ? "Saving..." : "Save"}
               </Button>
             </DialogFooter>
           </DialogContent>
