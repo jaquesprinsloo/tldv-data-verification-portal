@@ -2550,7 +2550,7 @@ function ClientAccountDialog({
     if (!selectedSubmissionIds.length) return;
     if (!confirm(`Delete ${selectedSubmissionIds.length} submission(s)? This removes them and all their candidates permanently.`)) return;
     try {
-      const paths = subs
+      const paths = ownSubs
         .filter((s) => selectedSubmissionIds.includes(s.id) && s.invoice_file_path)
         .map((s) => s.invoice_file_path!) as string[];
       if (paths.length) await supabase.storage.from("invoices").remove(paths);
