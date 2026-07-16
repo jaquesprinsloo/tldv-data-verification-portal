@@ -2777,6 +2777,23 @@ function ClientAccountDialog({
           </Button>
           <Button
             variant="outline"
+            onClick={() => setPtvsDiscount(true)}
+            disabled={!selectedCandidateIds.length}
+            className="border-amber-600 text-amber-700 hover:bg-amber-50"
+            title="Mark selected check(s) as PTVS discount"
+          >
+            <Percent className="h-4 w-4 mr-2" /> Mark PTVS Discount
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setPtvsDiscount(false)}
+            disabled={!selectedCandidateIds.length}
+            title="Remove the PTVS discount flag from selected check(s)"
+          >
+            Unmark PTVS
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => setMoveOpen(true)}
             disabled={!selectedCandidateIds.length}
             title="Move selected check(s) to a different client account"
