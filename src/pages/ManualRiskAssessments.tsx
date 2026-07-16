@@ -2286,10 +2286,11 @@ function ClientAccountDialog({
   const qc = useQueryClient();
   const client = groupKey === "__unassigned__" ? null : clients.find((c) => c.id === groupKey) ?? null;
   const clientName = client?.client_name ?? "Unassigned";
-  const subs = useMemo(
-    () => submissions
-      .filter((s) => (s.client_id ?? "__unassigned__") === groupKey)
-      .sort((a, b) => (b.sent_at ?? "").localeCompare(a.sent_at ?? "")),
+  // Original submissions of this account (used for delete/back-to-submissions on
+  // whole-submission actions). Do not filter for candidates because a candidate
+  // may have been moved INTO this account from another submission via override.
+  const ownSubs = useMemo(
+    () => submissions.filter((s) => (s.client_id ?? "__unassigned__") === groupKey),
     [submissions, groupKey],
   );
 
@@ -2297,28 +2298,56 @@ function ClientAccountDialog({
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  // Load all candidates for these submissions
-  const submissionIds = useMemo(() => subs.map((s) => s.id), [subs]);
+  // Load candidates: (a) those from this account's own submissions,
+  // and (b) those moved into this account via override_client_id from other subs.
+  const ownSubIds = useMemo(() => ownSubs.map((s) => s.id), [ownSubs]);
   const { data: candidates = [] } = useQuery<Candidate[]>({
-    queryKey: ["mra-account-cands", groupKey, submissionIds.join(",")],
-    enabled: submissionIds.length > 0,
+    queryKey: ["mra-account-cands", groupKey, ownSubIds.join(",")],
     queryFn: async () => {
-      const { data, error } = await sb.from("manual_risk_candidates")
-        .select("*").in("submission_id", submissionIds)
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      return data as Candidate[];
+      // Own submissions' candidates
+      let own: Candidate[] = [];
+      if (ownSubIds.length > 0) {
+        const { data, error } = await sb.from("manual_risk_candidates")
+          .select("*").in("submission_id", ownSubIds)
+          .order("sort_order", { ascending: true });
+        if (error) throw error;
+        own = data as Candidate[];
+      }
+      // Candidates moved INTO this account from other submissions.
+      let moved: Candidate[] = [];
+      if (groupKey !== "__unassigned__") {
+        const { data, error } = await sb.from("manual_risk_candidates")
+          .select("*").eq("override_client_id", groupKey);
+        if (error) throw error;
+        moved = data as Candidate[];
+      }
+      // De-duplicate (a candidate could match both if it belongs here originally)
+      const seen = new Set<string>();
+      return [...own, ...moved].filter((c) => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
     },
   });
 
+  // All submissions map for lookups (a moved-in candidate references a sub that
+  // isn't in ownSubs).
+  const subById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions]);
+
   const rows: AccountRow[] = useMemo(() => {
-    const bySub = new Map(subs.map((s) => [s.id, s]));
     const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
     const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
     return candidates
       .filter((c) => !isPlaceholderCandidate(c))
+      .filter((c) => {
+        // Effective client for this candidate must equal groupKey
+        const s = subById.get(c.submission_id);
+        const effId = (c as any).override_client_id ?? s?.client_id ?? "__unassigned__";
+        return effId === groupKey;
+      })
       .map((c) => {
-        const s = bySub.get(c.submission_id);
+        const s = subById.get(c.submission_id);
         if (!s || !s.sent_at) return null;
         const sentTs = new Date(s.sent_at).getTime();
         if (from !== null && sentTs < from) return null;
@@ -2334,36 +2363,44 @@ function ClientAccountDialog({
           idNumber: c.id_number,
           surname: c.surname,
           firstName: c.first_name,
+          isTldvInternal: !!(c as any).is_tldv_internal,
+          overrideClientId: (c as any).override_client_id ?? null,
+          originalClientId: s.client_id,
         } as AccountRow;
       })
       .filter((r): r is AccountRow => r !== null);
-  }, [candidates, subs, fromDate, toDate]);
+  }, [candidates, subById, fromDate, toDate, groupKey]);
 
+  // Selection is per-candidate now.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useEffect(() => { setSelected(new Set()); }, [groupKey]);
 
   const toggleAll = () => {
     if (selected.size === rows.length) setSelected(new Set());
-    else setSelected(new Set(rows.map((r) => r.submissionId)));
+    else setSelected(new Set(rows.map((r) => r.candidateId)));
   };
-  const toggleOne = (subId: string) => {
+  const toggleOne = (candId: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(subId)) next.delete(subId); else next.add(subId);
+      if (next.has(candId)) next.delete(candId); else next.add(candId);
       return next;
     });
   };
 
+  const selectedCandidateIds = useMemo(
+    () => rows.filter((r) => selected.has(r.candidateId)).map((r) => r.candidateId),
+    [rows, selected],
+  );
   const selectedSubmissionIds = useMemo(
-    () => Array.from(new Set(rows.filter((r) => selected.has(r.submissionId)).map((r) => r.submissionId))),
+    () => Array.from(new Set(rows.filter((r) => selected.has(r.candidateId)).map((r) => r.submissionId))),
     [rows, selected],
   );
 
   const exportExcel = () => {
-    const source = rows.filter((r) => selected.size === 0 || selected.has(r.submissionId));
+    const source = rows.filter((r) => selected.size === 0 || selected.has(r.candidateId));
     if (!source.length) { toast.error("No rows to export"); return; }
     const wsData = [
-      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #"],
+      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount"],
       ...source.map((r) => [
         clientName,
         r.orderNumber,
@@ -2373,16 +2410,57 @@ function ClientAccountDialog({
         r.idNumber,
         r.invoicedAt ? new Date(r.invoicedAt).toLocaleDateString() : "",
         r.invoiceNumber ?? "",
+        r.isTldvInternal ? "100% (TLDV internal)" : "",
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }];
+    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 20 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Checks");
     const safe = clientName.replace(/[^a-z0-9]+/gi, "_");
     const range = fromDate || toDate ? `_${fromDate || "start"}_to_${toDate || "today"}` : "";
     XLSX.writeFile(wb, `${safe}_Checks${range}.xlsx`);
     toast.success(`Exported ${source.length} row(s)`);
+  };
+
+  // -- Mark / unmark TLDV internal --
+  const setTldvInternal = async (value: boolean) => {
+    if (!selectedCandidateIds.length) { toast.error("Select at least one check first"); return; }
+    const { error } = await sb.from("manual_risk_candidates")
+      .update({ is_tldv_internal: value })
+      .in("id", selectedCandidateIds);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${selectedCandidateIds.length} check(s) ${value ? "marked as TLDV internal (100% discount)" : "unmarked"}`);
+    setSelected(new Set());
+    qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
+    qc.invalidateQueries({ queryKey: ["mra-accounts-all-cands"] });
+    onChanged();
+  };
+
+  // -- Move checks to another account --
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [moveTarget, setMoveTarget] = useState<string>("");
+  const moveChecks = async () => {
+    if (!selectedCandidateIds.length) { toast.error("Select at least one check first"); return; }
+    if (!moveTarget) { toast.error("Choose a target account"); return; }
+    // If target equals current, clear override (send it home).
+    let payload: any;
+    if (moveTarget === "__clear__") {
+      payload = { override_client_id: null };
+    } else {
+      payload = { override_client_id: moveTarget };
+    }
+    const { error } = await sb.from("manual_risk_candidates")
+      .update(payload)
+      .in("id", selectedCandidateIds);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`${selectedCandidateIds.length} check(s) moved`);
+    setMoveOpen(false);
+    setMoveTarget("");
+    setSelected(new Set());
+    qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
+    qc.invalidateQueries({ queryKey: ["mra-accounts-all-cands"] });
+    onChanged();
   };
 
   const [invoiceOpen, setInvoiceOpen] = useState(false);
