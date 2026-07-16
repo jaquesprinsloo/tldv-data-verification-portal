@@ -773,7 +773,14 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
           )}
           {clients.map((c) => (
             <TableRow key={c.id}>
-              <TableCell className="font-medium">{c.client_name}</TableCell>
+              <TableCell className="font-medium">
+                <div className="flex items-center gap-2">
+                  {c.client_name}
+                  {c.is_regular && (
+                    <Badge className="bg-amber-500 text-white gap-1"><Star className="h-3 w-3 fill-current" /> Regular</Badge>
+                  )}
+                </div>
+              </TableCell>
               <TableCell>{c.contact_person ?? "—"}</TableCell>
               <TableCell>{c.email ?? "—"}</TableCell>
               <TableCell>{c.phone ?? "—"}</TableCell>
