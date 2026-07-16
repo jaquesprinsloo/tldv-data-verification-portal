@@ -1684,6 +1684,14 @@ function SubmissionDetailsDialog({
         <DialogFooter className="flex-col sm:flex-row gap-2 items-stretch sm:items-center">
           <Button variant="outline" onClick={onClose}>Close</Button>
           <div className="flex-1" />
+          <Button
+            variant="outline"
+            onClick={openEditChecks}
+            title="Change which checks are requested for this submission (fix wrong check selection)"
+          >
+            <ClipboardList className="h-4 w-4 mr-2" />
+            Edit Check Selection
+          </Button>
           {sub.status === "completed" && (
             <Button
               variant="outline"
