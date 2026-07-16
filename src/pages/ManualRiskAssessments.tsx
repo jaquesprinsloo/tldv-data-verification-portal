@@ -2037,6 +2037,9 @@ type AccountRow = {
   idNumber: string;
   surname: string;
   firstName: string;
+  isTldvInternal: boolean;
+  overrideClientId: string | null;
+  originalClientId: string | null;
 };
 
 function AccountsTab({
@@ -2050,8 +2053,23 @@ function AccountsTab({
   const [searchQuery, setSearchQuery] = useState("");
   const trimmedQuery = searchQuery.trim();
   const searchActive = trimmedQuery.length >= 2;
+  const [filterRegular, setFilterRegular] = useState(false);
+  const [sortByRegular, setSortByRegular] = useState(false);
 
   const sentSubmissionIds = useMemo(() => submissions.map((s) => s.id), [submissions]);
+
+  // Load ALL candidates for sent submissions so we can count checks (per-candidate)
+  // and honor override_client_id when grouping them under accounts.
+  const { data: allCandidates = [] } = useQuery<Candidate[]>({
+    queryKey: ["mra-accounts-all-cands", sentSubmissionIds.join(",")],
+    enabled: sentSubmissionIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await sb.from("manual_risk_candidates")
+        .select("*").in("submission_id", sentSubmissionIds);
+      if (error) throw error;
+      return (data as Candidate[]).filter((c) => !isPlaceholderCandidate(c));
+    },
+  });
 
   const { data: searchCandidates = [], isFetching: searching } = useQuery<(Candidate & { submission_id: string })[]>({
     queryKey: ["mra-accounts-search", trimmedQuery, sentSubmissionIds.join(",")],
@@ -2071,37 +2089,80 @@ function AccountsTab({
   const searchResults = useMemo(() => {
     return searchCandidates.map((c) => {
       const sub = submissions.find((s) => s.id === c.submission_id) || null;
-      const client = sub?.client_id ? clients.find((cl) => cl.id === sub.client_id) ?? null : null;
+      const effClientId = (c as any).override_client_id ?? sub?.client_id ?? null;
+      const client = effClientId ? clients.find((cl) => cl.id === effClientId) ?? null : null;
       return { c, sub, client };
     }).filter((r) => r.sub);
   }, [searchCandidates, submissions, clients]);
 
-  // Group sent submissions by client
+  // Group by EFFECTIVE client (override_client_id on the candidate wins over
+  // the submission's client_id) and count per-candidate.
   const groups = useMemo(() => {
-    const m = new Map<string, { client: Client | null; subs: Submission[] }>();
-    for (const s of submissions) {
-      const key = s.client_id ?? "__unassigned__";
+    const subMap = new Map(submissions.map((s) => [s.id, s]));
+    const m = new Map<string, { client: Client | null; candCount: number; subIds: Set<string> }>();
+    for (const c of allCandidates) {
+      const sub = subMap.get(c.submission_id);
+      if (!sub) continue;
+      const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
+      const key = effId;
       if (!m.has(key)) {
-        const client = s.client_id ? clients.find((c) => c.id === s.client_id) ?? null : null;
-        m.set(key, { client, subs: [] });
+        const client = key === "__unassigned__" ? null : clients.find((cl) => cl.id === key) ?? null;
+        m.set(key, { client, candCount: 0, subIds: new Set() });
       }
-      m.get(key)!.subs.push(s);
+      const g = m.get(key)!;
+      g.candCount += 1;
+      g.subIds.add(sub.id);
     }
-    return Array.from(m.entries()).map(([key, v]) => ({
-      key,
-      client: v.client,
-      name: v.client?.client_name ?? "Unassigned",
-      subs: v.subs,
-      pendingInvoice: v.subs.filter((s) => !s.invoiced_at).length,
-    })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [submissions, clients]);
+    return Array.from(m.entries()).map(([key, v]) => {
+      const relatedSubs = Array.from(v.subIds).map((id) => subMap.get(id)!).filter(Boolean);
+      return {
+        key,
+        client: v.client,
+        name: v.client?.client_name ?? "Unassigned",
+        isRegular: !!v.client?.is_regular,
+        checkCount: v.candCount,
+        pendingInvoice: relatedSubs.filter((s) => !s.invoiced_at).length,
+      };
+    }).sort((a, b) => {
+      if (sortByRegular && a.isRegular !== b.isRegular) return a.isRegular ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [allCandidates, submissions, clients, sortByRegular]);
+
+  const visibleGroups = useMemo(
+    () => (filterRegular ? groups.filter((g) => g.isRegular) : groups),
+    [groups, filterRegular],
+  );
+
+  const totalChecks = allCandidates.length;
 
   return (
     <Card className="p-4">
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <p className="text-sm text-muted-foreground">
-          {submissions.length} sent check(s) across {groups.length} client account(s). Select a client to export or invoice.
+          {totalChecks} sent check(s) across {groups.length} client account(s). Each candidate counts as one check.
         </p>
+        <div className="flex-1" />
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="mra-filter-regular"
+            checked={filterRegular}
+            onCheckedChange={(v) => setFilterRegular(!!v)}
+          />
+          <label htmlFor="mra-filter-regular" className="text-xs cursor-pointer flex items-center gap-1">
+            <Star className="h-3 w-3 text-amber-500" /> Regulars only
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="mra-sort-regular"
+            checked={sortByRegular}
+            onCheckedChange={(v) => setSortByRegular(!!v)}
+          />
+          <label htmlFor="mra-sort-regular" className="text-xs cursor-pointer">
+            Sort regulars first
+          </label>
+        </div>
       </div>
 
       <div className="mb-4">
@@ -2141,7 +2202,10 @@ function AccountsTab({
                     <TableCell>{sub!.order_number}</TableCell>
                     <TableCell>{sub!.sent_at ? new Date(sub!.sent_at).toLocaleDateString() : "—"}</TableCell>
                     <TableCell className="text-right">
-                      <Button size="sm" variant="outline" onClick={() => setOpenClientId(sub!.client_id ?? "unassigned")}>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        const effId = (c as any).override_client_id ?? sub!.client_id ?? null;
+                        setOpenClientId(effId ?? "unassigned");
+                      }}>
                         Open account
                       </Button>
                     </TableCell>
@@ -2153,9 +2217,11 @@ function AccountsTab({
         )}
       </div>
 
-      {groups.length === 0 ? (
+      {visibleGroups.length === 0 ? (
         <div className="text-center text-muted-foreground py-8">
-          No sent submissions yet. Once you email a report from the Submissions tab it will appear here under its client.
+          {groups.length === 0
+            ? "No sent submissions yet. Once you email a report from the Submissions tab it will appear here under its client."
+            : "No regular accounts to show. Toggle 'Regulars only' off to see all accounts."}
         </div>
       ) : (
         <Table>
@@ -2168,10 +2234,17 @@ function AccountsTab({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {groups.map((g) => (
+            {visibleGroups.map((g) => (
               <TableRow key={g.key}>
-                <TableCell className="font-medium">{g.name}</TableCell>
-                <TableCell className="text-center">{g.subs.length}</TableCell>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    {g.name}
+                    {g.isRegular && (
+                      <Badge className="bg-amber-500 text-white gap-1"><Star className="h-3 w-3 fill-current" /> Regular</Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="text-center">{g.checkCount}</TableCell>
                 <TableCell className="text-center">
                   <Badge className={g.pendingInvoice ? "bg-amber-600" : "bg-emerald-600"}>
                     {g.pendingInvoice}
