@@ -814,6 +814,17 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
             </div>
             <div><Label>Phone</Label><Input value={editing?.phone ?? ""} onChange={(e) => setEditing((p) => ({ ...p, phone: e.target.value }))} /></div>
             <div><Label>Address</Label><Textarea value={editing?.address ?? ""} onChange={(e) => setEditing((p) => ({ ...p, address: e.target.value }))} /></div>
+            <div className="flex items-center gap-2 pt-1">
+              <Checkbox
+                id="mra-client-regular"
+                checked={!!editing?.is_regular}
+                onCheckedChange={(v) => setEditing((p) => ({ ...p, is_regular: !!v }))}
+              />
+              <label htmlFor="mra-client-regular" className="text-sm cursor-pointer flex items-center gap-1">
+                <Star className="h-3.5 w-3.5 text-amber-500" />
+                Regular pre-employment client
+              </label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
