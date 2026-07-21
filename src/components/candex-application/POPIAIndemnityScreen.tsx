@@ -294,6 +294,60 @@ export default function POPIAIndemnityScreen({ onComplete, invitationToken }: PO
     });
   }, [playingAudio]);
 
+  // Play an audio clip programmatically without the toggle-off behaviour of
+  // handlePlayAudio. Used for the auto-play flow (POPIA on mount, Indemnity
+  // when the tab auto-advances). Silently ignores browser autoplay blocks.
+  const autoPlayAudio = useCallback((label: string, url: string) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    setPlayingAudio(label);
+    setAudioProgress(0);
+
+    audio.addEventListener("timeupdate", () => {
+      if (audio.duration) setAudioProgress((audio.currentTime / audio.duration) * 100);
+    });
+    audio.onended = () => {
+      setPlayingAudio(null);
+      setAudioProgress(0);
+      audioRef.current = null;
+    };
+    audio.onerror = () => {
+      setPlayingAudio(null);
+      setAudioProgress(0);
+      audioRef.current = null;
+    };
+    audio.play().catch(() => {
+      // Autoplay blocked — leave state so the user can tap the play button.
+      setPlayingAudio(null);
+      setAudioProgress(0);
+      audioRef.current = null;
+    });
+  }, []);
+
+  // Auto-play POPIA audio the first time it becomes available.
+  const popiaAutoPlayedRef = useRef(false);
+  useEffect(() => {
+    if (popiaAutoPlayedRef.current) return;
+    if (activeTab !== "popia") return;
+    if (!popiaAudioUrl) return;
+    popiaAutoPlayedRef.current = true;
+    autoPlayAudio("POPIA Declaration", popiaAudioUrl);
+  }, [activeTab, popiaAudioUrl, autoPlayAudio]);
+
+  // Auto-play Indemnity audio when the tab auto-advances after POPIA accept.
+  const indemnityAutoPlayedRef = useRef(false);
+  useEffect(() => {
+    if (indemnityAutoPlayedRef.current) return;
+    if (activeTab !== "indemnity") return;
+    if (!indemnityAudioUrl) return;
+    indemnityAutoPlayedRef.current = true;
+    autoPlayAudio("Indemnity & Consent", indemnityAudioUrl);
+  }, [activeTab, indemnityAudioUrl, autoPlayAudio]);
+
   useEffect(() => {
     return () => {
       audioRef.current?.pause();
