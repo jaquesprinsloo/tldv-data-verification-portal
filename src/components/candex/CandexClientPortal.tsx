@@ -124,6 +124,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [activeTab, setActiveTab] = useState("dashboard");
   // Persisted per-user/client "seen" timestamps so sidebar badges stay cleared after reloads/navigation.
   const [seenTabAt, setSeenTabAt] = useState<Record<string, string>>({});
+  // Welcome/landing chooser shown once per session when the admin enters the portal.
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
 
   // Bulk invite state
   const [bulkCandidates, setBulkCandidates] = useState<BulkCandidate[]>([]);
@@ -350,6 +352,20 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       setSeenTabAt({});
     }
   }, [sideBadgeStorageKey]);
+
+  // Show the welcome chooser once per browser session (per client).
+  useEffect(() => {
+    if (!client?.id) return;
+    const key = `preappli:welcomeShown:${userId}:${client.id}`;
+    try {
+      if (!sessionStorage.getItem(key)) {
+        setWelcomeOpen(true);
+        sessionStorage.setItem(key, "1");
+      }
+    } catch {
+      setWelcomeOpen(true);
+    }
+  }, [client?.id, userId]);
 
   // ── Dashboard Stats ──
   const dashboardStats = {
