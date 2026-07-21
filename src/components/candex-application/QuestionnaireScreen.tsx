@@ -4045,68 +4045,130 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
       </div>
 
       <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-3xl">
-        <Card className="bg-zinc-950 border-zinc-800 text-white overflow-hidden">
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-white text-center">{currentSec.title}</CardTitle>
-            {/* Section-level audio explainer inline under heading */}
-            {currentSec.video_url && (
-              <div className="flex items-center justify-center gap-2 pt-1">
-                <span className="text-[11px] text-red-400 font-medium hidden sm:inline">🎧 Audio Explainer — Listen before completing this section</span>
-                <span className="text-[11px] text-red-400 font-medium sm:hidden">🎧 Listen first</span>
-                <VideoPlayButton videoUrl={currentSec.video_url} label={`Section Overview: ${currentSec.title}`} />
-              </div>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Tables */}
-            {sectionTables.map(renderTable)}
+        {(() => {
+          const blocks: { key: string; node: JSX.Element }[] = [
+            ...sectionTables.map((t) => ({ key: `t-${t.id}`, node: renderTable(t) })),
+            ...sectionQuestions.map((q) => ({ key: `q-${q.id}`, node: renderQuestion(q) })),
+          ];
+          const totalBlocks = blocks.length;
+          const activeStep = Math.min(focusStep, Math.max(0, totalBlocks - 1));
+          const hasAudio = !!currentSec.video_url;
+          const audioOk = !hasAudio || !!sectionAudioStarted[currentSection];
+          const isLastBlock = activeStep >= totalBlocks - 1;
+          const isLastSection = currentSection === sections.length - 1;
 
-            {/* Questions */}
-            {sectionQuestions.map(renderQuestion)}
-
-            {/* Navigation */}
-            <div className="flex items-center gap-3 pt-4">
-              {currentSection > 0 && (
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentSection((p) => p - 1)}
-                  className="border-zinc-700 text-zinc-400 hover:text-white"
-                >
-                  Previous
-                </Button>
-              )}
-              <div className="flex-1" />
-              {currentSection < sections.length - 1 && (
-                <Button
-                  onClick={handleNext}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  Next Section
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Final submit card - only on last section */}
-        {currentSection === sections.length - 1 && (
-          <Card className="bg-zinc-950 border-zinc-800 text-white mt-4">
-            <CardContent className="p-6 flex justify-center">
-              <Button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto"
-                size="lg"
-              >
-                {submitting ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>
-                ) : (
-                  <><CheckCircle className="mr-2 h-4 w-4" /> Complete PreAppliCheck Process</>
+          return (
+            <Card className="bg-zinc-950 border-zinc-800 text-white overflow-hidden">
+              <CardHeader className="space-y-2">
+                <CardTitle className="text-white text-center">{currentSec.title}</CardTitle>
+                {/* Section-level audio explainer inline under heading */}
+                {hasAudio && (
+                  <div
+                    className={`flex items-center justify-center gap-2 pt-1 rounded-md transition-all ${
+                      !audioOk ? "px-3 py-3 bg-red-950/40 border border-red-600/60 shadow-[0_0_25px_rgba(239,68,68,0.35)] animate-pulse" : ""
+                    }`}
+                  >
+                    <Headphones className={`h-4 w-4 ${audioOk ? "text-red-400" : "text-red-300"}`} />
+                    <span className="text-[11px] sm:text-xs text-red-300 font-medium">
+                      {audioOk
+                        ? "Audio Explainer — Available to replay"
+                        : "Please tap play to listen to the section explainer before you begin"}
+                    </span>
+                    <VideoPlayButton
+                      videoUrl={currentSec.video_url!}
+                      label={`Section Overview: ${currentSec.title}`}
+                      onStart={() =>
+                        setSectionAudioStarted((prev) => ({ ...prev, [currentSection]: true }))
+                      }
+                    />
+                  </div>
                 )}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+                {audioOk && totalBlocks > 0 && (
+                  <p className="text-center text-[11px] text-zinc-500 pt-1">
+                    Step {activeStep + 1} of {totalBlocks}
+                  </p>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {!audioOk ? (
+                  <div className="text-center py-10 text-zinc-500 text-sm">
+                    The questions for this section will unlock once you start the audio explainer above.
+                  </div>
+                ) : (
+                  <>
+                    {blocks.map((b, idx) => {
+                      const isActive = idx === activeStep;
+                      return (
+                        <div
+                          key={b.key}
+                          aria-hidden={!isActive}
+                          className={`transition-all duration-300 ${
+                            isActive
+                              ? "opacity-100"
+                              : "opacity-10 blur-[2px] pointer-events-none select-none max-h-24 overflow-hidden"
+                          }`}
+                        >
+                          {b.node}
+                        </div>
+                      );
+                    })}
+
+                    {/* Focus-mode navigation */}
+                    <div className="flex items-center gap-3 pt-4 border-t border-zinc-800">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          if (activeStep > 0) {
+                            setFocusStep(activeStep - 1);
+                          } else if (currentSection > 0) {
+                            setCurrentSection((p) => p - 1);
+                          }
+                        }}
+                        disabled={activeStep === 0 && currentSection === 0}
+                        className="border-zinc-700 text-zinc-400 hover:text-white"
+                      >
+                        <ArrowLeft className="h-4 w-4 mr-1" />
+                        Back
+                      </Button>
+                      <div className="flex-1" />
+                      {!isLastBlock && (
+                        <Button
+                          onClick={() => setFocusStep(activeStep + 1)}
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                          Proceed
+                          <ArrowRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      )}
+                      {isLastBlock && !isLastSection && (
+                        <Button
+                          onClick={handleNext}
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                          Next Section
+                          <ArrowRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      )}
+                      {isLastBlock && isLastSection && (
+                        <Button
+                          onClick={handleSubmit}
+                          disabled={submitting}
+                          className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                          {submitting ? (
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>
+                          ) : (
+                            <><CheckCircle className="mr-2 h-4 w-4" /> Complete PreAppliCheck</>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Section navigation dots - hidden on last section */}
         {currentSection < sections.length - 1 && (
