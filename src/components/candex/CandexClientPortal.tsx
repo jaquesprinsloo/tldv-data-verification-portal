@@ -1010,9 +1010,30 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                   {/* CSV Upload */}
                   <div className="border-2 border-dashed rounded-lg p-4 text-center">
                     <input ref={fileInputRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
-                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                      <FileUp className="h-4 w-4 mr-2" /> Upload CSV
-                    </Button>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const csv =
+                            "Name,Surname,Email,Phone,ID Number\n" +
+                            "John,Doe,john@example.com,0821234567,8001015009087\n";
+                          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "preapplicheck-bulk-invite-template.csv";
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-2" /> Download Template
+                      </Button>
+                      <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                        <FileUp className="h-4 w-4 mr-2" /> Upload CSV
+                      </Button>
+                    </div>
                     <p className="text-xs text-muted-foreground mt-2">
                       CSV should have columns: Name, Surname, Email, Phone, ID Number
                     </p>
