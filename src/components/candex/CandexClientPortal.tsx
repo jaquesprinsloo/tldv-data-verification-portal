@@ -1624,6 +1624,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               className="h-auto py-4 flex items-center justify-start gap-3"
               onClick={() => {
                 setWelcomeOpen(false);
+                setActiveTab("invite");
                 setInviteMode("single");
                 setInviteOpen(true);
               }}
@@ -1640,6 +1641,7 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
               className="h-auto py-4 flex items-center justify-start gap-3"
               onClick={() => {
                 setWelcomeOpen(false);
+                setActiveTab("invite");
                 setInviteMode("bulk");
                 setInviteOpen(true);
               }}
