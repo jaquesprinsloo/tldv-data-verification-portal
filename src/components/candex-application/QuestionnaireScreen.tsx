@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, CheckCircle, Plus, Trash2, CalendarIcon, PlayCircle, Video, X, ChevronDown } from "lucide-react";
+import { Loader2, CheckCircle, Plus, Trash2, CalendarIcon, PlayCircle, Video, X, ChevronDown, ArrowRight, ArrowLeft, Headphones } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import preapplicheckLogo from "@/assets/preapplicheck-logo.png";
@@ -21,7 +21,7 @@ import type { Json } from "@/integrations/supabase/types";
 const activeStopFns = new Set<() => void>();
 let stopAllAudio = () => { activeStopFns.forEach(fn => fn()); };
 
-const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string }) => {
+const VideoPlayButton = ({ videoUrl, label, onStart }: { videoUrl: string; label: string; onStart?: () => void }) => {
   const [open, setOpen] = useState(false);
   const [showPulse, setShowPulse] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -56,6 +56,7 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
       const audio = new Audio(videoUrl);
       audioRef.current = audio;
       setIsPlaying(true);
+      onStart?.();
 
       audio.addEventListener("timeupdate", () => {
         if (audio.duration) setProgress((audio.currentTime / audio.duration) * 100);
@@ -70,6 +71,7 @@ const VideoPlayButton = ({ videoUrl, label }: { videoUrl: string; label: string 
       // Stop any playing audio before opening video dialog
       stopAllAudio();
       setOpen(true);
+      onStart?.();
     }
   };
 
