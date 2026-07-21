@@ -353,19 +353,13 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     }
   }, [sideBadgeStorageKey]);
 
-  // Show the welcome chooser once per browser session (per client).
+  // Show the welcome chooser every time the admin enters the portal.
+  const welcomeShownRef = useRef(false);
   useEffect(() => {
-    if (!client?.id) return;
-    const key = `preappli:welcomeShown:${userId}:${client.id}`;
-    try {
-      if (!sessionStorage.getItem(key)) {
-        setWelcomeOpen(true);
-        sessionStorage.setItem(key, "1");
-      }
-    } catch {
-      setWelcomeOpen(true);
-    }
-  }, [client?.id, userId]);
+    if (!client?.id || welcomeShownRef.current) return;
+    welcomeShownRef.current = true;
+    setWelcomeOpen(true);
+  }, [client?.id]);
 
   // ── Dashboard Stats ──
   const dashboardStats = {
