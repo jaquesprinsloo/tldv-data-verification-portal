@@ -124,6 +124,8 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
   const [activeTab, setActiveTab] = useState("dashboard");
   // Persisted per-user/client "seen" timestamps so sidebar badges stay cleared after reloads/navigation.
   const [seenTabAt, setSeenTabAt] = useState<Record<string, string>>({});
+  // Welcome/landing chooser shown once per session when the admin enters the portal.
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
 
   // Bulk invite state
   const [bulkCandidates, setBulkCandidates] = useState<BulkCandidate[]>([]);
@@ -350,6 +352,20 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
       setSeenTabAt({});
     }
   }, [sideBadgeStorageKey]);
+
+  // Show the welcome chooser once per browser session (per client).
+  useEffect(() => {
+    if (!client?.id) return;
+    const key = `preappli:welcomeShown:${userId}:${client.id}`;
+    try {
+      if (!sessionStorage.getItem(key)) {
+        setWelcomeOpen(true);
+        sessionStorage.setItem(key, "1");
+      }
+    } catch {
+      setWelcomeOpen(true);
+    }
+  }, [client?.id, userId]);
 
   // ── Dashboard Stats ──
   const dashboardStats = {
@@ -1583,6 +1599,66 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
           </Tabs>
         </div>
       </div>
+
+      {/* Welcome chooser — shown once per session when the admin enters the portal */}
+      <Dialog open={welcomeOpen} onOpenChange={setWelcomeOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-center text-2xl">Welcome to PreAppliCheck</DialogTitle>
+            <DialogDescription className="text-center">
+              What would you like to do?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <Button
+              size="lg"
+              className="h-auto py-4 flex items-center justify-start gap-3"
+              onClick={() => {
+                setWelcomeOpen(false);
+                setActiveTab("dashboard");
+              }}
+            >
+              <LayoutDashboard className="h-5 w-5" />
+              <span className="flex flex-col items-start">
+                <span className="font-semibold">Proceed to Dashboard</span>
+                <span className="text-xs opacity-80 font-normal">View invitations, submissions and reports</span>
+              </span>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-auto py-4 flex items-center justify-start gap-3"
+              onClick={() => {
+                setWelcomeOpen(false);
+                setInviteMode("single");
+                setInviteOpen(true);
+              }}
+            >
+              <Send className="h-5 w-5" />
+              <span className="flex flex-col items-start">
+                <span className="font-semibold">Invite a Single Candidate</span>
+                <span className="text-xs opacity-70 font-normal">Send one invitation via Email or WhatsApp</span>
+              </span>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-auto py-4 flex items-center justify-start gap-3"
+              onClick={() => {
+                setWelcomeOpen(false);
+                setInviteMode("bulk");
+                setInviteOpen(true);
+              }}
+            >
+              <Users className="h-5 w-5" />
+              <span className="flex flex-col items-start">
+                <span className="font-semibold">Invite a Batch of Candidates</span>
+                <span className="text-xs opacity-70 font-normal">Upload or paste multiple candidates at once</span>
+              </span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 };
