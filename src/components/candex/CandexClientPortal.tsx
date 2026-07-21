@@ -512,42 +512,53 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
     toast.success(`${successCount} invitations sent${failCount > 0 ? `, ${failCount} failed` : ""}`);
   };
 
-  // ── CSV parsing ──
-  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── CSV / XLSX parsing ──
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const lines = text.split("\n").filter((l) => l.trim());
-      if (lines.length < 2) {
-        toast.error("CSV must have a header row and at least one data row");
+    try {
+      const XLSX = await import("xlsx");
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
+        defval: "",
+        raw: false,
+      });
+      if (!rows.length) {
+        toast.error("File must have a header row and at least one data row");
         return;
       }
-      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
-      const nameIdx = headers.findIndex((h) => h.includes("name") && !h.includes("surname") && !h.includes("last"));
-      const surnameIdx = headers.findIndex((h) => h.includes("surname") || h.includes("last"));
-      const emailIdx = headers.findIndex((h) => h.includes("email"));
-      const phoneIdx = headers.findIndex((h) => h.includes("phone") || h.includes("contact") || h.includes("cell"));
-      const idIdx = headers.findIndex((h) => h.includes("id") && !h.includes("email"));
-
+      const pick = (row: Record<string, unknown>, matchers: ((k: string) => boolean)[]) => {
+        for (const key of Object.keys(row)) {
+          const k = key.trim().toLowerCase();
+          if (matchers.some((m) => m(k))) {
+            const v = row[key];
+            return v == null ? "" : String(v).trim();
+          }
+        }
+        return "";
+      };
       const parsed: BulkCandidate[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
-        if (!cols[nameIdx]) continue;
+      for (const row of rows) {
+        const name = pick(row, [(k) => k.includes("name") && !k.includes("surname") && !k.includes("last")]);
+        if (!name) continue;
         parsed.push({
-          name: cols[nameIdx] || "",
-          surname: surnameIdx >= 0 ? cols[surnameIdx] || "" : "",
-          email: emailIdx >= 0 ? cols[emailIdx] || "" : "",
-          phone: phoneIdx >= 0 ? cols[phoneIdx] || "" : "",
-          id_number: idIdx >= 0 ? cols[idIdx] || "" : "",
+          name,
+          surname: pick(row, [(k) => k.includes("surname") || k.includes("last")]),
+          email: pick(row, [(k) => k.includes("email")]),
+          phone: pick(row, [(k) => k.includes("phone") || k.includes("contact") || k.includes("cell") || k.includes("mobile")]),
+          id_number: pick(row, [(k) => k.includes("id")]),
         });
       }
       setBulkCandidates((prev) => [...prev, ...parsed]);
-      toast.success(`${parsed.length} candidates loaded from CSV`);
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+      toast.success(`${parsed.length} candidates loaded`);
+    } catch (err) {
+      console.error("Bulk upload parse failed:", err);
+      toast.error("Could not read that file. Please use the provided template.");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const addBulkEntry = () => {
@@ -1009,33 +1020,37 @@ const CandexClientPortal = ({ userId }: CandexClientPortalProps) => {
                 <div className="space-y-4">
                   {/* CSV Upload */}
                   <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                    <input ref={fileInputRef} type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
+                    <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleCSVUpload} className="hidden" />
                     <div className="flex flex-wrap items-center justify-center gap-2">
                       <Button
                         variant="outline"
-                        onClick={() => {
-                          const csv =
-                            "Name,Surname,Email,Phone,ID Number\n" +
-                            "John,Doe,john@example.com,0821234567,8001015009087\n";
-                          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement("a");
-                          a.href = url;
-                          a.download = "preapplicheck-bulk-invite-template.csv";
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
+                        onClick={async () => {
+                          const XLSX = await import("xlsx");
+                          const rows = [
+                            ["Name", "Surname", "Email", "Phone", "ID Number"],
+                            ["John", "Doe", "john@example.com", "0821234567", "8001015009087"],
+                          ];
+                          const ws = XLSX.utils.aoa_to_sheet(rows);
+                          ws["!cols"] = [{ wch: 18 }, { wch: 18 }, { wch: 28 }, { wch: 16 }, { wch: 18 }];
+                          // Force ID Number column to text so leading zeros are preserved.
+                          for (let r = 2; r <= 1000; r++) {
+                            const addr = `E${r}`;
+                            if (!ws[addr]) ws[addr] = { t: "s", v: "" };
+                            ws[addr].z = "@";
+                          }
+                          const wb = XLSX.utils.book_new();
+                          XLSX.utils.book_append_sheet(wb, ws, "Candidates");
+                          XLSX.writeFile(wb, "preapplicheck-bulk-invite-template.xlsx");
                         }}
                       >
                         <Download className="h-4 w-4 mr-2" /> Download Template
                       </Button>
                       <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                        <FileUp className="h-4 w-4 mr-2" /> Upload CSV
+                        <FileUp className="h-4 w-4 mr-2" /> Upload File
                       </Button>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                      CSV should have columns: Name, Surname, Email, Phone, ID Number
+                      Accepts .xlsx or .csv with columns: Name, Surname, Email, Phone, ID Number
                     </p>
                   </div>
 
