@@ -287,12 +287,15 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
   const [answers, setAnswers] = useState<Record<string, any>>(initialAnswers || {});
   const [tableData, setTableData] = useState<Record<string, string[][][]>>(initialTableData || {});
   const [currentSection, setCurrentSection] = useState(0);
+  const [focusStep, setFocusStep] = useState(0);
+  const [sectionAudioStarted, setSectionAudioStarted] = useState<Record<number, boolean>>({});
 
 
 
   // Scroll to top whenever the section changes (Next, Previous, or dot navigation)
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    setFocusStep(0);
   }, [currentSection]);
 
   useEffect(() => {
