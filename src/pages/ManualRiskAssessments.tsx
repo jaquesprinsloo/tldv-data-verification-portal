@@ -1302,6 +1302,34 @@ function NewSubmissionDialog({
               )}
             </div>
 
+            <div className="space-y-2 border-t pt-4">
+              <Label>Submission Date</Label>
+              <p className="text-xs text-muted-foreground">
+                Defaults to today. Adjust if you're recording a submission received earlier.
+              </p>
+              <Input
+                type="date"
+                value={createdDate}
+                onChange={(e) => setCreatedDate(e.target.value)}
+              />
+            </div>
+
+            <div className="border-t pt-4">
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={sendConfirmation}
+                  onCheckedChange={(v) => setSendConfirmation(!!v)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="font-medium">Send confirmation email to the client</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Sends the submission-received notification to the email(s) on file for this account. Untick to skip.
+                  </span>
+                </span>
+              </label>
+            </div>
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
               <Button onClick={submit} className="bg-red-600 hover:bg-red-700" disabled={busy}>
