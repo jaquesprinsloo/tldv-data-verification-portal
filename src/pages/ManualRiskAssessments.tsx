@@ -938,6 +938,14 @@ function NewSubmissionDialog({
   const [batchRows, setBatchRows] = useState<Array<{ id_number: string; surname: string; first_name: string }>>([]);
   const [busy, setBusy] = useState(false);
   const [indemnityFiles, setIndemnityFiles] = useState<File[]>([]);
+  const [sendConfirmation, setSendConfirmation] = useState(true);
+  const [createdDate, setCreatedDate] = useState<string>(() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  });
 
   useEffect(() => {
     if (clients.length === 0) setClientMode("new");
@@ -1003,6 +1011,16 @@ function NewSubmissionDialog({
 
     setBusy(true);
     try {
+      // Build created_at from the admin-selected date, preserving current time-of-day
+      let createdAtIso: string | undefined;
+      if (createdDate) {
+        const [y, m, d] = createdDate.split("-").map(Number);
+        if (y && m && d) {
+          const now = new Date();
+          const dt = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
+          createdAtIso = dt.toISOString();
+        }
+      }
       const { data: sub, error: subErr } = await sb.from("manual_risk_submissions")
         .insert({
           order_number: orderNumber.trim(),
@@ -1011,6 +1029,7 @@ function NewSubmissionDialog({
           status: "open",
           requested_checks: selectedChecks,
           created_by: userId,
+          ...(createdAtIso ? { created_at: createdAtIso } : {}),
         })
         .select("id").single();
       if (subErr) throw subErr;
@@ -1056,6 +1075,9 @@ function NewSubmissionDialog({
 
       // Fire-and-forget confirmation email to the client
       try {
+        if (!sendConfirmation) {
+          // Admin opted out of sending the confirmation email
+        } else {
         const resolvedClient =
           clientMode === "existing"
             ? clients.find((c) => c.id === resolvedClientId)
@@ -1089,6 +1111,7 @@ function NewSubmissionDialog({
           } else {
             toast.success("Confirmation email sent to client");
           }
+        }
         }
       } catch (e) {
         toast.error("Submission saved, but confirmation email failed: " + (e as Error).message);
@@ -1277,6 +1300,34 @@ function NewSubmissionDialog({
                   ))}
                 </ul>
               )}
+            </div>
+
+            <div className="space-y-2 border-t pt-4">
+              <Label>Submission Date</Label>
+              <p className="text-xs text-muted-foreground">
+                Defaults to today. Adjust if you're recording a submission received earlier.
+              </p>
+              <Input
+                type="date"
+                value={createdDate}
+                onChange={(e) => setCreatedDate(e.target.value)}
+              />
+            </div>
+
+            <div className="border-t pt-4">
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <Checkbox
+                  checked={sendConfirmation}
+                  onCheckedChange={(v) => setSendConfirmation(!!v)}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="font-medium">Send confirmation email to the client</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Sends the submission-received notification to the email(s) on file for this account. Untick to skip.
+                  </span>
+                </span>
+              </label>
             </div>
 
             <DialogFooter>
