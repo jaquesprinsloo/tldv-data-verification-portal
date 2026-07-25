@@ -493,6 +493,49 @@ const RowInputTypeConfigurator = ({
   );
 };
 
+/** Picker that links a section/table to a pre-screening Yes/No answer. */
+const VisibilityPicker = ({
+  rule,
+  gateQuestions,
+  onChange,
+  label = "Only show if",
+}: {
+  rule?: VisibilityRule | null;
+  gateQuestions: GateQuestion[];
+  onChange: (rule: VisibilityRule | null) => void;
+  label?: string;
+}) => {
+  if (gateQuestions.length === 0) return null;
+  const current = rule?.question_id ? rule : null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <select
+        value={current?.question_id || ""}
+        onChange={(e) =>
+          onChange(e.target.value ? { question_id: e.target.value, equals: current?.equals || "Yes" } : null)
+        }
+        className="h-8 rounded-md border bg-background px-2 text-xs max-w-[260px]"
+      >
+        <option value="">Always shown</option>
+        {gateQuestions.map((q) => (
+          <option key={q.id} value={q.id}>{q.question_text}</option>
+        ))}
+      </select>
+      {current && (
+        <select
+          value={current.equals}
+          onChange={(e) => onChange({ question_id: current.question_id, equals: e.target.value as "Yes" | "No" })}
+          className="h-8 rounded-md border bg-background px-2 text-xs"
+        >
+          <option value="Yes">= Yes</option>
+          <option value="No">= No</option>
+        </select>
+      )}
+    </div>
+  );
+};
+
 const CandexBuilder = () => {
   const queryClient = useQueryClient();
   const [showNewTemplate, setShowNewTemplate] = useState(false);
