@@ -244,6 +244,14 @@ interface Section {
   title: string;
   sort_order: number;
   video_url: string | null;
+  is_pre_screening?: boolean;
+  visible_if?: VisibilityRule | null;
+}
+
+/** Conditional visibility driven by a pre-screening Yes/No question. */
+interface VisibilityRule {
+  question_id: string;
+  equals: "Yes" | "No";
 }
 
 interface RowInputType {
@@ -266,6 +274,7 @@ interface SectionTable {
   video_url: string | null;
   column_widths: number[] | null;
   row_video_urls: (string | null)[];
+  visible_if?: VisibilityRule | null;
 }
 
 interface Question {
@@ -276,6 +285,8 @@ interface Question {
   is_required: boolean;
   sort_order: number;
   options: string[] | null;
+  visible_if?: VisibilityRule | null;
+  prefill_target?: { table_id: string; row_index: number } | null;
 }
 
 export default function QuestionnaireScreen({ templateId, onComplete, readOnly = false, initialAnswers, initialTableData, invitationToken }: QuestionnaireScreenProps) {
