@@ -1114,20 +1114,38 @@ const CandexBuilder = () => {
                     {previewMode && section.video_url && (
                       <VideoHelpBubble videoUrl={section.video_url} label={`How to: ${section.title}`} />
                     )}
+                    {section.is_pre_screening && (
+                      <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/40 text-xs">
+                        Pre-Screening
+                      </Badge>
+                    )}
                   </div>
                   {!previewMode && (
                     <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-                      <Button size="sm" variant="outline" onClick={() => setShowAddTable(section.id)}>
-                        <Plus className="h-3 w-3 mr-1" /> <TableIcon className="h-3 w-3 mr-1" /> Table
-                      </Button>
+                      {!section.is_pre_screening && (
+                        <Button size="sm" variant="outline" onClick={() => setShowAddTable(section.id)}>
+                          <Plus className="h-3 w-3 mr-1" /> <TableIcon className="h-3 w-3 mr-1" /> Table
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" onClick={() => deleteSection.mutate(section.id)}>
                         <Trash2 className="h-3 w-3 text-destructive" />
                       </Button>
                     </div>
                   )}
                 </div>
+                {/* Conditional visibility for the whole section */}
+                {!previewMode && !section.is_pre_screening && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <VisibilityPicker
+                      rule={section.visible_if}
+                      gateQuestions={gateQuestions}
+                      onChange={(rule) => updateVisibility.mutate({ kind: "section", id: section.id, rule })}
+                      label="Show this section only if"
+                    />
+                  </div>
+                )}
                 {/* Dedicated Section Audio/Video Explainer Upload Area */}
-                {!previewMode && isExpanded && (
+                {!previewMode && isExpanded && !section.is_pre_screening && (
                   <div
                     className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 space-y-2"
                     onClick={(e) => e.stopPropagation()}
