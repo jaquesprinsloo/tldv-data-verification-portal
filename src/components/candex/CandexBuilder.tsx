@@ -1188,7 +1188,88 @@ const CandexBuilder = () => {
               </CardHeader>
               {isExpanded && (
                 <CardContent className="space-y-4">
-                  {tables.length === 0 && (
+                  {/* ── Pre-screening gate questions ── */}
+                  {section.is_pre_screening && !previewMode && (
+                    <div className="space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        These Yes/No questions are asked right after the candidate confirms their personal
+                        details. Their answers decide which sections and tables of the main questionnaire are
+                        shown.
+                      </p>
+                      {gateQuestions.filter((q) => q.section_id === section.id).length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-2">
+                          No pre-screening questions yet.
+                        </p>
+                      )}
+                      {gateQuestions
+                        .filter((q) => q.section_id === section.id)
+                        .map((q) => (
+                          <div key={q.id} className="border rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-medium">{q.question_text}</span>
+                              <Button size="sm" variant="ghost" onClick={() => deleteGateQuestion.mutate(q.id)}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              <span className="text-muted-foreground">Also fill this answer into</span>
+                              <select
+                                value={
+                                  q.prefill_target
+                                    ? `${q.prefill_target.table_id}::${q.prefill_target.row_index}`
+                                    : ""
+                                }
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  updateGatePrefill.mutate({
+                                    id: q.id,
+                                    target: v
+                                      ? { table_id: v.split("::")[0], row_index: Number(v.split("::")[1]) }
+                                      : null,
+                                  });
+                                }}
+                                className="h-8 rounded-md border bg-background px-2 text-xs max-w-[340px]"
+                              >
+                                <option value="">Nothing (store answer only)</option>
+                                {sectionTables
+                                  .filter((t) =>
+                                    sections.some((s) => s.id === t.section_id && !s.is_pre_screening)
+                                  )
+                                  .flatMap((t) =>
+                                    t.row_labels.map((rl, ri) => (
+                                      <option key={`${t.id}-${ri}`} value={`${t.id}::${ri}`}>
+                                        {t.table_title} → {rl}
+                                      </option>
+                                    ))
+                                  )}
+                              </select>
+                            </div>
+                          </div>
+                        ))}
+                      <div className="flex gap-2">
+                        <Input
+                          value={newGateText[section.id] || ""}
+                          onChange={(e) =>
+                            setNewGateText((p) => ({ ...p, [section.id]: e.target.value }))
+                          }
+                          placeholder="e.g. Do you have a driver's licence?"
+                        />
+                        <Button
+                          onClick={() => {
+                            const text = (newGateText[section.id] || "").trim();
+                            if (!text) return;
+                            addGateQuestion.mutate({ sectionId: section.id, text });
+                            setNewGateText((p) => ({ ...p, [section.id]: "" }));
+                          }}
+                          disabled={!(newGateText[section.id] || "").trim()}
+                        >
+                          <Plus className="h-4 w-4 mr-1" /> Add
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!section.is_pre_screening && tables.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       No tables in this section yet. Add a table to define the data fields.
                     </p>
@@ -1237,6 +1318,16 @@ const CandexBuilder = () => {
                           </div>
                         )}
                       </div>
+                      {!previewMode && (
+                        <div className="px-4 py-2 border-b bg-background">
+                          <VisibilityPicker
+                            rule={tbl.visible_if}
+                            gateQuestions={gateQuestions}
+                            onChange={(rule) => updateVisibility.mutate({ kind: "table", id: tbl.id, rule })}
+                            label="Show this table only if"
+                          />
+                        </div>
+                      )}
                       <Table className="table-fixed" ref={(el) => { if (el) el.dataset.tableId = tbl.id; }}>
                         <TableHeader>
                           <TableRow>
