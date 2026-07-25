@@ -425,7 +425,23 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
 
   const setAnswer = useCallback((key: string, value: any) => {
     setAnswers((prev) => ({ ...prev, [key]: value }));
-  }, []);
+
+    // If this is a pre-screening gate question linked to a main table row,
+    // carry the answer over so the candidate isn't asked the same thing twice.
+    const gate = allQuestions.find((q) => q.id === key);
+    const target = gate?.prefill_target;
+    if (target?.table_id && typeof target.row_index === "number") {
+      setTableData((prev) => {
+        const next = { ...prev };
+        const entries = (next[target.table_id] || []).map((e) => e.map((r) => [...r]));
+        if (entries[0]?.[target.row_index]) {
+          entries[0][target.row_index][0] = String(value ?? "");
+          next[target.table_id] = entries;
+        }
+        return next;
+      });
+    }
+  }, [allQuestions]);
 
   const setCellValue = (tableId: string, entryIdx: number, rowIdx: number, colIdx: number, value: string) => {
     setTableData((prev) => {
