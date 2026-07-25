@@ -37,6 +37,23 @@ interface Section {
   title: string;
   sort_order: number;
   video_url: string | null;
+  is_pre_screening?: boolean;
+  visible_if?: VisibilityRule | null;
+}
+
+interface VisibilityRule {
+  question_id: string;
+  equals: "Yes" | "No";
+}
+
+interface GateQuestion {
+  id: string;
+  section_id: string;
+  question_text: string;
+  question_type: string;
+  is_required: boolean;
+  sort_order: number;
+  prefill_target: { table_id: string; row_index: number } | null;
 }
 
 interface RowInputType {
@@ -59,6 +76,7 @@ interface SectionTable {
   video_url: string | null;
   column_widths: number[] | null;
   row_video_urls: (string | null)[];
+  visible_if?: VisibilityRule | null;
 }
 
 // Notification bubble component for candidate preview
@@ -475,6 +493,49 @@ const RowInputTypeConfigurator = ({
   );
 };
 
+/** Picker that links a section/table to a pre-screening Yes/No answer. */
+const VisibilityPicker = ({
+  rule,
+  gateQuestions,
+  onChange,
+  label = "Only show if",
+}: {
+  rule?: VisibilityRule | null;
+  gateQuestions: GateQuestion[];
+  onChange: (rule: VisibilityRule | null) => void;
+  label?: string;
+}) => {
+  if (gateQuestions.length === 0) return null;
+  const current = rule?.question_id ? rule : null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <select
+        value={current?.question_id || ""}
+        onChange={(e) =>
+          onChange(e.target.value ? { question_id: e.target.value, equals: current?.equals || "Yes" } : null)
+        }
+        className="h-8 rounded-md border bg-background px-2 text-xs max-w-[260px]"
+      >
+        <option value="">Always shown</option>
+        {gateQuestions.map((q) => (
+          <option key={q.id} value={q.id}>{q.question_text}</option>
+        ))}
+      </select>
+      {current && (
+        <select
+          value={current.equals}
+          onChange={(e) => onChange({ question_id: current.question_id, equals: e.target.value as "Yes" | "No" })}
+          className="h-8 rounded-md border bg-background px-2 text-xs"
+        >
+          <option value="Yes">= Yes</option>
+          <option value="No">= No</option>
+        </select>
+      )}
+    </div>
+  );
+};
+
 const CandexBuilder = () => {
   const queryClient = useQueryClient();
   const [showNewTemplate, setShowNewTemplate] = useState(false);
@@ -484,6 +545,8 @@ const CandexBuilder = () => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showAddSection, setShowAddSection] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState("");
+  const [newSectionIsPre, setNewSectionIsPre] = useState(false);
+  const [newGateText, setNewGateText] = useState<Record<string, string>>({});
   const [showAddTable, setShowAddTable] = useState<string | null>(null);
   const [newTable, setNewTable] = useState({
     title: "",
@@ -527,7 +590,24 @@ const CandexBuilder = () => {
         .eq("template_id", selectedTemplate!.id)
         .order("sort_order");
       if (error) throw error;
-      return data as Section[];
+      return (data || []) as unknown as Section[];
+    },
+  });
+
+  // Gate (pre-screening) questions for this template
+  const { data: gateQuestions = [] } = useQuery({
+    queryKey: ["candex-gate-questions", selectedTemplate?.id],
+    enabled: !!selectedTemplate && sections.length > 0,
+    queryFn: async () => {
+      const preIds = sections.filter((s) => s.is_pre_screening).map((s) => s.id);
+      if (preIds.length === 0) return [] as GateQuestion[];
+      const { data, error } = await supabase
+        .from("candex_template_questions")
+        .select("*")
+        .in("section_id", preIds)
+        .order("sort_order");
+      if (error) throw error;
+      return (data || []) as unknown as GateQuestion[];
     },
   });
 
@@ -619,15 +699,78 @@ const CandexBuilder = () => {
         template_id: selectedTemplate!.id,
         title: newSectionTitle,
         sort_order: sections.length,
-      });
+        is_pre_screening: newSectionIsPre,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["candex-sections"] });
       setShowAddSection(false);
       setNewSectionTitle("");
+      setNewSectionIsPre(false);
       toast.success("Section added");
     },
+  });
+
+  // --- Pre-screening gate question mutations ---
+  const addGateQuestion = useMutation({
+    mutationFn: async ({ sectionId, text }: { sectionId: string; text: string }) => {
+      const existing = gateQuestions.filter((q) => q.section_id === sectionId);
+      const { error } = await supabase.from("candex_template_questions").insert({
+        section_id: sectionId,
+        question_text: text,
+        question_type: "yes_no",
+        is_required: true,
+        sort_order: existing.length,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-gate-questions"] });
+      toast.success("Pre-screening question added");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteGateQuestion = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("candex_template_questions").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-gate-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
+      toast.success("Question removed");
+    },
+  });
+
+  const updateGatePrefill = useMutation({
+    mutationFn: async ({ id, target }: { id: string; target: { table_id: string; row_index: number } | null }) => {
+      const { error } = await supabase
+        .from("candex_template_questions")
+        .update({ prefill_target: target } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["candex-gate-questions"] }),
+  });
+
+  const updateVisibility = useMutation({
+    mutationFn: async ({ kind, id, rule }: { kind: "section" | "table"; id: string; rule: VisibilityRule | null }) => {
+      const { error } = await supabase
+        .from(kind === "section" ? "candex_template_sections" : "candex_section_tables")
+        .update({ visible_if: rule } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: [vars.kind === "section" ? "candex-sections" : "candex-section-tables"],
+      });
+      toast.success("Conditional rule saved");
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const deleteSection = useMutation({
@@ -971,20 +1114,38 @@ const CandexBuilder = () => {
                     {previewMode && section.video_url && (
                       <VideoHelpBubble videoUrl={section.video_url} label={`How to: ${section.title}`} />
                     )}
+                    {section.is_pre_screening && (
+                      <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/40 text-xs">
+                        Pre-Screening
+                      </Badge>
+                    )}
                   </div>
                   {!previewMode && (
                     <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-                      <Button size="sm" variant="outline" onClick={() => setShowAddTable(section.id)}>
-                        <Plus className="h-3 w-3 mr-1" /> <TableIcon className="h-3 w-3 mr-1" /> Table
-                      </Button>
+                      {!section.is_pre_screening && (
+                        <Button size="sm" variant="outline" onClick={() => setShowAddTable(section.id)}>
+                          <Plus className="h-3 w-3 mr-1" /> <TableIcon className="h-3 w-3 mr-1" /> Table
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" onClick={() => deleteSection.mutate(section.id)}>
                         <Trash2 className="h-3 w-3 text-destructive" />
                       </Button>
                     </div>
                   )}
                 </div>
+                {/* Conditional visibility for the whole section */}
+                {!previewMode && !section.is_pre_screening && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <VisibilityPicker
+                      rule={section.visible_if}
+                      gateQuestions={gateQuestions}
+                      onChange={(rule) => updateVisibility.mutate({ kind: "section", id: section.id, rule })}
+                      label="Show this section only if"
+                    />
+                  </div>
+                )}
                 {/* Dedicated Section Audio/Video Explainer Upload Area */}
-                {!previewMode && isExpanded && (
+                {!previewMode && isExpanded && !section.is_pre_screening && (
                   <div
                     className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 space-y-2"
                     onClick={(e) => e.stopPropagation()}
@@ -1027,7 +1188,88 @@ const CandexBuilder = () => {
               </CardHeader>
               {isExpanded && (
                 <CardContent className="space-y-4">
-                  {tables.length === 0 && (
+                  {/* ── Pre-screening gate questions ── */}
+                  {section.is_pre_screening && !previewMode && (
+                    <div className="space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        These Yes/No questions are asked right after the candidate confirms their personal
+                        details. Their answers decide which sections and tables of the main questionnaire are
+                        shown.
+                      </p>
+                      {gateQuestions.filter((q) => q.section_id === section.id).length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-2">
+                          No pre-screening questions yet.
+                        </p>
+                      )}
+                      {gateQuestions
+                        .filter((q) => q.section_id === section.id)
+                        .map((q) => (
+                          <div key={q.id} className="border rounded-lg p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-medium">{q.question_text}</span>
+                              <Button size="sm" variant="ghost" onClick={() => deleteGateQuestion.mutate(q.id)}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              <span className="text-muted-foreground">Also fill this answer into</span>
+                              <select
+                                value={
+                                  q.prefill_target
+                                    ? `${q.prefill_target.table_id}::${q.prefill_target.row_index}`
+                                    : ""
+                                }
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  updateGatePrefill.mutate({
+                                    id: q.id,
+                                    target: v
+                                      ? { table_id: v.split("::")[0], row_index: Number(v.split("::")[1]) }
+                                      : null,
+                                  });
+                                }}
+                                className="h-8 rounded-md border bg-background px-2 text-xs max-w-[340px]"
+                              >
+                                <option value="">Nothing (store answer only)</option>
+                                {sectionTables
+                                  .filter((t) =>
+                                    sections.some((s) => s.id === t.section_id && !s.is_pre_screening)
+                                  )
+                                  .flatMap((t) =>
+                                    t.row_labels.map((rl, ri) => (
+                                      <option key={`${t.id}-${ri}`} value={`${t.id}::${ri}`}>
+                                        {t.table_title} → {rl}
+                                      </option>
+                                    ))
+                                  )}
+                              </select>
+                            </div>
+                          </div>
+                        ))}
+                      <div className="flex gap-2">
+                        <Input
+                          value={newGateText[section.id] || ""}
+                          onChange={(e) =>
+                            setNewGateText((p) => ({ ...p, [section.id]: e.target.value }))
+                          }
+                          placeholder="e.g. Do you have a driver's licence?"
+                        />
+                        <Button
+                          onClick={() => {
+                            const text = (newGateText[section.id] || "").trim();
+                            if (!text) return;
+                            addGateQuestion.mutate({ sectionId: section.id, text });
+                            setNewGateText((p) => ({ ...p, [section.id]: "" }));
+                          }}
+                          disabled={!(newGateText[section.id] || "").trim()}
+                        >
+                          <Plus className="h-4 w-4 mr-1" /> Add
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!section.is_pre_screening && tables.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       No tables in this section yet. Add a table to define the data fields.
                     </p>
@@ -1076,6 +1318,16 @@ const CandexBuilder = () => {
                           </div>
                         )}
                       </div>
+                      {!previewMode && (
+                        <div className="px-4 py-2 border-b bg-background">
+                          <VisibilityPicker
+                            rule={tbl.visible_if}
+                            gateQuestions={gateQuestions}
+                            onChange={(rule) => updateVisibility.mutate({ kind: "table", id: tbl.id, rule })}
+                            label="Show this table only if"
+                          />
+                        </div>
+                      )}
                       <Table className="table-fixed" ref={(el) => { if (el) el.dataset.tableId = tbl.id; }}>
                         <TableHeader>
                           <TableRow>
@@ -1271,6 +1523,20 @@ const CandexBuilder = () => {
                   onChange={(e) => setNewSectionTitle(e.target.value)}
                   placeholder="e.g. Family & Friend Contact Trace"
                 />
+              </div>
+              <div className="flex items-start gap-2 rounded-md border p-3">
+                <Checkbox
+                  id="new-section-pre"
+                  checked={newSectionIsPre}
+                  onCheckedChange={(v) => setNewSectionIsPre(!!v)}
+                />
+                <div className="space-y-0.5">
+                  <Label htmlFor="new-section-pre" className="text-sm">Pre-screening section</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Asked first, straight after personal details. Holds Yes/No questions that decide which
+                    parts of the main questionnaire the candidate sees.
+                  </p>
+                </div>
               </div>
             </div>
             <DialogFooter>

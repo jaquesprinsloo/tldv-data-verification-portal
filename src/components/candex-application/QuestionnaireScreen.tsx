@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -244,6 +244,14 @@ interface Section {
   title: string;
   sort_order: number;
   video_url: string | null;
+  is_pre_screening?: boolean;
+  visible_if?: VisibilityRule | null;
+}
+
+/** Conditional visibility driven by a pre-screening Yes/No question. */
+interface VisibilityRule {
+  question_id: string;
+  equals: "Yes" | "No";
 }
 
 interface RowInputType {
@@ -266,6 +274,7 @@ interface SectionTable {
   video_url: string | null;
   column_widths: number[] | null;
   row_video_urls: (string | null)[];
+  visible_if?: VisibilityRule | null;
 }
 
 interface Question {
@@ -276,19 +285,67 @@ interface Question {
   is_required: boolean;
   sort_order: number;
   options: string[] | null;
+  visible_if?: VisibilityRule | null;
+  prefill_target?: { table_id: string; row_index: number } | null;
 }
 
 export default function QuestionnaireScreen({ templateId, onComplete, readOnly = false, initialAnswers, initialTableData, invitationToken }: QuestionnaireScreenProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [sections, setSections] = useState<Section[]>([]);
-  const [tables, setTables] = useState<SectionTable[]>([]);
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [allSections, setSections] = useState<Section[]>([]);
+  const [allTables, setTables] = useState<SectionTable[]>([]);
+  const [allQuestions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, any>>(initialAnswers || {});
   const [tableData, setTableData] = useState<Record<string, string[][][]>>(initialTableData || {});
   const [currentSection, setCurrentSection] = useState(0);
   const [focusStep, setFocusStep] = useState(0);
   const [sectionAudioStarted, setSectionAudioStarted] = useState<Record<number, boolean>>({});
+
+  // ── Pre-screening gating ───────────────────────────────────────────────
+  // Sections flagged as pre-screening are asked first. Their Yes/No answers
+  // decide which main sections / tables / questions are shown at all.
+  const preScreeningIds = useMemo(
+    () => new Set(allSections.filter((s) => s.is_pre_screening).map((s) => s.id)),
+    [allSections]
+  );
+
+  const isVisible = useCallback(
+    (rule?: VisibilityRule | null) => {
+      if (!rule || !rule.question_id) return true;
+      const given = String(answers[rule.question_id] ?? "").trim().toLowerCase();
+      if (!given) return false;
+      return given === String(rule.equals || "Yes").toLowerCase();
+    },
+    [answers]
+  );
+
+  const sections = useMemo(() => {
+    const ordered = [...allSections].sort((a, b) => {
+      const pa = a.is_pre_screening ? 0 : 1;
+      const pb = b.is_pre_screening ? 0 : 1;
+      return pa !== pb ? pa - pb : (a.sort_order || 0) - (b.sort_order || 0);
+    });
+    return ordered.filter((s) => s.is_pre_screening || isVisible(s.visible_if));
+  }, [allSections, isVisible]);
+
+  const visibleSectionIds = useMemo(() => new Set(sections.map((s) => s.id)), [sections]);
+
+  const tables = useMemo(
+    () => allTables.filter((t) => visibleSectionIds.has(t.section_id) && isVisible(t.visible_if)),
+    [allTables, visibleSectionIds, isVisible]
+  );
+
+  const questions = useMemo(
+    () => allQuestions.filter((q) => visibleSectionIds.has(q.section_id) && isVisible(q.visible_if)),
+    [allQuestions, visibleSectionIds, isVisible]
+  );
+
+  // Keep the section cursor in range when gating removes sections.
+  useEffect(() => {
+    if (sections.length > 0 && currentSection > sections.length - 1) {
+      setCurrentSection(sections.length - 1);
+    }
+  }, [sections.length, currentSection]);
 
 
 
@@ -368,7 +425,23 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
 
   const setAnswer = useCallback((key: string, value: any) => {
     setAnswers((prev) => ({ ...prev, [key]: value }));
-  }, []);
+
+    // If this is a pre-screening gate question linked to a main table row,
+    // carry the answer over so the candidate isn't asked the same thing twice.
+    const gate = allQuestions.find((q) => q.id === key);
+    const target = gate?.prefill_target;
+    if (target?.table_id && typeof target.row_index === "number") {
+      setTableData((prev) => {
+        const next = { ...prev };
+        const entries = (next[target.table_id] || []).map((e) => e.map((r) => [...r]));
+        if (entries[0]?.[target.row_index]) {
+          entries[0][target.row_index][0] = String(value ?? "");
+          next[target.table_id] = entries;
+        }
+        return next;
+      });
+    }
+  }, [allQuestions]);
 
   const setCellValue = (tableId: string, entryIdx: number, rowIdx: number, colIdx: number, value: string) => {
     setTableData((prev) => {
