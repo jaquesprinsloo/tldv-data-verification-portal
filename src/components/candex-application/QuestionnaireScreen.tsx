@@ -301,6 +301,52 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
   const [focusStep, setFocusStep] = useState(0);
   const [sectionAudioStarted, setSectionAudioStarted] = useState<Record<number, boolean>>({});
 
+  // ── Pre-screening gating ───────────────────────────────────────────────
+  // Sections flagged as pre-screening are asked first. Their Yes/No answers
+  // decide which main sections / tables / questions are shown at all.
+  const preScreeningIds = useMemo(
+    () => new Set(allSections.filter((s) => s.is_pre_screening).map((s) => s.id)),
+    [allSections]
+  );
+
+  const isVisible = useCallback(
+    (rule?: VisibilityRule | null) => {
+      if (!rule || !rule.question_id) return true;
+      const given = String(answers[rule.question_id] ?? "").trim().toLowerCase();
+      if (!given) return false;
+      return given === String(rule.equals || "Yes").toLowerCase();
+    },
+    [answers]
+  );
+
+  const sections = useMemo(() => {
+    const ordered = [...allSections].sort((a, b) => {
+      const pa = a.is_pre_screening ? 0 : 1;
+      const pb = b.is_pre_screening ? 0 : 1;
+      return pa !== pb ? pa - pb : (a.sort_order || 0) - (b.sort_order || 0);
+    });
+    return ordered.filter((s) => s.is_pre_screening || isVisible(s.visible_if));
+  }, [allSections, isVisible]);
+
+  const visibleSectionIds = useMemo(() => new Set(sections.map((s) => s.id)), [sections]);
+
+  const tables = useMemo(
+    () => allTables.filter((t) => visibleSectionIds.has(t.section_id) && isVisible(t.visible_if)),
+    [allTables, visibleSectionIds, isVisible]
+  );
+
+  const questions = useMemo(
+    () => allQuestions.filter((q) => visibleSectionIds.has(q.section_id) && isVisible(q.visible_if)),
+    [allQuestions, visibleSectionIds, isVisible]
+  );
+
+  // Keep the section cursor in range when gating removes sections.
+  useEffect(() => {
+    if (sections.length > 0 && currentSection > sections.length - 1) {
+      setCurrentSection(sections.length - 1);
+    }
+  }, [sections.length, currentSection]);
+
 
 
   // Scroll to top whenever the section changes (Next, Previous, or dot navigation)
