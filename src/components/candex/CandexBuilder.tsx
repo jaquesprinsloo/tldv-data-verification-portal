@@ -545,7 +545,24 @@ const CandexBuilder = () => {
         .eq("template_id", selectedTemplate!.id)
         .order("sort_order");
       if (error) throw error;
-      return data as Section[];
+      return (data || []) as unknown as Section[];
+    },
+  });
+
+  // Gate (pre-screening) questions for this template
+  const { data: gateQuestions = [] } = useQuery({
+    queryKey: ["candex-gate-questions", selectedTemplate?.id],
+    enabled: !!selectedTemplate && sections.length > 0,
+    queryFn: async () => {
+      const preIds = sections.filter((s) => s.is_pre_screening).map((s) => s.id);
+      if (preIds.length === 0) return [] as GateQuestion[];
+      const { data, error } = await supabase
+        .from("candex_template_questions")
+        .select("*")
+        .in("section_id", preIds)
+        .order("sort_order");
+      if (error) throw error;
+      return (data || []) as unknown as GateQuestion[];
     },
   });
 
