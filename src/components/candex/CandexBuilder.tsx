@@ -502,6 +502,8 @@ const CandexBuilder = () => {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showAddSection, setShowAddSection] = useState(false);
   const [newSectionTitle, setNewSectionTitle] = useState("");
+  const [newSectionIsPre, setNewSectionIsPre] = useState(false);
+  const [newGateText, setNewGateText] = useState<Record<string, string>>({});
   const [showAddTable, setShowAddTable] = useState<string | null>(null);
   const [newTable, setNewTable] = useState({
     title: "",
