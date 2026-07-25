@@ -573,6 +573,7 @@ export type Database = {
           id: string
           is_required: boolean
           options: Json | null
+          prefill_target: Json | null
           prefill_target_question_id: string | null
           question_text: string
           question_type: string
@@ -585,6 +586,7 @@ export type Database = {
           id?: string
           is_required?: boolean
           options?: Json | null
+          prefill_target?: Json | null
           prefill_target_question_id?: string | null
           question_text: string
           question_type?: string
@@ -597,6 +599,7 @@ export type Database = {
           id?: string
           is_required?: boolean
           options?: Json | null
+          prefill_target?: Json | null
           prefill_target_question_id?: string | null
           question_text?: string
           question_type?: string
