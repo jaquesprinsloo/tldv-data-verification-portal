@@ -654,15 +654,78 @@ const CandexBuilder = () => {
         template_id: selectedTemplate!.id,
         title: newSectionTitle,
         sort_order: sections.length,
-      });
+        is_pre_screening: newSectionIsPre,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["candex-sections"] });
       setShowAddSection(false);
       setNewSectionTitle("");
+      setNewSectionIsPre(false);
       toast.success("Section added");
     },
+  });
+
+  // --- Pre-screening gate question mutations ---
+  const addGateQuestion = useMutation({
+    mutationFn: async ({ sectionId, text }: { sectionId: string; text: string }) => {
+      const existing = gateQuestions.filter((q) => q.section_id === sectionId);
+      const { error } = await supabase.from("candex_template_questions").insert({
+        section_id: sectionId,
+        question_text: text,
+        question_type: "yes_no",
+        is_required: true,
+        sort_order: existing.length,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-gate-questions"] });
+      toast.success("Pre-screening question added");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteGateQuestion = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("candex_template_questions").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["candex-gate-questions"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["candex-section-tables"] });
+      toast.success("Question removed");
+    },
+  });
+
+  const updateGatePrefill = useMutation({
+    mutationFn: async ({ id, target }: { id: string; target: { table_id: string; row_index: number } | null }) => {
+      const { error } = await supabase
+        .from("candex_template_questions")
+        .update({ prefill_target: target } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["candex-gate-questions"] }),
+  });
+
+  const updateVisibility = useMutation({
+    mutationFn: async ({ kind, id, rule }: { kind: "section" | "table"; id: string; rule: VisibilityRule | null }) => {
+      const { error } = await supabase
+        .from(kind === "section" ? "candex_template_sections" : "candex_section_tables")
+        .update({ visible_if: rule } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: [vars.kind === "section" ? "candex-sections" : "candex-section-tables"],
+      });
+      toast.success("Conditional rule saved");
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const deleteSection = useMutation({
