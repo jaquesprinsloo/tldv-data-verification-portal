@@ -1524,6 +1524,20 @@ const CandexBuilder = () => {
                   placeholder="e.g. Family & Friend Contact Trace"
                 />
               </div>
+              <div className="flex items-start gap-2 rounded-md border p-3">
+                <Checkbox
+                  id="new-section-pre"
+                  checked={newSectionIsPre}
+                  onCheckedChange={(v) => setNewSectionIsPre(!!v)}
+                />
+                <div className="space-y-0.5">
+                  <Label htmlFor="new-section-pre" className="text-sm">Pre-screening section</Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    Asked first, straight after personal details. Holds Yes/No questions that decide which
+                    parts of the main questionnaire the candidate sees.
+                  </p>
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowAddSection(false)}>Cancel</Button>
