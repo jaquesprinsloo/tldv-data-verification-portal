@@ -525,6 +525,7 @@ export type Database = {
           sort_order: number
           table_title: string
           video_url: string | null
+          visible_if: Json | null
         }
         Insert: {
           column_headers?: Json
@@ -539,6 +540,7 @@ export type Database = {
           sort_order?: number
           table_title: string
           video_url?: string | null
+          visible_if?: Json | null
         }
         Update: {
           column_headers?: Json
@@ -553,6 +555,7 @@ export type Database = {
           sort_order?: number
           table_title?: string
           video_url?: string | null
+          visible_if?: Json | null
         }
         Relationships: [
           {
@@ -570,30 +573,36 @@ export type Database = {
           id: string
           is_required: boolean
           options: Json | null
+          prefill_target_question_id: string | null
           question_text: string
           question_type: string
           section_id: string
           sort_order: number
+          visible_if: Json | null
         }
         Insert: {
           created_at?: string
           id?: string
           is_required?: boolean
           options?: Json | null
+          prefill_target_question_id?: string | null
           question_text: string
           question_type?: string
           section_id: string
           sort_order?: number
+          visible_if?: Json | null
         }
         Update: {
           created_at?: string
           id?: string
           is_required?: boolean
           options?: Json | null
+          prefill_target_question_id?: string | null
           question_text?: string
           question_type?: string
           section_id?: string
           sort_order?: number
+          visible_if?: Json | null
         }
         Relationships: [
           {
@@ -609,26 +618,32 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_pre_screening: boolean
           sort_order: number
           template_id: string
           title: string
           video_url: string | null
+          visible_if: Json | null
         }
         Insert: {
           created_at?: string
           id?: string
+          is_pre_screening?: boolean
           sort_order?: number
           template_id: string
           title: string
           video_url?: string | null
+          visible_if?: Json | null
         }
         Update: {
           created_at?: string
           id?: string
+          is_pre_screening?: boolean
           sort_order?: number
           template_id?: string
           title?: string
           video_url?: string | null
+          visible_if?: Json | null
         }
         Relationships: [
           {
