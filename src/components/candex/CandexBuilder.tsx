@@ -37,6 +37,23 @@ interface Section {
   title: string;
   sort_order: number;
   video_url: string | null;
+  is_pre_screening?: boolean;
+  visible_if?: VisibilityRule | null;
+}
+
+interface VisibilityRule {
+  question_id: string;
+  equals: "Yes" | "No";
+}
+
+interface GateQuestion {
+  id: string;
+  section_id: string;
+  question_text: string;
+  question_type: string;
+  is_required: boolean;
+  sort_order: number;
+  prefill_target: { table_id: string; row_index: number } | null;
 }
 
 interface RowInputType {
@@ -59,6 +76,7 @@ interface SectionTable {
   video_url: string | null;
   column_widths: number[] | null;
   row_video_urls: (string | null)[];
+  visible_if?: VisibilityRule | null;
 }
 
 // Notification bubble component for candidate preview
