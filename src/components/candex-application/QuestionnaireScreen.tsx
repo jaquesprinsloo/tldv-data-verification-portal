@@ -292,9 +292,9 @@ interface Question {
 export default function QuestionnaireScreen({ templateId, onComplete, readOnly = false, initialAnswers, initialTableData, invitationToken }: QuestionnaireScreenProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [sections, setSections] = useState<Section[]>([]);
-  const [tables, setTables] = useState<SectionTable[]>([]);
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [allSections, setSections] = useState<Section[]>([]);
+  const [allTables, setTables] = useState<SectionTable[]>([]);
+  const [allQuestions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, any>>(initialAnswers || {});
   const [tableData, setTableData] = useState<Record<string, string[][][]>>(initialTableData || {});
   const [currentSection, setCurrentSection] = useState(0);
