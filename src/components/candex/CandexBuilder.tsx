@@ -20,6 +20,7 @@ import {
   Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Template {
   id: string;
@@ -544,6 +545,7 @@ const CandexBuilder = () => {
   const [newTemplateDesc, setNewTemplateDesc] = useState("");
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showAddSection, setShowAddSection] = useState(false);
+  const [builderTab, setBuilderTab] = useState("structure");
   const [newSectionTitle, setNewSectionTitle] = useState("");
   const [newSectionIsPre, setNewSectionIsPre] = useState(false);
   const [newGateText, setNewGateText] = useState<Record<string, string>>({});
@@ -986,9 +988,11 @@ const CandexBuilder = () => {
 
   // --- Template editor view ---
   if (selectedTemplate) {
+    const preScreeningSections = sections.filter((s) => s.is_pre_screening);
+    const mainSections = sections.filter((s) => !s.is_pre_screening);
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-start justify-between flex-wrap gap-2">
           <div>
             <Button variant="ghost" onClick={() => { setSelectedTemplate(null); setPreviewMode(false); }} className="mb-2">
               ← Back to Templates
@@ -998,20 +1002,31 @@ const CandexBuilder = () => {
               <p className="text-sm text-muted-foreground">{selectedTemplate.description}</p>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button variant="outline" onClick={() => setPreviewMode(!previewMode)}>
               <Eye className="h-4 w-4 mr-2" /> {previewMode ? "Edit Mode" : "Quick Preview"}
             </Button>
             <Button variant="default" onClick={() => setShowLivePreview(true)} className="bg-red-600 hover:bg-red-700 text-white">
               <Eye className="h-4 w-4 mr-2" /> Live Applicant Preview
             </Button>
-            <Button onClick={() => setShowAddSection(true)}>
-              <Plus className="h-4 w-4 mr-2" /> Add Section
-            </Button>
+          </div>
         </div>
 
-        {/* Template Video Uploads */}
-        {!previewMode && (
+        <Tabs value={builderTab} onValueChange={setBuilderTab} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3 max-w-xl">
+            <TabsTrigger value="structure" className="text-xs sm:text-sm">
+              <TableIcon className="h-3.5 w-3.5 mr-1.5" /> Structure
+            </TabsTrigger>
+            <TabsTrigger value="media" className="text-xs sm:text-sm">
+              <Volume2 className="h-3.5 w-3.5 mr-1.5" /> Videos &amp; Audio
+            </TabsTrigger>
+            <TabsTrigger value="pre-screening" className="text-xs sm:text-sm">
+              <List className="h-3.5 w-3.5 mr-1.5" /> Pre-Screening
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ══════════ MEDIA TAB ══════════ */}
+          <TabsContent value="media" className="space-y-4">
           <Card className="border-dashed">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -1062,7 +1077,186 @@ const CandexBuilder = () => {
               </div>
             </CardContent>
           </Card>
-        )}
+
+          {/* Explainer library — one clear place for every section / table / row explainer */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Volume2 className="h-4 w-4" /> Explainer Library
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Audio or video explainers played inside the questionnaire. Candidates must start the section
+                explainer before they can fill in that section.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {mainSections.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  Add a section in the Structure tab first.
+                </p>
+              )}
+              {mainSections.map((section) => {
+                const secTables = sectionTables.filter((t) => t.section_id === section.id);
+                return (
+                  <div key={section.id} className="rounded-lg border">
+                    <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-muted/40 border-b">
+                      <span className="text-sm font-semibold">{section.title}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground hidden sm:inline">Section explainer</span>
+                        <VideoUploadButton
+                          currentUrl={section.video_url}
+                          onUploaded={(url) => updateSectionVideo.mutate({ id: section.id, video_url: url })}
+                          onRemoved={() => updateSectionVideo.mutate({ id: section.id, video_url: null })}
+                          label="Section"
+                        />
+                      </div>
+                    </div>
+                    <div className="divide-y">
+                      {secTables.length === 0 && (
+                        <p className="px-4 py-3 text-xs text-muted-foreground">No tables in this section yet.</p>
+                      )}
+                      {secTables.map((tbl) => (
+                        <div key={tbl.id} className="px-4 py-3 space-y-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-xs font-medium flex items-center gap-1.5">
+                              <TableIcon className="h-3.5 w-3.5 text-muted-foreground" /> {tbl.table_title}
+                            </span>
+                            <VideoUploadButton
+                              currentUrl={tbl.video_url}
+                              onUploaded={(url) => updateTableVideo.mutate({ id: tbl.id, video_url: url })}
+                              onRemoved={() => updateTableVideo.mutate({ id: tbl.id, video_url: null })}
+                              label="Table"
+                            />
+                          </div>
+                          <div className="pl-5 space-y-1.5">
+                            {tbl.row_labels.map((rl, ri) => (
+                              <div key={ri} className="flex items-center justify-between gap-3">
+                                <span className="text-[11px] text-muted-foreground truncate">{rl}</span>
+                                <VideoUploadButton
+                                  currentUrl={tbl.row_video_urls?.[ri] || null}
+                                  onUploaded={(url) => updateRowVideoUrl.mutate({ tableId: tbl.id, rowIndex: ri, url, currentUrls: tbl.row_video_urls || [] })}
+                                  onRemoved={() => updateRowVideoUrl.mutate({ tableId: tbl.id, rowIndex: ri, url: null, currentUrls: tbl.row_video_urls || [] })}
+                                  label="Row"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+          </TabsContent>
+
+          {/* ══════════ PRE-SCREENING TAB ══════════ */}
+          <TabsContent value="pre-screening" className="space-y-4">
+            <Card className="border-amber-500/40 bg-amber-500/5">
+              <CardContent className="py-3 flex items-start gap-2 text-xs text-muted-foreground">
+                <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <p>
+                  Pre-screening Yes/No questions are asked right after the candidate confirms their personal
+                  details. Their answers decide which sections and tables of the main questionnaire appear.
+                  Set those rules per section or table in the <span className="font-medium text-foreground">Structure</span> tab.
+                </p>
+              </CardContent>
+            </Card>
+            <div className="flex justify-end">
+              <Button onClick={() => { setNewSectionIsPre(true); setShowAddSection(true); }}>
+                <Plus className="h-4 w-4 mr-2" /> Add Pre-Screening Section
+              </Button>
+            </div>
+            {preScreeningSections.length === 0 && (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground text-sm">
+                  No pre-screening sections yet.
+                </CardContent>
+              </Card>
+            )}
+            {preScreeningSections.map((section) => (
+              <Card key={section.id}>
+                <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
+                  <CardTitle className="text-base">{section.title}</CardTitle>
+                  <Button size="sm" variant="ghost" onClick={() => deleteSection.mutate(section.id)}>
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {gateQuestions.filter((q) => q.section_id === section.id).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      No pre-screening questions yet.
+                    </p>
+                  )}
+                  {gateQuestions
+                    .filter((q) => q.section_id === section.id)
+                    .map((q) => (
+                      <div key={q.id} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium">{q.question_text}</span>
+                          <Button size="sm" variant="ghost" onClick={() => deleteGateQuestion.mutate(q.id)}>
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="text-muted-foreground">Also fill this answer into</span>
+                          <select
+                            value={q.prefill_target ? `${q.prefill_target.table_id}::${q.prefill_target.row_index}` : ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              updateGatePrefill.mutate({
+                                id: q.id,
+                                target: v
+                                  ? { table_id: v.split("::")[0], row_index: Number(v.split("::")[1]) }
+                                  : null,
+                              });
+                            }}
+                            className="h-8 rounded-md border bg-background px-2 text-xs max-w-[340px]"
+                          >
+                            <option value="">Nothing (store answer only)</option>
+                            {sectionTables
+                              .filter((t) => mainSections.some((s) => s.id === t.section_id))
+                              .flatMap((t) =>
+                                t.row_labels.map((rl, ri) => (
+                                  <option key={`${t.id}-${ri}`} value={`${t.id}::${ri}`}>
+                                    {t.table_title} → {rl}
+                                  </option>
+                                ))
+                              )}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                  <div className="flex gap-2">
+                    <Input
+                      value={newGateText[section.id] || ""}
+                      onChange={(e) => setNewGateText((p) => ({ ...p, [section.id]: e.target.value }))}
+                      placeholder="e.g. Do you have a driver's licence?"
+                    />
+                    <Button
+                      onClick={() => {
+                        const text = (newGateText[section.id] || "").trim();
+                        if (!text) return;
+                        addGateQuestion.mutate({ sectionId: section.id, text });
+                        setNewGateText((p) => ({ ...p, [section.id]: "" }));
+                      }}
+                      disabled={!(newGateText[section.id] || "").trim()}
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Add
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </TabsContent>
+
+          {/* ══════════ STRUCTURE TAB ══════════ */}
+          <TabsContent value="structure" className="space-y-4">
+        <div className="flex justify-end">
+          <Button onClick={() => { setNewSectionIsPre(false); setShowAddSection(true); }}>
+            <Plus className="h-4 w-4 mr-2" /> Add Section
+          </Button>
         </div>
 
         {previewMode && (
@@ -1078,7 +1272,7 @@ const CandexBuilder = () => {
           </Card>
         )}
 
-        {sections.length === 0 && (
+        {mainSections.length === 0 && (
           <Card>
             <CardContent className="py-12 text-center text-muted-foreground">
               No sections yet. Add a section (topic heading) to start building the questionnaire.
@@ -1086,7 +1280,7 @@ const CandexBuilder = () => {
           </Card>
         )}
 
-        {sections.map((section) => {
+        {mainSections.map((section) => {
           const tables = sectionTables.filter((t) => t.section_id === section.id);
           const isExpanded = expandedSections.has(section.id);
 
@@ -1144,131 +1338,9 @@ const CandexBuilder = () => {
                     />
                   </div>
                 )}
-                {/* Dedicated Section Audio/Video Explainer Upload Area */}
-                {!previewMode && isExpanded && !section.is_pre_screening && (
-                  <div
-                    className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 space-y-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <p className="text-xs font-medium text-primary flex items-center gap-1.5">
-                      <Volume2 className="h-3.5 w-3.5" /> Section Audio/Video Explainers
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Upload audio or video explainers that will appear in a dedicated bar at the top of this section in the applicant's view. These help candidates understand how to complete each part.
-                    </p>
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <VideoUploadButton
-                        currentUrl={section.video_url}
-                        onUploaded={(url) => updateSectionVideo.mutate({ id: section.id, video_url: url })}
-                        onRemoved={() => updateSectionVideo.mutate({ id: section.id, video_url: null })}
-                        label="Section Overview"
-                      />
-                      {tables.map((tbl) => (
-                        <React.Fragment key={`tbl-${tbl.id}`}>
-                          <VideoUploadButton
-                            currentUrl={tbl.video_url}
-                            onUploaded={(url) => updateTableVideo.mutate({ id: tbl.id, video_url: url })}
-                            onRemoved={() => updateTableVideo.mutate({ id: tbl.id, video_url: null })}
-                            label={tbl.table_title}
-                          />
-                          {tbl.row_video_urls?.map((rvUrl, ri) => rvUrl ? (
-                            <VideoUploadButton
-                              key={`row-${tbl.id}-${ri}`}
-                              currentUrl={rvUrl}
-                              onUploaded={(url) => updateRowVideoUrl.mutate({ tableId: tbl.id, rowIndex: ri, url, currentUrls: tbl.row_video_urls || [] })}
-                              onRemoved={() => updateRowVideoUrl.mutate({ tableId: tbl.id, rowIndex: ri, url: null, currentUrls: tbl.row_video_urls || [] })}
-                              label={`${tbl.table_title} → ${tbl.row_labels[ri] || `Row ${ri + 1}`}`}
-                            />
-                          ) : null)}
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </CardHeader>
               {isExpanded && (
                 <CardContent className="space-y-4">
-                  {/* ── Pre-screening gate questions ── */}
-                  {section.is_pre_screening && !previewMode && (
-                    <div className="space-y-3">
-                      <p className="text-xs text-muted-foreground">
-                        These Yes/No questions are asked right after the candidate confirms their personal
-                        details. Their answers decide which sections and tables of the main questionnaire are
-                        shown.
-                      </p>
-                      {gateQuestions.filter((q) => q.section_id === section.id).length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center py-2">
-                          No pre-screening questions yet.
-                        </p>
-                      )}
-                      {gateQuestions
-                        .filter((q) => q.section_id === section.id)
-                        .map((q) => (
-                          <div key={q.id} className="border rounded-lg p-3 space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium">{q.question_text}</span>
-                              <Button size="sm" variant="ghost" onClick={() => deleteGateQuestion.mutate(q.id)}>
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2 text-xs">
-                              <span className="text-muted-foreground">Also fill this answer into</span>
-                              <select
-                                value={
-                                  q.prefill_target
-                                    ? `${q.prefill_target.table_id}::${q.prefill_target.row_index}`
-                                    : ""
-                                }
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  updateGatePrefill.mutate({
-                                    id: q.id,
-                                    target: v
-                                      ? { table_id: v.split("::")[0], row_index: Number(v.split("::")[1]) }
-                                      : null,
-                                  });
-                                }}
-                                className="h-8 rounded-md border bg-background px-2 text-xs max-w-[340px]"
-                              >
-                                <option value="">Nothing (store answer only)</option>
-                                {sectionTables
-                                  .filter((t) =>
-                                    sections.some((s) => s.id === t.section_id && !s.is_pre_screening)
-                                  )
-                                  .flatMap((t) =>
-                                    t.row_labels.map((rl, ri) => (
-                                      <option key={`${t.id}-${ri}`} value={`${t.id}::${ri}`}>
-                                        {t.table_title} → {rl}
-                                      </option>
-                                    ))
-                                  )}
-                              </select>
-                            </div>
-                          </div>
-                        ))}
-                      <div className="flex gap-2">
-                        <Input
-                          value={newGateText[section.id] || ""}
-                          onChange={(e) =>
-                            setNewGateText((p) => ({ ...p, [section.id]: e.target.value }))
-                          }
-                          placeholder="e.g. Do you have a driver's licence?"
-                        />
-                        <Button
-                          onClick={() => {
-                            const text = (newGateText[section.id] || "").trim();
-                            if (!text) return;
-                            addGateQuestion.mutate({ sectionId: section.id, text });
-                            setNewGateText((p) => ({ ...p, [section.id]: "" }));
-                          }}
-                          disabled={!(newGateText[section.id] || "").trim()}
-                        >
-                          <Plus className="h-4 w-4 mr-1" /> Add
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
                   {!section.is_pre_screening && tables.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       No tables in this section yet. Add a table to define the data fields.
@@ -1510,6 +1582,8 @@ const CandexBuilder = () => {
             </Card>
           );
         })}
+          </TabsContent>
+        </Tabs>
 
         {/* Add Section Dialog */}
         <Dialog open={showAddSection} onOpenChange={setShowAddSection}>
