@@ -338,99 +338,168 @@ const RowInputTypeConfigurator = ({
     return `${tbl.table_title} → ${rowLabel}`;
   };
 
+  const TYPE_LABELS: Record<string, string> = {
+    text: "Free Text",
+    yes_no: "Yes / No",
+    select: "Single Select",
+    multi_select: "Multi Select",
+    dynamic_select: "Dynamic Select",
+    currency: "Currency (R)",
+    date_picker: "Date Picker",
+  };
+
+  const PRESETS: { label: string; opts: string[] }[] = [
+    { label: "Yes / No / Unsure", opts: ["Yes", "No", "Unsure"] },
+    { label: "Frequency", opts: ["Never", "Occasionally", "Often", "Daily"] },
+    { label: "Rating", opts: ["Poor", "Fair", "Good", "Excellent"] },
+  ];
+
   return (
-    <div>
-      <Label className="mb-2 block">Answer Types per Row</Label>
-      <div className="border rounded-md divide-y max-h-[200px] overflow-y-auto">
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between">
+        <Label className="block">Answering Options per Row</Label>
+        <span className="text-[11px] text-muted-foreground">{rowLabels.length} row{rowLabels.length === 1 ? "" : "s"}</span>
+      </div>
+      <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
         {rowLabels.map((label, i) => {
           const rit = getRowInputType(inputTypes, i);
+          const needsOptions = rit.type === "select" || rit.type === "multi_select";
+          const opts = rit.options || [];
           return (
-            <div key={i} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
-              <span className="flex-1 truncate font-medium text-xs">{label}</span>
-              <select
-                className="h-7 text-xs rounded border border-input bg-background px-2"
-                value={rit.type}
-                onChange={(e) => updateType(i, e.target.value as RowInputType["type"])}
-              >
-                <option value="text">Free Text</option>
-                <option value="yes_no">Yes / No</option>
-                <option value="select">Single Select</option>
-                <option value="multi_select">Multi Select</option>
-                <option value="dynamic_select">Dynamic Select</option>
-                <option value="currency">Currency (R)</option>
-                <option value="date_picker">Date Picker</option>
-              </select>
-              {(rit.type === "select" || rit.type === "multi_select") && (
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => openOptionsEditor(i)}>
-                  <List className="h-3 w-3" /> {(rit.options || []).length} opts
-                </Button>
-              )}
-              <div className="flex items-center gap-1.5">
-                <Checkbox
-                  id={`details-${i}`}
-                  checked={rit.require_explanation === true}
-                  onCheckedChange={(checked) => {
-                    const updated = [...inputTypes];
-                    while (updated.length <= i) updated.push({ type: "text" });
-                    updated[i] = { ...updated[i], require_explanation: !!checked };
-                    onChange(updated);
-                  }}
-                />
-                <label htmlFor={`details-${i}`} className="text-[10px] text-muted-foreground cursor-pointer select-none">
-                  Details
-                </label>
+            <div key={i} className="rounded-md border bg-card">
+              {/* Row header */}
+              <div className="flex items-center gap-2 px-3 py-2 border-b bg-muted/40">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                  {i + 1}
+                </span>
+                <span className="flex-1 truncate text-xs font-medium">{label}</span>
+                <Badge variant="secondary" className="text-[10px]">{TYPE_LABELS[rit.type] || rit.type}</Badge>
+                {onVideoUrlsChange && (
+                  <VideoUploadButton
+                    currentUrl={rowVideoUrls?.[i] || null}
+                    onUploaded={(url) => {
+                      const updated = [...(rowVideoUrls || [])];
+                      while (updated.length <= i) updated.push(null);
+                      updated[i] = url;
+                      onVideoUrlsChange(updated);
+                    }}
+                    onRemoved={() => {
+                      const updated = [...(rowVideoUrls || [])];
+                      while (updated.length <= i) updated.push(null);
+                      updated[i] = null;
+                      onVideoUrlsChange(updated);
+                    }}
+                    label="Field"
+                  />
+                )}
               </div>
-              {rit.type === "dynamic_select" && (
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 max-w-[160px] truncate" onClick={() => setEditingSource(i)}>
-                  <List className="h-3 w-3" /> {getSourceLabel(rit)}
-                </Button>
-              )}
-              {onVideoUrlsChange && (
-                <VideoUploadButton
-                  currentUrl={rowVideoUrls?.[i] || null}
-                  onUploaded={(url) => {
-                    const updated = [...(rowVideoUrls || [])];
-                    while (updated.length <= i) updated.push(null);
-                    updated[i] = url;
-                    onVideoUrlsChange(updated);
-                  }}
-                  onRemoved={() => {
-                    const updated = [...(rowVideoUrls || [])];
-                    while (updated.length <= i) updated.push(null);
-                    updated[i] = null;
-                    onVideoUrlsChange(updated);
-                  }}
-                  label="Field"
-                />
-              )}
+
+              {/* Row body */}
+              <div className="px-3 py-2.5 space-y-2.5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground">Answer type</span>
+                    <select
+                      className="h-8 text-xs rounded-md border border-input bg-background px-2"
+                      value={rit.type}
+                      onChange={(e) => updateType(i, e.target.value as RowInputType["type"])}
+                    >
+                      {Object.entries(TYPE_LABELS).map(([v, l]) => (
+                        <option key={v} value={v}>{l}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Checkbox
+                      id={`details-${i}`}
+                      checked={rit.require_explanation === true}
+                      onCheckedChange={(checked) => setRow(i, { require_explanation: !!checked })}
+                    />
+                    <label htmlFor={`details-${i}`} className="text-[11px] text-muted-foreground cursor-pointer select-none">
+                      Ask for extra details
+                    </label>
+                  </div>
+                </div>
+
+                {rit.type === "dynamic_select" && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-muted-foreground">Source</span>
+                    <Button size="sm" variant="outline" className="h-7 text-xs gap-1 max-w-[240px] truncate" onClick={() => setEditingSource(i)}>
+                      <List className="h-3 w-3" /> {getSourceLabel(rit)}
+                    </Button>
+                  </div>
+                )}
+
+                {needsOptions && (
+                  <div className="rounded-md border border-dashed p-2 space-y-2 bg-muted/20">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium">Choices ({opts.length})</span>
+                      <Button size="sm" variant="ghost" className="h-6 text-[11px] gap-1" onClick={() => openBulk(i)}>
+                        <Pencil className="h-3 w-3" /> Bulk edit
+                      </Button>
+                    </div>
+                    {opts.length === 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {PRESETS.map((p) => (
+                          <Button key={p.label} size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => setOptions(i, p.opts)}>
+                            {p.label}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                    {opts.map((opt, oi) => (
+                      <div key={oi} className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground w-4 text-right">{oi + 1}.</span>
+                        <Input
+                          value={opt}
+                          onChange={(e) => setOptions(i, opts.map((o, x) => (x === oi ? e.target.value : o)))}
+                          className="h-7 text-xs"
+                          placeholder={`Option ${oi + 1}`}
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setOptions(i, opts.filter((_, x) => x !== oi))}
+                        >
+                          <X className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1" onClick={() => setOptions(i, [...opts, ""])}>
+                      <Plus className="h-3 w-3" /> Add choice
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
       </div>
-      <p className="text-xs text-muted-foreground mt-1">
-        Choose how candidates answer each row. "Dynamic Select" auto-populates options from another table's data (e.g. company names from employment history).
+      <p className="text-xs text-muted-foreground">
+        Choose how candidates answer each row. "Dynamic Select" auto-populates choices from another table's data (e.g. company names from employment history).
       </p>
 
-      {/* Options editor mini-dialog */}
-      <Dialog open={editingOptions !== null} onOpenChange={(open) => { if (!open) setEditingOptions(null); }}>
+      {/* Bulk options editor */}
+      <Dialog open={bulkOptions !== null} onOpenChange={(open) => { if (!open) setBulkOptions(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-sm">
-              Edit Options: {editingOptions !== null ? rowLabels[editingOptions] : ""}
+              Bulk Edit Choices: {bulkOptions !== null ? rowLabels[bulkOptions] : ""}
             </DialogTitle>
           </DialogHeader>
           <div>
-            <Label className="text-xs">Options (one per line)</Label>
+            <Label className="text-xs">One choice per line</Label>
             <Textarea
-              value={optionsText}
-              onChange={(e) => setOptionsText(e.target.value)}
-              rows={5}
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              rows={6}
               placeholder={"Option A\nOption B\nOption C"}
             />
           </div>
           <DialogFooter>
-            <Button size="sm" variant="outline" onClick={() => setEditingOptions(null)}>Cancel</Button>
-            <Button size="sm" onClick={saveOptions}>Save Options</Button>
+            <Button size="sm" variant="outline" onClick={() => setBulkOptions(null)}>Cancel</Button>
+            <Button size="sm" onClick={saveBulk}>Save Choices</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
