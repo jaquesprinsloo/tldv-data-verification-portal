@@ -1010,7 +1010,7 @@ const CandexBuilder = () => {
             </Button>
         </div>
 
-        {/* Template Video Uploads */}
+        {/* Template Videos */}
         {!previewMode && (
           <Card className="border-dashed">
             <CardHeader className="pb-2">
