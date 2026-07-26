@@ -302,6 +302,21 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
   const [focusStep, setFocusStep] = useState(0);
   const [sectionAudioStarted, setSectionAudioStarted] = useState<Record<number, boolean>>({});
 
+  // ── Follow-up challenges ────────────────────────────────────────────────
+  // A row can be configured with "unlikely" answers (e.g. "Never used drugs").
+  // When given, the candidate must listen to a secondary explainer and then
+  // either keep the answer or go back and revise it.
+  interface ActiveChallenge {
+    key: string;
+    value: string;
+    rowLabel: string;
+    text?: string;
+    audioUrl?: string | null;
+  }
+  const [activeChallenge, setActiveChallenge] = useState<ActiveChallenge | null>(null);
+  const [challengeListened, setChallengeListened] = useState(false);
+  const [challengeAcks, setChallengeAcks] = useState<Record<string, { value: string; kept: boolean; at: string }>>({});
+
   // ── Pre-screening gating ───────────────────────────────────────────────
   // Sections flagged as pre-screening are asked first. Their Yes/No answers
   // decide which main sections / tables / questions are shown at all.
