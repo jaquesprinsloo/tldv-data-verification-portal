@@ -1695,19 +1695,22 @@ const CandexBuilder = () => {
 
         {/* Add Table Dialog */}
         <Dialog open={!!showAddTable} onOpenChange={() => setShowAddTable(null)}>
-          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add Table</DialogTitle>
+              <p className="text-xs text-muted-foreground">Step 1 name it, step 2 define the rows, step 3 choose how each row is answered.</p>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
+              <div className="rounded-lg border p-3 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">1. Table basics</p>
+                <div>
                 <Label>Table Title</Label>
                 <Input
                   value={newTable.title}
                   onChange={(e) => setNewTable((p) => ({ ...p, title: e.target.value }))}
                   placeholder="e.g. Father's Details"
                 />
-              </div>
+                </div>
               <div>
                 <Label>Column Headers (comma separated)</Label>
                 <Input
@@ -1719,7 +1722,10 @@ const CandexBuilder = () => {
                   First column is typically the field label, remaining columns are for candidate input.
                 </p>
               </div>
-              <div>
+              </div>
+              <div className="rounded-lg border p-3 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">2. Rows / questions</p>
+                <div>
                 <Label>Row Labels (one per line)</Label>
                 <Textarea
                   value={newTable.rows}
@@ -1730,8 +1736,11 @@ const CandexBuilder = () => {
                 <p className="text-xs text-muted-foreground mt-1">
                   Each line becomes a row. The label appears in the first column.
                 </p>
+                </div>
               </div>
-              <RowInputTypeConfigurator
+              <div className="rounded-lg border p-3 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3. Answering options</p>
+                <RowInputTypeConfigurator
                 rowLabels={newTable.rows.split("\n").map(r => r.trim()).filter(Boolean)}
                 inputTypes={newTableInputTypes}
                 onChange={setNewTableInputTypes}
@@ -1739,7 +1748,11 @@ const CandexBuilder = () => {
                 allSections={sections}
                 rowVideoUrls={newTableRowVideoUrls}
                 onVideoUrlsChange={setNewTableRowVideoUrls}
-              />
+                />
+                {newTable.rows.trim() === "" && (
+                  <p className="text-xs text-muted-foreground">Add row labels above to configure answering options.</p>
+                )}
+              </div>
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
                   checked={newTable.is_repeatable}
