@@ -20,6 +20,7 @@ import {
   Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell,
 } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Template {
   id: string;
@@ -544,6 +545,7 @@ const CandexBuilder = () => {
   const [newTemplateDesc, setNewTemplateDesc] = useState("");
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showAddSection, setShowAddSection] = useState(false);
+  const [builderTab, setBuilderTab] = useState("structure");
   const [newSectionTitle, setNewSectionTitle] = useState("");
   const [newSectionIsPre, setNewSectionIsPre] = useState(false);
   const [newGateText, setNewGateText] = useState<Record<string, string>>({});
