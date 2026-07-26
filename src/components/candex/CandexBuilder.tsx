@@ -63,6 +63,16 @@ interface RowInputType {
   source_table_id?: string;
   source_row_index?: number;
   require_explanation?: boolean;
+  /**
+   * Optional follow-up "challenge" that fires when the candidate gives one of
+   * the trigger answers (e.g. denying ever using drugs). The candidate must
+   * listen to the explainer, then keep or revise their answer.
+   */
+  challenge?: {
+    values: string[];
+    audio_url?: string | null;
+    text?: string;
+  } | null;
 }
 
 interface SectionTable {
@@ -293,6 +303,7 @@ const RowInputTypeConfigurator = ({
       source_table_id: type === "dynamic_select" ? (updated[index]?.source_table_id) : undefined,
       source_row_index: type === "dynamic_select" ? (updated[index]?.source_row_index ?? 0) : undefined,
       require_explanation: updated[index]?.require_explanation ?? false,
+      challenge: updated[index]?.challenge ?? null,
     };
     onChange(updated);
   };
