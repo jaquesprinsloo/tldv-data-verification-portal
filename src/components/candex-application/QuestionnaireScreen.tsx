@@ -4059,13 +4059,15 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
 
   const handleNext = () => {
     if (!validateCurrentSection()) return;
+    if (guardChallenges()) return;
     setCurrentSection((p) => p + 1);
   };
 
   const handleSubmit = async () => {
     if (!validateCurrentSection() || submitting) return;
+    if (guardChallenges()) return;
     setSubmitting(true);
-    const allAnswers = { questions: answers, tables: tableData };
+    const allAnswers = { questions: answers, tables: tableData, challengeAcknowledgements: challengeAcks };
     const success = await onComplete(allAnswers);
 
     if (!success) {
