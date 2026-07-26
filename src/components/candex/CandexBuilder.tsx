@@ -1164,7 +1164,7 @@ const CandexBuilder = () => {
               </CardContent>
             </Card>
             <div className="flex justify-end">
-              <Button onClick={() => { setNewSectionIsPreScreening(true); setShowAddSection(true); }}>
+              <Button onClick={() => { setNewSectionIsPre(true); setShowAddSection(true); }}>
                 <Plus className="h-4 w-4 mr-2" /> Add Pre-Screening Section
               </Button>
             </div>
@@ -1254,7 +1254,7 @@ const CandexBuilder = () => {
           {/* ══════════ STRUCTURE TAB ══════════ */}
           <TabsContent value="structure" className="space-y-4">
         <div className="flex justify-end">
-          <Button onClick={() => { setNewSectionIsPreScreening(false); setShowAddSection(true); }}>
+          <Button onClick={() => { setNewSectionIsPre(false); setShowAddSection(true); }}>
             <Plus className="h-4 w-4 mr-2" /> Add Section
           </Button>
         </div>
@@ -1338,131 +1338,9 @@ const CandexBuilder = () => {
                     />
                   </div>
                 )}
-                {/* Dedicated Section Audio/Video Explainer Upload Area */}
-                {!previewMode && isExpanded && !section.is_pre_screening && (
-                  <div
-                    className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 space-y-2"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <p className="text-xs font-medium text-primary flex items-center gap-1.5">
-                      <Volume2 className="h-3.5 w-3.5" /> Section Audio/Video Explainers
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Upload audio or video explainers that will appear in a dedicated bar at the top of this section in the applicant's view. These help candidates understand how to complete each part.
-                    </p>
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <VideoUploadButton
-                        currentUrl={section.video_url}
-                        onUploaded={(url) => updateSectionVideo.mutate({ id: section.id, video_url: url })}
-                        onRemoved={() => updateSectionVideo.mutate({ id: section.id, video_url: null })}
-                        label="Section Overview"
-                      />
-                      {tables.map((tbl) => (
-                        <React.Fragment key={`tbl-${tbl.id}`}>
-                          <VideoUploadButton
-                            currentUrl={tbl.video_url}
-                            onUploaded={(url) => updateTableVideo.mutate({ id: tbl.id, video_url: url })}
-                            onRemoved={() => updateTableVideo.mutate({ id: tbl.id, video_url: null })}
-                            label={tbl.table_title}
-                          />
-                          {tbl.row_video_urls?.map((rvUrl, ri) => rvUrl ? (
-                            <VideoUploadButton
-                              key={`row-${tbl.id}-${ri}`}
-                              currentUrl={rvUrl}
-                              onUploaded={(url) => updateRowVideoUrl.mutate({ tableId: tbl.id, rowIndex: ri, url, currentUrls: tbl.row_video_urls || [] })}
-                              onRemoved={() => updateRowVideoUrl.mutate({ tableId: tbl.id, rowIndex: ri, url: null, currentUrls: tbl.row_video_urls || [] })}
-                              label={`${tbl.table_title} → ${tbl.row_labels[ri] || `Row ${ri + 1}`}`}
-                            />
-                          ) : null)}
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </CardHeader>
               {isExpanded && (
                 <CardContent className="space-y-4">
-                  {/* ── Pre-screening gate questions ── */}
-                  {section.is_pre_screening && !previewMode && (
-                    <div className="space-y-3">
-                      <p className="text-xs text-muted-foreground">
-                        These Yes/No questions are asked right after the candidate confirms their personal
-                        details. Their answers decide which sections and tables of the main questionnaire are
-                        shown.
-                      </p>
-                      {gateQuestions.filter((q) => q.section_id === section.id).length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center py-2">
-                          No pre-screening questions yet.
-                        </p>
-                      )}
-                      {gateQuestions
-                        .filter((q) => q.section_id === section.id)
-                        .map((q) => (
-                          <div key={q.id} className="border rounded-lg p-3 space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium">{q.question_text}</span>
-                              <Button size="sm" variant="ghost" onClick={() => deleteGateQuestion.mutate(q.id)}>
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2 text-xs">
-                              <span className="text-muted-foreground">Also fill this answer into</span>
-                              <select
-                                value={
-                                  q.prefill_target
-                                    ? `${q.prefill_target.table_id}::${q.prefill_target.row_index}`
-                                    : ""
-                                }
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  updateGatePrefill.mutate({
-                                    id: q.id,
-                                    target: v
-                                      ? { table_id: v.split("::")[0], row_index: Number(v.split("::")[1]) }
-                                      : null,
-                                  });
-                                }}
-                                className="h-8 rounded-md border bg-background px-2 text-xs max-w-[340px]"
-                              >
-                                <option value="">Nothing (store answer only)</option>
-                                {sectionTables
-                                  .filter((t) =>
-                                    sections.some((s) => s.id === t.section_id && !s.is_pre_screening)
-                                  )
-                                  .flatMap((t) =>
-                                    t.row_labels.map((rl, ri) => (
-                                      <option key={`${t.id}-${ri}`} value={`${t.id}::${ri}`}>
-                                        {t.table_title} → {rl}
-                                      </option>
-                                    ))
-                                  )}
-                              </select>
-                            </div>
-                          </div>
-                        ))}
-                      <div className="flex gap-2">
-                        <Input
-                          value={newGateText[section.id] || ""}
-                          onChange={(e) =>
-                            setNewGateText((p) => ({ ...p, [section.id]: e.target.value }))
-                          }
-                          placeholder="e.g. Do you have a driver's licence?"
-                        />
-                        <Button
-                          onClick={() => {
-                            const text = (newGateText[section.id] || "").trim();
-                            if (!text) return;
-                            addGateQuestion.mutate({ sectionId: section.id, text });
-                            setNewGateText((p) => ({ ...p, [section.id]: "" }));
-                          }}
-                          disabled={!(newGateText[section.id] || "").trim()}
-                        >
-                          <Plus className="h-4 w-4 mr-1" /> Add
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
                   {!section.is_pre_screening && tables.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       No tables in this section yet. Add a table to define the data fields.
@@ -1704,6 +1582,8 @@ const CandexBuilder = () => {
             </Card>
           );
         })}
+          </TabsContent>
+        </Tabs>
 
         {/* Add Section Dialog */}
         <Dialog open={showAddSection} onOpenChange={setShowAddSection}>
