@@ -260,6 +260,7 @@ interface RowInputType {
   options?: string[];
   source_table_id?: string;
   source_row_index?: number;
+  challenge?: { values: string[]; audio_url?: string | null; text?: string } | null;
 }
 
 interface SectionTable {
