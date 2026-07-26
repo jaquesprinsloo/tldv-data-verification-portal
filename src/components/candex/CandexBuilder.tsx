@@ -280,9 +280,9 @@ const RowInputTypeConfigurator = ({
   rowVideoUrls?: (string | null)[];
   onVideoUrlsChange?: (urls: (string | null)[]) => void;
 }) => {
-  const [editingOptions, setEditingOptions] = useState<number | null>(null);
-  const [optionsText, setOptionsText] = useState("");
   const [editingSource, setEditingSource] = useState<number | null>(null);
+  const [bulkOptions, setBulkOptions] = useState<number | null>(null);
+  const [bulkText, setBulkText] = useState("");
 
   const updateType = (index: number, type: RowInputType["type"]) => {
     const updated = [...inputTypes];
@@ -297,20 +297,24 @@ const RowInputTypeConfigurator = ({
     onChange(updated);
   };
 
-  const openOptionsEditor = (index: number) => {
-    const current = getRowInputType(inputTypes, index);
-    setOptionsText((current.options || []).join("\n"));
-    setEditingOptions(index);
+  const setRow = (index: number, patch: Partial<RowInputType>) => {
+    const updated = [...inputTypes];
+    while (updated.length <= index) updated.push({ type: "text" });
+    updated[index] = { ...updated[index], ...patch };
+    onChange(updated);
   };
 
-  const saveOptions = () => {
-    if (editingOptions === null) return;
-    const opts = optionsText.split("\n").map(o => o.trim()).filter(Boolean);
-    const updated = [...inputTypes];
-    while (updated.length <= editingOptions) updated.push({ type: "text" });
-    updated[editingOptions] = { ...updated[editingOptions], options: opts };
-    onChange(updated);
-    setEditingOptions(null);
+  const setOptions = (index: number, opts: string[]) => setRow(index, { options: opts });
+
+  const openBulk = (index: number) => {
+    setBulkText((getRowInputType(inputTypes, index).options || []).join("\n"));
+    setBulkOptions(index);
+  };
+
+  const saveBulk = () => {
+    if (bulkOptions === null) return;
+    setOptions(bulkOptions, bulkText.split("\n").map((o) => o.trim()).filter(Boolean));
+    setBulkOptions(null);
   };
 
   const updateSource = (index: number, tableId: string, rowIdx: number) => {
