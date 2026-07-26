@@ -4062,7 +4062,9 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
    * challenges that haven't been acknowledged yet. Opens the explainer dialog
    * and returns true when navigation should be blocked.
    */
-  const guardChallenges = (): boolean => {
+  const pendingNavRef = useRef<null | (() => void)>(null);
+
+  const guardChallenges = (next?: () => void): boolean => {
     if (readOnly) return false;
     const secTables = tables.filter((t) => t.section_id === currentSec.id);
     for (const tbl of secTables) {
@@ -4080,6 +4082,7 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
           const key = `${tbl.id}:${e}:${r}`;
           if (challengeAcks[key]?.value?.toLowerCase() === value.toLowerCase()) continue;
           setChallengeListened(!ch.audio_url);
+          pendingNavRef.current = next || null;
           setActiveChallenge({
             key,
             value,
