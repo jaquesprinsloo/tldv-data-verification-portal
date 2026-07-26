@@ -4057,6 +4057,43 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
     return true;
   };
 
+  /**
+   * Scans the current section's table answers for configured "unlikely answer"
+   * challenges that haven't been acknowledged yet. Opens the explainer dialog
+   * and returns true when navigation should be blocked.
+   */
+  const guardChallenges = (): boolean => {
+    if (readOnly) return false;
+    const secTables = tables.filter((t) => t.section_id === currentSec.id);
+    for (const tbl of secTables) {
+      const entries = tableData[tbl.id] || [];
+      for (let e = 0; e < entries.length; e++) {
+        for (let r = 0; r < (tbl.row_labels || []).length; r++) {
+          const ch = tbl.row_input_types?.[r]?.challenge;
+          if (!ch || !(ch.values || []).length) continue;
+          const value = String(entries[e]?.[r]?.[0] ?? "").trim();
+          if (!value) continue;
+          const matched = (ch.values || []).some(
+            (v) => String(v).trim().toLowerCase() === value.toLowerCase()
+          );
+          if (!matched) continue;
+          const key = `${tbl.id}:${e}:${r}`;
+          if (challengeAcks[key]?.value?.toLowerCase() === value.toLowerCase()) continue;
+          setChallengeListened(!ch.audio_url);
+          setActiveChallenge({
+            key,
+            value,
+            rowLabel: tbl.row_labels[r] || tbl.table_title,
+            text: ch.text || "",
+            audioUrl: ch.audio_url || null,
+          });
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
   const handleNext = () => {
     if (!validateCurrentSection()) return;
     if (guardChallenges()) return;
