@@ -63,6 +63,16 @@ interface RowInputType {
   source_table_id?: string;
   source_row_index?: number;
   require_explanation?: boolean;
+  /**
+   * Optional follow-up "challenge" that fires when the candidate gives one of
+   * the trigger answers (e.g. denying ever using drugs). The candidate must
+   * listen to the explainer, then keep or revise their answer.
+   */
+  challenge?: {
+    values: string[];
+    audio_url?: string | null;
+    text?: string;
+  } | null;
 }
 
 interface SectionTable {
@@ -293,6 +303,7 @@ const RowInputTypeConfigurator = ({
       source_table_id: type === "dynamic_select" ? (updated[index]?.source_table_id) : undefined,
       source_row_index: type === "dynamic_select" ? (updated[index]?.source_row_index ?? 0) : undefined,
       require_explanation: updated[index]?.require_explanation ?? false,
+      challenge: updated[index]?.challenge ?? null,
     };
     onChange(updated);
   };
@@ -471,6 +482,102 @@ const RowInputTypeConfigurator = ({
                     </Button>
                   </div>
                 )}
+
+                {/* Follow-up challenge / secondary explainer */}
+                {(() => {
+                  const ch = rit.challenge || null;
+                  const enabled = !!ch;
+                  const suggestions = Array.from(
+                    new Set([...(rit.type === "yes_no" ? ["Yes", "No"] : []), ...opts])
+                  ).filter(Boolean);
+                  return (
+                    <div className="rounded-md border border-dashed p-2 space-y-2 bg-amber-500/5">
+                      <div className="flex items-center gap-1.5">
+                        <Checkbox
+                          id={`challenge-${i}`}
+                          checked={enabled}
+                          onCheckedChange={(checked) =>
+                            setRow(i, {
+                              challenge: checked
+                                ? { values: [], audio_url: null, text: "" }
+                                : null,
+                            })
+                          }
+                        />
+                        <label htmlFor={`challenge-${i}`} className="text-[11px] font-medium cursor-pointer select-none">
+                          Follow-up challenge on certain answers
+                        </label>
+                      </div>
+                      {enabled && (
+                        <div className="space-y-2">
+                          <div>
+                            <Label className="text-[11px] text-muted-foreground">
+                              Trigger answers (comma separated)
+                            </Label>
+                            <Input
+                              className="h-7 text-xs mt-1"
+                              placeholder="No, Never"
+                              value={(ch!.values || []).join(", ")}
+                              onChange={(e) =>
+                                setRow(i, {
+                                  challenge: {
+                                    ...ch!,
+                                    values: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
+                                  },
+                                })
+                              }
+                            />
+                            {suggestions.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {suggestions.map((s) => (
+                                  <Button
+                                    key={s}
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 text-[10px]"
+                                    onClick={() =>
+                                      setRow(i, {
+                                        challenge: {
+                                          ...ch!,
+                                          values: Array.from(new Set([...(ch!.values || []), s])),
+                                        },
+                                      })
+                                    }
+                                  >
+                                    + {s}
+                                  </Button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <Label className="text-[11px] text-muted-foreground">Explainer message</Label>
+                            <Textarea
+                              rows={3}
+                              className="text-xs mt-1"
+                              placeholder="You indicated that you have never used drugs. This question includes any recreational, prescription or experimental use..."
+                              value={ch!.text || ""}
+                              onChange={(e) => setRow(i, { challenge: { ...ch!, text: e.target.value } })}
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-muted-foreground">Explainer audio / video</span>
+                            <VideoUploadButton
+                              currentUrl={ch!.audio_url || null}
+                              onUploaded={(url) => setRow(i, { challenge: { ...ch!, audio_url: url } })}
+                              onRemoved={() => setRow(i, { challenge: { ...ch!, audio_url: null } })}
+                              label="Challenge"
+                            />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">
+                            When the candidate gives one of the trigger answers, they must listen to this explainer
+                            before choosing to keep their answer or go back and update it.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           );

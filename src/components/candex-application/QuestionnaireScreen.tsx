@@ -260,6 +260,7 @@ interface RowInputType {
   options?: string[];
   source_table_id?: string;
   source_row_index?: number;
+  challenge?: { values: string[]; audio_url?: string | null; text?: string } | null;
 }
 
 interface SectionTable {
@@ -300,6 +301,21 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
   const [currentSection, setCurrentSection] = useState(0);
   const [focusStep, setFocusStep] = useState(0);
   const [sectionAudioStarted, setSectionAudioStarted] = useState<Record<number, boolean>>({});
+
+  // ── Follow-up challenges ────────────────────────────────────────────────
+  // A row can be configured with "unlikely" answers (e.g. "Never used drugs").
+  // When given, the candidate must listen to a secondary explainer and then
+  // either keep the answer or go back and revise it.
+  interface ActiveChallenge {
+    key: string;
+    value: string;
+    rowLabel: string;
+    text?: string;
+    audioUrl?: string | null;
+  }
+  const [activeChallenge, setActiveChallenge] = useState<ActiveChallenge | null>(null);
+  const [challengeListened, setChallengeListened] = useState(false);
+  const [challengeAcks, setChallengeAcks] = useState<Record<string, { value: string; kept: boolean; at: string }>>({});
 
   // ── Pre-screening gating ───────────────────────────────────────────────
   // Sections flagged as pre-screening are asked first. Their Yes/No answers
@@ -4041,15 +4057,57 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
     return true;
   };
 
+  /**
+   * Scans the current section's table answers for configured "unlikely answer"
+   * challenges that haven't been acknowledged yet. Opens the explainer dialog
+   * and returns true when navigation should be blocked.
+   */
+  const pendingNavRef = useRef<null | (() => void)>(null);
+
+  const guardChallenges = (next?: () => void): boolean => {
+    if (readOnly) return false;
+    const secTables = tables.filter((t) => t.section_id === currentSec.id);
+    for (const tbl of secTables) {
+      const entries = tableData[tbl.id] || [];
+      for (let e = 0; e < entries.length; e++) {
+        for (let r = 0; r < (tbl.row_labels || []).length; r++) {
+          const ch = tbl.row_input_types?.[r]?.challenge;
+          if (!ch || !(ch.values || []).length) continue;
+          const value = String(entries[e]?.[r]?.[0] ?? "").trim();
+          if (!value) continue;
+          const matched = (ch.values || []).some(
+            (v) => String(v).trim().toLowerCase() === value.toLowerCase()
+          );
+          if (!matched) continue;
+          const key = `${tbl.id}:${e}:${r}`;
+          if (challengeAcks[key]?.value?.toLowerCase() === value.toLowerCase()) continue;
+          setChallengeListened(!ch.audio_url);
+          pendingNavRef.current = next || null;
+          setActiveChallenge({
+            key,
+            value,
+            rowLabel: tbl.row_labels[r] || tbl.table_title,
+            text: ch.text || "",
+            audioUrl: ch.audio_url || null,
+          });
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+
   const handleNext = () => {
     if (!validateCurrentSection()) return;
+    if (guardChallenges(() => setCurrentSection((p) => p + 1))) return;
     setCurrentSection((p) => p + 1);
   };
 
   const handleSubmit = async () => {
     if (!validateCurrentSection() || submitting) return;
+    if (guardChallenges(() => { void handleSubmit(); })) return;
     setSubmitting(true);
-    const allAnswers = { questions: answers, tables: tableData };
+    const allAnswers = { questions: answers, tables: tableData, challengeAcknowledgements: challengeAcks };
     const success = await onComplete(allAnswers);
 
     if (!success) {
@@ -4206,7 +4264,10 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
                       <div className="flex-1" />
                       {!isLastBlock && (
                         <Button
-                          onClick={() => setFocusStep(activeStep + 1)}
+                          onClick={() => {
+                            if (guardChallenges(() => setFocusStep(activeStep + 1))) return;
+                            setFocusStep(activeStep + 1);
+                          }}
                           className="bg-red-600 hover:bg-red-700 text-white"
                         >
                           Proceed
@@ -4265,6 +4326,99 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
           </>
         )}
       </main>
+
+      {/* Follow-up challenge explainer */}
+      <Dialog
+        open={!!activeChallenge}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActiveChallenge(null);
+            pendingNavRef.current = null;
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg bg-zinc-950 border-red-900/60 text-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <Headphones className="h-5 w-5 text-red-500" /> Please confirm your answer
+            </DialogTitle>
+          </DialogHeader>
+          {activeChallenge && (
+            <div className="space-y-4">
+              <div className="rounded-md border border-zinc-800 bg-zinc-900/60 p-3">
+                <p className="text-xs text-zinc-500">{activeChallenge.rowLabel}</p>
+                <p className="text-sm font-semibold text-red-300 mt-0.5">
+                  You answered: {activeChallenge.value}
+                </p>
+              </div>
+
+              {activeChallenge.audioUrl && (
+                <div
+                  className={`flex items-center gap-3 rounded-md px-3 py-3 border transition-all ${
+                    challengeListened
+                      ? "border-zinc-800 bg-zinc-900/40"
+                      : "border-red-600/60 bg-red-950/40 shadow-[0_0_25px_rgba(239,68,68,0.35)] animate-pulse"
+                  }`}
+                >
+                  <VideoPlayButton
+                    videoUrl={activeChallenge.audioUrl}
+                    label={`Explainer: ${activeChallenge.rowLabel}`}
+                    onStart={() => setChallengeListened(true)}
+                  />
+                  <span className="text-xs text-red-300">
+                    {challengeListened
+                      ? "Explainer playing — you may replay it at any time."
+                      : "Tap play to listen to the explainer before you continue."}
+                  </span>
+                </div>
+              )}
+
+              {activeChallenge.text && (
+                <p className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                  {activeChallenge.text}
+                </p>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  className="flex-1 border-zinc-700 text-zinc-300 hover:text-white"
+                  onClick={() => {
+                    setActiveChallenge(null);
+                    pendingNavRef.current = null;
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Go back and update my answer
+                </Button>
+                <Button
+                  disabled={!challengeListened}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white disabled:opacity-40"
+                  onClick={() => {
+                    const ch = activeChallenge;
+                    setChallengeAcks((prev) => ({
+                      ...prev,
+                      [ch.key]: { value: ch.value, kept: true, at: new Date().toISOString() },
+                    }));
+                    setActiveChallenge(null);
+                    const next = pendingNavRef.current;
+                    pendingNavRef.current = null;
+                    setTimeout(() => next?.(), 0);
+                  }}
+                >
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Keep my answer
+                </Button>
+              </div>
+              {!challengeListened && activeChallenge.audioUrl && (
+                <p className="text-[11px] text-zinc-500 text-center">
+                  Listen to the explainer to unlock "Keep my answer".
+                </p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
