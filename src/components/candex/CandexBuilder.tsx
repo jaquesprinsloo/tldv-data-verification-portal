@@ -1780,18 +1780,20 @@ const CandexBuilder = () => {
 
         {/* Edit Table Dialog */}
         <Dialog open={!!editingTable} onOpenChange={(open) => { if (!open) setEditingTable(null); }}>
-          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Table</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
+              <div className="rounded-lg border p-3 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">1. Table basics</p>
+                <div>
                 <Label>Table Title</Label>
                 <Input
                   value={editTable.title}
                   onChange={(e) => setEditTable((p) => ({ ...p, title: e.target.value }))}
                 />
-              </div>
+                </div>
               <div>
                 <Label>Column Headers (comma separated)</Label>
                 <Input
@@ -1799,15 +1801,21 @@ const CandexBuilder = () => {
                   onChange={(e) => setEditTable((p) => ({ ...p, columns: e.target.value }))}
                 />
               </div>
-              <div>
+              </div>
+              <div className="rounded-lg border p-3 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">2. Rows / questions</p>
+                <div>
                 <Label>Row Labels (one per line)</Label>
                 <Textarea
                   value={editTable.rows}
                   onChange={(e) => setEditTable((p) => ({ ...p, rows: e.target.value }))}
                   rows={6}
                 />
+                </div>
               </div>
-              <RowInputTypeConfigurator
+              <div className="rounded-lg border p-3 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">3. Answering options</p>
+                <RowInputTypeConfigurator
                 rowLabels={editTable.rows.split("\n").map(r => r.trim()).filter(Boolean)}
                 inputTypes={editTableInputTypes}
                 onChange={setEditTableInputTypes}
@@ -1815,7 +1823,8 @@ const CandexBuilder = () => {
                 allSections={sections}
                 rowVideoUrls={editTableRowVideoUrls}
                 onVideoUrlsChange={setEditTableRowVideoUrls}
-              />
+                />
+              </div>
               {/* Column widths are now adjusted by dragging column borders in the preview table */}
               <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/30">
                 <Switch
