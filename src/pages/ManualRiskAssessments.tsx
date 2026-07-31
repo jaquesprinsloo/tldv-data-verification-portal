@@ -27,6 +27,7 @@ import {
 import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, isPlaceholderCandidate, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RecipientPicker, ClientAddressBookDialog, type MrRecipient } from "@/components/manual-risk/AddressBook";
+import { AddressBookTab } from "@/components/manual-risk/AddressBookTab";
 import { BookUser } from "lucide-react";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -495,6 +496,7 @@ export default function ManualRiskAssessments() {
             <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />Submissions</TabsTrigger>
             <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
+            <TabsTrigger value="address-book"><Users className="h-4 w-4 mr-2" />Address Book</TabsTrigger>
             <TabsTrigger value="settings">T&amp;Cs</TabsTrigger>
           </TabsList>
 
@@ -621,6 +623,10 @@ export default function ManualRiskAssessments() {
 
           <TabsContent value="clients" className="mt-4">
             <ClientsTab clients={clients} userId={userId} onChanged={() => qc.invalidateQueries({ queryKey: ["mra-clients"] })} />
+          </TabsContent>
+
+          <TabsContent value="address-book" className="mt-4">
+            <AddressBookTab clients={clients} />
           </TabsContent>
 
           <TabsContent value="settings" className="mt-4">
