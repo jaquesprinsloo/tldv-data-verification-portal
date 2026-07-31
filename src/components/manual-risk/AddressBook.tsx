@@ -44,6 +44,55 @@ export function useClientContacts(clientId: string | null | undefined) {
   });
 }
 
+/** Every contact across all clients. */
+export function useAllContacts(enabled = true) {
+  return useQuery<MrContact[]>({
+    queryKey: ["mra-all-contacts"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await sb
+        .from("manual_risk_contacts")
+        .select("id, client_id, name, email, is_default")
+        .order("email", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as MrContact[];
+    },
+  });
+}
+
+export type GroupedContact = {
+  email: string;
+  name: string | null;
+  rows: MrContact[];
+  clientIds: string[];
+  isDefaultAnywhere: boolean;
+};
+
+/** Collapse contacts to one entry per unique email address. */
+export function groupContacts(rows: MrContact[]): GroupedContact[] {
+  const map = new Map<string, GroupedContact>();
+  for (const r of rows) {
+    const key = r.email.trim().toLowerCase();
+    if (!key) continue;
+    const g = map.get(key);
+    if (g) {
+      g.rows.push(r);
+      if (!g.name && r.name?.trim()) g.name = r.name.trim();
+      if (!g.clientIds.includes(r.client_id)) g.clientIds.push(r.client_id);
+      g.isDefaultAnywhere = g.isDefaultAnywhere || r.is_default;
+    } else {
+      map.set(key, {
+        email: key,
+        name: r.name?.trim() || null,
+        rows: [r],
+        clientIds: [r.client_id],
+        isDefaultAnywhere: r.is_default,
+      });
+    }
+  }
+  return [...map.values()].sort((a, b) => a.email.localeCompare(b.email));
+}
+
 /**
  * Checkbox picker over a client's address book. The recipient flagged as
  * primary becomes the "To" address; the rest are CC'd.
@@ -62,6 +111,9 @@ export function RecipientPicker({
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [initialised, setInitialised] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
+  const [bookSearch, setBookSearch] = useState("");
+  const { data: allContacts = [] } = useAllContacts(browsing);
 
   useEffect(() => { setInitialised(false); }, [clientId]);
 
@@ -112,6 +164,7 @@ export function RecipientPicker({
   const addContact = async () => {
     const email = newEmail.trim().toLowerCase();
     if (!EMAIL_RE.test(email)) { toast.error("Enter a valid email address"); return; }
+    if (selectedKeys.has(email)) { toast.error("That address is already a recipient"); return; }
     if (clientId) {
       const { error } = await sb.from("manual_risk_contacts").insert({
         client_id: clientId, name: newName.trim() || null, email, is_default: false,
@@ -119,10 +172,22 @@ export function RecipientPicker({
       if (error && !/duplicate/i.test(error.message)) { toast.error(error.message); return; }
       await refetch();
     }
-    if (!selectedKeys.has(email)) {
-      onChange([...value, { name: newName.trim() || null, email, primary: value.length === 0 }]);
-    }
+    onChange([...value, { name: newName.trim() || null, email, primary: value.length === 0 }]);
     setNewName(""); setNewEmail(""); setAdding(false);
+  };
+
+  /** Unique global address-book entries not already listed/selected here. */
+  const bookOptions = useMemo(() => {
+    const q = bookSearch.trim().toLowerCase();
+    return groupContacts(allContacts)
+      .filter((g) => !selectedKeys.has(g.email))
+      .filter((g) => !contacts.some((c) => c.email.trim().toLowerCase() === g.email))
+      .filter((g) => !q || g.email.includes(q) || (g.name ?? "").toLowerCase().includes(q))
+      .slice(0, 50);
+  }, [allContacts, bookSearch, selectedKeys, contacts]);
+
+  const addFromBook = (g: GroupedContact) => {
+    onChange([...value, { name: g.name, email: g.email, primary: value.length === 0 }]);
   };
 
   // Ad-hoc recipients that aren't (yet) in the address book
@@ -192,6 +257,39 @@ export function RecipientPicker({
           <Button type="button" onClick={addContact} className="bg-red-600 hover:bg-red-700">Save</Button>
         </div>
       )}
+
+      <div className="pt-1 border-t">
+        <Button type="button" variant="ghost" size="sm" className="h-7 text-xs"
+          onClick={() => setBrowsing((v) => !v)}>
+          <BookUser className="h-3.5 w-3.5 mr-1" />
+          {browsing ? "Hide address book" : "Add from address book"}
+        </Button>
+        {browsing && (
+          <div className="space-y-2 pt-2">
+            <Input className="h-8" placeholder="Search saved contacts"
+              value={bookSearch} onChange={(e) => setBookSearch(e.target.value)} />
+            <ul className="max-h-44 overflow-y-auto divide-y border rounded-md">
+              {bookOptions.length === 0 && (
+                <li className="text-xs text-muted-foreground p-2">No other saved contacts found.</li>
+              )}
+              {bookOptions.map((g) => (
+                <li key={g.email} className="flex items-center gap-2 p-1.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm truncate">
+                      {g.name || <span className="text-muted-foreground">No name</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">{g.email}</div>
+                  </div>
+                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs"
+                    onClick={() => addFromBook(g)}>
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -219,10 +317,17 @@ export function ClientAddressBookDialog({
   const add = async () => {
     const email = newEmail.trim().toLowerCase();
     if (!EMAIL_RE.test(email)) { toast.error("Enter a valid email address"); return; }
+    if (contacts.some((c) => c.email.trim().toLowerCase() === email)) {
+      toast.error("That address is already in this client's address book"); return;
+    }
     const { error } = await sb.from("manual_risk_contacts").insert({
       client_id: clientId, name: newName.trim() || null, email, is_default: true,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(/duplicate|unique/i.test(error.message)
+        ? "That address is already saved for this client" : error.message);
+      return;
+    }
     setNewName(""); setNewEmail("");
     invalidate();
   };
