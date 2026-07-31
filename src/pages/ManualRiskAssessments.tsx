@@ -756,6 +756,7 @@ function PdfPreview({ blob, title }: { blob: Blob; title: string }) {
 
 function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId: string; onChanged: () => void }) {
   const [editing, setEditing] = useState<Partial<Client> | null>(null);
+  const [bookClient, setBookClient] = useState<Client | null>(null);
 
   const save = async () => {
     if (!editing?.client_name?.trim()) { toast.error("Client name is required"); return; }
@@ -823,6 +824,9 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
               <TableCell>{c.email ?? "—"}</TableCell>
               <TableCell>{c.phone ?? "—"}</TableCell>
               <TableCell className="text-right space-x-1">
+                <Button variant="ghost" size="sm" title="Address book" onClick={() => setBookClient(c)}>
+                  <BookUser className="h-4 w-4" />
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => setEditing(c)}><Pencil className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="sm" onClick={() => remove(c.id)}><Trash2 className="h-4 w-4 text-red-600" /></Button>
               </TableCell>
@@ -870,6 +874,13 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ClientAddressBookDialog
+        clientId={bookClient?.id ?? null}
+        clientName={bookClient?.client_name}
+        open={!!bookClient}
+        onClose={() => setBookClient(null)}
+      />
     </Card>
   );
 }
