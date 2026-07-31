@@ -1079,6 +1079,7 @@ function NewSubmissionDialog({
           status: "open",
           requested_checks: selectedChecks,
           created_by: userId,
+          recipients: recipients.filter((r) => r.email?.trim()),
           ...(createdAtIso ? { created_at: createdAtIso } : {}),
         })
         .select("id").single();
@@ -1139,7 +1140,8 @@ function NewSubmissionDialog({
                   cc_emails: newClient.cc_emails?.trim() ?? null,
                 }
               : null;
-        const toEmail = resolvedClient?.email?.trim();
+        const routed = routeRecipients(recipients);
+        const toEmail = routed.to || resolvedClient?.email?.trim();
         if (toEmail) {
           const emailCandidates = candidates.map((c) => ({
             first_name: c.first_name.trim(),
@@ -1149,10 +1151,15 @@ function NewSubmissionDialog({
           const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
             body: {
               to: toEmail,
-              cc: ["admin@tldv.co.za", ...((resolvedClient as any)?.cc_emails?.split(",").map((s: string) => s.trim()).filter(Boolean) ?? [])],
+              cc: dedupeEmails([
+                "admin@tldv.co.za",
+                ...(routed.to
+                  ? routed.cc
+                  : ((resolvedClient as any)?.cc_emails?.split(",").map((s: string) => s.trim()).filter(Boolean) ?? [])),
+              ]),
               orderNumber: orderNumber.trim(),
               clientName: resolvedClient?.client_name ?? undefined,
-              contactName: resolvedClient?.contact_person ?? undefined,
+              contactName: routed.toName ?? resolvedClient?.contact_person ?? undefined,
               candidates: emailCandidates,
             },
           });
