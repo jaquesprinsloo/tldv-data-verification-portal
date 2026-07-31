@@ -33,6 +33,34 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 // ---------- helpers ----------
 
+/** De-dupe email addresses case-insensitively while preserving order. */
+function dedupeEmails(list: string[]): string[] {
+  const seen = new Set<string>();
+  return list
+    .map((e) => e.trim())
+    .filter(Boolean)
+    .filter((e) => {
+      const k = e.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+}
+
+/** Split saved submission recipients into the "To" address and CC list. */
+function routeRecipients(recipients: MrRecipient[] | null | undefined) {
+  const list = (recipients ?? []).filter((r) => r?.email?.trim());
+  if (!list.length) return { to: "", toName: null as string | null, cc: [] as string[] };
+  const primary = list.find((r) => r.primary) ?? list[0];
+  return {
+    to: primary.email.trim(),
+    toName: primary.name?.trim() || null,
+    cc: dedupeEmails(
+      list.filter((r) => r.email.toLowerCase() !== primary.email.toLowerCase()).map((r) => r.email),
+    ),
+  };
+}
+
 type Client = {
   id: string; client_name: string; contact_person: string | null;
   email: string | null; phone: string | null; address: string | null;
