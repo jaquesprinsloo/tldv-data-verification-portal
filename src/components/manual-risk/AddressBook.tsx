@@ -317,10 +317,17 @@ export function ClientAddressBookDialog({
   const add = async () => {
     const email = newEmail.trim().toLowerCase();
     if (!EMAIL_RE.test(email)) { toast.error("Enter a valid email address"); return; }
+    if (contacts.some((c) => c.email.trim().toLowerCase() === email)) {
+      toast.error("That address is already in this client's address book"); return;
+    }
     const { error } = await sb.from("manual_risk_contacts").insert({
       client_id: clientId, name: newName.trim() || null, email, is_default: true,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(/duplicate|unique/i.test(error.message)
+        ? "That address is already saved for this client" : error.message);
+      return;
+    }
     setNewName(""); setNewEmail("");
     invalidate();
   };
