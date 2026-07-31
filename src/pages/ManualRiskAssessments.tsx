@@ -1257,12 +1257,23 @@ function NewSubmissionDialog({
               </div>
 
               {clientMode === "existing" && (
-                <Select value={clientId} onValueChange={setClientId}>
-                  <SelectTrigger><SelectValue placeholder="Select a client..." /></SelectTrigger>
-                  <SelectContent>
-                    {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.client_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-3">
+                  <Select value={clientId} onValueChange={(v) => { setClientId(v); setRecipients([]); }}>
+                    <SelectTrigger><SelectValue placeholder="Select a client..." /></SelectTrigger>
+                    <SelectContent>
+                      {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.client_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {clientId && (
+                    <RecipientPicker
+                      clientId={clientId}
+                      value={recipients}
+                      onChange={setRecipients}
+                      fallbackEmail={clients.find((c) => c.id === clientId)?.email}
+                      fallbackName={clients.find((c) => c.id === clientId)?.contact_person}
+                    />
+                  )}
+                </div>
               )}
 
               {clientMode === "new" && (
