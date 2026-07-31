@@ -1456,20 +1456,19 @@ function SubmissionDetailsDialog({
   useEffect(() => { setLocal(candidates.filter((c) => !isPlaceholderCandidate(c))); }, [candidates]);
 
   const client = sub?.client_id ? clients.find((c) => c.id === sub.client_id) : undefined;
-  useEffect(() => { if (client?.email) setEmailTo(client.email); }, [client?.email]);
+  // Prefer the recipients captured when the submission was created, so the
+  // report goes to exactly the same people as the confirmation email.
+  const savedRouted = useMemo(() => routeRecipients(sub?.recipients), [sub?.recipients]);
   useEffect(() => {
-    const extras = client?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
-    const base = ["Admin@tldv.co.za", ...extras];
-    // De-dupe case-insensitively while preserving order
-    const seen = new Set<string>();
-    const merged = base.filter((e) => {
-      const k = e.toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-    setCcEmails(merged.join(", "));
-  }, [client?.cc_emails]);
+    const to = savedRouted.to || client?.email || "";
+    if (to) setEmailTo(to);
+  }, [savedRouted.to, client?.email]);
+  useEffect(() => {
+    const extras = savedRouted.to
+      ? savedRouted.cc
+      : (client?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? []);
+    setCcEmails(dedupeEmails(["Admin@tldv.co.za", ...extras]).join(", "));
+  }, [savedRouted.to, savedRouted.cc, client?.cc_emails]);
 
   const updateRow = (idx: number, patch: Partial<Candidate>) => {
     setLocal((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
