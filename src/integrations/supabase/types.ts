@@ -903,6 +903,44 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_risk_contacts: {
+        Row: {
+          client_id: string
+          created_at: string
+          email: string
+          id: string
+          is_default: boolean
+          name: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          email: string
+          id?: string
+          is_default?: boolean
+          name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          is_default?: boolean
+          name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_risk_contacts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manual_risk_settings: {
         Row: {
           created_at: string
@@ -942,6 +980,7 @@ export type Database = {
           invoiced_at: string | null
           notes: string | null
           order_number: string
+          recipients: Json
           report_onedrive_item_id: string | null
           report_onedrive_path: string | null
           report_onedrive_web_url: string | null
@@ -963,6 +1002,7 @@ export type Database = {
           invoiced_at?: string | null
           notes?: string | null
           order_number: string
+          recipients?: Json
           report_onedrive_item_id?: string | null
           report_onedrive_path?: string | null
           report_onedrive_web_url?: string | null
@@ -984,6 +1024,7 @@ export type Database = {
           invoiced_at?: string | null
           notes?: string | null
           order_number?: string
+          recipients?: Json
           report_onedrive_item_id?: string | null
           report_onedrive_path?: string | null
           report_onedrive_web_url?: string | null
