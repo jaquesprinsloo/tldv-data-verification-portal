@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/table";
 import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, isPlaceholderCandidate, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RecipientPicker, ClientAddressBookDialog, type MrRecipient } from "@/components/manual-risk/AddressBook";
+import { BookUser } from "lucide-react";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -51,6 +53,7 @@ type Submission = {
   report_onedrive_item_id: string | null;
   report_onedrive_path: string | null;
   supplier_report_files: SupplierReportFile[] | null;
+  recipients?: MrRecipient[] | null;
 };
 export type IndemnityFile = {
   name: string;
