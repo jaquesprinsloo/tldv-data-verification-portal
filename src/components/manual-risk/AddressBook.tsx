@@ -44,6 +44,55 @@ export function useClientContacts(clientId: string | null | undefined) {
   });
 }
 
+/** Every contact across all clients. */
+export function useAllContacts(enabled = true) {
+  return useQuery<MrContact[]>({
+    queryKey: ["mra-all-contacts"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await sb
+        .from("manual_risk_contacts")
+        .select("id, client_id, name, email, is_default")
+        .order("email", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as MrContact[];
+    },
+  });
+}
+
+export type GroupedContact = {
+  email: string;
+  name: string | null;
+  rows: MrContact[];
+  clientIds: string[];
+  isDefaultAnywhere: boolean;
+};
+
+/** Collapse contacts to one entry per unique email address. */
+export function groupContacts(rows: MrContact[]): GroupedContact[] {
+  const map = new Map<string, GroupedContact>();
+  for (const r of rows) {
+    const key = r.email.trim().toLowerCase();
+    if (!key) continue;
+    const g = map.get(key);
+    if (g) {
+      g.rows.push(r);
+      if (!g.name && r.name?.trim()) g.name = r.name.trim();
+      if (!g.clientIds.includes(r.client_id)) g.clientIds.push(r.client_id);
+      g.isDefaultAnywhere = g.isDefaultAnywhere || r.is_default;
+    } else {
+      map.set(key, {
+        email: key,
+        name: r.name?.trim() || null,
+        rows: [r],
+        clientIds: [r.client_id],
+        isDefaultAnywhere: r.is_default,
+      });
+    }
+  }
+  return [...map.values()].sort((a, b) => a.email.localeCompare(b.email));
+}
+
 /**
  * Checkbox picker over a client's address book. The recipient flagged as
  * primary becomes the "To" address; the rest are CC'd.
