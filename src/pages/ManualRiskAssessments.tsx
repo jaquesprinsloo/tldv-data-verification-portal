@@ -977,6 +977,7 @@ function NewSubmissionDialog({
   const [busy, setBusy] = useState(false);
   const [indemnityFiles, setIndemnityFiles] = useState<File[]>([]);
   const [sendConfirmation, setSendConfirmation] = useState(true);
+  const [recipients, setRecipients] = useState<MrRecipient[]>([]);
   const [createdDate, setCreatedDate] = useState<string>(() => {
     const d = new Date();
     const yyyy = d.getFullYear();
@@ -1039,6 +1040,17 @@ function NewSubmissionDialog({
           .select("id").single();
         if (error) { toast.error(error.message); return; }
         resolvedClientId = data.id;
+        // Seed the address book for the brand-new client
+        const seedRows = dedupeEmails([
+          newClient.email?.trim() ?? "",
+          ...(newClient.cc_emails?.split(",") ?? []),
+        ]).map((email, i) => ({
+          client_id: data.id,
+          name: i === 0 ? (newClient.contact_person?.trim() || null) : null,
+          email: email.toLowerCase(),
+          is_default: true,
+        }));
+        if (seedRows.length) await sb.from("manual_risk_contacts").insert(seedRows);
       }
     }
 
