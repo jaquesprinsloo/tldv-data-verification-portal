@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
@@ -14,7 +14,6 @@ import { EMAIL_RE, groupContacts, useAllContacts, type MrContact } from "./Addre
 
 const sb = supabase as any;
 
-type ContactRow = MrContact & { created_at?: string };
 type ClientLite = { id: string; client_name: string };
 
 /** Global address book — one row per unique email address. */
