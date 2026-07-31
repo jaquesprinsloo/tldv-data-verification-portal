@@ -26,10 +26,40 @@ import {
 } from "@/components/ui/table";
 import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, isPlaceholderCandidate, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RecipientPicker, ClientAddressBookDialog, type MrRecipient } from "@/components/manual-risk/AddressBook";
+import { BookUser } from "lucide-react";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 // ---------- helpers ----------
+
+/** De-dupe email addresses case-insensitively while preserving order. */
+function dedupeEmails(list: string[]): string[] {
+  const seen = new Set<string>();
+  return list
+    .map((e) => e.trim())
+    .filter(Boolean)
+    .filter((e) => {
+      const k = e.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+}
+
+/** Split saved submission recipients into the "To" address and CC list. */
+function routeRecipients(recipients: MrRecipient[] | null | undefined) {
+  const list = (recipients ?? []).filter((r) => r?.email?.trim());
+  if (!list.length) return { to: "", toName: null as string | null, cc: [] as string[] };
+  const primary = list.find((r) => r.primary) ?? list[0];
+  return {
+    to: primary.email.trim(),
+    toName: primary.name?.trim() || null,
+    cc: dedupeEmails(
+      list.filter((r) => r.email.toLowerCase() !== primary.email.toLowerCase()).map((r) => r.email),
+    ),
+  };
+}
 
 type Client = {
   id: string; client_name: string; contact_person: string | null;
@@ -51,6 +81,7 @@ type Submission = {
   report_onedrive_item_id: string | null;
   report_onedrive_path: string | null;
   supplier_report_files: SupplierReportFile[] | null;
+  recipients?: MrRecipient[] | null;
 };
 export type IndemnityFile = {
   name: string;
@@ -389,7 +420,9 @@ export default function ManualRiskAssessments() {
       const sub = submissions.find((s) => s.id === submissionId);
       if (!sub) throw new Error("Submission not found");
       const client = sub.client_id ? clientById.get(sub.client_id) : undefined;
-      const toEmail = client?.email?.trim();
+      const saved = Array.isArray(sub.recipients) ? sub.recipients : [];
+      const routed = routeRecipients(saved);
+      const toEmail = routed.to || client?.email?.trim();
       if (!toEmail) {
         toast.error("Cannot resend confirmation: client has no email address");
         return;
@@ -414,10 +447,15 @@ export default function ManualRiskAssessments() {
       const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
         body: {
           to: toEmail,
-          cc: ["admin@tldv.co.za", ...(client?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? [])],
+          cc: dedupeEmails([
+            "admin@tldv.co.za",
+            ...(routed.to
+              ? routed.cc
+              : (client?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? [])),
+          ]),
           orderNumber: sub.order_number.trim(),
           clientName: client?.client_name ?? undefined,
-          contactName: client?.contact_person ?? undefined,
+          contactName: routed.toName ?? client?.contact_person ?? undefined,
           candidates: emailCandidates,
         },
       });
@@ -718,6 +756,7 @@ function PdfPreview({ blob, title }: { blob: Blob; title: string }) {
 
 function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId: string; onChanged: () => void }) {
   const [editing, setEditing] = useState<Partial<Client> | null>(null);
+  const [bookClient, setBookClient] = useState<Client | null>(null);
 
   const save = async () => {
     if (!editing?.client_name?.trim()) { toast.error("Client name is required"); return; }
@@ -785,6 +824,9 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
               <TableCell>{c.email ?? "—"}</TableCell>
               <TableCell>{c.phone ?? "—"}</TableCell>
               <TableCell className="text-right space-x-1">
+                <Button variant="ghost" size="sm" title="Address book" onClick={() => setBookClient(c)}>
+                  <BookUser className="h-4 w-4" />
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => setEditing(c)}><Pencil className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="sm" onClick={() => remove(c.id)}><Trash2 className="h-4 w-4 text-red-600" /></Button>
               </TableCell>
@@ -832,6 +874,13 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ClientAddressBookDialog
+        clientId={bookClient?.id ?? null}
+        clientName={bookClient?.client_name}
+        open={!!bookClient}
+        onClose={() => setBookClient(null)}
+      />
     </Card>
   );
 }
@@ -939,6 +988,7 @@ function NewSubmissionDialog({
   const [busy, setBusy] = useState(false);
   const [indemnityFiles, setIndemnityFiles] = useState<File[]>([]);
   const [sendConfirmation, setSendConfirmation] = useState(true);
+  const [recipients, setRecipients] = useState<MrRecipient[]>([]);
   const [createdDate, setCreatedDate] = useState<string>(() => {
     const d = new Date();
     const yyyy = d.getFullYear();
@@ -1001,6 +1051,17 @@ function NewSubmissionDialog({
           .select("id").single();
         if (error) { toast.error(error.message); return; }
         resolvedClientId = data.id;
+        // Seed the address book for the brand-new client
+        const seedRows = dedupeEmails([
+          newClient.email?.trim() ?? "",
+          ...(newClient.cc_emails?.split(",") ?? []),
+        ]).map((email, i) => ({
+          client_id: data.id,
+          name: i === 0 ? (newClient.contact_person?.trim() || null) : null,
+          email: email.toLowerCase(),
+          is_default: true,
+        }));
+        if (seedRows.length) await sb.from("manual_risk_contacts").insert(seedRows);
       }
     }
 
@@ -1029,6 +1090,7 @@ function NewSubmissionDialog({
           status: "open",
           requested_checks: selectedChecks,
           created_by: userId,
+          recipients: recipients.filter((r) => r.email?.trim()),
           ...(createdAtIso ? { created_at: createdAtIso } : {}),
         })
         .select("id").single();
@@ -1089,7 +1151,8 @@ function NewSubmissionDialog({
                   cc_emails: newClient.cc_emails?.trim() ?? null,
                 }
               : null;
-        const toEmail = resolvedClient?.email?.trim();
+        const routed = routeRecipients(recipients);
+        const toEmail = routed.to || resolvedClient?.email?.trim();
         if (toEmail) {
           const emailCandidates = candidates.map((c) => ({
             first_name: c.first_name.trim(),
@@ -1099,10 +1162,15 @@ function NewSubmissionDialog({
           const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
             body: {
               to: toEmail,
-              cc: ["admin@tldv.co.za", ...((resolvedClient as any)?.cc_emails?.split(",").map((s: string) => s.trim()).filter(Boolean) ?? [])],
+              cc: dedupeEmails([
+                "admin@tldv.co.za",
+                ...(routed.to
+                  ? routed.cc
+                  : ((resolvedClient as any)?.cc_emails?.split(",").map((s: string) => s.trim()).filter(Boolean) ?? [])),
+              ]),
               orderNumber: orderNumber.trim(),
               clientName: resolvedClient?.client_name ?? undefined,
-              contactName: resolvedClient?.contact_person ?? undefined,
+              contactName: routed.toName ?? resolvedClient?.contact_person ?? undefined,
               candidates: emailCandidates,
             },
           });
@@ -1200,12 +1268,23 @@ function NewSubmissionDialog({
               </div>
 
               {clientMode === "existing" && (
-                <Select value={clientId} onValueChange={setClientId}>
-                  <SelectTrigger><SelectValue placeholder="Select a client..." /></SelectTrigger>
-                  <SelectContent>
-                    {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.client_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-3">
+                  <Select value={clientId} onValueChange={(v) => { setClientId(v); setRecipients([]); }}>
+                    <SelectTrigger><SelectValue placeholder="Select a client..." /></SelectTrigger>
+                    <SelectContent>
+                      {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.client_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {clientId && (
+                    <RecipientPicker
+                      clientId={clientId}
+                      value={recipients}
+                      onChange={setRecipients}
+                      fallbackEmail={clients.find((c) => c.id === clientId)?.email}
+                      fallbackName={clients.find((c) => c.id === clientId)?.contact_person}
+                    />
+                  )}
+                </div>
               )}
 
               {clientMode === "new" && (
@@ -1388,20 +1467,19 @@ function SubmissionDetailsDialog({
   useEffect(() => { setLocal(candidates.filter((c) => !isPlaceholderCandidate(c))); }, [candidates]);
 
   const client = sub?.client_id ? clients.find((c) => c.id === sub.client_id) : undefined;
-  useEffect(() => { if (client?.email) setEmailTo(client.email); }, [client?.email]);
+  // Prefer the recipients captured when the submission was created, so the
+  // report goes to exactly the same people as the confirmation email.
+  const savedRouted = useMemo(() => routeRecipients(sub?.recipients), [sub?.recipients]);
   useEffect(() => {
-    const extras = client?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
-    const base = ["Admin@tldv.co.za", ...extras];
-    // De-dupe case-insensitively while preserving order
-    const seen = new Set<string>();
-    const merged = base.filter((e) => {
-      const k = e.toLowerCase();
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
-    setCcEmails(merged.join(", "));
-  }, [client?.cc_emails]);
+    const to = savedRouted.to || client?.email || "";
+    if (to) setEmailTo(to);
+  }, [savedRouted.to, client?.email]);
+  useEffect(() => {
+    const extras = savedRouted.to
+      ? savedRouted.cc
+      : (client?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? []);
+    setCcEmails(dedupeEmails(["Admin@tldv.co.za", ...extras]).join(", "));
+  }, [savedRouted.to, savedRouted.cc, client?.cc_emails]);
 
   const updateRow = (idx: number, patch: Partial<Candidate>) => {
     setLocal((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
@@ -1495,9 +1573,9 @@ function SubmissionDetailsDialog({
     try {
       const blob = await buildPdfBlob();
       const base64 = await blobToBase64(blob);
-      const clientEmail = client?.email?.trim() || "";
-      if (!clientEmail) {
-        toast.error("Client email is required to send the report");
+      const clientEmail = (emailTo || client?.email || "").trim();
+      if (!clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+        toast.error("A valid recipient email is required to send the report");
         setSending(false);
         return;
       }
