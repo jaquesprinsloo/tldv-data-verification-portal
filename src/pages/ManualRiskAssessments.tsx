@@ -1562,9 +1562,9 @@ function SubmissionDetailsDialog({
     try {
       const blob = await buildPdfBlob();
       const base64 = await blobToBase64(blob);
-      const clientEmail = client?.email?.trim() || "";
-      if (!clientEmail) {
-        toast.error("Client email is required to send the report");
+      const clientEmail = (emailTo || client?.email || "").trim();
+      if (!clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+        toast.error("A valid recipient email is required to send the report");
         setSending(false);
         return;
       }
