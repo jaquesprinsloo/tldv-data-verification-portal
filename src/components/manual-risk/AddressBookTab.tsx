@@ -10,14 +10,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2, Pencil, Check, X, Search, BookUser } from "lucide-react";
-import { EMAIL_RE, type MrContact } from "./AddressBook";
+import { EMAIL_RE, groupContacts, useAllContacts, type MrContact } from "./AddressBook";
 
 const sb = supabase as any;
 
 type ContactRow = MrContact & { created_at?: string };
 type ClientLite = { id: string; client_name: string };
 
-/** Global address book across every manual-risk client. */
+/** Global address book — one row per unique email address. */
 export function AddressBookTab({ clients }: { clients: ClientLite[] }) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -30,59 +30,55 @@ export function AddressBookTab({ clients }: { clients: ClientLite[] }) {
   const clientName = (id: string) =>
     clients.find((c) => c.id === id)?.client_name ?? "Unknown client";
 
-  const { data: contacts = [], isLoading, refetch } = useQuery<ContactRow[]>({
-    queryKey: ["mra-all-contacts"],
-    queryFn: async () => {
-      const { data, error } = await sb
-        .from("manual_risk_contacts")
-        .select("id, client_id, name, email, is_default")
-        .order("email", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as ContactRow[];
-    },
-  });
+  const { data: contacts = [], isLoading, refetch } = useAllContacts();
+  const groups = useMemo(() => groupContacts(contacts), [contacts]);
 
   const invalidate = () => {
     refetch();
     qc.invalidateQueries({ queryKey: ["mra-contacts"] });
+    qc.invalidateQueries({ queryKey: ["mra-all-contacts"] });
   };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return contacts.filter((c) => {
-      if (clientFilter !== "all" && c.client_id !== clientFilter) return false;
+    return groups.filter((g) => {
+      if (clientFilter !== "all" && !g.clientIds.includes(clientFilter)) return false;
       if (!q) return true;
       return (
-        c.email.toLowerCase().includes(q) ||
-        (c.name ?? "").toLowerCase().includes(q) ||
-        clientName(c.client_id).toLowerCase().includes(q)
+        g.email.includes(q) ||
+        (g.name ?? "").toLowerCase().includes(q) ||
+        g.clientIds.some((id) => clientName(id).toLowerCase().includes(q))
       );
     });
-  }, [contacts, search, clientFilter, clients]);
+  }, [groups, search, clientFilter, clients]);
 
-  const save = async (id: string) => {
-    const draft = editing[id];
+  /** Edits apply to every linked client row so the address stays unique. */
+  const save = async (key: string, ids: string[]) => {
+    const draft = editing[key];
     if (!draft) return;
     const email = draft.email.trim().toLowerCase();
     if (!EMAIL_RE.test(email)) { toast.error("Enter a valid email address"); return; }
+    if (email !== key && groups.some((g) => g.email === email)) {
+      toast.error("That email address already exists in the address book"); return;
+    }
     const { error } = await sb.from("manual_risk_contacts")
-      .update({ name: draft.name.trim() || null, email }).eq("id", id);
+      .update({ name: draft.name.trim() || null, email }).in("id", ids);
     if (error) { toast.error(error.message); return; }
-    setEditing((p) => { const n = { ...p }; delete n[id]; return n; });
+    setEditing((p) => { const n = { ...p }; delete n[key]; return n; });
     toast.success("Contact updated");
     invalidate();
   };
 
-  const toggleDefault = async (c: ContactRow) => {
+  const toggleDefault = async (ids: string[], next: boolean) => {
     const { error } = await sb.from("manual_risk_contacts")
-      .update({ is_default: !c.is_default }).eq("id", c.id);
+      .update({ is_default: next }).in("id", ids);
     if (error) { toast.error(error.message); return; }
     invalidate();
   };
 
-  const remove = async (id: string) => {
-    if (!confirm("Remove this contact from the address book?")) return;
-    const { error } = await sb.from("manual_risk_contacts").delete().eq("id", id);
+  const remove = async (email: string, ids: string[]) => {
+    if (!confirm(`Remove ${email} from the address book (${ids.length} client link(s))?`)) return;
+    const { error } = await sb.from("manual_risk_contacts").delete().in("id", ids);
     if (error) { toast.error(error.message); return; }
     invalidate();
   };
@@ -91,10 +87,17 @@ export function AddressBookTab({ clients }: { clients: ClientLite[] }) {
     const email = newEmail.trim().toLowerCase();
     if (!newClient) { toast.error("Choose the client this contact belongs to"); return; }
     if (!EMAIL_RE.test(email)) { toast.error("Enter a valid email address"); return; }
+    if (contacts.some((c) => c.email.trim().toLowerCase() === email && c.client_id === newClient)) {
+      toast.error("That address is already saved for this client"); return;
+    }
     const { error } = await sb.from("manual_risk_contacts").insert({
       client_id: newClient, name: newName.trim() || null, email, is_default: true,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(/duplicate|unique/i.test(error.message)
+        ? "That address is already saved for this client" : error.message);
+      return;
+    }
     setNewName(""); setNewEmail("");
     toast.success("Contact added");
     invalidate();
@@ -106,7 +109,7 @@ export function AddressBookTab({ clients }: { clients: ClientLite[] }) {
         <div className="flex items-center gap-2">
           <BookUser className="h-5 w-5 text-red-600" />
           <h2 className="font-semibold">Address Book</h2>
-          <Badge variant="secondary">{contacts.length} email address(es)</Badge>
+          <Badge variant="secondary">{groups.length} unique email address(es)</Badge>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
@@ -127,8 +130,9 @@ export function AddressBookTab({ clients }: { clients: ClientLite[] }) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Every email address used so far. Add a name or correct an address here — contacts marked
-        "Default" are pre-ticked when a submission confirmation is sent for that client.
+        Every email address used so far, listed once. Add a name or correct an address here and it
+        updates for every client it is linked to. Addresses marked "Default" are pre-ticked when a
+        submission confirmation is sent for those clients.
       </p>
 
       <div className="border rounded-md divide-y max-h-[55vh] overflow-y-auto">
@@ -136,21 +140,22 @@ export function AddressBookTab({ clients }: { clients: ClientLite[] }) {
         {!isLoading && filtered.length === 0 && (
           <p className="text-sm text-muted-foreground p-4">No contacts match your search.</p>
         )}
-        {filtered.map((c) => {
-          const draft = editing[c.id];
+        {filtered.map((g) => {
+          const draft = editing[g.email];
+          const ids = g.rows.map((r) => r.id);
           return (
-            <div key={c.id} className="flex flex-wrap items-center gap-2 p-2">
+            <div key={g.email} className="flex flex-wrap items-center gap-2 p-2">
               {draft ? (
                 <>
                   <Input className="h-8 flex-1 min-w-[140px]" placeholder="Name" value={draft.name}
-                    onChange={(e) => setEditing((p) => ({ ...p, [c.id]: { ...draft, name: e.target.value } }))} />
+                    onChange={(e) => setEditing((p) => ({ ...p, [g.email]: { ...draft, name: e.target.value } }))} />
                   <Input className="h-8 flex-1 min-w-[180px]" placeholder="Email" value={draft.email}
-                    onChange={(e) => setEditing((p) => ({ ...p, [c.id]: { ...draft, email: e.target.value } }))} />
-                  <Button size="icon" variant="ghost" onClick={() => save(c.id)}>
+                    onChange={(e) => setEditing((p) => ({ ...p, [g.email]: { ...draft, email: e.target.value } }))} />
+                  <Button size="icon" variant="ghost" onClick={() => save(g.email, ids)}>
                     <Check className="h-4 w-4 text-green-600" />
                   </Button>
                   <Button size="icon" variant="ghost"
-                    onClick={() => setEditing((p) => { const n = { ...p }; delete n[c.id]; return n; })}>
+                    onClick={() => setEditing((p) => { const n = { ...p }; delete n[g.email]; return n; })}>
                     <X className="h-4 w-4" />
                   </Button>
                 </>
@@ -158,21 +163,28 @@ export function AddressBookTab({ clients }: { clients: ClientLite[] }) {
                 <>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm truncate">
-                      {c.name?.trim() || <span className="text-muted-foreground italic">No name — add one</span>}
+                      {g.name || <span className="text-muted-foreground italic">No name — add one</span>}
                     </div>
-                    <div className="text-xs text-muted-foreground truncate">{c.email}</div>
+                    <div className="text-xs text-muted-foreground truncate">{g.email}</div>
                   </div>
-                  <Badge variant="outline" className="text-xs">{clientName(c.client_id)}</Badge>
-                  <Button type="button" variant={c.is_default ? "default" : "outline"} size="sm"
-                    className={c.is_default ? "bg-red-600 hover:bg-red-700 h-7 text-xs" : "h-7 text-xs"}
-                    onClick={() => toggleDefault(c)}>
-                    {c.is_default ? "Default" : "Not default"}
+                  {g.clientIds.length === 1 ? (
+                    <Badge variant="outline" className="text-xs">{clientName(g.clientIds[0])}</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs"
+                      title={g.clientIds.map(clientName).join(", ")}>
+                      {g.clientIds.length} client accounts
+                    </Badge>
+                  )}
+                  <Button type="button" variant={g.isDefaultAnywhere ? "default" : "outline"} size="sm"
+                    className={g.isDefaultAnywhere ? "bg-red-600 hover:bg-red-700 h-7 text-xs" : "h-7 text-xs"}
+                    onClick={() => toggleDefault(ids, !g.isDefaultAnywhere)}>
+                    {g.isDefaultAnywhere ? "Default" : "Not default"}
                   </Button>
                   <Button size="icon" variant="ghost"
-                    onClick={() => setEditing((p) => ({ ...p, [c.id]: { name: c.name ?? "", email: c.email } }))}>
+                    onClick={() => setEditing((p) => ({ ...p, [g.email]: { name: g.name ?? "", email: g.email } }))}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={() => remove(c.id)}>
+                  <Button size="icon" variant="ghost" onClick={() => remove(g.email, ids)}>
                     <Trash2 className="h-4 w-4 text-red-600" />
                   </Button>
                 </>
