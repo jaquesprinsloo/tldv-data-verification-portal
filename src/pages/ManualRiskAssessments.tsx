@@ -392,7 +392,9 @@ export default function ManualRiskAssessments() {
       const sub = submissions.find((s) => s.id === submissionId);
       if (!sub) throw new Error("Submission not found");
       const client = sub.client_id ? clientById.get(sub.client_id) : undefined;
-      const toEmail = client?.email?.trim();
+      const saved = Array.isArray(sub.recipients) ? sub.recipients : [];
+      const routed = routeRecipients(saved);
+      const toEmail = routed.to || client?.email?.trim();
       if (!toEmail) {
         toast.error("Cannot resend confirmation: client has no email address");
         return;
@@ -417,10 +419,15 @@ export default function ManualRiskAssessments() {
       const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
         body: {
           to: toEmail,
-          cc: ["admin@tldv.co.za", ...(client?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? [])],
+          cc: dedupeEmails([
+            "admin@tldv.co.za",
+            ...(routed.to
+              ? routed.cc
+              : (client?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? [])),
+          ]),
           orderNumber: sub.order_number.trim(),
           clientName: client?.client_name ?? undefined,
-          contactName: client?.contact_person ?? undefined,
+          contactName: routed.toName ?? client?.contact_person ?? undefined,
           candidates: emailCandidates,
         },
       });
