@@ -2513,7 +2513,7 @@ function AccountsTab({
                 <TableCell className="text-center">
                   {g.discounted ? (
                     <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
-                      <Percent className="h-3 w-3" /> {g.discounted}
+                      {g.discounted} discounted
                     </Badge>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
