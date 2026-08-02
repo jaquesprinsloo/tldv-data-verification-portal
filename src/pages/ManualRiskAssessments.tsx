@@ -2578,6 +2578,7 @@ function ClientAccountDialog({
       if (ownSubIds.length > 0) {
         const { data, error } = await sb.from("manual_risk_candidates")
           .select("*").in("submission_id", ownSubIds)
+          .is("invoice_batch_id", null)
           .order("sort_order", { ascending: true });
         if (error) throw error;
         own = data as Candidate[];
@@ -2586,7 +2587,8 @@ function ClientAccountDialog({
       let moved: Candidate[] = [];
       if (groupKey !== "__unassigned__") {
         const { data, error } = await sb.from("manual_risk_candidates")
-          .select("*").eq("override_client_id", groupKey);
+          .select("*").eq("override_client_id", groupKey)
+          .is("invoice_batch_id", null);
         if (error) throw error;
         moved = data as Candidate[];
       }
@@ -2750,39 +2752,74 @@ function ClientAccountDialog({
 
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [invoiceNotes, setInvoiceNotes] = useState("");
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const markInvoiced = async () => {
-    if (!selectedSubmissionIds.length) { toast.error("Select at least one submission first"); return; }
-    if (!invoiceFile) { toast.error("Attach the invoice file"); return; }
+    if (!selectedCandidateIds.length) { toast.error("Select at least one check first"); return; }
+    if (!invoiceNumber.trim()) { toast.error("Enter the invoice reference"); return; }
     setUploading(true);
+    let batchId: string | null = null;
     try {
-      const ext = invoiceFile.name.split(".").pop() ?? "pdf";
-      const path = `manual-risk/${groupKey}/${Date.now()}_${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("invoices").upload(path, invoiceFile, {
-        contentType: invoiceFile.type || "application/pdf",
-        upsert: false,
-      });
-      if (upErr) throw upErr;
-
-      const { error } = await sb
-        .from("manual_risk_submissions")
-        .update({
-          invoiced_at: new Date().toISOString(),
-          invoice_number: invoiceNumber.trim() || null,
-          invoice_file_path: path,
+      // 1. Create the invoice batch (one invoice reference = one batch of checks).
+      const { data: batch, error: bErr } = await sb
+        .from("manual_risk_invoice_batches")
+        .insert({
+          client_id: groupKey === "__unassigned__" ? null : groupKey,
+          invoice_number: invoiceNumber.trim(),
+          invoice_date: invoiceDate,
+          notes: invoiceNotes.trim() || null,
         })
-        .in("id", selectedSubmissionIds);
+        .select("id")
+        .single();
+      if (bErr) throw bErr;
+      batchId = batch.id as string;
+
+      // 2. Optional invoice attachment: storage + a single OneDrive copy under
+      //    /PreAppliCheck/ManualRiskAssessments/{Client}/Invoices/{Invoice #}.
+      let filePatch: Record<string, any> = {};
+      if (invoiceFile) {
+        const ext = invoiceFile.name.split(".").pop() ?? "pdf";
+        const path = `manual-risk/${groupKey}/${batchId}_${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("invoices").upload(path, invoiceFile, {
+          contentType: invoiceFile.type || "application/pdf",
+          upsert: false,
+        });
+        if (upErr) throw upErr;
+        const od = await uploadInvoiceToOneDrive(invoiceFile, clientName, invoiceNumber.trim());
+        filePatch = {
+          invoice_file_path: path,
+          invoice_file_name: invoiceFile.name,
+          invoice_onedrive_web_url: od.webUrl,
+          invoice_onedrive_item_id: od.itemId,
+          invoice_onedrive_path: od.path,
+        };
+        const { error: fErr } = await sb.from("manual_risk_invoice_batches")
+          .update(filePatch).eq("id", batchId);
+        if (fErr) throw fErr;
+      }
+
+      // 3. Move the selected checks onto the batch (out of this account view).
+      const { error } = await sb
+        .from("manual_risk_candidates")
+        .update({ invoice_batch_id: batchId })
+        .in("id", selectedCandidateIds);
       if (error) throw error;
 
-      toast.success(`${selectedSubmissionIds.length} submission(s) marked invoiced`);
+      toast.success(`${selectedCandidateIds.length} check(s) invoiced under ${invoiceNumber.trim()}`);
       setInvoiceOpen(false);
       setInvoiceFile(null);
       setInvoiceNumber("");
+      setInvoiceNotes("");
       setSelected(new Set());
       qc.invalidateQueries({ queryKey: ["mra-submissions"] });
       qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
+      qc.invalidateQueries({ queryKey: ["mra-accounts-all-cands"] });
+      qc.invalidateQueries({ queryKey: ["mra-invoice-batches"] });
+      qc.invalidateQueries({ queryKey: ["mra-invoiced-cands"] });
+      qc.invalidateQueries({ queryKey: ["mra-dashboard-cands"] });
       onChanged();
     } catch (e) {
       toast.error((e as Error).message);
