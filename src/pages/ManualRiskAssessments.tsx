@@ -28,6 +28,8 @@ import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, isPlace
 import { Checkbox } from "@/components/ui/checkbox";
 import { RecipientPicker, ClientAddressBookDialog, type MrRecipient } from "@/components/manual-risk/AddressBook";
 import { AddressBookTab } from "@/components/manual-risk/AddressBookTab";
+import { MrDashboardTab } from "@/components/manual-risk/MrDashboardTab";
+import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk/MrInvoicedTab";
 import { BookUser } from "lucide-react";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -493,12 +495,18 @@ export default function ManualRiskAssessments() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
+            <TabsTrigger value="dashboard"><ClipboardList className="h-4 w-4 mr-2" />Dashboard</TabsTrigger>
             <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />Submissions</TabsTrigger>
             <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
+            <TabsTrigger value="invoiced"><FileText className="h-4 w-4 mr-2" />Invoiced</TabsTrigger>
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
             <TabsTrigger value="address-book"><Users className="h-4 w-4 mr-2" />Address Book</TabsTrigger>
             <TabsTrigger value="settings">T&amp;Cs</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="dashboard" className="mt-4">
+            <MrDashboardTab submissions={submissions} clients={clients} />
+          </TabsContent>
 
           <TabsContent value="submissions" className="mt-4">
             <Card className="p-4">
@@ -617,6 +625,14 @@ export default function ManualRiskAssessments() {
             <AccountsTab
               submissions={sentSubmissions}
               clients={clients}
+              onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
+            />
+          </TabsContent>
+
+          <TabsContent value="invoiced" className="mt-4">
+            <MrInvoicedTab
+              clients={clients}
+              submissions={submissions}
               onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
             />
           </TabsContent>
@@ -2304,14 +2320,15 @@ function AccountsTab({
 
   const sentSubmissionIds = useMemo(() => submissions.map((s) => s.id), [submissions]);
 
-  // Load ALL candidates for sent submissions so we can count checks (per-candidate)
-  // and honor override_client_id when grouping them under accounts.
+  // Load all NOT-YET-INVOICED candidates for sent submissions so we can count
+  // checks (per-candidate) and honor override_client_id when grouping them.
+  // Invoiced checks live in the Invoiced tab and must not appear here.
   const { data: allCandidates = [] } = useQuery<Candidate[]>({
     queryKey: ["mra-accounts-all-cands", sentSubmissionIds.join(",")],
     enabled: sentSubmissionIds.length > 0,
     queryFn: async () => {
       const { data, error } = await sb.from("manual_risk_candidates")
-        .select("*").in("submission_id", sentSubmissionIds);
+        .select("*").in("submission_id", sentSubmissionIds).is("invoice_batch_id", null);
       if (error) throw error;
       return (data as Candidate[]).filter((c) => !isPlaceholderCandidate(c));
     },
@@ -2325,6 +2342,7 @@ function AccountsTab({
       const { data, error } = await sb.from("manual_risk_candidates")
         .select("*")
         .in("submission_id", sentSubmissionIds)
+        .is("invoice_batch_id", null)
         .or(`first_name.ilike.%${q}%,surname.ilike.%${q}%,id_number.ilike.%${q}%`)
         .limit(200);
       if (error) throw error;
@@ -2345,7 +2363,7 @@ function AccountsTab({
   // the submission's client_id) and count per-candidate.
   const groups = useMemo(() => {
     const subMap = new Map(submissions.map((s) => [s.id, s]));
-    const m = new Map<string, { client: Client | null; candCount: number; subIds: Set<string> }>();
+    const m = new Map<string, { client: Client | null; candCount: number; discounted: number; subIds: Set<string> }>();
     for (const c of allCandidates) {
       const sub = subMap.get(c.submission_id);
       if (!sub) continue;
@@ -2353,21 +2371,21 @@ function AccountsTab({
       const key = effId;
       if (!m.has(key)) {
         const client = key === "__unassigned__" ? null : clients.find((cl) => cl.id === key) ?? null;
-        m.set(key, { client, candCount: 0, subIds: new Set() });
+        m.set(key, { client, candCount: 0, discounted: 0, subIds: new Set() });
       }
       const g = m.get(key)!;
       g.candCount += 1;
+      if ((c as any).is_tldv_internal || (c as any).is_ptvs_discount) g.discounted += 1;
       g.subIds.add(sub.id);
     }
     return Array.from(m.entries()).map(([key, v]) => {
-      const relatedSubs = Array.from(v.subIds).map((id) => subMap.get(id)!).filter(Boolean);
       return {
         key,
         client: v.client,
         name: v.client?.client_name ?? "Unassigned",
         isRegular: !!v.client?.is_regular,
         checkCount: v.candCount,
-        pendingInvoice: relatedSubs.filter((s) => !s.invoiced_at).length,
+        discounted: v.discounted,
       };
     }).sort((a, b) => {
       if (sortByRegular && a.isRegular !== b.isRegular) return a.isRegular ? -1 : 1;
@@ -2386,7 +2404,8 @@ function AccountsTab({
     <Card className="p-4">
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <p className="text-sm text-muted-foreground">
-          {totalChecks} sent check(s) across {groups.length} client account(s). Each candidate counts as one check.
+          {totalChecks} un-invoiced check(s) across {groups.length} client account(s). Each candidate counts as one check —
+          invoiced checks move to the Invoiced tab.
         </p>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
@@ -2474,8 +2493,8 @@ function AccountsTab({
           <TableHeader>
             <TableRow>
               <TableHead>Client</TableHead>
-              <TableHead className="text-center">Sent checks</TableHead>
-              <TableHead className="text-center">Awaiting invoice</TableHead>
+              <TableHead className="text-center">Open checks</TableHead>
+              <TableHead className="text-center">Discounted</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -2492,9 +2511,13 @@ function AccountsTab({
                 </TableCell>
                 <TableCell className="text-center">{g.checkCount}</TableCell>
                 <TableCell className="text-center">
-                  <Badge className={g.pendingInvoice ? "bg-amber-600" : "bg-emerald-600"}>
-                    {g.pendingInvoice}
-                  </Badge>
+                  {g.discounted ? (
+                    <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
+                      <Percent className="h-3 w-3" /> {g.discounted}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="outline" onClick={() => setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key)}>
@@ -2555,6 +2578,7 @@ function ClientAccountDialog({
       if (ownSubIds.length > 0) {
         const { data, error } = await sb.from("manual_risk_candidates")
           .select("*").in("submission_id", ownSubIds)
+          .is("invoice_batch_id", null)
           .order("sort_order", { ascending: true });
         if (error) throw error;
         own = data as Candidate[];
@@ -2563,7 +2587,8 @@ function ClientAccountDialog({
       let moved: Candidate[] = [];
       if (groupKey !== "__unassigned__") {
         const { data, error } = await sb.from("manual_risk_candidates")
-          .select("*").eq("override_client_id", groupKey);
+          .select("*").eq("override_client_id", groupKey)
+          .is("invoice_batch_id", null);
         if (error) throw error;
         moved = data as Candidate[];
       }
@@ -2727,39 +2752,74 @@ function ClientAccountDialog({
 
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [invoiceNotes, setInvoiceNotes] = useState("");
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const markInvoiced = async () => {
-    if (!selectedSubmissionIds.length) { toast.error("Select at least one submission first"); return; }
-    if (!invoiceFile) { toast.error("Attach the invoice file"); return; }
+    if (!selectedCandidateIds.length) { toast.error("Select at least one check first"); return; }
+    if (!invoiceNumber.trim()) { toast.error("Enter the invoice reference"); return; }
     setUploading(true);
+    let batchId: string | null = null;
     try {
-      const ext = invoiceFile.name.split(".").pop() ?? "pdf";
-      const path = `manual-risk/${groupKey}/${Date.now()}_${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("invoices").upload(path, invoiceFile, {
-        contentType: invoiceFile.type || "application/pdf",
-        upsert: false,
-      });
-      if (upErr) throw upErr;
-
-      const { error } = await sb
-        .from("manual_risk_submissions")
-        .update({
-          invoiced_at: new Date().toISOString(),
-          invoice_number: invoiceNumber.trim() || null,
-          invoice_file_path: path,
+      // 1. Create the invoice batch (one invoice reference = one batch of checks).
+      const { data: batch, error: bErr } = await sb
+        .from("manual_risk_invoice_batches")
+        .insert({
+          client_id: groupKey === "__unassigned__" ? null : groupKey,
+          invoice_number: invoiceNumber.trim(),
+          invoice_date: invoiceDate,
+          notes: invoiceNotes.trim() || null,
         })
-        .in("id", selectedSubmissionIds);
+        .select("id")
+        .single();
+      if (bErr) throw bErr;
+      batchId = batch.id as string;
+
+      // 2. Optional invoice attachment: storage + a single OneDrive copy under
+      //    /PreAppliCheck/ManualRiskAssessments/{Client}/Invoices/{Invoice #}.
+      let filePatch: Record<string, any> = {};
+      if (invoiceFile) {
+        const ext = invoiceFile.name.split(".").pop() ?? "pdf";
+        const path = `manual-risk/${groupKey}/${batchId}_${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("invoices").upload(path, invoiceFile, {
+          contentType: invoiceFile.type || "application/pdf",
+          upsert: false,
+        });
+        if (upErr) throw upErr;
+        const od = await uploadInvoiceToOneDrive(invoiceFile, clientName, invoiceNumber.trim());
+        filePatch = {
+          invoice_file_path: path,
+          invoice_file_name: invoiceFile.name,
+          invoice_onedrive_web_url: od.webUrl,
+          invoice_onedrive_item_id: od.itemId,
+          invoice_onedrive_path: od.path,
+        };
+        const { error: fErr } = await sb.from("manual_risk_invoice_batches")
+          .update(filePatch).eq("id", batchId);
+        if (fErr) throw fErr;
+      }
+
+      // 3. Move the selected checks onto the batch (out of this account view).
+      const { error } = await sb
+        .from("manual_risk_candidates")
+        .update({ invoice_batch_id: batchId })
+        .in("id", selectedCandidateIds);
       if (error) throw error;
 
-      toast.success(`${selectedSubmissionIds.length} submission(s) marked invoiced`);
+      toast.success(`${selectedCandidateIds.length} check(s) invoiced under ${invoiceNumber.trim()}`);
       setInvoiceOpen(false);
       setInvoiceFile(null);
       setInvoiceNumber("");
+      setInvoiceNotes("");
       setSelected(new Set());
       qc.invalidateQueries({ queryKey: ["mra-submissions"] });
       qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
+      qc.invalidateQueries({ queryKey: ["mra-accounts-all-cands"] });
+      qc.invalidateQueries({ queryKey: ["mra-invoice-batches"] });
+      qc.invalidateQueries({ queryKey: ["mra-invoiced-cands"] });
+      qc.invalidateQueries({ queryKey: ["mra-dashboard-cands"] });
       onChanged();
     } catch (e) {
       toast.error((e as Error).message);
@@ -2938,9 +2998,10 @@ function ClientAccountDialog({
           <Button
             className="bg-red-600 hover:bg-red-700"
             onClick={() => setInvoiceOpen(true)}
-            disabled={!selectedSubmissionIds.length}
+            disabled={!selectedCandidateIds.length}
+            title="Batch the selected checks under one invoice reference and move them to the Invoiced tab"
           >
-            <FileText className="h-4 w-4 mr-2" /> Mark as Invoiced
+            <FileText className="h-4 w-4 mr-2" /> Invoice Selected Checks
           </Button>
           <Button
             variant="outline"
@@ -3093,25 +3154,35 @@ function ClientAccountDialog({
         <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Attach Invoice</DialogTitle>
+              <DialogTitle>Invoice selected checks</DialogTitle>
               <DialogDescription>
-                Marking {selectedSubmissionIds.length} submission(s) as invoiced for {clientName}.
+                {selectedCandidateIds.length} check(s) for {clientName} will move to the Invoiced tab as one batch
+                under this invoice reference. The attachment is filed in OneDrive under
+                {" "}<span className="font-mono text-[11px]">/PreAppliCheck/ManualRiskAssessments/{clientName}/Invoices/{invoiceNumber || "{Invoice #}"}</span>.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
               <div>
-                <Label>Invoice number (optional)</Label>
+                <Label>Invoice reference</Label>
                 <Input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="e.g. INV-2026-0142" />
               </div>
               <div>
-                <Label>Invoice file (PDF)</Label>
-                <Input type="file" accept="application/pdf,.pdf" onChange={(e) => setInvoiceFile(e.target.files?.[0] ?? null)} />
+                <Label>Invoice date</Label>
+                <Input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
+              </div>
+              <div>
+                <Label>Invoice file (PDF, optional — can be attached later)</Label>
+                <Input type="file" accept="application/pdf,.pdf,image/*" onChange={(e) => setInvoiceFile(e.target.files?.[0] ?? null)} />
+              </div>
+              <div>
+                <Label>Notes (optional)</Label>
+                <Input value={invoiceNotes} onChange={(e) => setInvoiceNotes(e.target.value)} placeholder="Reference / PO number…" />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setInvoiceOpen(false)}>Cancel</Button>
               <Button className="bg-red-600 hover:bg-red-700" onClick={markInvoiced} disabled={uploading}>
-                {uploading ? "Uploading..." : "Save Invoice"}
+                {uploading ? "Saving..." : "Invoice checks"}
               </Button>
             </DialogFooter>
           </DialogContent>
