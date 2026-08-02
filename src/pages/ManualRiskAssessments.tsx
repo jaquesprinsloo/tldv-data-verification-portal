@@ -1565,6 +1565,7 @@ function SubmissionDetailsDialog({
   const [emailTo, setEmailTo] = useState("");
   const [emailMsg, setEmailMsg] = useState("");
   const [ccEmails, setCcEmails] = useState("Admin@tldv.co.za");
+  const [emailToName, setEmailToName] = useState("");
   const [sending, setSending] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [reopening, setReopening] = useState(false);
@@ -1582,6 +1583,15 @@ function SubmissionDetailsDialog({
     const to = savedRouted.to || client?.email || "";
     if (to) setEmailTo(to);
   }, [savedRouted.to, client?.email]);
+  // Greeting name follows whichever recipient is in the "To" field.
+  useEffect(() => {
+    const match = (sub?.recipients ?? []).find(
+      (r) => r?.email?.trim().toLowerCase() === emailTo.trim().toLowerCase(),
+    );
+    setEmailToName(
+      match?.name?.trim() || savedRouted.toName || client?.contact_person?.trim() || "",
+    );
+  }, [emailTo, sub?.recipients, savedRouted.toName, client?.contact_person]);
   useEffect(() => {
     const extras = savedRouted.to
       ? savedRouted.cc
@@ -1705,7 +1715,7 @@ function SubmissionDetailsDialog({
           filename: `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`,
           orderNumber: sub?.order_number,
           clientName: client?.client_name ?? null,
-          contactName: client?.contact_person ?? null,
+          contactName: emailToName.trim() || client?.contact_person || null,
           to: clientEmail,
           cc: ccList,
         },
