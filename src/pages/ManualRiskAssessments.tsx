@@ -3153,25 +3153,35 @@ function ClientAccountDialog({
         <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Attach Invoice</DialogTitle>
+              <DialogTitle>Invoice selected checks</DialogTitle>
               <DialogDescription>
-                Marking {selectedSubmissionIds.length} submission(s) as invoiced for {clientName}.
+                {selectedCandidateIds.length} check(s) for {clientName} will move to the Invoiced tab as one batch
+                under this invoice reference. The attachment is filed in OneDrive under
+                {" "}<span className="font-mono text-[11px]">/PreAppliCheck/ManualRiskAssessments/{clientName}/Invoices/{invoiceNumber || "{Invoice #}"}</span>.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
               <div>
-                <Label>Invoice number (optional)</Label>
+                <Label>Invoice reference</Label>
                 <Input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder="e.g. INV-2026-0142" />
               </div>
               <div>
-                <Label>Invoice file (PDF)</Label>
-                <Input type="file" accept="application/pdf,.pdf" onChange={(e) => setInvoiceFile(e.target.files?.[0] ?? null)} />
+                <Label>Invoice date</Label>
+                <Input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
+              </div>
+              <div>
+                <Label>Invoice file (PDF, optional — can be attached later)</Label>
+                <Input type="file" accept="application/pdf,.pdf,image/*" onChange={(e) => setInvoiceFile(e.target.files?.[0] ?? null)} />
+              </div>
+              <div>
+                <Label>Notes (optional)</Label>
+                <Input value={invoiceNotes} onChange={(e) => setInvoiceNotes(e.target.value)} placeholder="Reference / PO number…" />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setInvoiceOpen(false)}>Cancel</Button>
               <Button className="bg-red-600 hover:bg-red-700" onClick={markInvoiced} disabled={uploading}>
-                {uploading ? "Uploading..." : "Save Invoice"}
+                {uploading ? "Saving..." : "Invoice checks"}
               </Button>
             </DialogFooter>
           </DialogContent>
