@@ -2320,14 +2320,15 @@ function AccountsTab({
 
   const sentSubmissionIds = useMemo(() => submissions.map((s) => s.id), [submissions]);
 
-  // Load ALL candidates for sent submissions so we can count checks (per-candidate)
-  // and honor override_client_id when grouping them under accounts.
+  // Load all NOT-YET-INVOICED candidates for sent submissions so we can count
+  // checks (per-candidate) and honor override_client_id when grouping them.
+  // Invoiced checks live in the Invoiced tab and must not appear here.
   const { data: allCandidates = [] } = useQuery<Candidate[]>({
     queryKey: ["mra-accounts-all-cands", sentSubmissionIds.join(",")],
     enabled: sentSubmissionIds.length > 0,
     queryFn: async () => {
       const { data, error } = await sb.from("manual_risk_candidates")
-        .select("*").in("submission_id", sentSubmissionIds);
+        .select("*").in("submission_id", sentSubmissionIds).is("invoice_batch_id", null);
       if (error) throw error;
       return (data as Candidate[]).filter((c) => !isPlaceholderCandidate(c));
     },
@@ -2341,6 +2342,7 @@ function AccountsTab({
       const { data, error } = await sb.from("manual_risk_candidates")
         .select("*")
         .in("submission_id", sentSubmissionIds)
+        .is("invoice_batch_id", null)
         .or(`first_name.ilike.%${q}%,surname.ilike.%${q}%,id_number.ilike.%${q}%`)
         .limit(200);
       if (error) throw error;
@@ -2361,7 +2363,7 @@ function AccountsTab({
   // the submission's client_id) and count per-candidate.
   const groups = useMemo(() => {
     const subMap = new Map(submissions.map((s) => [s.id, s]));
-    const m = new Map<string, { client: Client | null; candCount: number; subIds: Set<string> }>();
+    const m = new Map<string, { client: Client | null; candCount: number; discounted: number; subIds: Set<string> }>();
     for (const c of allCandidates) {
       const sub = subMap.get(c.submission_id);
       if (!sub) continue;
@@ -2369,21 +2371,21 @@ function AccountsTab({
       const key = effId;
       if (!m.has(key)) {
         const client = key === "__unassigned__" ? null : clients.find((cl) => cl.id === key) ?? null;
-        m.set(key, { client, candCount: 0, subIds: new Set() });
+        m.set(key, { client, candCount: 0, discounted: 0, subIds: new Set() });
       }
       const g = m.get(key)!;
       g.candCount += 1;
+      if ((c as any).is_tldv_internal || (c as any).is_ptvs_discount) g.discounted += 1;
       g.subIds.add(sub.id);
     }
     return Array.from(m.entries()).map(([key, v]) => {
-      const relatedSubs = Array.from(v.subIds).map((id) => subMap.get(id)!).filter(Boolean);
       return {
         key,
         client: v.client,
         name: v.client?.client_name ?? "Unassigned",
         isRegular: !!v.client?.is_regular,
         checkCount: v.candCount,
-        pendingInvoice: relatedSubs.filter((s) => !s.invoiced_at).length,
+        discounted: v.discounted,
       };
     }).sort((a, b) => {
       if (sortByRegular && a.isRegular !== b.isRegular) return a.isRegular ? -1 : 1;
@@ -2402,7 +2404,8 @@ function AccountsTab({
     <Card className="p-4">
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <p className="text-sm text-muted-foreground">
-          {totalChecks} sent check(s) across {groups.length} client account(s). Each candidate counts as one check.
+          {totalChecks} un-invoiced check(s) across {groups.length} client account(s). Each candidate counts as one check —
+          invoiced checks move to the Invoiced tab.
         </p>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
@@ -2490,8 +2493,8 @@ function AccountsTab({
           <TableHeader>
             <TableRow>
               <TableHead>Client</TableHead>
-              <TableHead className="text-center">Sent checks</TableHead>
-              <TableHead className="text-center">Awaiting invoice</TableHead>
+              <TableHead className="text-center">Open checks</TableHead>
+              <TableHead className="text-center">Discounted</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -2508,9 +2511,13 @@ function AccountsTab({
                 </TableCell>
                 <TableCell className="text-center">{g.checkCount}</TableCell>
                 <TableCell className="text-center">
-                  <Badge className={g.pendingInvoice ? "bg-amber-600" : "bg-emerald-600"}>
-                    {g.pendingInvoice}
-                  </Badge>
+                  {g.discounted ? (
+                    <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
+                      <Percent className="h-3 w-3" /> {g.discounted}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="outline" onClick={() => setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key)}>
