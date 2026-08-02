@@ -774,6 +774,7 @@ export type Database = {
           id_verification_data: Json | null
           id_verification_notes: string | null
           id_verification_result: string | null
+          invoice_batch_id: string | null
           is_ptvs_discount: boolean
           is_tldv_internal: boolean
           override_client_id: string | null
@@ -802,6 +803,7 @@ export type Database = {
           id_verification_data?: Json | null
           id_verification_notes?: string | null
           id_verification_result?: string | null
+          invoice_batch_id?: string | null
           is_ptvs_discount?: boolean
           is_tldv_internal?: boolean
           override_client_id?: string | null
@@ -830,6 +832,7 @@ export type Database = {
           id_verification_data?: Json | null
           id_verification_notes?: string | null
           id_verification_result?: string | null
+          invoice_batch_id?: string | null
           is_ptvs_discount?: boolean
           is_tldv_internal?: boolean
           override_client_id?: string | null
@@ -845,6 +848,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "manual_risk_candidates_invoice_batch_id_fkey"
+            columns: ["invoice_batch_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_invoice_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "manual_risk_candidates_override_client_id_fkey"
             columns: ["override_client_id"]
@@ -934,6 +944,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "manual_risk_contacts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_risk_invoice_batches: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_date: string
+          invoice_file_name: string | null
+          invoice_file_path: string | null
+          invoice_number: string
+          invoice_onedrive_item_id: string | null
+          invoice_onedrive_path: string | null
+          invoice_onedrive_web_url: string | null
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_file_name?: string | null
+          invoice_file_path?: string | null
+          invoice_number: string
+          invoice_onedrive_item_id?: string | null
+          invoice_onedrive_path?: string | null
+          invoice_onedrive_web_url?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_file_name?: string | null
+          invoice_file_path?: string | null
+          invoice_number?: string
+          invoice_onedrive_item_id?: string | null
+          invoice_onedrive_path?: string | null
+          invoice_onedrive_web_url?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_risk_invoice_batches_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "manual_risk_clients"
