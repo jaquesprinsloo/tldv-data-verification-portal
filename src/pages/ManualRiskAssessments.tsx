@@ -1011,6 +1011,12 @@ function NewSubmissionDialog({
   const [indemnityFiles, setIndemnityFiles] = useState<File[]>([]);
   const [sendConfirmation, setSendConfirmation] = useState(true);
   const [recipients, setRecipients] = useState<MrRecipient[]>([]);
+  // Editable confirmation-email preview
+  const [mailTo, setMailTo] = useState("");
+  const [mailName, setMailName] = useState("");
+  const [mailCc, setMailCc] = useState("admin@tldv.co.za");
+  const [mailSubject, setMailSubject] = useState("");
+  const [mailMessage, setMailMessage] = useState("");
   const [createdDate, setCreatedDate] = useState<string>(() => {
     const d = new Date();
     const yyyy = d.getFullYear();
@@ -1022,6 +1028,40 @@ function NewSubmissionDialog({
   useEffect(() => {
     if (clients.length === 0) setClientMode("new");
   }, [clients.length]);
+
+  const currentClient: Partial<Client> | null =
+    clientMode === "existing"
+      ? clients.find((c) => c.id === clientId) ?? null
+      : clientMode === "new"
+        ? {
+            client_name: newClient.client_name ?? "",
+            contact_person: newClient.contact_person ?? null,
+            email: newClient.email ?? null,
+            cc_emails: newClient.cc_emails ?? null,
+          }
+        : null;
+
+  // Keep the editable email preview in sync with the selected recipients/client.
+  useEffect(() => {
+    const routed = routeRecipients(recipients);
+    setMailTo(routed.to || currentClient?.email?.trim() || "");
+    setMailName(routed.toName || currentClient?.contact_person?.trim() || "");
+    setMailCc(
+      dedupeEmails([
+        "admin@tldv.co.za",
+        ...(routed.to
+          ? routed.cc
+          : (currentClient?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? [])),
+      ]).join(", "),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipients, clientId, clientMode, newClient.email, newClient.contact_person, newClient.cc_emails]);
+
+  useEffect(() => {
+    setMailSubject(
+      `PreAppliCheck Submission Received${orderNumber.trim() ? ` — Order ${orderNumber.trim()}` : ""}`,
+    );
+  }, [orderNumber]);
 
   const handleFile = async (file: File) => {
     try {
