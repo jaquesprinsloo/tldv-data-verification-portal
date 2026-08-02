@@ -28,6 +28,8 @@ import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, isPlace
 import { Checkbox } from "@/components/ui/checkbox";
 import { RecipientPicker, ClientAddressBookDialog, type MrRecipient } from "@/components/manual-risk/AddressBook";
 import { AddressBookTab } from "@/components/manual-risk/AddressBookTab";
+import { MrDashboardTab } from "@/components/manual-risk/MrDashboardTab";
+import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk/MrInvoicedTab";
 import { BookUser } from "lucide-react";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -493,12 +495,18 @@ export default function ManualRiskAssessments() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
+            <TabsTrigger value="dashboard"><ClipboardList className="h-4 w-4 mr-2" />Dashboard</TabsTrigger>
             <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />Submissions</TabsTrigger>
             <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
+            <TabsTrigger value="invoiced"><FileText className="h-4 w-4 mr-2" />Invoiced</TabsTrigger>
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
             <TabsTrigger value="address-book"><Users className="h-4 w-4 mr-2" />Address Book</TabsTrigger>
             <TabsTrigger value="settings">T&amp;Cs</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="dashboard" className="mt-4">
+            <MrDashboardTab submissions={submissions} clients={clients} />
+          </TabsContent>
 
           <TabsContent value="submissions" className="mt-4">
             <Card className="p-4">
@@ -617,6 +625,14 @@ export default function ManualRiskAssessments() {
             <AccountsTab
               submissions={sentSubmissions}
               clients={clients}
+              onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
+            />
+          </TabsContent>
+
+          <TabsContent value="invoiced" className="mt-4">
+            <MrInvoicedTab
+              clients={clients}
+              submissions={submissions}
               onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
             />
           </TabsContent>
