@@ -140,7 +140,11 @@ Deno.serve(async (req) => {
     const subFolder =
       kind === "indemnity" ? "/Indemnities" :
       kind === "supplier" ? "/SupplierReports" : "";
-    const folderPath = `PreAppliCheck/ManualRiskAssessments/${client}/${order}${subFolder}`;
+    // Invoices are filed per client under a single Invoices folder, keyed by the
+    // invoice reference (passed as orderNumber) so one invoice maps to one batch.
+    const folderPath = kind === "invoice"
+      ? `PreAppliCheck/ManualRiskAssessments/${client}/Invoices/${order}`
+      : `PreAppliCheck/ManualRiskAssessments/${client}/${order}${subFolder}`;
     const safeFileName = sanitize(fileName.replace(/\//g, "_"));
     const fullPath = `${folderPath}/${safeFileName}`;
     const encodedPath = encodeURI(fullPath);
