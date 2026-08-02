@@ -1011,6 +1011,12 @@ function NewSubmissionDialog({
   const [indemnityFiles, setIndemnityFiles] = useState<File[]>([]);
   const [sendConfirmation, setSendConfirmation] = useState(true);
   const [recipients, setRecipients] = useState<MrRecipient[]>([]);
+  // Editable confirmation-email preview
+  const [mailTo, setMailTo] = useState("");
+  const [mailName, setMailName] = useState("");
+  const [mailCc, setMailCc] = useState("admin@tldv.co.za");
+  const [mailSubject, setMailSubject] = useState("");
+  const [mailMessage, setMailMessage] = useState("");
   const [createdDate, setCreatedDate] = useState<string>(() => {
     const d = new Date();
     const yyyy = d.getFullYear();
@@ -1022,6 +1028,40 @@ function NewSubmissionDialog({
   useEffect(() => {
     if (clients.length === 0) setClientMode("new");
   }, [clients.length]);
+
+  const currentClient: Partial<Client> | null =
+    clientMode === "existing"
+      ? clients.find((c) => c.id === clientId) ?? null
+      : clientMode === "new"
+        ? {
+            client_name: newClient.client_name ?? "",
+            contact_person: newClient.contact_person ?? null,
+            email: newClient.email ?? null,
+            cc_emails: newClient.cc_emails ?? null,
+          }
+        : null;
+
+  // Keep the editable email preview in sync with the selected recipients/client.
+  useEffect(() => {
+    const routed = routeRecipients(recipients);
+    setMailTo(routed.to || currentClient?.email?.trim() || "");
+    setMailName(routed.toName || currentClient?.contact_person?.trim() || "");
+    setMailCc(
+      dedupeEmails([
+        "admin@tldv.co.za",
+        ...(routed.to
+          ? routed.cc
+          : (currentClient?.cc_emails?.split(",").map((s) => s.trim()).filter(Boolean) ?? [])),
+      ]).join(", "),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipients, clientId, clientMode, newClient.email, newClient.contact_person, newClient.cc_emails]);
+
+  useEffect(() => {
+    setMailSubject(
+      `PreAppliCheck Submission Received${orderNumber.trim() ? ` — Order ${orderNumber.trim()}` : ""}`,
+    );
+  }, [orderNumber]);
 
   const handleFile = async (file: File) => {
     try {
@@ -1174,7 +1214,7 @@ function NewSubmissionDialog({
                 }
               : null;
         const routed = routeRecipients(recipients);
-        const toEmail = routed.to || resolvedClient?.email?.trim();
+        const toEmail = mailTo.trim() || routed.to || resolvedClient?.email?.trim();
         if (toEmail) {
           const emailCandidates = candidates.map((c) => ({
             first_name: c.first_name.trim(),
@@ -1184,15 +1224,12 @@ function NewSubmissionDialog({
           const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
             body: {
               to: toEmail,
-              cc: dedupeEmails([
-                "admin@tldv.co.za",
-                ...(routed.to
-                  ? routed.cc
-                  : ((resolvedClient as any)?.cc_emails?.split(",").map((s: string) => s.trim()).filter(Boolean) ?? [])),
-              ]),
+              cc: dedupeEmails(mailCc.split(/[,;\s]+/)),
               orderNumber: orderNumber.trim(),
               clientName: resolvedClient?.client_name ?? undefined,
-              contactName: routed.toName ?? resolvedClient?.contact_person ?? undefined,
+              contactName: mailName.trim() || routed.toName || resolvedClient?.contact_person || undefined,
+              subject: mailSubject.trim() || undefined,
+              message: mailMessage.trim() || undefined,
               candidates: emailCandidates,
             },
           });
@@ -1431,6 +1468,55 @@ function NewSubmissionDialog({
               </label>
             </div>
 
+            {sendConfirmation && (
+              <div className="space-y-3 border rounded-md p-3 bg-gray-50">
+                <div className="text-sm font-medium">Confirmation Email Preview</div>
+                <p className="text-xs text-muted-foreground">
+                  Review and edit before the submission is created and the email is sent.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">To (email)</Label>
+                    <Input value={mailTo} onChange={(e) => setMailTo(e.target.value)} placeholder="client@example.com" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Recipient name (used in greeting)</Label>
+                    <Input value={mailName} onChange={(e) => setMailName(e.target.value)} placeholder="e.g. Jane Smith" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">CC (comma-separated)</Label>
+                  <Input value={mailCc} onChange={(e) => setMailCc(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">Subject</Label>
+                  <Input value={mailSubject} onChange={(e) => setMailSubject(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">Additional message (optional)</Label>
+                  <Textarea
+                    rows={3}
+                    value={mailMessage}
+                    onChange={(e) => setMailMessage(e.target.value)}
+                    placeholder="Added just below the greeting."
+                  />
+                </div>
+                <div className="rounded border bg-white p-3 text-xs leading-relaxed text-gray-700">
+                  <p className="mb-2">Good day {mailName.trim() || "[recipient]"},</p>
+                  {mailMessage.trim() && <p className="mb-2 whitespace-pre-wrap">{mailMessage.trim()}</p>}
+                  <p className="mb-2">Your background screening submission has been received and submitted successfully.</p>
+                  <p className="mb-2">
+                    We are now awaiting verification confirmation on the below listed candidate/s. Once received, the
+                    results will be sent to you. You should receive final feedback within 24 to 48 working hours.
+                  </p>
+                  <p className="text-muted-foreground">
+                    Candidate list ({type === "single" ? (singleC.id_number ? 1 : 0) : batchRows.length}), order number
+                    and client details are added automatically.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
               <Button onClick={submit} className="bg-red-600 hover:bg-red-700" disabled={busy}>
@@ -1479,6 +1565,7 @@ function SubmissionDetailsDialog({
   const [emailTo, setEmailTo] = useState("");
   const [emailMsg, setEmailMsg] = useState("");
   const [ccEmails, setCcEmails] = useState("Admin@tldv.co.za");
+  const [emailToName, setEmailToName] = useState("");
   const [sending, setSending] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [reopening, setReopening] = useState(false);
@@ -1496,6 +1583,15 @@ function SubmissionDetailsDialog({
     const to = savedRouted.to || client?.email || "";
     if (to) setEmailTo(to);
   }, [savedRouted.to, client?.email]);
+  // Greeting name follows whichever recipient is in the "To" field.
+  useEffect(() => {
+    const match = (sub?.recipients ?? []).find(
+      (r) => r?.email?.trim().toLowerCase() === emailTo.trim().toLowerCase(),
+    );
+    setEmailToName(
+      match?.name?.trim() || savedRouted.toName || client?.contact_person?.trim() || "",
+    );
+  }, [emailTo, sub?.recipients, savedRouted.toName, client?.contact_person]);
   useEffect(() => {
     const extras = savedRouted.to
       ? savedRouted.cc
@@ -1619,7 +1715,7 @@ function SubmissionDetailsDialog({
           filename: `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`,
           orderNumber: sub?.order_number,
           clientName: client?.client_name ?? null,
-          contactName: client?.contact_person ?? null,
+          contactName: emailToName.trim() || client?.contact_person || null,
           to: clientEmail,
           cc: ccList,
         },
@@ -1869,12 +1965,24 @@ function SubmissionDetailsDialog({
           <DialogContent>
             <DialogHeader><DialogTitle>Email Report</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
-                <div className="text-xs text-muted-foreground">Recipient (To)</div>
-                <div className="font-medium">{client?.email?.trim() || "— no client email —"}</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  The report is sent to the client's email address on file.
-                </div>
+              <div>
+                <Label>Recipient (To)</Label>
+                <Input
+                  value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  placeholder="client@example.com"
+                />
+              </div>
+              <div>
+                <Label>Recipient name (used in greeting)</Label>
+                <Input
+                  value={emailToName}
+                  onChange={(e) => setEmailToName(e.target.value)}
+                  placeholder="e.g. Jane Smith"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Auto-filled from the address book entry for the "To" address.
+                </p>
               </div>
               <div>
                 <Label>CC (comma-separated, optional)</Label>

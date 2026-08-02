@@ -48,8 +48,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { to, cc, orderNumber, clientName, contactName, candidates } = body as {
-      to?: string; cc?: string | string[];
+    const { to, cc, orderNumber, clientName, contactName, candidates, subject: subjectOverride, message } = body as {
+      to?: string; cc?: string | string[]; subject?: string; message?: string;
       orderNumber?: string; clientName?: string; contactName?: string;
       candidates?: Array<{ first_name?: string; surname?: string; id_number?: string }>;
     };
@@ -92,7 +92,11 @@ Deno.serve(async (req) => {
     const greetingName = (contactName && contactName.trim()) ? esc(contactName.trim()) : '';
     const greetingLine = greetingName ? `Good day ${greetingName},` : 'Good day,';
     const dateStr = new Date().toLocaleDateString('en-ZA', { year: 'numeric', month: 'long', day: 'numeric' });
-    const subject = `PreAppliCheck Submission Received${orderNumber ? ` — Order ${orderNumber}` : ''}`;
+    const subject = (subjectOverride && subjectOverride.trim()) ||
+      `PreAppliCheck Submission Received${orderNumber ? ` — Order ${orderNumber}` : ''}`;
+    const extraMessageHtml = message && message.trim()
+      ? `<p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#333">${esc(message).replace(/\n/g, '<br/>')}</p>`
+      : '';
 
     const html = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#111">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0">
@@ -103,6 +107,7 @@ Deno.serve(async (req) => {
             </td></tr>
             <tr><td style="padding:28px">
               <p style="margin:0 0 16px;font-size:15px;line-height:1.5">${greetingLine}</p>
+              ${extraMessageHtml}
               <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#333">
                 Your background screening submission has been received and submitted successfully.
               </p>
