@@ -1468,6 +1468,55 @@ function NewSubmissionDialog({
               </label>
             </div>
 
+            {sendConfirmation && (
+              <div className="space-y-3 border rounded-md p-3 bg-gray-50">
+                <div className="text-sm font-medium">Confirmation Email Preview</div>
+                <p className="text-xs text-muted-foreground">
+                  Review and edit before the submission is created and the email is sent.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">To (email)</Label>
+                    <Input value={mailTo} onChange={(e) => setMailTo(e.target.value)} placeholder="client@example.com" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Recipient name (used in greeting)</Label>
+                    <Input value={mailName} onChange={(e) => setMailName(e.target.value)} placeholder="e.g. Jane Smith" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">CC (comma-separated)</Label>
+                  <Input value={mailCc} onChange={(e) => setMailCc(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">Subject</Label>
+                  <Input value={mailSubject} onChange={(e) => setMailSubject(e.target.value)} />
+                </div>
+                <div>
+                  <Label className="text-xs">Additional message (optional)</Label>
+                  <Textarea
+                    rows={3}
+                    value={mailMessage}
+                    onChange={(e) => setMailMessage(e.target.value)}
+                    placeholder="Added just below the greeting."
+                  />
+                </div>
+                <div className="rounded border bg-white p-3 text-xs leading-relaxed text-gray-700">
+                  <p className="mb-2">Good day {mailName.trim() || "[recipient]"},</p>
+                  {mailMessage.trim() && <p className="mb-2 whitespace-pre-wrap">{mailMessage.trim()}</p>}
+                  <p className="mb-2">Your background screening submission has been received and submitted successfully.</p>
+                  <p className="mb-2">
+                    We are now awaiting verification confirmation on the below listed candidate/s. Once received, the
+                    results will be sent to you. You should receive final feedback within 24 to 48 working hours.
+                  </p>
+                  <p className="text-muted-foreground">
+                    Candidate list ({type === "single" ? (singleC.id_number ? 1 : 0) : batchRows.length}), order number
+                    and client details are added automatically.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
               <Button onClick={submit} className="bg-red-600 hover:bg-red-700" disabled={busy}>
