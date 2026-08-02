@@ -1965,12 +1965,24 @@ function SubmissionDetailsDialog({
           <DialogContent>
             <DialogHeader><DialogTitle>Email Report</DialogTitle></DialogHeader>
             <div className="space-y-3">
-              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
-                <div className="text-xs text-muted-foreground">Recipient (To)</div>
-                <div className="font-medium">{client?.email?.trim() || "— no client email —"}</div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  The report is sent to the client's email address on file.
-                </div>
+              <div>
+                <Label>Recipient (To)</Label>
+                <Input
+                  value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  placeholder="client@example.com"
+                />
+              </div>
+              <div>
+                <Label>Recipient name (used in greeting)</Label>
+                <Input
+                  value={emailToName}
+                  onChange={(e) => setEmailToName(e.target.value)}
+                  placeholder="e.g. Jane Smith"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Auto-filled from the address book entry for the "To" address.
+                </p>
               </div>
               <div>
                 <Label>CC (comma-separated, optional)</Label>
