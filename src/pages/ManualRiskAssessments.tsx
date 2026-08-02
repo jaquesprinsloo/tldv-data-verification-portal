@@ -2998,9 +2998,10 @@ function ClientAccountDialog({
           <Button
             className="bg-red-600 hover:bg-red-700"
             onClick={() => setInvoiceOpen(true)}
-            disabled={!selectedSubmissionIds.length}
+            disabled={!selectedCandidateIds.length}
+            title="Batch the selected checks under one invoice reference and move them to the Invoiced tab"
           >
-            <FileText className="h-4 w-4 mr-2" /> Mark as Invoiced
+            <FileText className="h-4 w-4 mr-2" /> Invoice Selected Checks
           </Button>
           <Button
             variant="outline"
