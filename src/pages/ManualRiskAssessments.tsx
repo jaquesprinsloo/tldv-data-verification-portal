@@ -1214,7 +1214,7 @@ function NewSubmissionDialog({
                 }
               : null;
         const routed = routeRecipients(recipients);
-        const toEmail = routed.to || resolvedClient?.email?.trim();
+        const toEmail = mailTo.trim() || routed.to || resolvedClient?.email?.trim();
         if (toEmail) {
           const emailCandidates = candidates.map((c) => ({
             first_name: c.first_name.trim(),
@@ -1224,15 +1224,12 @@ function NewSubmissionDialog({
           const { error: mailErr } = await sb.functions.invoke("send-submission-confirmation", {
             body: {
               to: toEmail,
-              cc: dedupeEmails([
-                "admin@tldv.co.za",
-                ...(routed.to
-                  ? routed.cc
-                  : ((resolvedClient as any)?.cc_emails?.split(",").map((s: string) => s.trim()).filter(Boolean) ?? [])),
-              ]),
+              cc: dedupeEmails(mailCc.split(/[,;\s]+/)),
               orderNumber: orderNumber.trim(),
               clientName: resolvedClient?.client_name ?? undefined,
-              contactName: routed.toName ?? resolvedClient?.contact_person ?? undefined,
+              contactName: mailName.trim() || routed.toName || resolvedClient?.contact_person || undefined,
+              subject: mailSubject.trim() || undefined,
+              message: mailMessage.trim() || undefined,
               candidates: emailCandidates,
             },
           });
