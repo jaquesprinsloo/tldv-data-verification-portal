@@ -2876,11 +2876,12 @@ function ClientAccountDialog({
 
   const exportExcel = () => {
     const source = rows.filter((r) => selected.size === 0 || selected.has(r.candidateId));
-    if (!source.length) { toast.error("No rows to export"); return; }
+    const all = selected.size === 0 ? [...source, ...mirrorRows] : source;
+    if (!all.length) { toast.error("No rows to export"); return; }
     const wsData = [
-      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount", "PTVS"],
-      ...source.map((r) => [
-        clientName,
+      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount", "PTVS", "Source"],
+      ...all.map((r) => [
+        r.isMirror ? r.mirrorFrom ?? "" : clientName,
         r.orderNumber,
         new Date(r.sentAt).toLocaleDateString(),
         r.firstName,
@@ -2890,16 +2891,17 @@ function ClientAccountDialog({
         r.invoiceNumber ?? "",
         r.isTldvInternal ? "100% (TLDV internal)" : "",
         r.isPtvsDiscount ? "PTVS discount" : "",
+        r.isMirror ? "PTVS mirror (not counted)" : "Account check",
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 20 }, { wch: 20 }];
+    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 24 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Checks");
     const safe = clientName.replace(/[^a-z0-9]+/gi, "_");
     const range = fromDate || toDate ? `_${fromDate || "start"}_to_${toDate || "today"}` : "";
     XLSX.writeFile(wb, `${safe}_Checks${range}.xlsx`);
-    toast.success(`Exported ${source.length} row(s)`);
+    toast.success(`Exported ${all.length} row(s)`);
   };
 
   // -- Mark / unmark TLDV internal --
