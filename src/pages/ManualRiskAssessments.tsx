@@ -2755,6 +2755,26 @@ function ClientAccountDialog({
   // isn't in ownSubs).
   const subById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions]);
 
+  // PTVS mirror: every PTVS-discount check from other accounts is shown here so
+  // Polygraph & Truth Verification Services can be invoiced for them. These rows
+  // are read-only and never counted in this account.
+  const ptvsClient = useMemo(() => findPtvsClient(clients), [clients]);
+  const isPtvsAccount = !!ptvsClient && groupKey === ptvsClient.id;
+  const sentSubIdsAll = useMemo(() => submissions.map((s) => s.id), [submissions]);
+  const { data: mirrorCandidates = [] } = useQuery<Candidate[]>({
+    queryKey: ["mra-ptvs-mirror", groupKey, sentSubIdsAll.join(",")],
+    enabled: isPtvsAccount && sentSubIdsAll.length > 0,
+    queryFn: async () => {
+      const { data, error } = await sb.from("manual_risk_candidates")
+        .select("*")
+        .in("submission_id", sentSubIdsAll)
+        .is("invoice_batch_id", null)
+        .eq("is_ptvs_discount", true);
+      if (error) throw error;
+      return data as Candidate[];
+    },
+  });
+
   const rows: AccountRow[] = useMemo(() => {
     const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
     const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
@@ -2791,6 +2811,43 @@ function ClientAccountDialog({
       })
       .filter((r): r is AccountRow => r !== null);
   }, [candidates, subById, fromDate, toDate, groupKey]);
+
+  const mirrorRows: AccountRow[] = useMemo(() => {
+    if (!isPtvsAccount) return [];
+    const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
+    const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
+    return mirrorCandidates
+      .filter((c) => !isPlaceholderCandidate(c))
+      .map((c) => {
+        const s = subById.get(c.submission_id);
+        if (!s || !s.sent_at) return null;
+        const effId = (c as any).override_client_id ?? s.client_id ?? "__unassigned__";
+        if (effId === groupKey) return null; // already a real row here
+        const sentTs = new Date(s.sent_at).getTime();
+        if (from !== null && sentTs < from) return null;
+        if (to !== null && sentTs > to) return null;
+        const originName = clients.find((cl) => cl.id === effId)?.client_name ?? "Unassigned";
+        return {
+          submissionId: s.id,
+          candidateId: c.id,
+          orderNumber: s.order_number,
+          sentAt: s.sent_at,
+          invoicedAt: s.invoiced_at,
+          invoiceNumber: s.invoice_number,
+          invoiceFilePath: s.invoice_file_path,
+          idNumber: c.id_number,
+          surname: c.surname,
+          firstName: c.first_name,
+          isTldvInternal: !!(c as any).is_tldv_internal,
+          isPtvsDiscount: true,
+          overrideClientId: (c as any).override_client_id ?? null,
+          originalClientId: s.client_id,
+          isMirror: true,
+          mirrorFrom: originName,
+        } as AccountRow;
+      })
+      .filter((r): r is AccountRow => r !== null);
+  }, [isPtvsAccount, mirrorCandidates, subById, fromDate, toDate, groupKey, clients]);
 
   // Selection is per-candidate now.
   const [selected, setSelected] = useState<Set<string>>(new Set());
