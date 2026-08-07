@@ -3245,7 +3245,7 @@ function ClientAccountDialog({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length === 0 && (
+              {rows.length === 0 && mirrorRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
                     No checks in this range.
@@ -3320,6 +3320,37 @@ function ClientAccountDialog({
                       <Undo2 className="h-4 w-4 text-amber-600" />
                     </Button>
                   </TableCell>
+                </TableRow>
+              ))}
+              {mirrorRows.length > 0 && (
+                <TableRow className="bg-amber-50/60">
+                  <TableCell colSpan={8} className="text-xs font-medium text-amber-800">
+                    PTVS discount mirror — {mirrorRows.length} check(s) from other accounts, shown for invoicing only.
+                    They stay counted under their own account and are not included in this account's totals.
+                  </TableCell>
+                </TableRow>
+              )}
+              {mirrorRows.map((r) => (
+                <TableRow key={`mirror-${r.candidateId}`} className="bg-amber-50/30">
+                  <TableCell />
+                  <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
+                  <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span>{r.surname}, {r.firstName}</span>
+                      <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-700" title={`Counted under ${r.mirrorFrom}`}>
+                        Mirrored from {r.mirrorFrom}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
+                  <TableCell>
+                    <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
+                      <Percent className="h-3 w-3" /> PTVS Discount
+                    </Badge>
+                  </TableCell>
+                  <TableCell><Badge variant="outline">Mirror</Badge></TableCell>
+                  <TableCell />
                 </TableRow>
               ))}
             </TableBody>
