@@ -2410,7 +2410,19 @@ type AccountRow = {
   isPtvsDiscount: boolean;
   overrideClientId: string | null;
   originalClientId: string | null;
+  /** Mirrored PTVS-discount check shown for invoicing only — not counted here. */
+  isMirror?: boolean;
+  mirrorFrom?: string;
 };
+
+/** The Polygraph & Truth Verification Services account (PTVS discount mirror target). */
+function findPtvsClient(clients: Client[]): Client | null {
+  return (
+    clients.find((c) => /polygraph.*truth.*verification/i.test(c.client_name)) ??
+    clients.find((c) => /\bptvs\b/i.test(c.client_name)) ??
+    null
+  );
+}
 
 function AccountsTab({
   submissions, clients, onChanged,
@@ -2472,19 +2484,38 @@ function AccountsTab({
   const groups = useMemo(() => {
     const subMap = new Map(submissions.map((s) => [s.id, s]));
     const m = new Map<string, { client: Client | null; candCount: number; discounted: number; subIds: Set<string> }>();
-    for (const c of allCandidates) {
-      const sub = subMap.get(c.submission_id);
-      if (!sub) continue;
-      const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
-      const key = effId;
+    const ensure = (key: string) => {
       if (!m.has(key)) {
         const client = key === "__unassigned__" ? null : clients.find((cl) => cl.id === key) ?? null;
         m.set(key, { client, candCount: 0, discounted: 0, subIds: new Set() });
       }
-      const g = m.get(key)!;
+      return m.get(key)!;
+    };
+    // Accounts stay visible even when every check has been moved away or invoiced.
+    for (const s of submissions) {
+      if (s.client_id) ensure(s.client_id);
+    }
+    for (const c of allCandidates) {
+      const sub = subMap.get(c.submission_id);
+      if (!sub) continue;
+      const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
+      const g = ensure(effId);
       g.candCount += 1;
       if ((c as any).is_tldv_internal || (c as any).is_ptvs_discount) g.discounted += 1;
       g.subIds.add(sub.id);
+    }
+    // PTVS-discount checks are mirrored into the PTVS account for invoicing only.
+    const ptvs = findPtvsClient(clients);
+    let ptvsMirrored = 0;
+    if (ptvs) {
+      for (const c of allCandidates) {
+        const sub = subMap.get(c.submission_id);
+        if (!sub) continue;
+        if (!(c as any).is_ptvs_discount) continue;
+        const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
+        if (effId !== ptvs.id) ptvsMirrored += 1;
+      }
+      if (ptvsMirrored > 0) ensure(ptvs.id);
     }
     return Array.from(m.entries()).map(([key, v]) => {
       return {
@@ -2494,6 +2525,7 @@ function AccountsTab({
         isRegular: !!v.client?.is_regular,
         checkCount: v.candCount,
         discounted: v.discounted,
+        mirrored: ptvs && key === ptvs.id ? ptvsMirrored : 0,
       };
     }).sort((a, b) => {
       if (sortByRegular && a.isRegular !== b.isRegular) return a.isRegular ? -1 : 1;
@@ -2626,6 +2658,15 @@ function AccountsTab({
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
+                  {g.mirrored ? (
+                    <Badge
+                      variant="outline"
+                      className="ml-1 border-amber-500 text-amber-700 text-[10px]"
+                      title="PTVS-discount checks mirrored here for invoicing — not counted in this account"
+                    >
+                      +{g.mirrored} PTVS mirrored
+                    </Badge>
+                  ) : null}
                 </TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="outline" onClick={() => setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key)}>
@@ -2714,6 +2755,26 @@ function ClientAccountDialog({
   // isn't in ownSubs).
   const subById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions]);
 
+  // PTVS mirror: every PTVS-discount check from other accounts is shown here so
+  // Polygraph & Truth Verification Services can be invoiced for them. These rows
+  // are read-only and never counted in this account.
+  const ptvsClient = useMemo(() => findPtvsClient(clients), [clients]);
+  const isPtvsAccount = !!ptvsClient && groupKey === ptvsClient.id;
+  const sentSubIdsAll = useMemo(() => submissions.map((s) => s.id), [submissions]);
+  const { data: mirrorCandidates = [] } = useQuery<Candidate[]>({
+    queryKey: ["mra-ptvs-mirror", groupKey, sentSubIdsAll.join(",")],
+    enabled: isPtvsAccount && sentSubIdsAll.length > 0,
+    queryFn: async () => {
+      const { data, error } = await sb.from("manual_risk_candidates")
+        .select("*")
+        .in("submission_id", sentSubIdsAll)
+        .is("invoice_batch_id", null)
+        .eq("is_ptvs_discount", true);
+      if (error) throw error;
+      return data as Candidate[];
+    },
+  });
+
   const rows: AccountRow[] = useMemo(() => {
     const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
     const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
@@ -2751,6 +2812,43 @@ function ClientAccountDialog({
       .filter((r): r is AccountRow => r !== null);
   }, [candidates, subById, fromDate, toDate, groupKey]);
 
+  const mirrorRows: AccountRow[] = useMemo(() => {
+    if (!isPtvsAccount) return [];
+    const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
+    const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
+    return mirrorCandidates
+      .filter((c) => !isPlaceholderCandidate(c))
+      .map((c) => {
+        const s = subById.get(c.submission_id);
+        if (!s || !s.sent_at) return null;
+        const effId = (c as any).override_client_id ?? s.client_id ?? "__unassigned__";
+        if (effId === groupKey) return null; // already a real row here
+        const sentTs = new Date(s.sent_at).getTime();
+        if (from !== null && sentTs < from) return null;
+        if (to !== null && sentTs > to) return null;
+        const originName = clients.find((cl) => cl.id === effId)?.client_name ?? "Unassigned";
+        return {
+          submissionId: s.id,
+          candidateId: c.id,
+          orderNumber: s.order_number,
+          sentAt: s.sent_at,
+          invoicedAt: s.invoiced_at,
+          invoiceNumber: s.invoice_number,
+          invoiceFilePath: s.invoice_file_path,
+          idNumber: c.id_number,
+          surname: c.surname,
+          firstName: c.first_name,
+          isTldvInternal: !!(c as any).is_tldv_internal,
+          isPtvsDiscount: true,
+          overrideClientId: (c as any).override_client_id ?? null,
+          originalClientId: s.client_id,
+          isMirror: true,
+          mirrorFrom: originName,
+        } as AccountRow;
+      })
+      .filter((r): r is AccountRow => r !== null);
+  }, [isPtvsAccount, mirrorCandidates, subById, fromDate, toDate, groupKey, clients]);
+
   // Selection is per-candidate now.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useEffect(() => { setSelected(new Set()); }, [groupKey]);
@@ -2778,11 +2876,12 @@ function ClientAccountDialog({
 
   const exportExcel = () => {
     const source = rows.filter((r) => selected.size === 0 || selected.has(r.candidateId));
-    if (!source.length) { toast.error("No rows to export"); return; }
+    const all = selected.size === 0 ? [...source, ...mirrorRows] : source;
+    if (!all.length) { toast.error("No rows to export"); return; }
     const wsData = [
-      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount", "PTVS"],
-      ...source.map((r) => [
-        clientName,
+      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount", "PTVS", "Source"],
+      ...all.map((r) => [
+        r.isMirror ? r.mirrorFrom ?? "" : clientName,
         r.orderNumber,
         new Date(r.sentAt).toLocaleDateString(),
         r.firstName,
@@ -2792,16 +2891,17 @@ function ClientAccountDialog({
         r.invoiceNumber ?? "",
         r.isTldvInternal ? "100% (TLDV internal)" : "",
         r.isPtvsDiscount ? "PTVS discount" : "",
+        r.isMirror ? "PTVS mirror (not counted)" : "Account check",
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 20 }, { wch: 20 }];
+    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 24 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Checks");
     const safe = clientName.replace(/[^a-z0-9]+/gi, "_");
     const range = fromDate || toDate ? `_${fromDate || "start"}_to_${toDate || "today"}` : "";
     XLSX.writeFile(wb, `${safe}_Checks${range}.xlsx`);
-    toast.success(`Exported ${source.length} row(s)`);
+    toast.success(`Exported ${all.length} row(s)`);
   };
 
   // -- Mark / unmark TLDV internal --
@@ -2829,6 +2929,7 @@ function ClientAccountDialog({
     setSelected(new Set());
     qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
     qc.invalidateQueries({ queryKey: ["mra-accounts-all-cands"] });
+    qc.invalidateQueries({ queryKey: ["mra-ptvs-mirror"] });
     onChanged();
   };
 
@@ -3043,6 +3144,9 @@ function ClientAccountDialog({
           <DialogTitle>{clientName} — Account</DialogTitle>
           <DialogDescription>
             {rows.length} check(s) shown • {selectedSubmissionIds.length} submission(s) selected
+            {mirrorRows.length > 0 && (
+              <> • {mirrorRows.length} PTVS-discount check(s) mirrored from other accounts (invoicing only, not counted)</>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -3141,7 +3245,7 @@ function ClientAccountDialog({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length === 0 && (
+              {rows.length === 0 && mirrorRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
                     No checks in this range.
@@ -3216,6 +3320,37 @@ function ClientAccountDialog({
                       <Undo2 className="h-4 w-4 text-amber-600" />
                     </Button>
                   </TableCell>
+                </TableRow>
+              ))}
+              {mirrorRows.length > 0 && (
+                <TableRow className="bg-amber-50/60">
+                  <TableCell colSpan={8} className="text-xs font-medium text-amber-800">
+                    PTVS discount mirror — {mirrorRows.length} check(s) from other accounts, shown for invoicing only.
+                    They stay counted under their own account and are not included in this account's totals.
+                  </TableCell>
+                </TableRow>
+              )}
+              {mirrorRows.map((r) => (
+                <TableRow key={`mirror-${r.candidateId}`} className="bg-amber-50/30">
+                  <TableCell />
+                  <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
+                  <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span>{r.surname}, {r.firstName}</span>
+                      <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-700" title={`Counted under ${r.mirrorFrom}`}>
+                        Mirrored from {r.mirrorFrom}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
+                  <TableCell>
+                    <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
+                      <Percent className="h-3 w-3" /> PTVS Discount
+                    </Badge>
+                  </TableCell>
+                  <TableCell><Badge variant="outline">Mirror</Badge></TableCell>
+                  <TableCell />
                 </TableRow>
               ))}
             </TableBody>
