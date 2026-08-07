@@ -2658,6 +2658,15 @@ function AccountsTab({
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
+                  {g.mirrored ? (
+                    <Badge
+                      variant="outline"
+                      className="ml-1 border-amber-500 text-amber-700 text-[10px]"
+                      title="PTVS-discount checks mirrored here for invoicing — not counted in this account"
+                    >
+                      +{g.mirrored} PTVS mirrored
+                    </Badge>
+                  ) : null}
                 </TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="outline" onClick={() => setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key)}>
