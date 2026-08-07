@@ -2410,7 +2410,19 @@ type AccountRow = {
   isPtvsDiscount: boolean;
   overrideClientId: string | null;
   originalClientId: string | null;
+  /** Mirrored PTVS-discount check shown for invoicing only — not counted here. */
+  isMirror?: boolean;
+  mirrorFrom?: string;
 };
+
+/** The Polygraph & Truth Verification Services account (PTVS discount mirror target). */
+function findPtvsClient(clients: Client[]): Client | null {
+  return (
+    clients.find((c) => /polygraph.*truth.*verification/i.test(c.client_name)) ??
+    clients.find((c) => /\bptvs\b/i.test(c.client_name)) ??
+    null
+  );
+}
 
 function AccountsTab({
   submissions, clients, onChanged,
