@@ -2484,19 +2484,38 @@ function AccountsTab({
   const groups = useMemo(() => {
     const subMap = new Map(submissions.map((s) => [s.id, s]));
     const m = new Map<string, { client: Client | null; candCount: number; discounted: number; subIds: Set<string> }>();
-    for (const c of allCandidates) {
-      const sub = subMap.get(c.submission_id);
-      if (!sub) continue;
-      const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
-      const key = effId;
+    const ensure = (key: string) => {
       if (!m.has(key)) {
         const client = key === "__unassigned__" ? null : clients.find((cl) => cl.id === key) ?? null;
         m.set(key, { client, candCount: 0, discounted: 0, subIds: new Set() });
       }
-      const g = m.get(key)!;
+      return m.get(key)!;
+    };
+    // Accounts stay visible even when every check has been moved away or invoiced.
+    for (const s of submissions) {
+      if (s.client_id) ensure(s.client_id);
+    }
+    for (const c of allCandidates) {
+      const sub = subMap.get(c.submission_id);
+      if (!sub) continue;
+      const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
+      const g = ensure(effId);
       g.candCount += 1;
       if ((c as any).is_tldv_internal || (c as any).is_ptvs_discount) g.discounted += 1;
       g.subIds.add(sub.id);
+    }
+    // PTVS-discount checks are mirrored into the PTVS account for invoicing only.
+    const ptvs = findPtvsClient(clients);
+    let ptvsMirrored = 0;
+    if (ptvs) {
+      for (const c of allCandidates) {
+        const sub = subMap.get(c.submission_id);
+        if (!sub) continue;
+        if (!(c as any).is_ptvs_discount) continue;
+        const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
+        if (effId !== ptvs.id) ptvsMirrored += 1;
+      }
+      if (ptvsMirrored > 0) ensure(ptvs.id);
     }
     return Array.from(m.entries()).map(([key, v]) => {
       return {
@@ -2506,6 +2525,7 @@ function AccountsTab({
         isRegular: !!v.client?.is_regular,
         checkCount: v.candCount,
         discounted: v.discounted,
+        mirrored: ptvs && key === ptvs.id ? ptvsMirrored : 0,
       };
     }).sort((a, b) => {
       if (sortByRegular && a.isRegular !== b.isRegular) return a.isRegular ? -1 : 1;
