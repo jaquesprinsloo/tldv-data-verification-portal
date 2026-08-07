@@ -2929,6 +2929,7 @@ function ClientAccountDialog({
     setSelected(new Set());
     qc.invalidateQueries({ queryKey: ["mra-account-cands", groupKey] });
     qc.invalidateQueries({ queryKey: ["mra-accounts-all-cands"] });
+    qc.invalidateQueries({ queryKey: ["mra-ptvs-mirror"] });
     onChanged();
   };
 
@@ -3143,6 +3144,9 @@ function ClientAccountDialog({
           <DialogTitle>{clientName} — Account</DialogTitle>
           <DialogDescription>
             {rows.length} check(s) shown • {selectedSubmissionIds.length} submission(s) selected
+            {mirrorRows.length > 0 && (
+              <> • {mirrorRows.length} PTVS-discount check(s) mirrored from other accounts (invoicing only, not counted)</>
+            )}
           </DialogDescription>
         </DialogHeader>
 
