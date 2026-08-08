@@ -91,6 +91,7 @@ export function MrInvoicedTab({
   const [clientFilter, setClientFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [openBatchId, setOpenBatchId] = useState<string | null>(null);
+  const [openAccountKey, setOpenAccountKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
