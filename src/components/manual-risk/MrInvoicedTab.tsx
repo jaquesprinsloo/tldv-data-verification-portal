@@ -91,6 +91,7 @@ export function MrInvoicedTab({
   const [clientFilter, setClientFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [openBatchId, setOpenBatchId] = useState<string | null>(null);
+  const [openAccountKey, setOpenAccountKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
@@ -161,6 +162,30 @@ export function MrInvoicedTab({
         };
       });
   }, [batches, candsByBatch, clientById, subById, fromDate, toDate, clientFilter, search]);
+
+  // Mirror every account from the Accounts tab — even accounts with no invoiced
+  // checks yet. Invoicing a check simply moves it from the Accounts tab into the
+  // same account here, so nothing is duplicated.
+  const accounts = useMemo(() => {
+    const keys = new Set<string>();
+    for (const s of submissions) keys.add(s.client_id ?? "__unassigned__");
+    for (const b of batches) keys.add(b.client_id ?? "__unassigned__");
+    const searching = search.trim().length > 0;
+    return Array.from(keys)
+      .map((key) => {
+        const brs = rows.filter((r) => (r.batch.client_id ?? "__unassigned__") === key);
+        return {
+          key,
+          name: key === "__unassigned__" ? "Unassigned" : clientById.get(key)?.client_name ?? "Unknown",
+          batchRows: brs,
+          checks: brs.reduce((n, r) => n + r.checks, 0),
+          discounted: brs.reduce((n, r) => n + r.discounted, 0),
+        };
+      })
+      .filter((a) => (clientFilter ? a.key === clientFilter : true))
+      .filter((a) => (searching ? a.batchRows.length > 0 : true))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [submissions, batches, rows, clientById, clientFilter, search]);
 
   const viewFile = async (path: string) => {
     const { data, error } = await supabase.storage.from("invoices").createSignedUrl(path, 300);
@@ -300,68 +325,131 @@ export function MrInvoicedTab({
       </div>
 
       <p className="text-sm text-muted-foreground mb-3">
-        {rows.length} invoice batch(es) • {totalInvoiced} invoiced check(s)
+        {accounts.length} account(s) • {rows.length} invoice batch(es) • {totalInvoiced} invoiced check(s).
+        Accounts mirror the Accounts tab and stay listed even when nothing has been invoiced yet.
       </p>
 
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Invoice date</TableHead>
               <TableHead>Client</TableHead>
-              <TableHead className="text-center">Checks</TableHead>
+              <TableHead className="text-center">Invoiced checks</TableHead>
               <TableHead className="text-center">Discounted</TableHead>
-              <TableHead>Orders</TableHead>
-              <TableHead>Attachment</TableHead>
+              <TableHead className="text-center">Invoice batches</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.length === 0 && (
+            {accounts.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                  No invoiced batches yet. Invoice checks from a client account to move them here.
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  No accounts yet. Once a submission is sent its client account appears here.
                 </TableCell>
               </TableRow>
             )}
-            {rows.map((r) => (
-              <TableRow key={r.batch.id}>
-                <TableCell className="font-mono text-xs">{r.batch.invoice_number}</TableCell>
-                <TableCell className="text-xs">{new Date(r.batch.invoice_date + "T12:00:00").toLocaleDateString()}</TableCell>
-                <TableCell>{r.clientName}</TableCell>
-                <TableCell className="text-center">{r.checks}</TableCell>
+            {accounts.map((a) => (
+              <TableRow key={a.key} className={a.checks === 0 ? "text-muted-foreground" : undefined}>
+                <TableCell className="font-medium">{a.name}</TableCell>
+                <TableCell className="text-center">{a.checks}</TableCell>
                 <TableCell className="text-center">
-                  {r.discounted ? <Badge className="bg-amber-500 text-white gap-1"><Percent className="h-3 w-3" />{r.discounted}</Badge> : "—"}
+                  {a.discounted
+                    ? <Badge className="bg-amber-500 hover:bg-amber-500 text-white">{a.discounted} discounted</Badge>
+                    : <span className="text-xs">—</span>}
                 </TableCell>
-                <TableCell className="text-xs max-w-[180px] truncate" title={r.orders.join(", ")}>
-                  {r.orders.join(", ") || "—"}
-                </TableCell>
-                <TableCell>
-                  {r.batch.invoice_file_path ? (
-                    <div className="flex items-center gap-1">
-                      <Badge className="bg-emerald-600">Attached</Badge>
-                      <Button variant="ghost" size="icon" title="View invoice" onClick={() => viewFile(r.batch.invoice_file_path!)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {r.batch.invoice_onedrive_web_url && (
-                        <Button variant="ghost" size="icon" title="Open in OneDrive" onClick={() => window.open(r.batch.invoice_onedrive_web_url!, "_blank")}>
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <Badge variant="outline" className="border-amber-500 text-amber-700">No file</Badge>
-                  )}
-                </TableCell>
+                <TableCell className="text-center">{a.batchRows.length}</TableCell>
                 <TableCell className="text-right">
-                  <Button size="sm" variant="outline" onClick={() => setOpenBatchId(r.batch.id)}>Open</Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={a.batchRows.length === 0}
+                    onClick={() => setOpenAccountKey(a.key)}
+                  >
+                    {a.batchRows.length === 0 ? "Empty" : "Open account"}
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      {openAccountKey && (() => {
+        const acc = accounts.find((a) => a.key === openAccountKey);
+        if (!acc) return null;
+        return (
+          <Dialog open onOpenChange={(v) => !v && setOpenAccountKey(null)}>
+            <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{acc.name} — invoiced checks</DialogTitle>
+                <DialogDescription>
+                  {acc.checks} invoiced check(s) across {acc.batchRows.length} invoice batch(es)
+                </DialogDescription>
+              </DialogHeader>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>Invoice date</TableHead>
+                      <TableHead className="text-center">Checks</TableHead>
+                      <TableHead className="text-center">Discounted</TableHead>
+                      <TableHead>Orders</TableHead>
+                      <TableHead>Attachment</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {acc.batchRows.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          Nothing invoiced for this account yet.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {acc.batchRows.map((r) => (
+                      <TableRow key={r.batch.id}>
+                        <TableCell className="font-mono text-xs">{r.batch.invoice_number}</TableCell>
+                        <TableCell className="text-xs">{new Date(r.batch.invoice_date + "T12:00:00").toLocaleDateString()}</TableCell>
+                        <TableCell className="text-center">{r.checks}</TableCell>
+                        <TableCell className="text-center">
+                          {r.discounted ? <Badge className="bg-amber-500 text-white">{r.discounted}</Badge> : "—"}
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[180px] truncate" title={r.orders.join(", ")}>
+                          {r.orders.join(", ") || "—"}
+                        </TableCell>
+                        <TableCell>
+                          {r.batch.invoice_file_path ? (
+                            <div className="flex items-center gap-1">
+                              <Badge className="bg-emerald-600">Attached</Badge>
+                              <Button variant="ghost" size="icon" title="View invoice" onClick={() => viewFile(r.batch.invoice_file_path!)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {r.batch.invoice_onedrive_web_url && (
+                                <Button variant="ghost" size="icon" title="Open in OneDrive" onClick={() => window.open(r.batch.invoice_onedrive_web_url!, "_blank")}>
+                                  <ExternalLink className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="border-amber-500 text-amber-700">No file</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="outline" onClick={() => setOpenBatchId(r.batch.id)}>Open</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpenAccountKey(null)}>Close</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {openBatch && (
         <Dialog open onOpenChange={(v) => !v && setOpenBatchId(null)}>
