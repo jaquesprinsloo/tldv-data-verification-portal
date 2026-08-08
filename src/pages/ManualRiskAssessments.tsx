@@ -1584,11 +1584,51 @@ function NewSubmissionDialog({
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
-              <Button onClick={submit} className="bg-red-600 hover:bg-red-700" disabled={busy}>
-                {busy ? "Creating..." : "Create Submission"}
+              <Button onClick={() => submit()} className="bg-red-600 hover:bg-red-700" disabled={busy || dupChecking}>
+                {busy ? "Creating..." : dupChecking ? "Checking history..." : "Create Submission"}
               </Button>
             </DialogFooter>
           </div>
+        )}
+
+        {dupes && (
+          <Dialog open onOpenChange={(v) => !v && setDupes(null)}>
+            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-amber-700">Previous check(s) found</DialogTitle>
+                <DialogDescription>
+                  {dupes.length} candidate ID number(s) in this submission have already been checked before.
+                  You can still proceed if a new check is required.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                {dupes.map((d) => (
+                  <div key={d.id_number} className="border rounded-md p-3 bg-amber-50/60">
+                    <div className="font-medium text-sm">
+                      {d.name || "Candidate"} — <span className="font-mono">{d.id_number}</span>
+                    </div>
+                    <ul className="mt-1 text-xs text-muted-foreground list-disc pl-5 space-y-0.5">
+                      {d.previous.map((p, i) => (
+                        <li key={i}>
+                          {p.name} • Order {p.orderNumber} • {p.clientName} • {p.date}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDupes(null)}>Cancel</Button>
+                <Button
+                  className="bg-red-600 hover:bg-red-700"
+                  disabled={busy}
+                  onClick={() => { setDupes(null); submit(true); }}
+                >
+                  Proceed anyway
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </DialogContent>
     </Dialog>
