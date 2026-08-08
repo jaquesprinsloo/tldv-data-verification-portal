@@ -1009,6 +1009,16 @@ function NewSubmissionDialog({
   const [batchRows, setBatchRows] = useState<Array<{ id_number: string; surname: string; first_name: string }>>([]);
   const [busy, setBusy] = useState(false);
   const [indemnityFiles, setIndemnityFiles] = useState<File[]>([]);
+  // Universal previous-check lookup (by ID number) before creating the submission
+  const [dupes, setDupes] = useState<
+    | {
+        id_number: string;
+        name: string;
+        previous: { name: string; orderNumber: string; clientName: string; date: string }[];
+      }[]
+    | null
+  >(null);
+  const [dupChecking, setDupChecking] = useState(false);
   const [sendConfirmation, setSendConfirmation] = useState(true);
   const [recipients, setRecipients] = useState<MrRecipient[]>([]);
   // Editable confirmation-email preview
@@ -1090,9 +1100,64 @@ function NewSubmissionDialog({
     }
   };
 
-  const submit = async () => {
+  const findPreviousChecks = async (
+    cands: Array<{ id_number: string; surname: string; first_name: string }>,
+  ) => {
+    const ids = Array.from(new Set(cands.map((c) => c.id_number.trim()).filter(Boolean)));
+    if (!ids.length) return [];
+    const { data, error } = await sb
+      .from("manual_risk_candidates")
+      .select("id_number, first_name, surname, submission_id, created_at")
+      .in("id_number", ids);
+    if (error || !data?.length) return [];
+    const prior = (data as any[]).filter((c) => !isPlaceholderCandidate(c));
+    if (!prior.length) return [];
+    const subIds = Array.from(new Set(prior.map((c) => c.submission_id)));
+    const { data: subs } = await sb
+      .from("manual_risk_submissions")
+      .select("id, order_number, client_id, created_at")
+      .in("id", subIds);
+    const subMap = new Map((subs ?? []).map((s: any) => [s.id, s]));
+    return ids
+      .map((id) => {
+        const hits = prior.filter((c) => c.id_number.trim() === id);
+        if (!hits.length) return null;
+        const incoming = cands.find((c) => c.id_number.trim() === id);
+        return {
+          id_number: id,
+          name: `${incoming?.first_name ?? ""} ${incoming?.surname ?? ""}`.trim(),
+          previous: hits.map((h) => {
+            const s: any = subMap.get(h.submission_id);
+            return {
+              name: `${h.first_name ?? ""} ${h.surname ?? ""}`.trim(),
+              orderNumber: s?.order_number ?? "—",
+              clientName: s?.client_id ? clients.find((cl) => cl.id === s.client_id)?.client_name ?? "Unknown" : "Unassigned",
+              date: s?.created_at ? new Date(s.created_at).toLocaleDateString() : "—",
+            };
+          }),
+        };
+      })
+      .filter(Boolean) as NonNullable<typeof dupes>;
+  };
+
+  const submit = async (force = false) => {
     if (!orderNumber.trim()) { toast.error("Order number is required"); return; }
     if (!selectedChecks.length) { toast.error("Select at least one check"); return; }
+
+    const preCandidates = type === "single"
+      ? [singleC].filter((c) => c.id_number && c.surname && c.first_name)
+      : batchRows;
+    if (!preCandidates.length) { toast.error("Add at least one candidate"); return; }
+    if (!force) {
+      setDupChecking(true);
+      try {
+        const found = await findPreviousChecks(preCandidates);
+        if (found.length) { setDupes(found); return; }
+      } finally {
+        setDupChecking(false);
+      }
+    }
+
     let resolvedClientId: string | null = null;
     if (clientMode === "existing") {
       if (!clientId) { toast.error("Select a client"); return; }
