@@ -163,6 +163,30 @@ export function MrInvoicedTab({
       });
   }, [batches, candsByBatch, clientById, subById, fromDate, toDate, clientFilter, search]);
 
+  // Mirror every account from the Accounts tab — even accounts with no invoiced
+  // checks yet. Invoicing a check simply moves it from the Accounts tab into the
+  // same account here, so nothing is duplicated.
+  const accounts = useMemo(() => {
+    const keys = new Set<string>();
+    for (const s of submissions) keys.add(s.client_id ?? "__unassigned__");
+    for (const b of batches) keys.add(b.client_id ?? "__unassigned__");
+    const searching = search.trim().length > 0;
+    return Array.from(keys)
+      .map((key) => {
+        const brs = rows.filter((r) => (r.batch.client_id ?? "__unassigned__") === key);
+        return {
+          key,
+          name: key === "__unassigned__" ? "Unassigned" : clientById.get(key)?.client_name ?? "Unknown",
+          batchRows: brs,
+          checks: brs.reduce((n, r) => n + r.checks, 0),
+          discounted: brs.reduce((n, r) => n + r.discounted, 0),
+        };
+      })
+      .filter((a) => (clientFilter ? a.key === clientFilter : true))
+      .filter((a) => (searching ? a.batchRows.length > 0 : true))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [submissions, batches, rows, clientById, clientFilter, search]);
+
   const viewFile = async (path: string) => {
     const { data, error } = await supabase.storage.from("invoices").createSignedUrl(path, 300);
     if (error) { toast.error(error.message); return; }
