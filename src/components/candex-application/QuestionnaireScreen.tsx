@@ -325,14 +325,23 @@ export default function QuestionnaireScreen({ templateId, onComplete, readOnly =
     [allSections]
   );
 
+  // Gate questions that no longer exist (deleted in the builder) leave behind
+  // dangling visible_if rules. Those must NOT permanently hide content —
+  // otherwise whole sections/tables silently disappear from the questionnaire.
+  const knownQuestionIds = useMemo(
+    () => new Set(allQuestions.map((q) => q.id)),
+    [allQuestions]
+  );
+
   const isVisible = useCallback(
     (rule?: VisibilityRule | null) => {
       if (!rule || !rule.question_id) return true;
+      if (!knownQuestionIds.has(rule.question_id)) return true;
       const given = String(answers[rule.question_id] ?? "").trim().toLowerCase();
       if (!given) return false;
       return given === String(rule.equals || "Yes").toLowerCase();
     },
-    [answers]
+    [answers, knownQuestionIds]
   );
 
   const sections = useMemo(() => {
