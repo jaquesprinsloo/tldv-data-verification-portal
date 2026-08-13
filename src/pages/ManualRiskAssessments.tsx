@@ -407,6 +407,7 @@ export default function ManualRiskAssessments() {
         termsAndConditions: settings?.terms_and_conditions ?? "",
         generatedByName: userName,
         requestedChecks: activeChecks,
+        skipEncryption: true,
       });
 
       setPreviewReport({ blob, title: `PreAppliCheck Report — ${sub.order_number}` });
