@@ -313,7 +313,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
         x, y: cy, w: width, h: height,
       });
     },
-    margin: { left: margin, right: margin },
+    margin: { left: margin, right: margin, bottom: 90 },
   });
 
   // Auto-generated notes: currently only Risk Assessment "risk_identified" injects a note.
@@ -453,7 +453,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
         styles: { fontSize: 10, cellPadding: 6, textColor: [30, 30, 30] },
         headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: "bold" },
         columnStyles: { 0: { cellWidth: 140, fontStyle: "bold" } },
-        margin: { left: margin, right: margin },
+        margin: { left: margin, right: margin, bottom: 90 },
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const afterY = (doc as any).lastAutoTable?.finalY ?? ay + 200;
