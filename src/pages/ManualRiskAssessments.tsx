@@ -2373,6 +2373,9 @@ function SupplierReportSection({
             .eq("id", c.id);
           if (!uErr) matched++;
         }
+
+        await recomputeSubmissionStatus(submissionId);
+
         toast.success(
           `${added.length} supplier report(s) uploaded. ${allRecords.length || allExtracted.size} record(s) extracted, ${matched} candidate(s) auto-verified.`,
         );
