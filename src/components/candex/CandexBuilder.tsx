@@ -157,6 +157,7 @@ const VideoUploadButton = ({
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [playing, setPlaying] = useState(false);
 
   const handleUpload = async (file: File) => {
     if (!file.type.startsWith("video/") && !file.type.startsWith("audio/")) {
@@ -234,6 +235,14 @@ const VideoUploadButton = ({
           <Badge variant="secondary" className="gap-1 text-xs">
             <Video className="h-3 w-3" /> {label} media
           </Badge>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-6 px-1.5 gap-1 text-[10px]"
+            onClick={() => setPlaying(true)}
+          >
+            <PlayCircle className="h-3 w-3" /> Listen
+          </Button>
           <Button size="sm" variant="outline" className="h-6 px-1.5 gap-1 text-[10px]" onClick={() => fileRef.current?.click()} disabled={uploading}>
             <Upload className="h-3 w-3" /> {uploading ? "..." : "Replace"}
           </Button>
@@ -253,6 +262,27 @@ const VideoUploadButton = ({
           {uploading ? "Uploading..." : `${label} Media`}
         </Button>
       )}
+
+      <Dialog open={playing} onOpenChange={setPlaying}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <PlayCircle className="h-4 w-4 text-primary" /> {label} media
+            </DialogTitle>
+          </DialogHeader>
+          {currentUrl && (
+            /\.(mp3|wav|ogg|aac|m4a|flac|wma)/i.test(currentUrl) ? (
+              <div className="py-4">
+                <audio src={currentUrl} controls autoPlay className="w-full" />
+              </div>
+            ) : (
+              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <video src={currentUrl} controls autoPlay className="w-full h-full" />
+              </div>
+            )
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
