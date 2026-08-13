@@ -33,6 +33,8 @@ export interface ManualRiskReportInput {
   termsAndConditions: string;
   generatedByName?: string | null;
   requestedChecks: string[];
+  /** Skip owner-password encryption (used for in-app previews, which cannot render encrypted PDFs). */
+  skipEncryption?: boolean;
 }
 
 export const CHECK_META: Record<string, { label: string; short: string; options: { v: string; l: string }[] }> = {
@@ -513,6 +515,11 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   const arrayBuffer = await pdfBlob.arrayBuffer();
   const { PDFDocument } = await import("@cantoo/pdf-lib");
   const pdfDoc = await PDFDocument.load(new Uint8Array(arrayBuffer));
+
+  if (input.skipEncryption) {
+    const plainBytes = await pdfDoc.save();
+    return new Blob([plainBytes.slice()], { type: "application/pdf" });
+  }
 
   pdfDoc.encrypt({
     ownerPassword: "TLDV0011",
