@@ -2283,6 +2283,39 @@ function IndemnitySection({
   );
 }
 
+// Recompute a submission's open/completed status from the current candidate results.
+async function recomputeSubmissionStatus(submissionId: string) {
+  const { data: sub } = await sb
+    .from("manual_risk_submissions")
+    .select("requested_checks, status")
+    .eq("id", submissionId)
+    .maybeSingle();
+  const { data: cands } = await sb
+    .from("manual_risk_candidates")
+    .select("*")
+    .eq("submission_id", submissionId);
+
+  const checks = ((sub as any)?.requested_checks?.length
+    ? (sub as any).requested_checks
+    : ["id_verification", "credit", "criminal"]
+  ).filter((k: string) => CHECK_COLUMNS[k]);
+
+  const rows = (cands ?? []).filter((c: any) => !isPlaceholderCandidate(c));
+  const allComplete =
+    rows.length > 0 &&
+    rows.every((c: any) =>
+      checks.every((k: string) => {
+        const v = c[CHECK_COLUMNS[k].result];
+        return v && v !== "pending";
+      }),
+    );
+
+  const next = allComplete ? "completed" : "open";
+  if ((sub as any)?.status !== next) {
+    await sb.from("manual_risk_submissions").update({ status: next }).eq("id", submissionId);
+  }
+}
+
 function SupplierReportSection({
   submissionId, submission, candidates, clientName, onChanged,
 }: {
