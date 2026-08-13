@@ -1727,15 +1727,7 @@ function SubmissionDetailsDialog({
         const { error } = await sb.from("manual_risk_candidates").update(patch).eq("id", c.id);
         if (error) throw error;
       }
-      const allComplete = local.every((c) =>
-        activeChecks.every((k) => {
-          const v = c[CHECK_COLUMNS[k].result];
-          return v && v !== "pending";
-        }),
-      );
-      if (allComplete && sub?.status !== "completed") {
-        await sb.from("manual_risk_submissions").update({ status: "completed" }).eq("id", submissionId);
-      }
+      await recomputeSubmissionStatus(submissionId);
       toast.success("Results saved");
       refetch();
       qc.invalidateQueries({ queryKey: ["mra-sub", submissionId] });
