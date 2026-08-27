@@ -2322,6 +2322,77 @@ function SupplierReportSection({
     : [];
   const [processing, setProcessing] = useState(false);
 
+  // Apply extracted supplier records to this submission's candidates.
+  // Returns how many candidates matched, plus the extracted names that matched nothing.
+  const applyRecords = async (
+    allRecords: SupplierIdRecord[],
+    allExtracted: Set<string>,
+    sourceLabel: string,
+  ) => {
+    let matched = 0;
+    const usedPrefixes = new Set<string>();
+    for (const c of candidates) {
+      if (isPlaceholderCandidate(c as any)) continue;
+      const candDigits = (c.id_number || "").replace(/\D/g, "");
+      const candPrefix = candDigits.slice(0, 6);
+      if (!/^\d{6}$/.test(candPrefix)) continue;
+      const rec =
+        allRecords.find((r) => r.id_prefix === candPrefix) ||
+        (allExtracted.has(candDigits)
+          ? ({ id_prefix: candPrefix, status: "Confirmed" } as SupplierIdRecord)
+          : undefined);
+      if (!rec) continue;
+      usedPrefixes.add(candPrefix);
+      const confirmed = /confirm|complete|verified|valid|match/i.test(String(rec.status ?? ""));
+      const result = confirmed ? "valid" : "invalid";
+      const noteParts = [
+        `Matched supplier report ${sourceLabel} on ID prefix ${candPrefix}`,
+        rec.status ? `Status: ${rec.status}` : null,
+      ].filter(Boolean);
+      const update: Record<string, unknown> = {
+        id_verification_result: result,
+        id_verification_notes: noteParts.join(" • "),
+        id_verification_data: rec as unknown as Record<string, unknown>,
+      };
+      // Auto-populate Risk Assessment outcome from supplier's Risk Assessment Check.
+      const raText = String(rec.risk_assessment ?? "");
+      if (raText) {
+        const isNoRisk = /no\s+further\s+investigation/i.test(raText);
+        const isRisk = /further\s+investigation/i.test(raText) && !isNoRisk;
+        if (isNoRisk || isRisk) {
+          update.risk_assessment_result = isNoRisk ? "no_risk" : "risk_identified";
+          update.risk_assessment_notes = `Auto-populated from supplier report ${sourceLabel}: ${raText}`;
+        }
+      }
+      const { error: uErr } = await sb
+        .from("manual_risk_candidates")
+        .update(update)
+        .eq("id", c.id);
+      if (!uErr) matched++;
+    }
+
+    await recomputeSubmissionStatus(submissionId);
+
+    const unmatched = allRecords
+      .filter((r) => r.id_prefix && !usedPrefixes.has(String(r.id_prefix)))
+      .map((r) => `${r.first_names ?? ""} ${r.surname ?? ""} (${r.id_prefix})`.trim());
+
+    if (matched === 0) {
+      toast.error(
+        allRecords.length
+          ? `No candidate on this submission matched the report. The report contains: ${unmatched.join(", ")}. Check that the correct supplier report was uploaded.`
+          : "No ID verification records could be read from this report — nothing was auto-filled.",
+        { duration: 12000 },
+      );
+    } else if (unmatched.length) {
+      toast.warning(
+        `${matched} candidate(s) auto-verified. Not on this submission: ${unmatched.join(", ")}`,
+        { duration: 10000 },
+      );
+    }
+    return { matched, unmatched };
+  };
+
   const handleAdd = async (list: FileList | null) => {
     if (!list || !list.length) return;
     setProcessing(true);
@@ -2357,49 +2428,12 @@ function SupplierReportSection({
         if (error) throw error;
 
         // Fully automatic ID verification. Supplier reports mask most of the ID,
-        // so match candidates by the first 6 digits (date-of-birth prefix). The
-        // outcome is driven by the supplier's own confirmation signal.
-        let matched = 0;
-        const sourceLabel = added.map((a) => a.name).join(", ");
-        for (const c of candidates) {
-          const candDigits = (c.id_number || "").replace(/\D/g, "");
-          const candPrefix = candDigits.slice(0, 6);
-          if (!/^\d{6}$/.test(candPrefix)) continue;
-          const rec =
-            allRecords.find((r) => r.id_prefix === candPrefix) ||
-            (allExtracted.has(candDigits)
-              ? ({ id_prefix: candPrefix, status: "Confirmed" } as SupplierIdRecord)
-              : undefined);
-          if (!rec) continue;
-          const confirmed = /confirm|complete|verified|valid|match/i.test(String(rec.status ?? ""));
-          const result = confirmed ? "valid" : "invalid";
-          const noteParts = [
-            `Matched supplier report ${sourceLabel} on ID prefix ${candPrefix}`,
-            rec.status ? `Status: ${rec.status}` : null,
-          ].filter(Boolean);
-          const update: Record<string, unknown> = {
-            id_verification_result: result,
-            id_verification_notes: noteParts.join(" • "),
-            id_verification_data: rec as unknown as Record<string, unknown>,
-          };
-          // Auto-populate Risk Assessment outcome from supplier's Risk Assessment Check.
-          const raText = String(rec.risk_assessment ?? "");
-          if (raText) {
-            const isNoRisk = /no\s+further\s+investigation/i.test(raText);
-            const isRisk = /further\s+investigation\s+required/i.test(raText) && !isNoRisk;
-            if (isNoRisk || isRisk) {
-              update.risk_assessment_result = isNoRisk ? "no_risk" : "risk_identified";
-              update.risk_assessment_notes = `Auto-populated from supplier report ${sourceLabel}: ${raText}`;
-            }
-          }
-          const { error: uErr } = await sb
-            .from("manual_risk_candidates")
-            .update(update)
-            .eq("id", c.id);
-          if (!uErr) matched++;
-        }
-
-        await recomputeSubmissionStatus(submissionId);
+        // so match candidates by the first 6 digits (date-of-birth prefix).
+        const { matched } = await applyRecords(
+          allRecords,
+          allExtracted,
+          added.map((a) => a.name).join(", "),
+        );
 
         toast.success(
           `${added.length} supplier report(s) uploaded. ${allRecords.length || allExtracted.size} record(s) extracted, ${matched} candidate(s) auto-verified.`,
@@ -2410,6 +2444,37 @@ function SupplierReportSection({
       setProcessing(false);
     }
   };
+
+  // Re-read the already-uploaded supplier reports and re-apply the auto-match,
+  // for cases where the first extraction failed or was uploaded before matching.
+  const handleRematch = async () => {
+    if (!files.length) return;
+    setProcessing(true);
+    try {
+      const allExtracted = new Set<string>();
+      const allRecords: SupplierIdRecord[] = [];
+      for (const f of files) {
+        const { data, error } = await supabase.storage
+          .from("manual-risk-supplier-reports")
+          .download(f.path);
+        if (error || !data) { toast.error(`Could not read "${f.name}"`); continue; }
+        const file = new File([data], f.name, { type: f.content_type || "application/pdf" });
+        const res = await extractSupplierRecordsFromPdf(file);
+        res.ids.forEach((i) => allExtracted.add(i));
+        res.records.forEach((r) => allRecords.push(r));
+      }
+      const { matched } = await applyRecords(
+        allRecords,
+        allExtracted,
+        files.map((f) => f.name).join(", "),
+      );
+      if (matched > 0) toast.success(`${matched} candidate(s) auto-verified from the stored report(s).`);
+      onChanged();
+    } finally {
+      setProcessing(false);
+    }
+  };
+
 
   const handleView = async (f: SupplierReportFile) => {
     const { data, error } = await supabase.storage
@@ -2449,7 +2514,20 @@ function SupplierReportSection({
             extracted automatically and matching candidates are marked ID Verified.
           </p>
         </div>
+        <div className="flex items-center gap-2">
+        {files.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={processing}
+            onClick={handleRematch}
+            title="Re-read the uploaded report(s) and re-apply ID verification / risk outcomes"
+          >
+            <RefreshCw className={`h-4 w-4 mr-1 ${processing ? "animate-spin" : ""}`} /> Re-run extraction
+          </Button>
+        )}
         <label className="cursor-pointer">
+
           <input
             type="file"
             className="hidden"
@@ -2462,7 +2540,9 @@ function SupplierReportSection({
             <Upload className="h-4 w-4" /> {processing ? "Processing..." : "Upload Supplier Report"}
           </span>
         </label>
+        </div>
       </div>
+
       {files.length === 0 ? (
         <p className="text-xs text-muted-foreground">No supplier reports uploaded yet.</p>
       ) : (
