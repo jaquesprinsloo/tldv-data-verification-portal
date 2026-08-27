@@ -2540,7 +2540,9 @@ function SupplierReportSection({
             <Upload className="h-4 w-4" /> {processing ? "Processing..." : "Upload Supplier Report"}
           </span>
         </label>
+        </div>
       </div>
+
       {files.length === 0 ? (
         <p className="text-xs text-muted-foreground">No supplier reports uploaded yet.</p>
       ) : (
