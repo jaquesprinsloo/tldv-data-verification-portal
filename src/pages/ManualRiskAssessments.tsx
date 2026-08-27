@@ -2514,7 +2514,20 @@ function SupplierReportSection({
             extracted automatically and matching candidates are marked ID Verified.
           </p>
         </div>
+        <div className="flex items-center gap-2">
+        {files.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={processing}
+            onClick={handleRematch}
+            title="Re-read the uploaded report(s) and re-apply ID verification / risk outcomes"
+          >
+            <RefreshCw className={`h-4 w-4 mr-1 ${processing ? "animate-spin" : ""}`} /> Re-run extraction
+          </Button>
+        )}
         <label className="cursor-pointer">
+
           <input
             type="file"
             className="hidden"
