@@ -2646,6 +2646,7 @@ function AccountsTab({
   onChanged: () => void;
 }) {
   const [openClientId, setOpenClientId] = useState<string | "unassigned" | null>(null);
+  const [highlightCandidateId, setHighlightCandidateId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const trimmedQuery = searchQuery.trim();
   const searchActive = trimmedQuery.length >= 2;
@@ -2909,9 +2910,10 @@ function AccountsTab({
 }
 
 function ClientAccountDialog({
-  groupKey, onClose, submissions, clients, onChanged,
+  groupKey, onClose, submissions, clients, onChanged, highlightCandidateId,
 }: {
   groupKey: string;
+  highlightCandidateId?: string | null;
   onClose: () => void;
   submissions: Submission[];
   clients: Client[];
@@ -3469,7 +3471,11 @@ function ClientAccountDialog({
                 </TableRow>
               )}
               {rows.map((r) => (
-                <TableRow key={r.candidateId}>
+                <TableRow
+                  key={r.candidateId}
+                  id={`cand-row-${r.candidateId}`}
+                  className={highlightCandidateId === r.candidateId ? "bg-amber-100 ring-1 ring-amber-400" : undefined}
+                >
                   <TableCell>
                     <Checkbox
                       checked={selected.has(r.candidateId)}
