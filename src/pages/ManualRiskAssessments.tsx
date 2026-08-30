@@ -2624,10 +2624,105 @@ type AccountRow = {
   isPtvsDiscount: boolean;
   overrideClientId: string | null;
   originalClientId: string | null;
+  /** ID verification outcome (raw value, e.g. "valid"/"invalid"/"pending"). */
+  idResult: string | null;
+  /** Adverse findings across the other requested checks. */
+  riskFlags: { key: string; label: string; result: string }[];
+  /** Checks that were requested but still have no captured outcome. */
+  pendingChecks: number;
   /** Mirrored PTVS-discount check shown for invoicing only — not counted here. */
   isMirror?: boolean;
   mirrorFrom?: string;
 };
+
+/** Result values that count as an adverse / risk finding per check. */
+const ADVERSE_RESULTS: Record<string, string[]> = {
+  credit: ["medium", "high", "very_high"],
+  criminal: ["record_found"],
+  risk_assessment: ["risk_identified"],
+  drivers_license: ["invalid", "expired"],
+  pdp: ["invalid", "expired"],
+  qualification: ["not_verified"],
+  id_verification: ["invalid", "deceased"],
+};
+
+function resultLabel(checkKey: string, value: string): string {
+  return CHECK_META[checkKey]?.options.find((o) => o.v === value)?.l ?? value;
+}
+
+/** Derives ID validity + risk findings for a candidate row. */
+function summariseCandidateChecks(candidate: any, requestedChecks: string[] | null) {
+  const active = (requestedChecks?.length ? requestedChecks : ["id_verification", "credit", "criminal"])
+    .filter((k) => CHECK_COLUMNS[k]);
+  const idResult: string | null = candidate[CHECK_COLUMNS.id_verification.result] ?? null;
+  const riskFlags: { key: string; label: string; result: string }[] = [];
+  let pendingChecks = 0;
+  for (const k of active) {
+    const val = candidate[CHECK_COLUMNS[k].result] as string | null;
+    if (!val || val === "pending") { pendingChecks++; continue; }
+    if ((ADVERSE_RESULTS[k] ?? []).includes(val)) {
+      riskFlags.push({ key: k, label: CHECK_META[k]?.short ?? k, result: resultLabel(k, val) });
+    }
+  }
+  return { idResult, riskFlags, pendingChecks };
+}
+
+/** Rebuilds the report PDF that was sent to the client for a given submission. */
+async function buildSentReportBlob(
+  submissionId: string,
+  clients: Client[],
+  userName: string,
+): Promise<{ blob: Blob; orderNumber: string }> {
+  const [{ data: sub, error: subErr }, { data: cands, error: candErr }, { data: settings }] = await Promise.all([
+    sb.from("manual_risk_submissions").select("*").eq("id", submissionId).maybeSingle(),
+    sb.from("manual_risk_candidates").select("*").eq("submission_id", submissionId)
+      .order("sort_order", { ascending: true }),
+    sb.from("manual_risk_settings").select("terms_and_conditions").limit(1).maybeSingle(),
+  ]);
+  if (subErr) throw subErr;
+  if (candErr) throw candErr;
+  if (!sub) throw new Error("Submission not found");
+
+  const client = sub.client_id ? clients.find((c) => c.id === sub.client_id) : undefined;
+  const activeChecks = (sub.requested_checks?.length
+    ? sub.requested_checks
+    : ["id_verification", "credit", "criminal"]
+  ).filter((k: string) => CHECK_COLUMNS[k]);
+
+  const pdfCandidates: ManualRiskCandidatePdf[] = (cands ?? [])
+    .filter((c: any) => !isPlaceholderCandidate(c))
+    .map((c: any) => {
+      const results: Record<string, string | null> = {};
+      const notes: Record<string, string | null> = {};
+      for (const k of activeChecks) {
+        results[k] = c[CHECK_COLUMNS[k].result] ?? null;
+        notes[k] = c[CHECK_COLUMNS[k].notes] ?? null;
+      }
+      return {
+        id_number: c.id_number,
+        surname: c.surname,
+        first_name: c.first_name,
+        results,
+        notes,
+        id_verification_data: c.id_verification_data ?? null,
+      };
+    });
+
+  const blob = await generateManualRiskPdf({
+    orderNumber: sub.order_number,
+    clientName: client?.client_name,
+    clientContact: client?.contact_person,
+    clientEmail: client?.email,
+    submissionType: sub.submission_type,
+    candidates: pdfCandidates,
+    termsAndConditions: settings?.terms_and_conditions ?? "",
+    generatedByName: userName,
+    requestedChecks: activeChecks,
+    skipEncryption: true,
+  });
+  return { blob, orderNumber: sub.order_number };
+}
+
 
 /** The Polygraph & Truth Verification Services account (PTVS discount mirror target). */
 function findPtvsClient(clients: Client[]): Client | null {
