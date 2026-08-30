@@ -2646,6 +2646,7 @@ function AccountsTab({
   onChanged: () => void;
 }) {
   const [openClientId, setOpenClientId] = useState<string | "unassigned" | null>(null);
+  const [highlightCandidateId, setHighlightCandidateId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const trimmedQuery = searchQuery.trim();
   const searchActive = trimmedQuery.length >= 2;
@@ -2823,6 +2824,7 @@ function AccountsTab({
                     <TableCell className="text-right">
                       <Button size="sm" variant="outline" onClick={() => {
                         const effId = (c as any).override_client_id ?? sub!.client_id ?? null;
+                        setHighlightCandidateId(c.id);
                         setOpenClientId(effId ?? "unassigned");
                       }}>
                         Open account
@@ -2896,7 +2898,8 @@ function AccountsTab({
       {openClientId && (
         <ClientAccountDialog
           groupKey={openClientId === "unassigned" ? "__unassigned__" : openClientId}
-          onClose={() => setOpenClientId(null)}
+          highlightCandidateId={highlightCandidateId}
+          onClose={() => { setOpenClientId(null); setHighlightCandidateId(null); }}
           submissions={submissions}
           clients={clients}
           onChanged={onChanged}
@@ -2907,9 +2910,10 @@ function AccountsTab({
 }
 
 function ClientAccountDialog({
-  groupKey, onClose, submissions, clients, onChanged,
+  groupKey, onClose, submissions, clients, onChanged, highlightCandidateId,
 }: {
   groupKey: string;
+  highlightCandidateId?: string | null;
   onClose: () => void;
   submissions: Submission[];
   clients: Client[];
@@ -3066,6 +3070,17 @@ function ClientAccountDialog({
   // Selection is per-candidate now.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useEffect(() => { setSelected(new Set()); }, [groupKey]);
+
+  // When opened from a candidate search, scroll to and highlight that candidate.
+  useEffect(() => {
+    if (!highlightCandidateId || rows.length === 0) return;
+    const t = setTimeout(() => {
+      document
+        .getElementById(`cand-row-${highlightCandidateId}`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 150);
+    return () => clearTimeout(t);
+  }, [highlightCandidateId, rows]);
 
   const toggleAll = () => {
     if (selected.size === rows.length) setSelected(new Set());
@@ -3467,7 +3482,11 @@ function ClientAccountDialog({
                 </TableRow>
               )}
               {rows.map((r) => (
-                <TableRow key={r.candidateId}>
+                <TableRow
+                  key={r.candidateId}
+                  id={`cand-row-${r.candidateId}`}
+                  className={highlightCandidateId === r.candidateId ? "bg-amber-100 ring-1 ring-amber-400" : undefined}
+                >
                   <TableCell>
                     <Checkbox
                       checked={selected.has(r.candidateId)}
@@ -3545,7 +3564,11 @@ function ClientAccountDialog({
                 </TableRow>
               )}
               {mirrorRows.map((r) => (
-                <TableRow key={`mirror-${r.candidateId}`} className="bg-amber-50/30">
+                <TableRow
+                  key={`mirror-${r.candidateId}`}
+                  id={`cand-row-${r.candidateId}`}
+                  className={highlightCandidateId === r.candidateId ? "bg-amber-100 ring-1 ring-amber-400" : "bg-amber-50/30"}
+                >
                   <TableCell />
                   <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
                   <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
