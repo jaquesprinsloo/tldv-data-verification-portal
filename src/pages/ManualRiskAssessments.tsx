@@ -626,6 +626,7 @@ export default function ManualRiskAssessments() {
             <AccountsTab
               submissions={sentSubmissions}
               clients={clients}
+              userName={userName}
               onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
             />
           </TabsContent>
@@ -2624,10 +2625,135 @@ type AccountRow = {
   isPtvsDiscount: boolean;
   overrideClientId: string | null;
   originalClientId: string | null;
+  /** ID verification outcome (raw value, e.g. "valid"/"invalid"/"pending"). */
+  idResult: string | null;
+  /** Adverse findings across the other requested checks. */
+  riskFlags: { key: string; label: string; result: string }[];
+  /** Checks that were requested but still have no captured outcome. */
+  pendingChecks: number;
   /** Mirrored PTVS-discount check shown for invoicing only — not counted here. */
   isMirror?: boolean;
   mirrorFrom?: string;
 };
+
+/** Result values that count as an adverse / risk finding per check. */
+const ADVERSE_RESULTS: Record<string, string[]> = {
+  credit: ["medium", "high", "very_high"],
+  criminal: ["record_found"],
+  risk_assessment: ["risk_identified"],
+  drivers_license: ["invalid", "expired"],
+  pdp: ["invalid", "expired"],
+  qualification: ["not_verified"],
+  id_verification: ["invalid", "deceased"],
+};
+
+function resultLabel(checkKey: string, value: string): string {
+  return CHECK_META[checkKey]?.options.find((o) => o.v === value)?.l ?? value;
+}
+
+/** Derives ID validity + risk findings for a candidate row. */
+function summariseCandidateChecks(candidate: any, requestedChecks: string[] | null) {
+  const active = (requestedChecks?.length ? requestedChecks : ["id_verification", "credit", "criminal"])
+    .filter((k) => CHECK_COLUMNS[k]);
+  const idResult: string | null = candidate[CHECK_COLUMNS.id_verification.result] ?? null;
+  const riskFlags: { key: string; label: string; result: string }[] = [];
+  let pendingChecks = 0;
+  for (const k of active) {
+    const val = candidate[CHECK_COLUMNS[k].result] as string | null;
+    if (!val || val === "pending") { pendingChecks++; continue; }
+    if ((ADVERSE_RESULTS[k] ?? []).includes(val)) {
+      riskFlags.push({ key: k, label: CHECK_META[k]?.short ?? k, result: resultLabel(k, val) });
+    }
+  }
+  return { idResult, riskFlags, pendingChecks };
+}
+
+function renderIdStatus(r: AccountRow) {
+  if (!r.idResult || r.idResult === "pending") {
+    return <Badge variant="outline" className="text-[10px]">Pending</Badge>;
+  }
+  if (r.idResult === "valid") {
+    return <Badge className="bg-emerald-600 text-[10px]">Valid</Badge>;
+  }
+  return (
+    <Badge className="bg-red-600 text-[10px]">{resultLabel("id_verification", r.idResult)}</Badge>
+  );
+}
+
+function renderRiskStatus(r: AccountRow) {
+  if (r.riskFlags.length > 0) {
+    return (
+      <div className="flex flex-wrap gap-1">
+        {r.riskFlags.map((f) => (
+          <Badge key={f.key} className="bg-red-600 text-[10px]" title={`${CHECK_META[f.key]?.label ?? f.key}: ${f.result}`}>
+            {f.label}: {f.result}
+          </Badge>
+        ))}
+      </div>
+    );
+  }
+  if (r.pendingChecks > 0) {
+    return <Badge variant="outline" className="text-[10px]">{r.pendingChecks} pending</Badge>;
+  }
+  return <Badge className="bg-emerald-600 text-[10px]">No risk identified</Badge>;
+}
+
+/** Rebuilds the report PDF that was sent to the client for a given submission. */
+async function buildSentReportBlob(
+  submissionId: string,
+  clients: Client[],
+  userName: string,
+): Promise<{ blob: Blob; orderNumber: string }> {
+  const [{ data: sub, error: subErr }, { data: cands, error: candErr }, { data: settings }] = await Promise.all([
+    sb.from("manual_risk_submissions").select("*").eq("id", submissionId).maybeSingle(),
+    sb.from("manual_risk_candidates").select("*").eq("submission_id", submissionId)
+      .order("sort_order", { ascending: true }),
+    sb.from("manual_risk_settings").select("terms_and_conditions").limit(1).maybeSingle(),
+  ]);
+  if (subErr) throw subErr;
+  if (candErr) throw candErr;
+  if (!sub) throw new Error("Submission not found");
+
+  const client = sub.client_id ? clients.find((c) => c.id === sub.client_id) : undefined;
+  const activeChecks = (sub.requested_checks?.length
+    ? sub.requested_checks
+    : ["id_verification", "credit", "criminal"]
+  ).filter((k: string) => CHECK_COLUMNS[k]);
+
+  const pdfCandidates: ManualRiskCandidatePdf[] = (cands ?? [])
+    .filter((c: any) => !isPlaceholderCandidate(c))
+    .map((c: any) => {
+      const results: Record<string, string | null> = {};
+      const notes: Record<string, string | null> = {};
+      for (const k of activeChecks) {
+        results[k] = c[CHECK_COLUMNS[k].result] ?? null;
+        notes[k] = c[CHECK_COLUMNS[k].notes] ?? null;
+      }
+      return {
+        id_number: c.id_number,
+        surname: c.surname,
+        first_name: c.first_name,
+        results,
+        notes,
+        id_verification_data: c.id_verification_data ?? null,
+      };
+    });
+
+  const blob = await generateManualRiskPdf({
+    orderNumber: sub.order_number,
+    clientName: client?.client_name,
+    clientContact: client?.contact_person,
+    clientEmail: client?.email,
+    submissionType: sub.submission_type,
+    candidates: pdfCandidates,
+    termsAndConditions: settings?.terms_and_conditions ?? "",
+    generatedByName: userName,
+    requestedChecks: activeChecks,
+    skipEncryption: true,
+  });
+  return { blob, orderNumber: sub.order_number };
+}
+
 
 /** The Polygraph & Truth Verification Services account (PTVS discount mirror target). */
 function findPtvsClient(clients: Client[]): Client | null {
@@ -2639,11 +2765,12 @@ function findPtvsClient(clients: Client[]): Client | null {
 }
 
 function AccountsTab({
-  submissions, clients, onChanged,
+  submissions, clients, onChanged, userName,
 }: {
   submissions: Submission[];
   clients: Client[];
   onChanged: () => void;
+  userName: string;
 }) {
   const [openClientId, setOpenClientId] = useState<string | "unassigned" | null>(null);
   const [highlightCandidateId, setHighlightCandidateId] = useState<string | null>(null);
@@ -2897,6 +3024,7 @@ function AccountsTab({
 
       {openClientId && (
         <ClientAccountDialog
+          userName={userName}
           groupKey={openClientId === "unassigned" ? "__unassigned__" : openClientId}
           highlightCandidateId={highlightCandidateId}
           onClose={() => { setOpenClientId(null); setHighlightCandidateId(null); }}
@@ -2910,9 +3038,10 @@ function AccountsTab({
 }
 
 function ClientAccountDialog({
-  groupKey, onClose, submissions, clients, onChanged, highlightCandidateId,
+  groupKey, onClose, submissions, clients, onChanged, highlightCandidateId, userName,
 }: {
   groupKey: string;
+  userName: string;
   highlightCandidateId?: string | null;
   onClose: () => void;
   submissions: Submission[];
@@ -3025,6 +3154,7 @@ function ClientAccountDialog({
           isPtvsDiscount: !!(c as any).is_ptvs_discount,
           overrideClientId: (c as any).override_client_id ?? null,
           originalClientId: s.client_id,
+          ...summariseCandidateChecks(c, s.requested_checks),
         } as AccountRow;
       })
       .filter((r): r is AccountRow => r !== null);
@@ -3060,6 +3190,7 @@ function ClientAccountDialog({
           isPtvsDiscount: true,
           overrideClientId: (c as any).override_client_id ?? null,
           originalClientId: s.client_id,
+          ...summariseCandidateChecks(c, s.requested_checks),
           isMirror: true,
           mirrorFrom: originName,
         } as AccountRow;
@@ -3272,6 +3403,22 @@ function ClientAccountDialog({
     window.open(data.signedUrl, "_blank");
   };
 
+  // View the report that was sent to the client for this check's submission.
+  const [reportPreview, setReportPreview] = useState<{ blob: Blob; title: string } | null>(null);
+  const [loadingReport, setLoadingReport] = useState<string | null>(null);
+  const viewSentReport = async (submissionId: string) => {
+    setLoadingReport(submissionId);
+    try {
+      const { blob, orderNumber } = await buildSentReportBlob(submissionId, clients, userName);
+      setReportPreview({ blob, title: `Report sent to client — ${orderNumber}` });
+    } catch (e) {
+      toast.error("Failed to load report: " + (e as Error).message);
+    } finally {
+      setLoadingReport(null);
+    }
+  };
+
+
   const deleteSubmission = async (submissionId: string, orderNumber: string) => {
     if (!confirm(`Delete submission ${orderNumber}? This removes the submission and all its candidates permanently.`)) return;
     try {
@@ -3468,6 +3615,8 @@ function ClientAccountDialog({
                 <TableHead>Sent</TableHead>
                 <TableHead>Candidate</TableHead>
                 <TableHead>ID Number</TableHead>
+                <TableHead>ID Valid</TableHead>
+                <TableHead>Risk</TableHead>
                 <TableHead>Discount</TableHead>
                 <TableHead>Invoice</TableHead>
                 <TableHead className="w-10"></TableHead>
@@ -3476,7 +3625,7 @@ function ClientAccountDialog({
             <TableBody>
               {rows.length === 0 && mirrorRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-6">
                     No checks in this range.
                   </TableCell>
                 </TableRow>
@@ -3504,6 +3653,8 @@ function ClientAccountDialog({
                     </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
+                  <TableCell>{renderIdStatus(r)}</TableCell>
+                  <TableCell>{renderRiskStatus(r)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {r.isTldvInternal && (
@@ -3539,6 +3690,15 @@ function ClientAccountDialog({
                     <Button
                       variant="ghost"
                       size="icon"
+                      title="View the report that was sent to the client"
+                      disabled={loadingReport === r.submissionId}
+                      onClick={() => viewSentReport(r.submissionId)}
+                    >
+                      <FileText className={loadingReport === r.submissionId ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-blue-600"} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       title="Delete submission"
                       onClick={() => deleteSubmission(r.submissionId, r.orderNumber)}
                     >
@@ -3557,7 +3717,7 @@ function ClientAccountDialog({
               ))}
               {mirrorRows.length > 0 && (
                 <TableRow className="bg-amber-50/60">
-                  <TableCell colSpan={8} className="text-xs font-medium text-amber-800">
+                  <TableCell colSpan={10} className="text-xs font-medium text-amber-800">
                     PTVS discount mirror — {mirrorRows.length} check(s) from other accounts, shown for invoicing only.
                     They stay counted under their own account and are not included in this account's totals.
                   </TableCell>
@@ -3581,13 +3741,25 @@ function ClientAccountDialog({
                     </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
+                  <TableCell>{renderIdStatus(r)}</TableCell>
+                  <TableCell>{renderRiskStatus(r)}</TableCell>
                   <TableCell>
                     <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
                       <Percent className="h-3 w-3" /> PTVS Discount
                     </Badge>
                   </TableCell>
                   <TableCell><Badge variant="outline">Mirror</Badge></TableCell>
-                  <TableCell />
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="View the report that was sent to the client"
+                      disabled={loadingReport === r.submissionId}
+                      onClick={() => viewSentReport(r.submissionId)}
+                    >
+                      <FileText className={loadingReport === r.submissionId ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-blue-600"} />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -3597,6 +3769,15 @@ function ClientAccountDialog({
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
         </DialogFooter>
+
+        <Dialog open={!!reportPreview} onOpenChange={(open) => !open && setReportPreview(null)}>
+          <DialogContent className="max-w-6xl h-[92vh] p-0 overflow-hidden flex flex-col">
+            <DialogHeader className="px-4 pt-4 pb-2 border-b">
+              <DialogTitle>{reportPreview?.title ?? "Report"}</DialogTitle>
+            </DialogHeader>
+            {reportPreview && <PdfPreview blob={reportPreview.blob} title={reportPreview.title} />}
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
           <DialogContent>
