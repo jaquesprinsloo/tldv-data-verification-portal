@@ -3124,6 +3124,7 @@ function ClientAccountDialog({
           isPtvsDiscount: !!(c as any).is_ptvs_discount,
           overrideClientId: (c as any).override_client_id ?? null,
           originalClientId: s.client_id,
+          ...summariseCandidateChecks(c, s.requested_checks),
         } as AccountRow;
       })
       .filter((r): r is AccountRow => r !== null);
@@ -3159,6 +3160,7 @@ function ClientAccountDialog({
           isPtvsDiscount: true,
           overrideClientId: (c as any).override_client_id ?? null,
           originalClientId: s.client_id,
+          ...summariseCandidateChecks(c, s.requested_checks),
           isMirror: true,
           mirrorFrom: originName,
         } as AccountRow;
