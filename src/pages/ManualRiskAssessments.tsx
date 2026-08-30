@@ -2823,6 +2823,7 @@ function AccountsTab({
                     <TableCell className="text-right">
                       <Button size="sm" variant="outline" onClick={() => {
                         const effId = (c as any).override_client_id ?? sub!.client_id ?? null;
+                        setHighlightCandidateId(c.id);
                         setOpenClientId(effId ?? "unassigned");
                       }}>
                         Open account
