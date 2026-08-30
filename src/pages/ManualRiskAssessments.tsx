@@ -2897,7 +2897,8 @@ function AccountsTab({
       {openClientId && (
         <ClientAccountDialog
           groupKey={openClientId === "unassigned" ? "__unassigned__" : openClientId}
-          onClose={() => setOpenClientId(null)}
+          highlightCandidateId={highlightCandidateId}
+          onClose={() => { setOpenClientId(null); setHighlightCandidateId(null); }}
           submissions={submissions}
           clients={clients}
           onChanged={onChanged}
