@@ -3071,6 +3071,17 @@ function ClientAccountDialog({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   useEffect(() => { setSelected(new Set()); }, [groupKey]);
 
+  // When opened from a candidate search, scroll to and highlight that candidate.
+  useEffect(() => {
+    if (!highlightCandidateId || rows.length === 0) return;
+    const t = setTimeout(() => {
+      document
+        .getElementById(`cand-row-${highlightCandidateId}`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 150);
+    return () => clearTimeout(t);
+  }, [highlightCandidateId, rows]);
+
   const toggleAll = () => {
     if (selected.size === rows.length) setSelected(new Set());
     else setSelected(new Set(rows.map((r) => r.candidateId)));
@@ -3553,7 +3564,11 @@ function ClientAccountDialog({
                 </TableRow>
               )}
               {mirrorRows.map((r) => (
-                <TableRow key={`mirror-${r.candidateId}`} className="bg-amber-50/30">
+                <TableRow
+                  key={`mirror-${r.candidateId}`}
+                  id={`cand-row-${r.candidateId}`}
+                  className={highlightCandidateId === r.candidateId ? "bg-amber-100 ring-1 ring-amber-400" : "bg-amber-50/30"}
+                >
                   <TableCell />
                   <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
                   <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
