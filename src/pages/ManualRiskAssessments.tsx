@@ -3585,6 +3585,8 @@ function ClientAccountDialog({
                 <TableHead>Sent</TableHead>
                 <TableHead>Candidate</TableHead>
                 <TableHead>ID Number</TableHead>
+                <TableHead>ID Valid</TableHead>
+                <TableHead>Risk</TableHead>
                 <TableHead>Discount</TableHead>
                 <TableHead>Invoice</TableHead>
                 <TableHead className="w-10"></TableHead>
@@ -3593,7 +3595,7 @@ function ClientAccountDialog({
             <TableBody>
               {rows.length === 0 && mirrorRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-6">
                     No checks in this range.
                   </TableCell>
                 </TableRow>
@@ -3621,6 +3623,8 @@ function ClientAccountDialog({
                     </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
+                  <TableCell>{renderIdStatus(r)}</TableCell>
+                  <TableCell>{renderRiskStatus(r)}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {r.isTldvInternal && (
@@ -3656,6 +3660,15 @@ function ClientAccountDialog({
                     <Button
                       variant="ghost"
                       size="icon"
+                      title="View the report that was sent to the client"
+                      disabled={loadingReport === r.submissionId}
+                      onClick={() => viewSentReport(r.submissionId)}
+                    >
+                      <FileText className={loadingReport === r.submissionId ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-blue-600"} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       title="Delete submission"
                       onClick={() => deleteSubmission(r.submissionId, r.orderNumber)}
                     >
@@ -3674,7 +3687,7 @@ function ClientAccountDialog({
               ))}
               {mirrorRows.length > 0 && (
                 <TableRow className="bg-amber-50/60">
-                  <TableCell colSpan={8} className="text-xs font-medium text-amber-800">
+                  <TableCell colSpan={10} className="text-xs font-medium text-amber-800">
                     PTVS discount mirror — {mirrorRows.length} check(s) from other accounts, shown for invoicing only.
                     They stay counted under their own account and are not included in this account's totals.
                   </TableCell>
@@ -3698,13 +3711,25 @@ function ClientAccountDialog({
                     </div>
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
+                  <TableCell>{renderIdStatus(r)}</TableCell>
+                  <TableCell>{renderRiskStatus(r)}</TableCell>
                   <TableCell>
                     <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
                       <Percent className="h-3 w-3" /> PTVS Discount
                     </Badge>
                   </TableCell>
                   <TableCell><Badge variant="outline">Mirror</Badge></TableCell>
-                  <TableCell />
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="View the report that was sent to the client"
+                      disabled={loadingReport === r.submissionId}
+                      onClick={() => viewSentReport(r.submissionId)}
+                    >
+                      <FileText className={loadingReport === r.submissionId ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-blue-600"} />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -3714,6 +3739,15 @@ function ClientAccountDialog({
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
         </DialogFooter>
+
+        <Dialog open={!!reportPreview} onOpenChange={(open) => !open && setReportPreview(null)}>
+          <DialogContent className="max-w-6xl h-[92vh] p-0 overflow-hidden flex flex-col">
+            <DialogHeader className="px-4 pt-4 pb-2 border-b">
+              <DialogTitle>{reportPreview?.title ?? "Report"}</DialogTitle>
+            </DialogHeader>
+            {reportPreview && <PdfPreview blob={reportPreview.blob} title={reportPreview.title} />}
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
           <DialogContent>
