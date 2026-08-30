@@ -3373,6 +3373,22 @@ function ClientAccountDialog({
     window.open(data.signedUrl, "_blank");
   };
 
+  // View the report that was sent to the client for this check's submission.
+  const [reportPreview, setReportPreview] = useState<{ blob: Blob; title: string } | null>(null);
+  const [loadingReport, setLoadingReport] = useState<string | null>(null);
+  const viewSentReport = async (submissionId: string) => {
+    setLoadingReport(submissionId);
+    try {
+      const { blob, orderNumber } = await buildSentReportBlob(submissionId, clients, userName);
+      setReportPreview({ blob, title: `Report sent to client — ${orderNumber}` });
+    } catch (e) {
+      toast.error("Failed to load report: " + (e as Error).message);
+    } finally {
+      setLoadingReport(null);
+    }
+  };
+
+
   const deleteSubmission = async (submissionId: string, orderNumber: string) => {
     if (!confirm(`Delete submission ${orderNumber}? This removes the submission and all its candidates permanently.`)) return;
     try {
