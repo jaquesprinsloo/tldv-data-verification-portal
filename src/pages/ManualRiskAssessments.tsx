@@ -626,6 +626,7 @@ export default function ManualRiskAssessments() {
             <AccountsTab
               submissions={sentSubmissions}
               clients={clients}
+              userName={userName}
               onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
             />
           </TabsContent>
@@ -2734,11 +2735,12 @@ function findPtvsClient(clients: Client[]): Client | null {
 }
 
 function AccountsTab({
-  submissions, clients, onChanged,
+  submissions, clients, onChanged, userName,
 }: {
   submissions: Submission[];
   clients: Client[];
   onChanged: () => void;
+  userName: string;
 }) {
   const [openClientId, setOpenClientId] = useState<string | "unassigned" | null>(null);
   const [highlightCandidateId, setHighlightCandidateId] = useState<string | null>(null);
@@ -2992,6 +2994,7 @@ function AccountsTab({
 
       {openClientId && (
         <ClientAccountDialog
+          userName={userName}
           groupKey={openClientId === "unassigned" ? "__unassigned__" : openClientId}
           highlightCandidateId={highlightCandidateId}
           onClose={() => { setOpenClientId(null); setHighlightCandidateId(null); }}
@@ -3005,9 +3008,10 @@ function AccountsTab({
 }
 
 function ClientAccountDialog({
-  groupKey, onClose, submissions, clients, onChanged, highlightCandidateId,
+  groupKey, onClose, submissions, clients, onChanged, highlightCandidateId, userName,
 }: {
   groupKey: string;
+  userName: string;
   highlightCandidateId?: string | null;
   onClose: () => void;
   submissions: Submission[];
