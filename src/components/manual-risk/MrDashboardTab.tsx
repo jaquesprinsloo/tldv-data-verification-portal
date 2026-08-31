@@ -157,6 +157,50 @@ export function MrDashboardTab({
     };
   }, [scoped, subById, submissions, rangedSubIds]);
 
+  // Reconciliation coverage for the candidates in range
+  const recon = useMemo(() => {
+    const scopedIds = new Set(scoped.map((c) => c.id));
+    let matchedLines = 0;
+    const matchedCands = new Set<string>();
+    for (const l of reconLines) {
+      if (l.match_status !== "matched" || !l.matched_candidate_id) continue;
+      if (!scopedIds.has(l.matched_candidate_id)) continue;
+      matchedLines += 1;
+      matchedCands.add(l.matched_candidate_id);
+    }
+    return {
+      matchedLines,
+      matchedCandidates: matchedCands.size,
+      unmatchedCandidates: Math.max(0, scoped.length - matchedCands.size),
+      totalStatementLines: reconLines.length,
+    };
+  }, [scoped, reconLines]);
+
+  // Discount economics (Risk Assessment is the discounted item)
+  const discountEcon = useMemo(() => {
+    const blank = { count: 0, discount: 0, cost: 0, recovered: 0, absorbed: 0 };
+    const tldv = { ...blank };
+    const ptvs = { ...blank };
+    for (const c of scoped) {
+      const sub = subById.get(c.submission_id);
+      const isTldv = !!c.is_tldv_internal;
+      const isPtvs = !!c.is_ptvs_discount;
+      if (!isTldv && !isPtvs) continue;
+      const b = candidateBilling(sub?.requested_checks, { isTldvInternal: isTldv, isPtvsDiscount: isPtvs }, pm);
+      const ra = b.lines.find((l) => l.checkKey === "risk_assessment");
+      const bucket = isTldv ? tldv : ptvs;
+      bucket.count += 1;
+      if (!ra) continue;
+      bucket.discount += ra.listPrice - ra.charged;
+      bucket.cost += ra.cost;
+      bucket.recovered += ra.charged;
+      bucket.absorbed += ra.cost - ra.charged;
+    }
+    return { tldv, ptvs };
+  }, [scoped, subById, pm]);
+
+
+
   const perClient = useMemo(() => {
     const m = new Map<string, { name: string; isRegular: boolean; checks: number; invoiced: number; discounted: number }>();
     for (const c of scoped) {
