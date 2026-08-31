@@ -57,6 +57,10 @@ export default function PricingPanel() {
   };
 
   const checkRows = rows.filter((r) => CHECK_PRICE_KEYS.includes(r.item_key));
+  const unsetKeys = ["risk_assessment", "id_verification"].filter((k) => {
+    const r = rows.find((x) => x.item_key === k);
+    return r && r.supplier_cost === 0 && r.client_price === 0;
+  });
   const discountRows = rows.filter((r) => DISCOUNT_KEYS.includes(r.item_key));
 
   const renderRow = (r: PricingRow, isDiscount: boolean) => (
