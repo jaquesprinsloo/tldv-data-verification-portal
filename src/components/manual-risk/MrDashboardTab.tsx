@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { CHECK_META, isPlaceholderCandidate } from "@/lib/manualRiskPdf";
 import { usePricing, priceMap, candidateBilling, money } from "@/components/manual-risk/pricing";
-import { BarChart3, Percent, FileText, Users, Link2 } from "lucide-react";
+import { BarChart3, Percent, FileText, Users, Link2, TrendingUp } from "lucide-react";
 
 const sb = supabase as any;
 
@@ -199,6 +199,83 @@ export function MrDashboardTab({
     return { tldv, ptvs };
   }, [scoped, subById, pm]);
 
+  // Overall profitability, adjusted by whatever supplier statement lines are loaded
+  const profitability = useMemo(() => {
+    const scopedIds = new Set(scoped.map((c) => c.id));
+    type Row = {
+      key: string; qty: number; expectedCost: number; gross: number; charged: number;
+      discount: number; reconQty: number; reconCost: number;
+    };
+    const rows = new Map<string, Row>();
+    const get = (k: string) => {
+      if (!rows.has(k)) rows.set(k, { key: k, qty: 0, expectedCost: 0, gross: 0, charged: 0, discount: 0, reconQty: 0, reconCost: 0 });
+      return rows.get(k)!;
+    };
+
+    for (const c of scoped) {
+      const sub = subById.get(c.submission_id);
+      const b = candidateBilling(
+        sub?.requested_checks,
+        { isTldvInternal: !!c.is_tldv_internal, isPtvsDiscount: !!c.is_ptvs_discount },
+        pm,
+      );
+      for (const l of b.lines) {
+        const r = get(l.checkKey);
+        r.qty += 1;
+        r.expectedCost += l.cost;
+        r.gross += l.listPrice;
+        r.charged += l.charged;
+        r.discount += l.listPrice - l.charged;
+      }
+    }
+
+    // Statement lines matched to candidates in range -> actual supplier charges
+    let unaccountedQty = 0, unaccountedCost = 0;
+    for (const l of reconLines) {
+      const key = l.check_key;
+      const supplierCost = key ? (pm.get(key)?.supplier_cost ?? 0) : 0;
+      if (l.match_status === "matched" && l.matched_candidate_id && scopedIds.has(l.matched_candidate_id)) {
+        if (!key) continue;
+        const r = get(key);
+        r.reconQty += 1;
+        r.reconCost += supplierCost;
+      } else if (l.match_status !== "matched") {
+        unaccountedQty += 1;
+        unaccountedCost += supplierCost;
+      }
+    }
+
+    const list = [...rows.values()].sort((a, b) => b.qty - a.qty);
+    const totals = list.reduce(
+      (t, r) => {
+        // Cost billed by supplier: what the statement shows for matched lines,
+        // plus our expected cost for checks the statement has not covered yet.
+        const uncoveredQty = Math.max(0, r.qty - r.reconQty);
+        const rate = pm.get(r.key)?.supplier_cost ?? 0;
+        const cost = r.reconCost + uncoveredQty * rate;
+        t.qty += r.qty;
+        t.reconQty += r.reconQty;
+        t.cost += cost;
+        t.gross += r.gross;
+        t.charged += r.charged;
+        t.discount += r.discount;
+        (r as any).effectiveCost = cost;
+        (r as any).profit = r.charged - cost;
+        return t;
+      },
+      { qty: 0, reconQty: 0, cost: 0, gross: 0, charged: 0, discount: 0 },
+    );
+
+    const netCost = totals.cost + unaccountedCost;
+    const profit = totals.charged - netCost;
+    const margin = totals.charged > 0 ? (profit / totals.charged) * 100 : 0;
+    return {
+      rows: list as (Row & { effectiveCost: number; profit: number })[],
+      totals, unaccountedQty, unaccountedCost, netCost, profit, margin,
+    };
+  }, [scoped, subById, pm, reconLines]);
+
+
 
 
   const perClient = useMemo(() => {
@@ -304,6 +381,97 @@ export function MrDashboardTab({
         <Stat label="Client accounts active" value={perClient.length} icon={<Users className="h-3 w-3" />} />
 
       </div>
+
+      <Card className="p-4">
+        <div className="flex items-center gap-2 mb-1">
+          <TrendingUp className="h-4 w-4 text-emerald-600" />
+          <p className="font-semibold text-sm">Overall profitability</p>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Supplier cost uses reconciled statement lines where available, and the price-list rate for checks not yet on a
+          statement. Charges are after TLDV internal and PTVS discounts.
+        </p>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+          <div className="border rounded-md p-3">
+            <p className="text-xs text-muted-foreground">Gross (list)</p>
+            <p className="text-lg font-bold">{money(profitability.totals.gross)}</p>
+          </div>
+          <div className="border rounded-md p-3 bg-amber-50 border-amber-300">
+            <p className="text-xs text-muted-foreground">Discounts</p>
+            <p className="text-lg font-bold text-amber-700">− {money(profitability.totals.discount)}</p>
+          </div>
+          <div className="border rounded-md p-3">
+            <p className="text-xs text-muted-foreground">Charged to clients</p>
+            <p className="text-lg font-bold">{money(profitability.totals.charged)}</p>
+          </div>
+          <div className="border rounded-md p-3">
+            <p className="text-xs text-muted-foreground">Supplier cost</p>
+            <p className="text-lg font-bold">{money(profitability.netCost)}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {profitability.totals.reconQty} of {profitability.totals.qty} reconciled
+            </p>
+          </div>
+          <div className={`border rounded-md p-3 ${profitability.profit < 0 ? "bg-rose-50 border-rose-300" : "bg-emerald-50 border-emerald-300"}`}>
+            <p className="text-xs text-muted-foreground">Profit / margin</p>
+            <p className={`text-lg font-bold ${profitability.profit < 0 ? "text-rose-700" : "text-emerald-700"}`}>
+              {money(profitability.profit)}
+            </p>
+            <p className="text-[11px] text-muted-foreground">{profitability.margin.toFixed(1)}%</p>
+          </div>
+        </div>
+
+        {profitability.unaccountedQty > 0 && (
+          <div className="mb-3 rounded-md border border-rose-300 bg-rose-50 p-2 text-xs text-rose-800">
+            {profitability.unaccountedQty} supplier statement line(s) could not be matched to our records —{" "}
+            {money(profitability.unaccountedCost)} of supplier charges is included in the cost above as unaccounted.
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Check type</TableHead>
+                <TableHead className="text-center">Qty</TableHead>
+                <TableHead className="text-center">Reconciled</TableHead>
+                <TableHead className="text-right">Cost</TableHead>
+                <TableHead className="text-right">Gross</TableHead>
+                <TableHead className="text-right">Discount</TableHead>
+                <TableHead className="text-right">Charged</TableHead>
+                <TableHead className="text-right">Profit</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {profitability.rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
+                    No checks in this date range.
+                  </TableCell>
+                </TableRow>
+              )}
+              {profitability.rows.map((r) => (
+                <TableRow key={r.key}>
+                  <TableCell className="font-medium">{CHECK_META[r.key]?.label ?? r.key}</TableCell>
+                  <TableCell className="text-center">{r.qty}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge className={r.reconQty >= r.qty ? "bg-emerald-600" : "bg-amber-600"}>
+                      {r.reconQty}/{r.qty}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">{money(r.effectiveCost)}</TableCell>
+                  <TableCell className="text-right">{money(r.gross)}</TableCell>
+                  <TableCell className="text-right text-amber-700">{r.discount ? `− ${money(r.discount)}` : "—"}</TableCell>
+                  <TableCell className="text-right">{money(r.charged)}</TableCell>
+                  <TableCell className={`text-right font-semibold ${r.profit < 0 ? "text-rose-700" : "text-emerald-700"}`}>
+                    {money(r.profit)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
 
       <Card className="p-4">
         <p className="font-semibold text-sm mb-3">Checks by verification type</p>
