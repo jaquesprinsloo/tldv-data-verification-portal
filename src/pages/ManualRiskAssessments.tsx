@@ -3251,10 +3251,11 @@ function ClientAccountDialog({
     const all = selected.size === 0 ? [...source, ...mirrorRows] : source;
     if (!all.length) { toast.error("No rows to export"); return; }
     const wsData = [
-      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount", "PTVS", "Source"],
+      ["Client", "Order #", "Submitted Date", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount", "PTVS", "Source"],
       ...all.map((r) => [
         r.isMirror ? r.mirrorFrom ?? "" : clientName,
         r.orderNumber,
+        new Date(r.submittedAt).toLocaleDateString(),
         new Date(r.sentAt).toLocaleDateString(),
         r.firstName,
         r.surname,
