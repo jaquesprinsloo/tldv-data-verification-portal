@@ -551,6 +551,17 @@ function BatchDetail({
   }, [lines, ourCandidates, subById, pm]);
 
 
+  // Check types actually in use in this batch that have no rates captured.
+  const zeroRateChecks = useMemo(() => {
+    const used = new Set<string>();
+    for (const l of lines) if (l.check_key) used.add(l.check_key);
+    for (const [k] of billing.perCheck) used.add(k);
+    return [...used].filter((k) => {
+      const p = pm.get(k);
+      return !p || (p.supplier_cost === 0 && p.client_price === 0);
+    });
+  }, [lines, billing.perCheck, pm]);
+
   const invoiceTotalNum = batch?.supplier_invoice_total != null ? Number(batch.supplier_invoice_total) : null;
   const effectiveCost = invoiceTotalNum ?? supplierCost;
   const profit = billing.net - effectiveCost;
@@ -721,6 +732,15 @@ function BatchDetail({
           the client price, then: TLDV internal → Risk Assessment at R 0.00 (ID Verification still charged); PTVS → ID
           Verification charged normally and Risk Assessment at 50% of supplier cost.
         </p>
+        {zeroRateChecks.length > 0 && (
+          <div className="mb-3 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              No rates captured for {zeroRateChecks.map(checkLabel).join(", ")} on the price list, so their cost, charge and
+              discount show as R 0.00. Set them in the Price list panel above.
+            </span>
+          </div>
+        )}
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-1 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Supplier cost (statement lines × price list)</span><span>{money(supplierCost)}</span></div>

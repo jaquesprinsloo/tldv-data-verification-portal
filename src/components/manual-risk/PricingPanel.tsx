@@ -27,20 +27,28 @@ export default function PricingPanel() {
   const save = async () => {
     setSaving(true);
     try {
+      let changed = 0;
       for (const r of rows) {
         const d = draft[r.item_key];
         if (!d) continue;
         const sc = parseFloat(d.supplier_cost) || 0;
         const cp = parseFloat(d.client_price) || 0;
         if (sc === r.supplier_cost && cp === r.client_price) continue;
-        const { error } = await sb
+        const { data, error } = await sb
           .from("manual_risk_pricing" as any)
           .update({ supplier_cost: sc, client_price: cp })
-          .eq("id", r.id);
+          .eq("id", r.id)
+          .select("id");
         if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error(
+            `"${r.label}" could not be saved — your account does not have permission to change the price list.`,
+          );
+        }
+        changed += 1;
       }
-      toast.success("Price list saved");
-      qc.invalidateQueries({ queryKey: ["mra-pricing"] });
+      toast.success(changed ? `Price list saved (${changed} updated)` : "No changes to save");
+      await qc.invalidateQueries({ queryKey: ["mra-pricing"] });
     } catch (e: any) {
       toast.error(e.message ?? "Failed to save price list");
     } finally {
@@ -49,6 +57,10 @@ export default function PricingPanel() {
   };
 
   const checkRows = rows.filter((r) => CHECK_PRICE_KEYS.includes(r.item_key));
+  const unsetKeys = ["risk_assessment", "id_verification"].filter((k) => {
+    const r = rows.find((x) => x.item_key === k);
+    return r && r.supplier_cost === 0 && r.client_price === 0;
+  });
   const discountRows = rows.filter((r) => DISCOUNT_KEYS.includes(r.item_key));
 
   const renderRow = (r: PricingRow, isDiscount: boolean) => (
@@ -120,6 +132,13 @@ export default function PricingPanel() {
         Supplier cost is what our provider charges us per check. Client price is what we bill the client. These rates drive
         every cost, billing and profit figure in the reconciliation batches and the Invoiced tab.
       </p>
+      {unsetKeys.length > 0 && !isLoading && (
+        <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+          {unsetKeys.map((k) => rows.find((r) => r.item_key === k)?.label).join(" and ")} still ha
+          {unsetKeys.length > 1 ? "ve" : "s"} no rates (R 0.00), so no cost, charge or discount will pull through into batch
+          profitability. Enter the supplier cost and client price and save.
+        </div>
+      )}
       {isLoading ? (
         <div className="py-8 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline" /></div>
       ) : (
