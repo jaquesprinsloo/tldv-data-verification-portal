@@ -3041,6 +3041,7 @@ function AccountsTab({
 
 function ClientAccountDialog({
   groupKey, onClose, submissions, clients, onChanged, highlightCandidateId, userName,
+  initialFromDate = "", initialToDate = "", initialDateBasis = "submitted",
 }: {
   groupKey: string;
   userName: string;
@@ -3049,6 +3050,9 @@ function ClientAccountDialog({
   submissions: Submission[];
   clients: Client[];
   onChanged: () => void;
+  initialFromDate?: string;
+  initialToDate?: string;
+  initialDateBasis?: DateBasis;
 }) {
   const qc = useQueryClient();
   const client = groupKey === "__unassigned__" ? null : clients.find((c) => c.id === groupKey) ?? null;
@@ -3061,9 +3065,10 @@ function ClientAccountDialog({
     [submissions, groupKey],
   );
 
-  // Date range filter
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  // Date range filter — seeded from the Accounts tab time window.
+  const [fromDate, setFromDate] = useState(initialFromDate);
+  const [toDate, setToDate] = useState(initialToDate);
+  const [dateBasis, setDateBasis] = useState<DateBasis>(initialDateBasis);
 
   // Load candidates: (a) those from this account's own submissions,
   // and (b) those moved into this account via override_client_id from other subs.
