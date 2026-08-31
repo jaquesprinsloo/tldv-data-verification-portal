@@ -85,6 +85,30 @@ const idKey = (v: any) => {
   return d;
 };
 
+/**
+ * Comparable name key: lowercase letters only, words sorted so
+ * "Surname Firstname" and "Firstname Surname" match.
+ */
+const nameKey = (v: any) =>
+  norm(v)
+    .toLowerCase()
+    .replace(/[^a-z]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .sort()
+    .join(" ");
+
+function buildNameIndex(cands: OurCandidate[]) {
+  const m = new Map<string, OurCandidate[]>();
+  for (const c of cands) {
+    const key = nameKey(`${c.first_name ?? ""} ${c.surname ?? ""}`);
+    if (!key) continue;
+    if (!m.has(key)) m.set(key, []);
+    m.get(key)!.push(c);
+  }
+  return m;
+}
+
 function excelDate(v: any): string | null {
   if (v === null || v === undefined || v === "") return null;
   if (v instanceof Date) return v.toISOString();
