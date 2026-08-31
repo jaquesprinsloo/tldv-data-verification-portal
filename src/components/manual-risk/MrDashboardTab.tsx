@@ -10,7 +10,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { CHECK_META, isPlaceholderCandidate } from "@/lib/manualRiskPdf";
-import { BarChart3, Percent, FileText, Users } from "lucide-react";
+import { usePricing, priceMap, candidateBilling, money } from "@/components/manual-risk/pricing";
+import { BarChart3, Percent, FileText, Users, Link2 } from "lucide-react";
 
 const sb = supabase as any;
 
@@ -40,12 +41,15 @@ const CHECK_KEYS = [
   "drivers_license", "pdp", "qualification",
 ];
 
-function Stat({ label, value, icon, tone = "default" }: {
-  label: string; value: number | string; icon?: React.ReactNode; tone?: "default" | "amber" | "blue" | "emerald";
+
+function Stat({ label, value, icon, tone = "default", details }: {
+  label: string; value: number | string; icon?: React.ReactNode; tone?: "default" | "amber" | "blue" | "emerald" | "rose";
+  details?: { label: string; value: string; strong?: boolean }[];
 }) {
   const toneCls =
     tone === "amber" ? "border-amber-300 bg-amber-50" :
     tone === "blue" ? "border-blue-300 bg-blue-50" :
+    tone === "rose" ? "border-rose-300 bg-rose-50" :
     tone === "emerald" ? "border-emerald-300 bg-emerald-50" : "";
   return (
     <Card className={`p-4 ${toneCls}`}>
@@ -54,8 +58,19 @@ function Stat({ label, value, icon, tone = "default" }: {
         <span>{label}</span>
       </div>
       <p className="text-2xl font-bold mt-1">{value}</p>
+      {details && details.length > 0 && (
+        <div className="mt-2 space-y-0.5">
+          {details.map((d) => (
+            <div key={d.label} className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">{d.label}</span>
+              <span className={d.strong ? "font-semibold text-rose-700" : "font-medium"}>{d.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
+
 }
 
 export function MrDashboardTab({
@@ -78,8 +93,24 @@ export function MrDashboardTab({
     },
   });
 
+  // Supplier statement lines (reconciliation)
+  const { data: reconLines = [] } = useQuery<{ matched_candidate_id: string | null; check_key: string | null; match_status: string }[]>({
+    queryKey: ["mra-dashboard-recon-lines"],
+    queryFn: async () => {
+      const { data, error } = await sb
+        .from("manual_risk_supplier_lines")
+        .select("matched_candidate_id, check_key, match_status");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
+  const { data: pricingRows = [] } = usePricing();
+  const pm = useMemo(() => priceMap(pricingRows), [pricingRows]);
+
   const subById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions]);
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
+
 
   // Submissions inside the created-date range
   const rangedSubIds = useMemo(() => {
@@ -125,6 +156,50 @@ export function MrDashboardTab({
       notInvoiced: scoped.length - invoiced,
     };
   }, [scoped, subById, submissions, rangedSubIds]);
+
+  // Reconciliation coverage for the candidates in range
+  const recon = useMemo(() => {
+    const scopedIds = new Set(scoped.map((c) => c.id));
+    let matchedLines = 0;
+    const matchedCands = new Set<string>();
+    for (const l of reconLines) {
+      if (l.match_status !== "matched" || !l.matched_candidate_id) continue;
+      if (!scopedIds.has(l.matched_candidate_id)) continue;
+      matchedLines += 1;
+      matchedCands.add(l.matched_candidate_id);
+    }
+    return {
+      matchedLines,
+      matchedCandidates: matchedCands.size,
+      unmatchedCandidates: Math.max(0, scoped.length - matchedCands.size),
+      totalStatementLines: reconLines.length,
+    };
+  }, [scoped, reconLines]);
+
+  // Discount economics (Risk Assessment is the discounted item)
+  const discountEcon = useMemo(() => {
+    const blank = { count: 0, discount: 0, cost: 0, recovered: 0, absorbed: 0 };
+    const tldv = { ...blank };
+    const ptvs = { ...blank };
+    for (const c of scoped) {
+      const sub = subById.get(c.submission_id);
+      const isTldv = !!c.is_tldv_internal;
+      const isPtvs = !!c.is_ptvs_discount;
+      if (!isTldv && !isPtvs) continue;
+      const b = candidateBilling(sub?.requested_checks, { isTldvInternal: isTldv, isPtvsDiscount: isPtvs }, pm);
+      const ra = b.lines.find((l) => l.checkKey === "risk_assessment");
+      const bucket = isTldv ? tldv : ptvs;
+      bucket.count += 1;
+      if (!ra) continue;
+      bucket.discount += ra.listPrice - ra.charged;
+      bucket.cost += ra.cost;
+      bucket.recovered += ra.charged;
+      bucket.absorbed += ra.cost - ra.charged;
+    }
+    return { tldv, ptvs };
+  }, [scoped, subById, pm]);
+
+
 
   const perClient = useMemo(() => {
     const m = new Map<string, { name: string; isRegular: boolean; checks: number; invoiced: number; discounted: number }>();
@@ -191,10 +266,43 @@ export function MrDashboardTab({
         <Stat label="Submissions (sent / open)" value={`${stats.sentSubmissions} / ${stats.openSubmissions}`} icon={<FileText className="h-3 w-3" />} />
         <Stat label="Invoiced checks" value={stats.invoiced} tone="emerald" icon={<FileText className="h-3 w-3" />} />
         <Stat label="Awaiting invoice" value={stats.notInvoiced} tone="amber" icon={<FileText className="h-3 w-3" />} />
-        <Stat label="TLDV internal (100% discount)" value={stats.internal} tone="blue" icon={<Percent className="h-3 w-3" />} />
-        <Stat label="PTVS discount" value={stats.ptvs} tone="amber" icon={<Percent className="h-3 w-3" />} />
-        <Stat label="Total discounted" value={stats.internal + stats.ptvs} icon={<Percent className="h-3 w-3" />} />
+        <Stat
+          label="TLDV internal (risk assessment 100% off)"
+          value={stats.internal}
+          tone="blue"
+          icon={<Percent className="h-3 w-3" />}
+          details={[
+            { label: "Discount given", value: money(discountEcon.tldv.discount) },
+            { label: "Supplier cost", value: money(discountEcon.tldv.cost) },
+            { label: "Recovered", value: money(discountEcon.tldv.recovered) },
+            { label: "TLDV loss", value: money(discountEcon.tldv.absorbed), strong: true },
+          ]}
+        />
+        <Stat
+          label="PTVS discount (risk assessment at 50% of cost)"
+          value={stats.ptvs}
+          tone="amber"
+          icon={<Percent className="h-3 w-3" />}
+          details={[
+            { label: "Discount given", value: money(discountEcon.ptvs.discount) },
+            { label: "Supplier cost", value: money(discountEcon.ptvs.cost) },
+            { label: "Recovered from PTVS", value: money(discountEcon.ptvs.recovered) },
+            { label: "TLDV loss (50%)", value: money(discountEcon.ptvs.absorbed), strong: true },
+          ]}
+        />
+        <Stat
+          label="Matched to supplier recon"
+          value={`${recon.matchedCandidates} / ${stats.totalChecks}`}
+          tone={recon.unmatchedCandidates ? "amber" : "emerald"}
+          icon={<Link2 className="h-3 w-3" />}
+          details={[
+            { label: "Matched statement lines", value: String(recon.matchedLines) },
+            { label: "Candidates not on statement", value: String(recon.unmatchedCandidates) },
+            { label: "Statement lines loaded", value: String(recon.totalStatementLines) },
+          ]}
+        />
         <Stat label="Client accounts active" value={perClient.length} icon={<Users className="h-3 w-3" />} />
+
       </div>
 
       <Card className="p-4">
