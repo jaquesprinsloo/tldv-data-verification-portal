@@ -3208,7 +3208,7 @@ function ClientAccountDialog({
         } as AccountRow;
       })
       .filter((r): r is AccountRow => r !== null);
-  }, [isPtvsAccount, mirrorCandidates, subById, fromDate, toDate, groupKey, clients]);
+  }, [isPtvsAccount, mirrorCandidates, subById, fromDate, toDate, dateBasis, groupKey, clients]);
 
   // Selection is per-candidate now.
   const [selected, setSelected] = useState<Set<string>>(new Set());
