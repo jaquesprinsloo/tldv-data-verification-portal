@@ -3649,7 +3649,7 @@ function ClientAccountDialog({
             <TableBody>
               {rows.length === 0 && mirrorRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-muted-foreground py-6">
+                  <TableCell colSpan={11} className="text-center text-muted-foreground py-6">
                     No checks in this range.
                   </TableCell>
                 </TableRow>
@@ -3742,7 +3742,7 @@ function ClientAccountDialog({
               ))}
               {mirrorRows.length > 0 && (
                 <TableRow className="bg-amber-50/60">
-                  <TableCell colSpan={10} className="text-xs font-medium text-amber-800">
+                  <TableCell colSpan={11} className="text-xs font-medium text-amber-800">
                     PTVS discount mirror — {mirrorRows.length} check(s) from other accounts, shown for invoicing only.
                     They stay counted under their own account and are not included in this account's totals.
                   </TableCell>
