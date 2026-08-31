@@ -27,20 +27,28 @@ export default function PricingPanel() {
   const save = async () => {
     setSaving(true);
     try {
+      let changed = 0;
       for (const r of rows) {
         const d = draft[r.item_key];
         if (!d) continue;
         const sc = parseFloat(d.supplier_cost) || 0;
         const cp = parseFloat(d.client_price) || 0;
         if (sc === r.supplier_cost && cp === r.client_price) continue;
-        const { error } = await sb
+        const { data, error } = await sb
           .from("manual_risk_pricing" as any)
           .update({ supplier_cost: sc, client_price: cp })
-          .eq("id", r.id);
+          .eq("id", r.id)
+          .select("id");
         if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error(
+            `"${r.label}" could not be saved — your account does not have permission to change the price list.`,
+          );
+        }
+        changed += 1;
       }
-      toast.success("Price list saved");
-      qc.invalidateQueries({ queryKey: ["mra-pricing"] });
+      toast.success(changed ? `Price list saved (${changed} updated)` : "No changes to save");
+      await qc.invalidateQueries({ queryKey: ["mra-pricing"] });
     } catch (e: any) {
       toast.error(e.message ?? "Failed to save price list");
     } finally {
