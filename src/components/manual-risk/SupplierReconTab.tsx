@@ -17,7 +17,7 @@ import { isPlaceholderCandidate } from "@/lib/manualRiskPdf";
 import PricingPanel from "./PricingPanel";
 import {
   usePricing, priceMap, supplierTitleToCheckKey, checkLabel, money,
-  candidateRevenue, CHECK_PRICE_KEYS,
+  candidateBilling, CHECK_PRICE_KEYS,
 } from "./pricing";
 
 interface SupplierBatch {
