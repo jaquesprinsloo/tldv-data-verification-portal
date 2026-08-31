@@ -3138,9 +3138,9 @@ function ClientAccountDialog({
       .map((c) => {
         const s = subById.get(c.submission_id);
         if (!s || !s.sent_at) return null;
-        const sentTs = new Date(s.sent_at).getTime();
-        if (from !== null && sentTs < from) return null;
-        if (to !== null && sentTs > to) return null;
+        const basisTs = new Date(dateBasis === "submitted" ? s.created_at : s.sent_at).getTime();
+        if (from !== null && basisTs < from) return null;
+        if (to !== null && basisTs > to) return null;
         return {
           submissionId: s.id,
           candidateId: c.id,
