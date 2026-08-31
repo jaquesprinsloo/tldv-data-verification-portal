@@ -73,6 +73,17 @@ interface OurSubmission {
 
 const norm = (v: any) => String(v ?? "").trim();
 const digits = (v: any) => norm(v).replace(/\D/g, "");
+/**
+ * Comparable ID key. Excel drops leading zeros on numeric ID cells, so a 13-digit
+ * SA ID can arrive as 12 digits — pad it back before matching.
+ */
+const idKey = (v: any) => {
+  const d = digits(v);
+  if (!d) return "";
+  if (d.length < 13) return d.padStart(13, "0");
+  if (d.length > 13) return d.slice(-13);
+  return d;
+};
 
 function excelDate(v: any): string | null {
   if (v === null || v === undefined || v === "") return null;
@@ -134,7 +145,7 @@ export default function SupplierReconTab() {
   const candByIdNumber = useMemo(() => {
     const m = new Map<string, OurCandidate[]>();
     for (const c of ourCandidates) {
-      const key = digits(c.id_number);
+      const key = idKey(c.id_number);
       if (!key) continue;
       if (!m.has(key)) m.set(key, []);
       m.get(key)!.push(c);
@@ -217,7 +228,7 @@ export default function SupplierReconTab() {
 
       const rows = parsed.map((p) => {
         const key = supplierTitleToCheckKey(p.check_title);
-        const cands = candByIdNumber.get(digits(p.id_number)) ?? [];
+        const cands = candByIdNumber.get(idKey(p.id_number)) ?? [];
         // Prefer a candidate whose submission requested this check type.
         let match: OurCandidate | null = null;
         let status = "not_on_system";
@@ -500,7 +511,7 @@ function BatchDetail({
     const from = batch?.period_start ? new Date(batch.period_start + "T00:00:00").getTime() : null;
     const to = batch?.period_end ? new Date(batch.period_end + "T23:59:59").getTime() : null;
     const statementKeys = new Set(
-      lines.map((l) => `${digits(l.id_number)}|${l.check_key ?? ""}`),
+      lines.map((l) => `${idKey(l.id_number)}|${l.check_key ?? ""}`),
     );
     const out: { candidate: OurCandidate; sub: OurSubmission; checkKey: string }[] = [];
     for (const c of ourCandidates) {
@@ -512,7 +523,7 @@ function BatchDetail({
       const requested = (sub.requested_checks?.length ? sub.requested_checks : ["id_verification", "risk_assessment"])
         .filter((k) => CHECK_PRICE_KEYS.includes(k));
       for (const k of requested) {
-        if (!statementKeys.has(`${digits(c.id_number)}|${k}`)) out.push({ candidate: c, sub, checkKey: k });
+        if (!statementKeys.has(`${idKey(c.id_number)}|${k}`)) out.push({ candidate: c, sub, checkKey: k });
       }
     }
     return out;
@@ -527,6 +538,53 @@ function BatchDetail({
       return `${l.full_name ?? ""} ${l.id_number ?? ""} ${l.internal_order_number ?? ""}`.toLowerCase().includes(q);
     });
   }, [lines, filter, search]);
+
+  const [rematching, setRematching] = useState(false);
+  const rematch = async () => {
+    setRematching(true);
+    try {
+      const candByIdNumber = new Map<string, OurCandidate[]>();
+      for (const c of ourCandidates) {
+        const k = idKey(c.id_number);
+        if (!k) continue;
+        if (!candByIdNumber.has(k)) candByIdNumber.set(k, []);
+        candByIdNumber.get(k)!.push(c);
+      }
+      let changed = 0;
+      for (const l of lines) {
+        const key = l.check_key ?? supplierTitleToCheckKey(l.check_title);
+        const cands = candByIdNumber.get(idKey(l.id_number)) ?? [];
+        let match: OurCandidate | null = null;
+        let status = "not_on_system";
+        if (cands.length) {
+          status = "check_not_requested";
+          for (const c of cands) {
+            const sub = subById.get(c.submission_id);
+            const requested = sub?.requested_checks?.length ? sub.requested_checks : ["id_verification", "risk_assessment"];
+            if (key && requested.includes(key)) { match = c; status = "matched"; break; }
+          }
+          if (!match) match = cands[0];
+        }
+        if (status === l.match_status && (match?.id ?? null) === l.matched_candidate_id && key === l.check_key) continue;
+        const { error } = await sb.from("manual_risk_supplier_lines" as any)
+          .update({
+            check_key: key,
+            matched_candidate_id: match?.id ?? null,
+            matched_submission_id: match?.submission_id ?? null,
+            match_status: status,
+          } as any)
+          .eq("id", l.id);
+        if (error) throw error;
+        changed += 1;
+      }
+      toast.success(changed ? `Re-matched ${changed} line(s)` : "No changes — everything already matched");
+      qc.invalidateQueries({ queryKey: ["mra-supplier-lines", batchId] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Re-match failed");
+    } finally {
+      setRematching(false);
+    }
+  };
 
   const saveInvoice = async () => {
     setSavingInv(true);
@@ -578,6 +636,9 @@ function BatchDetail({
         <Button variant="outline" size="sm" onClick={onBack}><ArrowLeft className="h-4 w-4 mr-2" /> Back to batches</Button>
         <h3 className="font-semibold">{batch?.name ?? "Statement batch"}</h3>
         <div className="flex-1" />
+        <Button size="sm" variant="outline" onClick={rematch} disabled={rematching || !lines.length}>
+          {rematching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null} Re-match lines
+        </Button>
         <Button size="sm" variant="outline" onClick={exportRecon}><Download className="h-4 w-4 mr-2" /> Export</Button>
       </div>
 
