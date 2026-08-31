@@ -1,47 +1,35 @@
-## Impersonation ("View as") for Master Admins
+# Supplier reconciliation, submission dates & batch profitability
 
-Adds a master-admin-only ability to open any admin, examiner, or restricted admin's portal and see exactly what they see — same appointments list, same reports, same locked/unlocked tabs, same dashboard badges.
+## 1. Submission date visible and filterable
 
-### How it works
+- Every check now carries two dates: **Submitted** (when the submission was created) and **Sent** (when the report was released). Both are shown side by side in the Accounts tables and in the Excel export.
+- The Accounts tab gets a **time-window filter** at the top: from/to dates plus quick presets (this week, this month, last month, this year). A selector chooses whether the window applies to the *submitted* date or the *sent* date — default submitted.
+- While a window is active, the Accounts tab shows a flat "checks in this window" list across all accounts (client, order #, candidate, ID number, submitted, sent, discount flags) with the per-account totals recalculated for that window, and an Excel export of exactly that list.
+- The date filter inside each account dialog uses the same submitted/sent basis.
 
-1. **Impersonation session** (client-side, per browser tab)
-   - Stored in `sessionStorage` under `impersonation_target` = `{ userId, role, fullName, email }`.
-   - Only a real master admin can set it; cleared on tab close or "Exit view" click.
-   - The master's real Supabase auth session stays intact — RLS still runs as the master, who already has read access to everything. We only swap the **user ID used in query filters and permission checks**, so views scoped by `assigned_examiner_user_id`, `granted_by`, `account_access.user_id`, badge state, etc. render as that person.
+## 2. Supplier statement upload and reconciliation (new "Supplier Recon" tab)
 
-2. **New hook `useEffectiveUser()`**
-   - Returns `{ id, isImpersonating, realUserId, targetRole, targetName }`.
-   - Every place in the app that currently reads `session.user.id` for filtering data or checking role is switched to this hook. RLS-critical writes (uploads, mutations) keep using the real master ID and get tagged with an audit note.
+- Upload the supplier `.xlsx` (the format of the attached file: header row `Enquiry no / Created at / Internal order number / Contact name / Full name / ID number / DOB / Gender / Check status / Check title / Check result`). The summary block above the header is ignored; parsing starts at the detected header row.
+- Each upload creates a **statement batch** (name, period, source filename, optional supplier invoice number/total, notes). All rows are stored so the data stays on the system for reference.
+- **Auto-matching** against our own records, per line: match on ID number, then confirm the check type (supplier `Check title` → our check keys, e.g. *Verification of ID number* → ID verification, *Risk Assessment* → risk assessment) and, when available, the internal order number.
+  - `Matched` — we have that candidate and that check.
+  - `Check not requested` — candidate exists but we never requested this check type.
+  - `Not on system` — no candidate with that ID number.
+- Rows we cannot account for are **highlighted in red** (not on system) and **amber** (check not requested), with a summary strip: total lines, matched, unmatched, plus the reverse view — checks we submitted in the batch period that do **not** appear on the supplier statement.
+- Filters: show all / unmatched only / matched only, and free-text search on name or ID number. Export the reconciliation to Excel.
 
-3. **Wired into**
-   - `ExaminerPortal.tsx` — role gate accepts master when impersonating an examiner; appointment/candidate queries use the effective ID.
-   - `AdminPortalDashboard.tsx` — restricted-access mode, permission checks, dashboard card ordering, badge counts all use the effective ID.
-   - `usePermissions.ts` — resolves permissions for the effective user so locked tabs appear exactly as the target sees them.
-   - `useBadgeLastSeen.ts` — reads/writes badge state under the effective ID.
+## 3. Price list and batch profitability
 
-4. **UI: "View as" button in Profile Management**
-   - New column on the master's Profile Management table with an eye icon → confirmation dialog → activates impersonation and navigates to `/examiner` or `/admin/portal` based on the target's role.
-   - Persistent red banner at the top of every page while impersonating: *"Viewing as {name} ({role}) — [Exit view]"*.
-   - Exit clears the session and returns to Profile Management.
+- New **Pricing** panel (inside the Supplier Recon tab) holding editable rates: supplier cost and client price for *Risk Assessment*, *ID Verification*, *Criminal*, *Credit*, *Driver's licence*, *PDP*, *Qualification*, plus the *TLDV internal* discount (default 100%) and the *PTVS* discount percentage. Rates are stored in the database and used for all calculations.
+- Each statement batch shows a **profit summary**:
+  - Supplier cost — from the statement lines (line count per check type × supplier cost), plus an optional manually entered supplier invoice total so any difference against the calculated cost is flagged.
+  - Client billing — from our own checks in that batch/window (per check type × client price), with TLDV internal and PTVS discounts applied.
+  - Gross profit and margin %, with a red warning when a batch runs at a loss.
+- Existing invoice batches in the Invoiced tab get the same billing/cost/profit figures using the price list, so invoicing on our side can be compared against the supplier charge.
 
-5. **Audit trail**
-   - Every impersonation start/stop writes to `audit_log` with action `IMPERSONATE_START` / `IMPERSONATE_END`, actor = real master ID, target = impersonated user ID.
+## Technical notes
 
-### What it solves
-
-- Master can open the examiner's portal and immediately see whether an appointment actually reached them.
-- Master can open a restricted admin's portal and confirm which tabs are locked and what data they see.
-- Master can verify a report shows up in the admin dashboard the same way that admin sees it.
-
-### What it does NOT do
-
-- Not a "login as" — no session swap, no new JWT, no password reset. All actions performed while impersonating are still done by the master account for audit integrity.
-- Write actions (uploading reports, deleting records) remain performed by the master; a red confirmation dialog appears if the master tries to submit a mutation while impersonating.
-
-### Files touched
-
-- New: `src/hooks/useEffectiveUser.ts`, `src/components/shared/ImpersonationBanner.tsx`
-- Updated: `src/App.tsx` (mount banner), `src/pages/ExaminerPortal.tsx`, `src/pages/AdminPortalDashboard.tsx`, `src/hooks/usePermissions.ts`, `src/hooks/useBadgeLastSeen.ts`, `src/components/admin/ProfileManagement.tsx`
-- Migration: none required (uses existing `audit_log` table).
-
-Approve and I'll build it.
+- New tables: `manual_risk_supplier_batches`, `manual_risk_supplier_lines`, `manual_risk_pricing` (key/value rate rows). RLS restricted to `admin` / `master_admin`, with grants; batch delete cascades to lines.
+- Parsing/export uses the `xlsx` package already in the project; no edge function needed — the file is read in the browser and rows are inserted in chunks.
+- Accounts date filtering reads `manual_risk_submissions.created_at` (already adjustable when a submission is created) for the submitted date and `sent_at` for the release date.
+- Work is contained in `src/pages/ManualRiskAssessments.tsx` plus new components under `src/components/manual-risk/` (`SupplierReconTab.tsx`, `PricingPanel.tsx`) to keep the page manageable.
