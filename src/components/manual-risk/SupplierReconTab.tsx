@@ -17,7 +17,7 @@ import { isPlaceholderCandidate } from "@/lib/manualRiskPdf";
 import PricingPanel from "./PricingPanel";
 import {
   usePricing, priceMap, supplierTitleToCheckKey, checkLabel, money,
-  candidateRevenue, CHECK_PRICE_KEYS,
+  candidateBilling, CHECK_PRICE_KEYS,
 } from "./pricing";
 
 interface SupplierBatch {
@@ -516,27 +516,40 @@ function BatchDetail({
     [lines, pm],
   );
 
-  // Our billing: every candidate matched in this statement, billed at client prices.
+  // Our billing: every candidate matched in this statement, billed at client
+  // prices with the TLDV / PTVS rules applied per check type.
   const billing = useMemo(() => {
     const seen = new Set<string>();
-    let gross = 0, discount = 0;
+    let gross = 0, discount = 0, net = 0, ourCost = 0;
     let candidateCount = 0;
+    const perCheck = new Map<string, { count: number; cost: number; gross: number; charged: number }>();
     for (const l of lines) {
       if (!l.matched_candidate_id || seen.has(l.matched_candidate_id)) continue;
       seen.add(l.matched_candidate_id);
       const cand = ourCandidates.find((c) => c.id === l.matched_candidate_id);
       if (!cand) continue;
       const sub = subById.get(cand.submission_id);
-      const r = candidateRevenue(sub?.requested_checks, {
+      const b = candidateBilling(sub?.requested_checks, {
         isTldvInternal: !!cand.is_tldv_internal,
         isPtvsDiscount: !!cand.is_ptvs_discount,
       }, pm);
-      gross += r.gross;
-      discount += r.discount;
+      gross += b.gross;
+      discount += b.discount;
+      net += b.net;
+      ourCost += b.cost;
       candidateCount += 1;
+      for (const cl of b.lines) {
+        const cur = perCheck.get(cl.checkKey) ?? { count: 0, cost: 0, gross: 0, charged: 0 };
+        cur.count += 1;
+        cur.cost += cl.cost;
+        cur.gross += cl.listPrice;
+        cur.charged += cl.charged;
+        perCheck.set(cl.checkKey, cur);
+      }
     }
-    return { gross, discount, net: gross - discount, candidateCount };
+    return { gross, discount, net, ourCost, candidateCount, perCheck: [...perCheck.entries()] };
   }, [lines, ourCandidates, subById, pm]);
+
 
   const invoiceTotalNum = batch?.supplier_invoice_total != null ? Number(batch.supplier_invoice_total) : null;
   const effectiveCost = invoiceTotalNum ?? supplierCost;
@@ -702,10 +715,15 @@ function BatchDetail({
       </div>
 
       <Card className="p-4">
-        <h4 className="font-semibold mb-3">Batch profitability</h4>
+        <h4 className="font-semibold mb-1">Batch profitability</h4>
+        <p className="text-xs text-muted-foreground mb-3">
+          Supplier cost = each statement line × the supplier cost on the price list. Client billing = each requested check ×
+          the client price, then: TLDV internal → Risk Assessment at R 0.00 (ID Verification still charged); PTVS → ID
+          Verification charged normally and Risk Assessment at 50% of supplier cost.
+        </p>
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-1 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Supplier cost (from price list)</span><span>{money(supplierCost)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Supplier cost (statement lines × price list)</span><span>{money(supplierCost)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Supplier invoice total (entered)</span><span>{invoiceTotalNum != null ? money(invoiceTotalNum) : "—"}</span></div>
             {invoiceTotalNum != null && Math.abs(invoiceTotalNum - supplierCost) > 0.009 && (
               <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-1">
@@ -713,15 +731,45 @@ function BatchDetail({
                 Difference of {money(Math.abs(invoiceTotalNum - supplierCost))} between the invoice total and the calculated cost.
               </div>
             )}
-            <div className="flex justify-between border-t pt-1"><span className="text-muted-foreground">Client billing (gross)</span><span>{money(billing.gross)}</span></div>
+            <div className="flex justify-between border-t pt-1"><span className="text-muted-foreground">Client billing (list prices)</span><span>{money(billing.gross)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Discounts (TLDV / PTVS)</span><span className="text-amber-700">-{money(billing.discount)}</span></div>
-            <div className="flex justify-between font-medium"><span>Client billing (net)</span><span>{money(billing.net)}</span></div>
+            <div className="flex justify-between font-medium"><span>Client billing (charged)</span><span>{money(billing.net)}</span></div>
             <div className="flex justify-between font-bold border-t pt-1">
               <span>Gross profit</span>
               <span className={profit < 0 ? "text-destructive" : "text-emerald-600"}>{money(profit)}</span>
             </div>
             <p className="text-xs text-muted-foreground pt-1">{billing.candidateCount} candidate(s) billed from this statement.</p>
+            {billing.perCheck.length > 0 && (
+              <div className="pt-3">
+                <p className="text-xs font-medium mb-1">Per check type</p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Check</TableHead>
+                      <TableHead className="text-xs text-right">Qty</TableHead>
+                      <TableHead className="text-xs text-right">Cost</TableHead>
+                      <TableHead className="text-xs text-right">Charged</TableHead>
+                      <TableHead className="text-xs text-right">Profit</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {billing.perCheck.map(([key, v]) => (
+                      <TableRow key={key}>
+                        <TableCell className="text-xs">{checkLabel(key)}</TableCell>
+                        <TableCell className="text-xs text-right">{v.count}</TableCell>
+                        <TableCell className="text-xs text-right">{money(v.cost)}</TableCell>
+                        <TableCell className="text-xs text-right">{money(v.charged)}</TableCell>
+                        <TableCell className={`text-xs text-right ${v.charged - v.cost < 0 ? "text-destructive" : "text-emerald-600"}`}>
+                          {money(v.charged - v.cost)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
+
           <div className="space-y-2">
             <div className="grid grid-cols-2 gap-3">
               <div>
