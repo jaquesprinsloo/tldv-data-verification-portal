@@ -254,19 +254,7 @@ export default function SupplierReconTab() {
 
       const rows = parsed.map((p) => {
         const key = supplierTitleToCheckKey(p.check_title);
-        const cands = candByIdNumber.get(idKey(p.id_number)) ?? [];
-        // Prefer a candidate whose submission requested this check type.
-        let match: OurCandidate | null = null;
-        let status = "not_on_system";
-        if (cands.length) {
-          status = "check_not_requested";
-          for (const c of cands) {
-            const sub = subById.get(c.submission_id);
-            const requested = sub?.requested_checks?.length ? sub.requested_checks : ["id_verification", "risk_assessment"];
-            if (key && requested.includes(key)) { match = c; status = "matched"; break; }
-          }
-          if (!match) match = cands[0];
-        }
+        const { match, status } = resolveMatch(p, key, candByIdNumber, candByName, subById);
         return {
           batch_id: (batch as any).id,
           ...p,
