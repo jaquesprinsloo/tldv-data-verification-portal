@@ -539,6 +539,53 @@ function BatchDetail({
     });
   }, [lines, filter, search]);
 
+  const [rematching, setRematching] = useState(false);
+  const rematch = async () => {
+    setRematching(true);
+    try {
+      const candByIdNumber = new Map<string, OurCandidate[]>();
+      for (const c of ourCandidates) {
+        const k = idKey(c.id_number);
+        if (!k) continue;
+        if (!candByIdNumber.has(k)) candByIdNumber.set(k, []);
+        candByIdNumber.get(k)!.push(c);
+      }
+      let changed = 0;
+      for (const l of lines) {
+        const key = l.check_key ?? supplierTitleToCheckKey(l.check_title);
+        const cands = candByIdNumber.get(idKey(l.id_number)) ?? [];
+        let match: OurCandidate | null = null;
+        let status = "not_on_system";
+        if (cands.length) {
+          status = "check_not_requested";
+          for (const c of cands) {
+            const sub = subById.get(c.submission_id);
+            const requested = sub?.requested_checks?.length ? sub.requested_checks : ["id_verification", "risk_assessment"];
+            if (key && requested.includes(key)) { match = c; status = "matched"; break; }
+          }
+          if (!match) match = cands[0];
+        }
+        if (status === l.match_status && (match?.id ?? null) === l.matched_candidate_id && key === l.check_key) continue;
+        const { error } = await sb.from("manual_risk_supplier_lines" as any)
+          .update({
+            check_key: key,
+            matched_candidate_id: match?.id ?? null,
+            matched_submission_id: match?.submission_id ?? null,
+            match_status: status,
+          } as any)
+          .eq("id", l.id);
+        if (error) throw error;
+        changed += 1;
+      }
+      toast.success(changed ? `Re-matched ${changed} line(s)` : "No changes — everything already matched");
+      qc.invalidateQueries({ queryKey: ["mra-supplier-lines", batchId] });
+    } catch (e: any) {
+      toast.error(e.message ?? "Re-match failed");
+    } finally {
+      setRematching(false);
+    }
+  };
+
   const saveInvoice = async () => {
     setSavingInv(true);
     const { error } = await sb.from("manual_risk_supplier_batches" as any)
