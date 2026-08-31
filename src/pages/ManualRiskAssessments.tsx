@@ -2785,6 +2785,42 @@ function AccountsTab({
   const [filterRegular, setFilterRegular] = useState(false);
   const [sortByRegular, setSortByRegular] = useState(false);
 
+  // Time window: which checks (by submitted or sent date) to include everywhere
+  // in this tab.
+  const [dateBasis, setDateBasis] = useState<DateBasis>("submitted");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const windowActive = !!(fromDate || toDate);
+  const applyPreset = (preset: "week" | "month" | "last-month" | "year") => {
+    const now = new Date();
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    if (preset === "week") {
+      const day = (now.getDay() + 6) % 7; // Monday-based
+      const start = new Date(now); start.setDate(now.getDate() - day);
+      const end = new Date(start); end.setDate(start.getDate() + 6);
+      setFromDate(fmt(start)); setToDate(fmt(end));
+    } else if (preset === "month") {
+      setFromDate(fmt(new Date(now.getFullYear(), now.getMonth(), 1)));
+      setToDate(fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0)));
+    } else if (preset === "last-month") {
+      setFromDate(fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1)));
+      setToDate(fmt(new Date(now.getFullYear(), now.getMonth(), 0)));
+    } else {
+      setFromDate(fmt(new Date(now.getFullYear(), 0, 1)));
+      setToDate(fmt(new Date(now.getFullYear(), 11, 31)));
+    }
+  };
+  const inWindow = (sub: Submission) => {
+    const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
+    const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
+    const basis = dateBasis === "submitted" ? sub.created_at : sub.sent_at;
+    if (!basis) return false;
+    const ts = new Date(basis).getTime();
+    if (from !== null && ts < from) return false;
+    if (to !== null && ts > to) return false;
+    return true;
+  };
+
   const sentSubmissionIds = useMemo(() => submissions.map((s) => s.id), [submissions]);
 
   // Load all NOT-YET-INVOICED candidates for sent submissions so we can count
