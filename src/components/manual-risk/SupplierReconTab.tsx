@@ -109,6 +109,30 @@ function buildNameIndex(cands: OurCandidate[]) {
   return m;
 }
 
+/**
+ * Match a statement line to one of our candidates: first on ID number, and when
+ * the line has no usable ID number (passport used instead) on first name + surname.
+ */
+function resolveMatch(
+  line: { id_number?: string | null; full_name?: string | null },
+  checkKey: string | null,
+  candByIdNumber: Map<string, OurCandidate[]>,
+  candByName: Map<string, OurCandidate[]>,
+  subById: Map<string, OurSubmission>,
+): { match: OurCandidate | null; status: string } {
+  const byId = digits(line.id_number).length >= 6 ? candByIdNumber.get(idKey(line.id_number)) ?? [] : [];
+  const cands = byId.length ? byId : candByName.get(nameKey(line.full_name)) ?? [];
+  if (!cands.length) return { match: null, status: "not_on_system" };
+
+  // Prefer a candidate whose submission actually requested this check type.
+  for (const c of cands) {
+    const sub = subById.get(c.submission_id);
+    const requested = sub?.requested_checks?.length ? sub.requested_checks : ["id_verification", "risk_assessment"];
+    if (checkKey && requested.includes(checkKey)) return { match: c, status: "matched" };
+  }
+  return { match: cands[0], status: "check_not_requested" };
+}
+
 function excelDate(v: any): string | null {
   if (v === null || v === undefined || v === "") return null;
   if (v instanceof Date) return v.toISOString();
