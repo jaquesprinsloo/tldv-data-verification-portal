@@ -3540,7 +3540,17 @@ function ClientAccountDialog({
 
         <div className="flex flex-wrap items-end gap-3 mb-3">
           <div>
-            <Label className="text-xs">From (sent date)</Label>
+            <Label className="text-xs">Filter on</Label>
+            <Select value={dateBasis} onValueChange={(v) => setDateBasis(v as DateBasis)}>
+              <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="submitted">Submitted date</SelectItem>
+                <SelectItem value="sent">Sent (released) date</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">From</Label>
             <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-8 w-40" />
           </div>
           <div>
