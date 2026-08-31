@@ -588,21 +588,11 @@ function BatchDetail({
         if (!candByIdNumber.has(k)) candByIdNumber.set(k, []);
         candByIdNumber.get(k)!.push(c);
       }
+      const candByName = buildNameIndex(ourCandidates);
       let changed = 0;
       for (const l of lines) {
         const key = l.check_key ?? supplierTitleToCheckKey(l.check_title);
-        const cands = candByIdNumber.get(idKey(l.id_number)) ?? [];
-        let match: OurCandidate | null = null;
-        let status = "not_on_system";
-        if (cands.length) {
-          status = "check_not_requested";
-          for (const c of cands) {
-            const sub = subById.get(c.submission_id);
-            const requested = sub?.requested_checks?.length ? sub.requested_checks : ["id_verification", "risk_assessment"];
-            if (key && requested.includes(key)) { match = c; status = "matched"; break; }
-          }
-          if (!match) match = cands[0];
-        }
+        const { match, status } = resolveMatch(l, key, candByIdNumber, candByName, subById);
         if (status === l.match_status && (match?.id ?? null) === l.matched_candidate_id && key === l.check_key) continue;
         const { error } = await sb.from("manual_risk_supplier_lines" as any)
           .update({
