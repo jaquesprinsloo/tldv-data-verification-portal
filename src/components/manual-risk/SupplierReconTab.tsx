@@ -145,7 +145,7 @@ export default function SupplierReconTab() {
   const candByIdNumber = useMemo(() => {
     const m = new Map<string, OurCandidate[]>();
     for (const c of ourCandidates) {
-      const key = digits(c.id_number);
+      const key = idKey(c.id_number);
       if (!key) continue;
       if (!m.has(key)) m.set(key, []);
       m.get(key)!.push(c);
@@ -228,7 +228,7 @@ export default function SupplierReconTab() {
 
       const rows = parsed.map((p) => {
         const key = supplierTitleToCheckKey(p.check_title);
-        const cands = candByIdNumber.get(digits(p.id_number)) ?? [];
+        const cands = candByIdNumber.get(idKey(p.id_number)) ?? [];
         // Prefer a candidate whose submission requested this check type.
         let match: OurCandidate | null = null;
         let status = "not_on_system";
@@ -511,7 +511,7 @@ function BatchDetail({
     const from = batch?.period_start ? new Date(batch.period_start + "T00:00:00").getTime() : null;
     const to = batch?.period_end ? new Date(batch.period_end + "T23:59:59").getTime() : null;
     const statementKeys = new Set(
-      lines.map((l) => `${digits(l.id_number)}|${l.check_key ?? ""}`),
+      lines.map((l) => `${idKey(l.id_number)}|${l.check_key ?? ""}`),
     );
     const out: { candidate: OurCandidate; sub: OurSubmission; checkKey: string }[] = [];
     for (const c of ourCandidates) {
@@ -523,7 +523,7 @@ function BatchDetail({
       const requested = (sub.requested_checks?.length ? sub.requested_checks : ["id_verification", "risk_assessment"])
         .filter((k) => CHECK_PRICE_KEYS.includes(k));
       for (const k of requested) {
-        if (!statementKeys.has(`${digits(c.id_number)}|${k}`)) out.push({ candidate: c, sub, checkKey: k });
+        if (!statementKeys.has(`${idKey(c.id_number)}|${k}`)) out.push({ candidate: c, sub, checkKey: k });
       }
     }
     return out;
