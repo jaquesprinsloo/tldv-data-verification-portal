@@ -3174,9 +3174,9 @@ function ClientAccountDialog({
         if (!s || !s.sent_at) return null;
         const effId = (c as any).override_client_id ?? s.client_id ?? "__unassigned__";
         if (effId === groupKey) return null; // already a real row here
-        const sentTs = new Date(s.sent_at).getTime();
-        if (from !== null && sentTs < from) return null;
-        if (to !== null && sentTs > to) return null;
+        const basisTs = new Date(dateBasis === "submitted" ? s.created_at : s.sent_at).getTime();
+        if (from !== null && basisTs < from) return null;
+        if (to !== null && basisTs > to) return null;
         const originName = clients.find((cl) => cl.id === effId)?.client_name ?? "Unassigned";
         return {
           submissionId: s.id,
