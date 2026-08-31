@@ -502,12 +502,18 @@ export default function ManualRiskAssessments() {
             <TabsTrigger value="invoiced"><FileText className="h-4 w-4 mr-2" />Invoiced</TabsTrigger>
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
             <TabsTrigger value="address-book"><Users className="h-4 w-4 mr-2" />Address Book</TabsTrigger>
+            <TabsTrigger value="supplier-recon"><ClipboardList className="h-4 w-4 mr-2" />Supplier Recon</TabsTrigger>
             <TabsTrigger value="settings">T&amp;Cs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="mt-4">
             <MrDashboardTab submissions={submissions} clients={clients} />
           </TabsContent>
+
+          <TabsContent value="supplier-recon" className="mt-4">
+            <SupplierReconTab />
+          </TabsContent>
+
 
           <TabsContent value="submissions" className="mt-4">
             <Card className="p-4">
