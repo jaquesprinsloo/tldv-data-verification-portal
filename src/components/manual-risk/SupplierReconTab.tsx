@@ -73,6 +73,17 @@ interface OurSubmission {
 
 const norm = (v: any) => String(v ?? "").trim();
 const digits = (v: any) => norm(v).replace(/\D/g, "");
+/**
+ * Comparable ID key. Excel drops leading zeros on numeric ID cells, so a 13-digit
+ * SA ID can arrive as 12 digits — pad it back before matching.
+ */
+const idKey = (v: any) => {
+  const d = digits(v);
+  if (!d) return "";
+  if (d.length < 13) return d.padStart(13, "0");
+  if (d.length > 13) return d.slice(-13);
+  return d;
+};
 
 function excelDate(v: any): string | null {
   if (v === null || v === undefined || v === "") return null;
