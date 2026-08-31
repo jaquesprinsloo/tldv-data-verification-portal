@@ -636,6 +636,9 @@ function BatchDetail({
         <Button variant="outline" size="sm" onClick={onBack}><ArrowLeft className="h-4 w-4 mr-2" /> Back to batches</Button>
         <h3 className="font-semibold">{batch?.name ?? "Statement batch"}</h3>
         <div className="flex-1" />
+        <Button size="sm" variant="outline" onClick={rematch} disabled={rematching || !lines.length}>
+          {rematching ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null} Re-match lines
+        </Button>
         <Button size="sm" variant="outline" onClick={exportRecon}><Download className="h-4 w-4 mr-2" /> Export</Button>
       </div>
 
