@@ -42,12 +42,14 @@ const CHECK_KEYS = [
 ];
 
 
-function Stat({ label, value, icon, tone = "default" }: {
-  label: string; value: number | string; icon?: React.ReactNode; tone?: "default" | "amber" | "blue" | "emerald";
+function Stat({ label, value, icon, tone = "default", details }: {
+  label: string; value: number | string; icon?: React.ReactNode; tone?: "default" | "amber" | "blue" | "emerald" | "rose";
+  details?: { label: string; value: string; strong?: boolean }[];
 }) {
   const toneCls =
     tone === "amber" ? "border-amber-300 bg-amber-50" :
     tone === "blue" ? "border-blue-300 bg-blue-50" :
+    tone === "rose" ? "border-rose-300 bg-rose-50" :
     tone === "emerald" ? "border-emerald-300 bg-emerald-50" : "";
   return (
     <Card className={`p-4 ${toneCls}`}>
@@ -56,8 +58,19 @@ function Stat({ label, value, icon, tone = "default" }: {
         <span>{label}</span>
       </div>
       <p className="text-2xl font-bold mt-1">{value}</p>
+      {details && details.length > 0 && (
+        <div className="mt-2 space-y-0.5">
+          {details.map((d) => (
+            <div key={d.label} className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">{d.label}</span>
+              <span className={d.strong ? "font-semibold text-rose-700" : "font-medium"}>{d.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
+
 }
 
 export function MrDashboardTab({
