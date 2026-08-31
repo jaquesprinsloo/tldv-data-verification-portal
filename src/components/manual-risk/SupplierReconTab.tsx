@@ -551,6 +551,17 @@ function BatchDetail({
   }, [lines, ourCandidates, subById, pm]);
 
 
+  // Check types actually in use in this batch that have no rates captured.
+  const zeroRateChecks = useMemo(() => {
+    const used = new Set<string>();
+    for (const l of lines) if (l.check_key) used.add(l.check_key);
+    for (const [k] of billing.perCheck) used.add(k);
+    return [...used].filter((k) => {
+      const p = pm.get(k);
+      return !p || (p.supplier_cost === 0 && p.client_price === 0);
+    });
+  }, [lines, billing.perCheck, pm]);
+
   const invoiceTotalNum = batch?.supplier_invoice_total != null ? Number(batch.supplier_invoice_total) : null;
   const effectiveCost = invoiceTotalNum ?? supplierCost;
   const profit = billing.net - effectiveCost;
