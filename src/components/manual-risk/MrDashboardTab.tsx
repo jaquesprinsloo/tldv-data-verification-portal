@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { CHECK_META, isPlaceholderCandidate } from "@/lib/manualRiskPdf";
 import { usePricing, priceMap, candidateBilling, money } from "@/components/manual-risk/pricing";
-import { BarChart3, Percent, FileText, Users, Link2 } from "lucide-react";
+import { BarChart3, Percent, FileText, Users, Link2, TrendingUp } from "lucide-react";
 
 const sb = supabase as any;
 
