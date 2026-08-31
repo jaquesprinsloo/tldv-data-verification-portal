@@ -128,7 +128,7 @@ export default function PricingPanel() {
             <TableRow>
               <TableHead>Item</TableHead>
               <TableHead>Supplier cost (R)</TableHead>
-              <TableHead>Client price (R) / %</TableHead>
+              <TableHead>Client price (R)</TableHead>
               <TableHead className="text-right">Margin</TableHead>
             </TableRow>
           </TableHeader>
