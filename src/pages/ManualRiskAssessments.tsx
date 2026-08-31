@@ -3753,6 +3753,7 @@ function ClientAccountDialog({
                 >
                   <TableCell />
                   <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
+                  <TableCell className="text-xs">{new Date(r.submittedAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
