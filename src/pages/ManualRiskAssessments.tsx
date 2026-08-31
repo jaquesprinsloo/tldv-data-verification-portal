@@ -29,6 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RecipientPicker, ClientAddressBookDialog, type MrRecipient } from "@/components/manual-risk/AddressBook";
 import { AddressBookTab } from "@/components/manual-risk/AddressBookTab";
 import { MrDashboardTab } from "@/components/manual-risk/MrDashboardTab";
+import SupplierReconTab from "@/components/manual-risk/SupplierReconTab";
 import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk/MrInvoicedTab";
 import { BookUser } from "lucide-react";
 
