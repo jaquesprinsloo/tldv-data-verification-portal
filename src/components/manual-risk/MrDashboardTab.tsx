@@ -199,6 +199,83 @@ export function MrDashboardTab({
     return { tldv, ptvs };
   }, [scoped, subById, pm]);
 
+  // Overall profitability, adjusted by whatever supplier statement lines are loaded
+  const profitability = useMemo(() => {
+    const scopedIds = new Set(scoped.map((c) => c.id));
+    type Row = {
+      key: string; qty: number; expectedCost: number; gross: number; charged: number;
+      discount: number; reconQty: number; reconCost: number;
+    };
+    const rows = new Map<string, Row>();
+    const get = (k: string) => {
+      if (!rows.has(k)) rows.set(k, { key: k, qty: 0, expectedCost: 0, gross: 0, charged: 0, discount: 0, reconQty: 0, reconCost: 0 });
+      return rows.get(k)!;
+    };
+
+    for (const c of scoped) {
+      const sub = subById.get(c.submission_id);
+      const b = candidateBilling(
+        sub?.requested_checks,
+        { isTldvInternal: !!c.is_tldv_internal, isPtvsDiscount: !!c.is_ptvs_discount },
+        pm,
+      );
+      for (const l of b.lines) {
+        const r = get(l.checkKey);
+        r.qty += 1;
+        r.expectedCost += l.cost;
+        r.gross += l.listPrice;
+        r.charged += l.charged;
+        r.discount += l.listPrice - l.charged;
+      }
+    }
+
+    // Statement lines matched to candidates in range -> actual supplier charges
+    let unaccountedQty = 0, unaccountedCost = 0;
+    for (const l of reconLines) {
+      const key = l.check_key;
+      const supplierCost = key ? (pm.get(key)?.supplier_cost ?? 0) : 0;
+      if (l.match_status === "matched" && l.matched_candidate_id && scopedIds.has(l.matched_candidate_id)) {
+        if (!key) continue;
+        const r = get(key);
+        r.reconQty += 1;
+        r.reconCost += supplierCost;
+      } else if (l.match_status !== "matched") {
+        unaccountedQty += 1;
+        unaccountedCost += supplierCost;
+      }
+    }
+
+    const list = [...rows.values()].sort((a, b) => b.qty - a.qty);
+    const totals = list.reduce(
+      (t, r) => {
+        // Cost billed by supplier: what the statement shows for matched lines,
+        // plus our expected cost for checks the statement has not covered yet.
+        const uncoveredQty = Math.max(0, r.qty - r.reconQty);
+        const rate = pm.get(r.key)?.supplier_cost ?? 0;
+        const cost = r.reconCost + uncoveredQty * rate;
+        t.qty += r.qty;
+        t.reconQty += r.reconQty;
+        t.cost += cost;
+        t.gross += r.gross;
+        t.charged += r.charged;
+        t.discount += r.discount;
+        (r as any).effectiveCost = cost;
+        (r as any).profit = r.charged - cost;
+        return t;
+      },
+      { qty: 0, reconQty: 0, cost: 0, gross: 0, charged: 0, discount: 0 },
+    );
+
+    const netCost = totals.cost + unaccountedCost;
+    const profit = totals.charged - netCost;
+    const margin = totals.charged > 0 ? (profit / totals.charged) * 100 : 0;
+    return {
+      rows: list as (Row & { effectiveCost: number; profit: number })[],
+      totals, unaccountedQty, unaccountedCost, netCost, profit, margin,
+    };
+  }, [scoped, subById, pm, reconLines]);
+
+
 
 
   const perClient = useMemo(() => {
