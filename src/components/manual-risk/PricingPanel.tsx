@@ -68,17 +68,25 @@ export default function PricingPanel() {
         )}
       </TableCell>
       <TableCell>
-        <Input
-          type="number"
-          step="0.01"
-          className="h-9 w-32"
-          value={draft[r.item_key]?.client_price ?? ""}
-          onChange={(e) => set(r.item_key, "client_price", e.target.value)}
-        />
+        {isDiscount ? (
+          <span className="text-xs text-muted-foreground">
+            {r.item_key === "discount_tldv_internal"
+              ? "Risk Assessment billed at R 0.00 · ID Verification charged in full"
+              : "ID Verification charged in full · Risk Assessment at 50% of supplier cost"}
+          </span>
+        ) : (
+          <Input
+            type="number"
+            step="0.01"
+            className="h-9 w-32"
+            value={draft[r.item_key]?.client_price ?? ""}
+            onChange={(e) => set(r.item_key, "client_price", e.target.value)}
+          />
+        )}
       </TableCell>
       <TableCell className="text-right text-sm">
         {isDiscount ? (
-          <span className="text-muted-foreground">discount %</span>
+          <span className="text-muted-foreground">fixed rule</span>
         ) : (
           (() => {
             const sc = parseFloat(draft[r.item_key]?.supplier_cost ?? "0") || 0;
@@ -94,6 +102,7 @@ export default function PricingPanel() {
       </TableCell>
     </TableRow>
   );
+
 
   return (
     <Card className="p-4">
