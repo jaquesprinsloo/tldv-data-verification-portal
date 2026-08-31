@@ -3212,6 +3212,9 @@ function AccountsTab({
           submissions={submissions}
           clients={clients}
           onChanged={onChanged}
+          initialFromDate={fromDate}
+          initialToDate={toDate}
+          initialDateBasis={dateBasis}
         />
       )}
     </Card>
