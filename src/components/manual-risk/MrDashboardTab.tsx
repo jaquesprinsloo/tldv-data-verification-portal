@@ -383,6 +383,97 @@ export function MrDashboardTab({
       </div>
 
       <Card className="p-4">
+        <div className="flex items-center gap-2 mb-1">
+          <TrendingUp className="h-4 w-4 text-emerald-600" />
+          <p className="font-semibold text-sm">Overall profitability</p>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Supplier cost uses reconciled statement lines where available, and the price-list rate for checks not yet on a
+          statement. Charges are after TLDV internal and PTVS discounts.
+        </p>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+          <div className="border rounded-md p-3">
+            <p className="text-xs text-muted-foreground">Gross (list)</p>
+            <p className="text-lg font-bold">{money(profitability.totals.gross)}</p>
+          </div>
+          <div className="border rounded-md p-3 bg-amber-50 border-amber-300">
+            <p className="text-xs text-muted-foreground">Discounts</p>
+            <p className="text-lg font-bold text-amber-700">− {money(profitability.totals.discount)}</p>
+          </div>
+          <div className="border rounded-md p-3">
+            <p className="text-xs text-muted-foreground">Charged to clients</p>
+            <p className="text-lg font-bold">{money(profitability.totals.charged)}</p>
+          </div>
+          <div className="border rounded-md p-3">
+            <p className="text-xs text-muted-foreground">Supplier cost</p>
+            <p className="text-lg font-bold">{money(profitability.netCost)}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {profitability.totals.reconQty} of {profitability.totals.qty} reconciled
+            </p>
+          </div>
+          <div className={`border rounded-md p-3 ${profitability.profit < 0 ? "bg-rose-50 border-rose-300" : "bg-emerald-50 border-emerald-300"}`}>
+            <p className="text-xs text-muted-foreground">Profit / margin</p>
+            <p className={`text-lg font-bold ${profitability.profit < 0 ? "text-rose-700" : "text-emerald-700"}`}>
+              {money(profitability.profit)}
+            </p>
+            <p className="text-[11px] text-muted-foreground">{profitability.margin.toFixed(1)}%</p>
+          </div>
+        </div>
+
+        {profitability.unaccountedQty > 0 && (
+          <div className="mb-3 rounded-md border border-rose-300 bg-rose-50 p-2 text-xs text-rose-800">
+            {profitability.unaccountedQty} supplier statement line(s) could not be matched to our records —{" "}
+            {money(profitability.unaccountedCost)} of supplier charges is included in the cost above as unaccounted.
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Check type</TableHead>
+                <TableHead className="text-center">Qty</TableHead>
+                <TableHead className="text-center">Reconciled</TableHead>
+                <TableHead className="text-right">Cost</TableHead>
+                <TableHead className="text-right">Gross</TableHead>
+                <TableHead className="text-right">Discount</TableHead>
+                <TableHead className="text-right">Charged</TableHead>
+                <TableHead className="text-right">Profit</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {profitability.rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
+                    No checks in this date range.
+                  </TableCell>
+                </TableRow>
+              )}
+              {profitability.rows.map((r) => (
+                <TableRow key={r.key}>
+                  <TableCell className="font-medium">{CHECK_META[r.key]?.label ?? r.key}</TableCell>
+                  <TableCell className="text-center">{r.qty}</TableCell>
+                  <TableCell className="text-center">
+                    <Badge className={r.reconQty >= r.qty ? "bg-emerald-600" : "bg-amber-600"}>
+                      {r.reconQty}/{r.qty}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">{money(r.effectiveCost)}</TableCell>
+                  <TableCell className="text-right">{money(r.gross)}</TableCell>
+                  <TableCell className="text-right text-amber-700">{r.discount ? `− ${money(r.discount)}` : "—"}</TableCell>
+                  <TableCell className="text-right">{money(r.charged)}</TableCell>
+                  <TableCell className={`text-right font-semibold ${r.profit < 0 ? "text-rose-700" : "text-emerald-700"}`}>
+                    {money(r.profit)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Card>
+
+      <Card className="p-4">
         <p className="font-semibold text-sm mb-3">Checks by verification type</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {CHECK_KEYS.map((k) => (
