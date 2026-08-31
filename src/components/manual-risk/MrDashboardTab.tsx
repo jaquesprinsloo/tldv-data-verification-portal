@@ -10,7 +10,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { CHECK_META, isPlaceholderCandidate } from "@/lib/manualRiskPdf";
-import { BarChart3, Percent, FileText, Users } from "lucide-react";
+import { usePricing, priceMap, candidateBilling, money } from "@/components/manual-risk/pricing";
+import { BarChart3, Percent, FileText, Users, Link2 } from "lucide-react";
 
 const sb = supabase as any;
 
@@ -39,6 +40,7 @@ const CHECK_KEYS = [
   "id_verification", "credit", "criminal", "risk_assessment",
   "drivers_license", "pdp", "qualification",
 ];
+
 
 function Stat({ label, value, icon, tone = "default" }: {
   label: string; value: number | string; icon?: React.ReactNode; tone?: "default" | "amber" | "blue" | "emerald";
