@@ -3009,6 +3009,90 @@ function AccountsTab({
         </div>
       </div>
 
+      <div className="mb-4 rounded-md border bg-muted/30 p-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <Label className="text-xs">Time window on</Label>
+            <Select value={dateBasis} onValueChange={(v) => setDateBasis(v as DateBasis)}>
+              <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="submitted">Submitted date</SelectItem>
+                <SelectItem value="sent">Sent (released) date</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">From</Label>
+            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-8 w-40" />
+          </div>
+          <div>
+            <Label className="text-xs">To</Label>
+            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-8 w-40" />
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" onClick={() => applyPreset("week")}>This week</Button>
+            <Button variant="outline" size="sm" onClick={() => applyPreset("month")}>This month</Button>
+            <Button variant="outline" size="sm" onClick={() => applyPreset("last-month")}>Last month</Button>
+            <Button variant="outline" size="sm" onClick={() => applyPreset("year")}>This year</Button>
+          </div>
+          {windowActive && (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => { setFromDate(""); setToDate(""); }}>Clear</Button>
+              <Button variant="outline" size="sm" onClick={exportWindow}>
+                <FileDown className="h-4 w-4 mr-2" /> Export window
+              </Button>
+            </>
+          )}
+        </div>
+        {windowActive && (
+          <div className="mt-3">
+            <p className="text-xs text-muted-foreground mb-2">
+              {windowRows.length} check(s) with a {dateBasis === "submitted" ? "submitted" : "sent"} date
+              between {fromDate || "the beginning"} and {toDate || "today"}.
+            </p>
+            <div className="max-h-72 overflow-auto rounded-md border bg-background">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Order #</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead>Sent</TableHead>
+                    <TableHead>First name</TableHead>
+                    <TableHead>Surname</TableHead>
+                    <TableHead>ID number</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {windowRows.length === 0 ? (
+                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-4">No checks in this window.</TableCell></TableRow>
+                  ) : windowRows.map((r) => (
+                    <TableRow key={r.candidateId}>
+                      <TableCell className="text-xs">{r.clientName}</TableCell>
+                      <TableCell className="text-xs">{r.orderNumber}</TableCell>
+                      <TableCell className="text-xs">{new Date(r.submittedAt).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-xs">{r.sentAt ? new Date(r.sentAt).toLocaleDateString() : "—"}</TableCell>
+                      <TableCell className="text-xs">{r.firstName}</TableCell>
+                      <TableCell className="text-xs">{r.surname}</TableCell>
+                      <TableCell className="text-xs">{r.idNumber}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="outline" onClick={() => {
+                          setHighlightCandidateId(r.candidateId);
+                          setOpenClientId(r.clientKey === "__unassigned__" ? "unassigned" : r.clientKey);
+                        }}>
+                          Open account
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="mb-4">
         <Label htmlFor="account-search" className="text-sm">Search candidates</Label>
         <Input
