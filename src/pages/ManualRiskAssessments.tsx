@@ -3146,6 +3146,7 @@ function ClientAccountDialog({
           candidateId: c.id,
           orderNumber: s.order_number,
           sentAt: s.sent_at,
+          submittedAt: s.created_at,
           invoicedAt: s.invoiced_at,
           invoiceNumber: s.invoice_number,
           invoiceFilePath: s.invoice_file_path,
