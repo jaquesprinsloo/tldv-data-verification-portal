@@ -3634,6 +3634,7 @@ function ClientAccountDialog({
                   />
                 </TableHead>
                 <TableHead>Order #</TableHead>
+                <TableHead>Submitted</TableHead>
                 <TableHead>Sent</TableHead>
                 <TableHead>Candidate</TableHead>
                 <TableHead>ID Number</TableHead>
