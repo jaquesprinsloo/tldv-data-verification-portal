@@ -548,9 +548,14 @@ function BatchDetail({
   const missingOnStatement = useMemo(() => {
     const from = batch?.period_start ? new Date(batch.period_start + "T00:00:00").getTime() : null;
     const to = batch?.period_end ? new Date(batch.period_end + "T23:59:59").getTime() : null;
-    const statementKeys = new Set(
-      lines.map((l) => `${idKey(l.id_number)}|${l.check_key ?? ""}`),
-    );
+    const statementKeys = new Set<string>();
+    for (const l of lines) {
+      const k = l.check_key ?? "";
+      const id = idKey(l.id_number);
+      if (id) statementKeys.add(`id:${id}|${k}`);
+      const nk = nameKey(l.full_name);
+      if (nk) statementKeys.add(`nm:${nk}|${k}`);
+    }
     const out: { candidate: OurCandidate; sub: OurSubmission; checkKey: string }[] = [];
     for (const c of ourCandidates) {
       const sub = subById.get(c.submission_id);
@@ -561,7 +566,10 @@ function BatchDetail({
       const requested = (sub.requested_checks?.length ? sub.requested_checks : ["id_verification", "risk_assessment"])
         .filter((k) => CHECK_PRICE_KEYS.includes(k));
       for (const k of requested) {
-        if (!statementKeys.has(`${idKey(c.id_number)}|${k}`)) out.push({ candidate: c, sub, checkKey: k });
+        const onStatement =
+          statementKeys.has(`id:${idKey(c.id_number)}|${k}`) ||
+          statementKeys.has(`nm:${nameKey(`${c.first_name ?? ""} ${c.surname ?? ""}`)}|${k}`);
+        if (!onStatement) out.push({ candidate: c, sub, checkKey: k });
       }
     }
     return out;
