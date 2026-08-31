@@ -2615,6 +2615,8 @@ type AccountRow = {
   candidateId: string;
   orderNumber: string;
   sentAt: string;
+  /** When the submission itself was created (may differ from the release date). */
+  submittedAt: string;
   invoicedAt: string | null;
   invoiceNumber: string | null;
   invoiceFilePath: string | null;
