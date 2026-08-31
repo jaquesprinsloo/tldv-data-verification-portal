@@ -153,6 +153,8 @@ export default function SupplierReconTab() {
     return m;
   }, [ourCandidates]);
 
+  const candByName = useMemo(() => buildNameIndex(ourCandidates), [ourCandidates]);
+
   const subById = useMemo(() => new Map(ourSubmissions.map((s) => [s.id, s])), [ourSubmissions]);
 
   const parseWorkbook = async (f: File) => {
