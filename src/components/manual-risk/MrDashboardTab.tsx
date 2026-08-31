@@ -93,8 +93,24 @@ export function MrDashboardTab({
     },
   });
 
+  // Supplier statement lines (reconciliation)
+  const { data: reconLines = [] } = useQuery<{ matched_candidate_id: string | null; check_key: string | null; match_status: string }[]>({
+    queryKey: ["mra-dashboard-recon-lines"],
+    queryFn: async () => {
+      const { data, error } = await sb
+        .from("manual_risk_supplier_lines")
+        .select("matched_candidate_id, check_key, match_status");
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
+  const { data: pricingRows = [] } = usePricing();
+  const pm = useMemo(() => priceMap(pricingRows), [pricingRows]);
+
   const subById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions]);
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
+
 
   // Submissions inside the created-date range
   const rangedSubIds = useMemo(() => {
