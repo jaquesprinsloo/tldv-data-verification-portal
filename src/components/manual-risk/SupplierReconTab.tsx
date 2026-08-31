@@ -516,27 +516,40 @@ function BatchDetail({
     [lines, pm],
   );
 
-  // Our billing: every candidate matched in this statement, billed at client prices.
+  // Our billing: every candidate matched in this statement, billed at client
+  // prices with the TLDV / PTVS rules applied per check type.
   const billing = useMemo(() => {
     const seen = new Set<string>();
-    let gross = 0, discount = 0;
+    let gross = 0, discount = 0, net = 0, ourCost = 0;
     let candidateCount = 0;
+    const perCheck = new Map<string, { count: number; cost: number; gross: number; charged: number }>();
     for (const l of lines) {
       if (!l.matched_candidate_id || seen.has(l.matched_candidate_id)) continue;
       seen.add(l.matched_candidate_id);
       const cand = ourCandidates.find((c) => c.id === l.matched_candidate_id);
       if (!cand) continue;
       const sub = subById.get(cand.submission_id);
-      const r = candidateRevenue(sub?.requested_checks, {
+      const b = candidateBilling(sub?.requested_checks, {
         isTldvInternal: !!cand.is_tldv_internal,
         isPtvsDiscount: !!cand.is_ptvs_discount,
       }, pm);
-      gross += r.gross;
-      discount += r.discount;
+      gross += b.gross;
+      discount += b.discount;
+      net += b.net;
+      ourCost += b.cost;
       candidateCount += 1;
+      for (const cl of b.lines) {
+        const cur = perCheck.get(cl.checkKey) ?? { count: 0, cost: 0, gross: 0, charged: 0 };
+        cur.count += 1;
+        cur.cost += cl.cost;
+        cur.gross += cl.listPrice;
+        cur.charged += cl.charged;
+        perCheck.set(cl.checkKey, cur);
+      }
     }
-    return { gross, discount, net: gross - discount, candidateCount };
+    return { gross, discount, net, ourCost, candidateCount, perCheck: [...perCheck.entries()] };
   }, [lines, ourCandidates, subById, pm]);
+
 
   const invoiceTotalNum = batch?.supplier_invoice_total != null ? Number(batch.supplier_invoice_total) : null;
   const effectiveCost = invoiceTotalNum ?? supplierCost;
