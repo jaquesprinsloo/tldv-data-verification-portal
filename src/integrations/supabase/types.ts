@@ -1007,6 +1007,36 @@ export type Database = {
           },
         ]
       }
+      manual_risk_pricing: {
+        Row: {
+          client_price: number
+          created_at: string
+          id: string
+          item_key: string
+          label: string
+          supplier_cost: number
+          updated_at: string
+        }
+        Insert: {
+          client_price?: number
+          created_at?: string
+          id?: string
+          item_key: string
+          label: string
+          supplier_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          client_price?: number
+          created_at?: string
+          id?: string
+          item_key?: string
+          label?: string
+          supplier_cost?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       manual_risk_settings: {
         Row: {
           created_at: string
@@ -1107,6 +1137,139 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "manual_risk_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_risk_supplier_batches: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          notes: string | null
+          period_end: string | null
+          period_start: string | null
+          source_file_name: string | null
+          supplier_invoice_number: string | null
+          supplier_invoice_total: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          source_file_name?: string | null
+          supplier_invoice_number?: string | null
+          supplier_invoice_total?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          source_file_name?: string | null
+          supplier_invoice_number?: string | null
+          supplier_invoice_total?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      manual_risk_supplier_lines: {
+        Row: {
+          batch_id: string
+          check_key: string | null
+          check_result: string | null
+          check_status: string | null
+          check_title: string | null
+          contact_name: string | null
+          cost_centre: string | null
+          created_at: string
+          dob: string | null
+          enquiry_no: string | null
+          full_name: string | null
+          gender: string | null
+          id: string
+          id_number: string | null
+          internal_order_number: string | null
+          match_status: string
+          matched_candidate_id: string | null
+          matched_submission_id: string | null
+          passport: string | null
+          supplier_created_at: string | null
+        }
+        Insert: {
+          batch_id: string
+          check_key?: string | null
+          check_result?: string | null
+          check_status?: string | null
+          check_title?: string | null
+          contact_name?: string | null
+          cost_centre?: string | null
+          created_at?: string
+          dob?: string | null
+          enquiry_no?: string | null
+          full_name?: string | null
+          gender?: string | null
+          id?: string
+          id_number?: string | null
+          internal_order_number?: string | null
+          match_status?: string
+          matched_candidate_id?: string | null
+          matched_submission_id?: string | null
+          passport?: string | null
+          supplier_created_at?: string | null
+        }
+        Update: {
+          batch_id?: string
+          check_key?: string | null
+          check_result?: string | null
+          check_status?: string | null
+          check_title?: string | null
+          contact_name?: string | null
+          cost_centre?: string | null
+          created_at?: string
+          dob?: string | null
+          enquiry_no?: string | null
+          full_name?: string | null
+          gender?: string | null
+          id?: string
+          id_number?: string | null
+          internal_order_number?: string | null
+          match_status?: string
+          matched_candidate_id?: string | null
+          matched_submission_id?: string | null
+          passport?: string | null
+          supplier_created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_risk_supplier_lines_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_supplier_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_risk_supplier_lines_matched_candidate_id_fkey"
+            columns: ["matched_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_risk_supplier_lines_matched_submission_id_fkey"
+            columns: ["matched_submission_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_submissions"
             referencedColumns: ["id"]
           },
         ]

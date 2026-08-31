@@ -29,6 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RecipientPicker, ClientAddressBookDialog, type MrRecipient } from "@/components/manual-risk/AddressBook";
 import { AddressBookTab } from "@/components/manual-risk/AddressBookTab";
 import { MrDashboardTab } from "@/components/manual-risk/MrDashboardTab";
+import SupplierReconTab from "@/components/manual-risk/SupplierReconTab";
 import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk/MrInvoicedTab";
 import { BookUser } from "lucide-react";
 
@@ -502,12 +503,18 @@ export default function ManualRiskAssessments() {
             <TabsTrigger value="invoiced"><FileText className="h-4 w-4 mr-2" />Invoiced</TabsTrigger>
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
             <TabsTrigger value="address-book"><Users className="h-4 w-4 mr-2" />Address Book</TabsTrigger>
+            <TabsTrigger value="supplier-recon"><ClipboardList className="h-4 w-4 mr-2" />Supplier Recon</TabsTrigger>
             <TabsTrigger value="settings">T&amp;Cs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="mt-4">
             <MrDashboardTab submissions={submissions} clients={clients} />
           </TabsContent>
+
+          <TabsContent value="supplier-recon" className="mt-4">
+            <SupplierReconTab />
+          </TabsContent>
+
 
           <TabsContent value="submissions" className="mt-4">
             <Card className="p-4">
@@ -2610,11 +2617,16 @@ function ResultCell({
 
 // ---------- Accounts tab ----------
 
+/** Which date a time-window filter applies to. */
+type DateBasis = "submitted" | "sent";
+
 type AccountRow = {
   submissionId: string;
   candidateId: string;
   orderNumber: string;
   sentAt: string;
+  /** When the submission itself was created (may differ from the release date). */
+  submittedAt: string;
   invoicedAt: string | null;
   invoiceNumber: string | null;
   invoiceFilePath: string | null;
@@ -2780,6 +2792,42 @@ function AccountsTab({
   const [filterRegular, setFilterRegular] = useState(false);
   const [sortByRegular, setSortByRegular] = useState(false);
 
+  // Time window: which checks (by submitted or sent date) to include everywhere
+  // in this tab.
+  const [dateBasis, setDateBasis] = useState<DateBasis>("submitted");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const windowActive = !!(fromDate || toDate);
+  const applyPreset = (preset: "week" | "month" | "last-month" | "year") => {
+    const now = new Date();
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    if (preset === "week") {
+      const day = (now.getDay() + 6) % 7; // Monday-based
+      const start = new Date(now); start.setDate(now.getDate() - day);
+      const end = new Date(start); end.setDate(start.getDate() + 6);
+      setFromDate(fmt(start)); setToDate(fmt(end));
+    } else if (preset === "month") {
+      setFromDate(fmt(new Date(now.getFullYear(), now.getMonth(), 1)));
+      setToDate(fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0)));
+    } else if (preset === "last-month") {
+      setFromDate(fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1)));
+      setToDate(fmt(new Date(now.getFullYear(), now.getMonth(), 0)));
+    } else {
+      setFromDate(fmt(new Date(now.getFullYear(), 0, 1)));
+      setToDate(fmt(new Date(now.getFullYear(), 11, 31)));
+    }
+  };
+  const inWindow = (sub: Submission) => {
+    const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
+    const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
+    const basis = dateBasis === "submitted" ? sub.created_at : sub.sent_at;
+    if (!basis) return false;
+    const ts = new Date(basis).getTime();
+    if (from !== null && ts < from) return false;
+    if (to !== null && ts > to) return false;
+    return true;
+  };
+
   const sentSubmissionIds = useMemo(() => submissions.map((s) => s.id), [submissions]);
 
   // Load all NOT-YET-INVOICED candidates for sent submissions so we can count
@@ -2840,6 +2888,7 @@ function AccountsTab({
     for (const c of allCandidates) {
       const sub = subMap.get(c.submission_id);
       if (!sub) continue;
+      if (windowActive && !inWindow(sub)) continue;
       const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
       const g = ensure(effId);
       g.candCount += 1;
@@ -2853,6 +2902,7 @@ function AccountsTab({
       for (const c of allCandidates) {
         const sub = subMap.get(c.submission_id);
         if (!sub) continue;
+        if (windowActive && !inWindow(sub)) continue;
         if (!(c as any).is_ptvs_discount) continue;
         const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
         if (effId !== ptvs.id) ptvsMirrored += 1;
@@ -2873,14 +2923,68 @@ function AccountsTab({
       if (sortByRegular && a.isRegular !== b.isRegular) return a.isRegular ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-  }, [allCandidates, submissions, clients, sortByRegular]);
+  }, [allCandidates, submissions, clients, sortByRegular, windowActive, fromDate, toDate, dateBasis]);
 
   const visibleGroups = useMemo(
     () => (filterRegular ? groups.filter((g) => g.isRegular) : groups),
     [groups, filterRegular],
   );
 
-  const totalChecks = allCandidates.length;
+  // Flat list of every check inside the selected time window, across all accounts.
+  const windowRows = useMemo(() => {
+    if (!windowActive) return [];
+    const subMap = new Map(submissions.map((s) => [s.id, s]));
+    return allCandidates
+      .map((c) => {
+        const sub = subMap.get(c.submission_id);
+        if (!sub || !inWindow(sub)) return null;
+        const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
+        const clientName = effId === "__unassigned__"
+          ? "Unassigned"
+          : clients.find((cl) => cl.id === effId)?.client_name ?? "Unassigned";
+        return {
+          candidateId: c.id,
+          clientKey: effId,
+          clientName,
+          orderNumber: sub.order_number,
+          submittedAt: sub.created_at,
+          sentAt: sub.sent_at,
+          firstName: c.first_name,
+          surname: c.surname,
+          idNumber: c.id_number,
+          isTldvInternal: !!(c as any).is_tldv_internal,
+          isPtvsDiscount: !!(c as any).is_ptvs_discount,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+      .sort((a, b) =>
+        a.clientName.localeCompare(b.clientName) ||
+        new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+  }, [allCandidates, submissions, clients, windowActive, fromDate, toDate, dateBasis]);
+
+  const exportWindow = () => {
+    if (!windowRows.length) { toast.error("No checks in this window"); return; }
+    const wsData = [
+      ["Client", "Order #", "Submitted", "Sent", "First Name", "Surname", "ID Number", "Discount", "PTVS"],
+      ...windowRows.map((r) => [
+        r.clientName, r.orderNumber,
+        new Date(r.submittedAt).toLocaleDateString(),
+        r.sentAt ? new Date(r.sentAt).toLocaleDateString() : "",
+        r.firstName, r.surname, r.idNumber,
+        r.isTldvInternal ? "100% (TLDV internal)" : "",
+        r.isPtvsDiscount ? "PTVS discount" : "",
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 18 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Checks in window");
+    XLSX.writeFile(wb, `Checks_${dateBasis}_${fromDate || "start"}_to_${toDate || "today"}.xlsx`);
+    toast.success(`Exported ${windowRows.length} check(s)`);
+  };
+
+  const totalChecks = windowActive ? windowRows.length : allCandidates.length;
+
 
   return (
     <Card className="p-4">
@@ -2910,6 +3014,90 @@ function AccountsTab({
             Sort regulars first
           </label>
         </div>
+      </div>
+
+      <div className="mb-4 rounded-md border bg-muted/30 p-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <Label className="text-xs">Time window on</Label>
+            <Select value={dateBasis} onValueChange={(v) => setDateBasis(v as DateBasis)}>
+              <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="submitted">Submitted date</SelectItem>
+                <SelectItem value="sent">Sent (released) date</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">From</Label>
+            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-8 w-40" />
+          </div>
+          <div>
+            <Label className="text-xs">To</Label>
+            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-8 w-40" />
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" onClick={() => applyPreset("week")}>This week</Button>
+            <Button variant="outline" size="sm" onClick={() => applyPreset("month")}>This month</Button>
+            <Button variant="outline" size="sm" onClick={() => applyPreset("last-month")}>Last month</Button>
+            <Button variant="outline" size="sm" onClick={() => applyPreset("year")}>This year</Button>
+          </div>
+          {windowActive && (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => { setFromDate(""); setToDate(""); }}>Clear</Button>
+              <Button variant="outline" size="sm" onClick={exportWindow}>
+                <FileDown className="h-4 w-4 mr-2" /> Export window
+              </Button>
+            </>
+          )}
+        </div>
+        {windowActive && (
+          <div className="mt-3">
+            <p className="text-xs text-muted-foreground mb-2">
+              {windowRows.length} check(s) with a {dateBasis === "submitted" ? "submitted" : "sent"} date
+              between {fromDate || "the beginning"} and {toDate || "today"}.
+            </p>
+            <div className="max-h-72 overflow-auto rounded-md border bg-background">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Order #</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead>Sent</TableHead>
+                    <TableHead>First name</TableHead>
+                    <TableHead>Surname</TableHead>
+                    <TableHead>ID number</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {windowRows.length === 0 ? (
+                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-4">No checks in this window.</TableCell></TableRow>
+                  ) : windowRows.map((r) => (
+                    <TableRow key={r.candidateId}>
+                      <TableCell className="text-xs">{r.clientName}</TableCell>
+                      <TableCell className="text-xs">{r.orderNumber}</TableCell>
+                      <TableCell className="text-xs">{new Date(r.submittedAt).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-xs">{r.sentAt ? new Date(r.sentAt).toLocaleDateString() : "—"}</TableCell>
+                      <TableCell className="text-xs">{r.firstName}</TableCell>
+                      <TableCell className="text-xs">{r.surname}</TableCell>
+                      <TableCell className="text-xs">{r.idNumber}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="outline" onClick={() => {
+                          setHighlightCandidateId(r.candidateId);
+                          setOpenClientId(r.clientKey === "__unassigned__" ? "unassigned" : r.clientKey);
+                        }}>
+                          Open account
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mb-4">
@@ -3031,6 +3219,9 @@ function AccountsTab({
           submissions={submissions}
           clients={clients}
           onChanged={onChanged}
+          initialFromDate={fromDate}
+          initialToDate={toDate}
+          initialDateBasis={dateBasis}
         />
       )}
     </Card>
@@ -3039,6 +3230,7 @@ function AccountsTab({
 
 function ClientAccountDialog({
   groupKey, onClose, submissions, clients, onChanged, highlightCandidateId, userName,
+  initialFromDate = "", initialToDate = "", initialDateBasis = "submitted",
 }: {
   groupKey: string;
   userName: string;
@@ -3047,6 +3239,9 @@ function ClientAccountDialog({
   submissions: Submission[];
   clients: Client[];
   onChanged: () => void;
+  initialFromDate?: string;
+  initialToDate?: string;
+  initialDateBasis?: DateBasis;
 }) {
   const qc = useQueryClient();
   const client = groupKey === "__unassigned__" ? null : clients.find((c) => c.id === groupKey) ?? null;
@@ -3059,9 +3254,10 @@ function ClientAccountDialog({
     [submissions, groupKey],
   );
 
-  // Date range filter
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  // Date range filter — seeded from the Accounts tab time window.
+  const [fromDate, setFromDate] = useState(initialFromDate);
+  const [toDate, setToDate] = useState(initialToDate);
+  const [dateBasis, setDateBasis] = useState<DateBasis>(initialDateBasis);
 
   // Load candidates: (a) those from this account's own submissions,
   // and (b) those moved into this account via override_client_id from other subs.
@@ -3136,14 +3332,15 @@ function ClientAccountDialog({
       .map((c) => {
         const s = subById.get(c.submission_id);
         if (!s || !s.sent_at) return null;
-        const sentTs = new Date(s.sent_at).getTime();
-        if (from !== null && sentTs < from) return null;
-        if (to !== null && sentTs > to) return null;
+        const basisTs = new Date(dateBasis === "submitted" ? s.created_at : s.sent_at).getTime();
+        if (from !== null && basisTs < from) return null;
+        if (to !== null && basisTs > to) return null;
         return {
           submissionId: s.id,
           candidateId: c.id,
           orderNumber: s.order_number,
           sentAt: s.sent_at,
+          submittedAt: s.created_at,
           invoicedAt: s.invoiced_at,
           invoiceNumber: s.invoice_number,
           invoiceFilePath: s.invoice_file_path,
@@ -3158,7 +3355,7 @@ function ClientAccountDialog({
         } as AccountRow;
       })
       .filter((r): r is AccountRow => r !== null);
-  }, [candidates, subById, fromDate, toDate, groupKey]);
+  }, [candidates, subById, fromDate, toDate, dateBasis, groupKey]);
 
   const mirrorRows: AccountRow[] = useMemo(() => {
     if (!isPtvsAccount) return [];
@@ -3171,15 +3368,16 @@ function ClientAccountDialog({
         if (!s || !s.sent_at) return null;
         const effId = (c as any).override_client_id ?? s.client_id ?? "__unassigned__";
         if (effId === groupKey) return null; // already a real row here
-        const sentTs = new Date(s.sent_at).getTime();
-        if (from !== null && sentTs < from) return null;
-        if (to !== null && sentTs > to) return null;
+        const basisTs = new Date(dateBasis === "submitted" ? s.created_at : s.sent_at).getTime();
+        if (from !== null && basisTs < from) return null;
+        if (to !== null && basisTs > to) return null;
         const originName = clients.find((cl) => cl.id === effId)?.client_name ?? "Unassigned";
         return {
           submissionId: s.id,
           candidateId: c.id,
           orderNumber: s.order_number,
           sentAt: s.sent_at,
+          submittedAt: s.created_at,
           invoicedAt: s.invoiced_at,
           invoiceNumber: s.invoice_number,
           invoiceFilePath: s.invoice_file_path,
@@ -3196,7 +3394,7 @@ function ClientAccountDialog({
         } as AccountRow;
       })
       .filter((r): r is AccountRow => r !== null);
-  }, [isPtvsAccount, mirrorCandidates, subById, fromDate, toDate, groupKey, clients]);
+  }, [isPtvsAccount, mirrorCandidates, subById, fromDate, toDate, dateBasis, groupKey, clients]);
 
   // Selection is per-candidate now.
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -3239,10 +3437,11 @@ function ClientAccountDialog({
     const all = selected.size === 0 ? [...source, ...mirrorRows] : source;
     if (!all.length) { toast.error("No rows to export"); return; }
     const wsData = [
-      ["Client", "Order #", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount", "PTVS", "Source"],
+      ["Client", "Order #", "Submitted Date", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount", "PTVS", "Source"],
       ...all.map((r) => [
         r.isMirror ? r.mirrorFrom ?? "" : clientName,
         r.orderNumber,
+        new Date(r.submittedAt).toLocaleDateString(),
         new Date(r.sentAt).toLocaleDateString(),
         r.firstName,
         r.surname,
@@ -3255,7 +3454,7 @@ function ClientAccountDialog({
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 24 }];
+    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 24 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Checks");
     const safe = clientName.replace(/[^a-z0-9]+/gi, "_");
@@ -3528,7 +3727,17 @@ function ClientAccountDialog({
 
         <div className="flex flex-wrap items-end gap-3 mb-3">
           <div>
-            <Label className="text-xs">From (sent date)</Label>
+            <Label className="text-xs">Filter on</Label>
+            <Select value={dateBasis} onValueChange={(v) => setDateBasis(v as DateBasis)}>
+              <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="submitted">Submitted date</SelectItem>
+                <SelectItem value="sent">Sent (released) date</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">From</Label>
             <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-8 w-40" />
           </div>
           <div>
@@ -3612,6 +3821,7 @@ function ClientAccountDialog({
                   />
                 </TableHead>
                 <TableHead>Order #</TableHead>
+                <TableHead>Submitted</TableHead>
                 <TableHead>Sent</TableHead>
                 <TableHead>Candidate</TableHead>
                 <TableHead>ID Number</TableHead>
@@ -3625,7 +3835,7 @@ function ClientAccountDialog({
             <TableBody>
               {rows.length === 0 && mirrorRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-muted-foreground py-6">
+                  <TableCell colSpan={11} className="text-center text-muted-foreground py-6">
                     No checks in this range.
                   </TableCell>
                 </TableRow>
@@ -3643,6 +3853,7 @@ function ClientAccountDialog({
                     />
                   </TableCell>
                   <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
+                  <TableCell className="text-xs">{new Date(r.submittedAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -3717,7 +3928,7 @@ function ClientAccountDialog({
               ))}
               {mirrorRows.length > 0 && (
                 <TableRow className="bg-amber-50/60">
-                  <TableCell colSpan={10} className="text-xs font-medium text-amber-800">
+                  <TableCell colSpan={11} className="text-xs font-medium text-amber-800">
                     PTVS discount mirror — {mirrorRows.length} check(s) from other accounts, shown for invoicing only.
                     They stay counted under their own account and are not included in this account's totals.
                   </TableCell>
@@ -3731,6 +3942,7 @@ function ClientAccountDialog({
                 >
                   <TableCell />
                   <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
+                  <TableCell className="text-xs">{new Date(r.submittedAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
