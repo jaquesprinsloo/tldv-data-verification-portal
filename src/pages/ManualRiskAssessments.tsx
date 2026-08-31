@@ -2610,6 +2610,9 @@ function ResultCell({
 
 // ---------- Accounts tab ----------
 
+/** Which date a time-window filter applies to. */
+type DateBasis = "submitted" | "sent";
+
 type AccountRow = {
   submissionId: string;
   candidateId: string;
