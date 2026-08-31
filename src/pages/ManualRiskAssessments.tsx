@@ -2881,6 +2881,7 @@ function AccountsTab({
     for (const c of allCandidates) {
       const sub = subMap.get(c.submission_id);
       if (!sub) continue;
+      if (windowActive && !inWindow(sub)) continue;
       const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
       const g = ensure(effId);
       g.candCount += 1;
@@ -2894,6 +2895,7 @@ function AccountsTab({
       for (const c of allCandidates) {
         const sub = subMap.get(c.submission_id);
         if (!sub) continue;
+        if (windowActive && !inWindow(sub)) continue;
         if (!(c as any).is_ptvs_discount) continue;
         const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
         if (effId !== ptvs.id) ptvsMirrored += 1;
@@ -2914,14 +2916,68 @@ function AccountsTab({
       if (sortByRegular && a.isRegular !== b.isRegular) return a.isRegular ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-  }, [allCandidates, submissions, clients, sortByRegular]);
+  }, [allCandidates, submissions, clients, sortByRegular, windowActive, fromDate, toDate, dateBasis]);
 
   const visibleGroups = useMemo(
     () => (filterRegular ? groups.filter((g) => g.isRegular) : groups),
     [groups, filterRegular],
   );
 
-  const totalChecks = allCandidates.length;
+  // Flat list of every check inside the selected time window, across all accounts.
+  const windowRows = useMemo(() => {
+    if (!windowActive) return [];
+    const subMap = new Map(submissions.map((s) => [s.id, s]));
+    return allCandidates
+      .map((c) => {
+        const sub = subMap.get(c.submission_id);
+        if (!sub || !inWindow(sub)) return null;
+        const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
+        const clientName = effId === "__unassigned__"
+          ? "Unassigned"
+          : clients.find((cl) => cl.id === effId)?.client_name ?? "Unassigned";
+        return {
+          candidateId: c.id,
+          clientKey: effId,
+          clientName,
+          orderNumber: sub.order_number,
+          submittedAt: sub.created_at,
+          sentAt: sub.sent_at,
+          firstName: c.first_name,
+          surname: c.surname,
+          idNumber: c.id_number,
+          isTldvInternal: !!(c as any).is_tldv_internal,
+          isPtvsDiscount: !!(c as any).is_ptvs_discount,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+      .sort((a, b) =>
+        a.clientName.localeCompare(b.clientName) ||
+        new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+  }, [allCandidates, submissions, clients, windowActive, fromDate, toDate, dateBasis]);
+
+  const exportWindow = () => {
+    if (!windowRows.length) { toast.error("No checks in this window"); return; }
+    const wsData = [
+      ["Client", "Order #", "Submitted", "Sent", "First Name", "Surname", "ID Number", "Discount", "PTVS"],
+      ...windowRows.map((r) => [
+        r.clientName, r.orderNumber,
+        new Date(r.submittedAt).toLocaleDateString(),
+        r.sentAt ? new Date(r.sentAt).toLocaleDateString() : "",
+        r.firstName, r.surname, r.idNumber,
+        r.isTldvInternal ? "100% (TLDV internal)" : "",
+        r.isPtvsDiscount ? "PTVS discount" : "",
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!cols"] = [{ wch: 28 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 18 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Checks in window");
+    XLSX.writeFile(wb, `Checks_${dateBasis}_${fromDate || "start"}_to_${toDate || "today"}.xlsx`);
+    toast.success(`Exported ${windowRows.length} check(s)`);
+  };
+
+  const totalChecks = windowActive ? windowRows.length : allCandidates.length;
+
 
   return (
     <Card className="p-4">
