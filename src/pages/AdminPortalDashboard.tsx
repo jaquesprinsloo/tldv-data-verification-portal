@@ -167,8 +167,8 @@ const AdminPortalDashboard = () => {
       path: "/admin/manual-risk-assessments",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
       badge: null,
-      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
-      requiresMasterAdmin: true
+      permissionKey: PERMISSION_KEYS.PORTAL_MANUAL_RISK_ASSESSMENTS,
+      requiresMasterAdmin: false
     }
   ], [pendingPolygraphCount, preAppliCheckedUnread]);
 
@@ -228,7 +228,7 @@ const AdminPortalDashboard = () => {
           .from("user_roles")
           .select("role")
           .eq("user_id", session.user.id)
-          .in("role", ["admin", "master_admin", "examiner"]);
+          .in("role", ["admin", "master_admin", "examiner", "client_facing"]);
 
         if (!roleData || roleData.length === 0) {
           await supabase.auth.signOut();
@@ -238,7 +238,8 @@ const AdminPortalDashboard = () => {
 
         const isExaminer = roleData.some((role) => role.role === "examiner");
         const isAdminOrMaster = roleData.some((role) => role.role === "admin" || role.role === "master_admin");
-        if (isExaminer && !isAdminOrMaster) {
+        const isClientFacing = roleData.some((role) => role.role === "client_facing");
+        if (isExaminer && !isAdminOrMaster && !isClientFacing) {
           navigate("/examiner");
           return;
         }
