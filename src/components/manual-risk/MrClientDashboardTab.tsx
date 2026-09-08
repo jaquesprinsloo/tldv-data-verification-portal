@@ -15,9 +15,11 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
-import { CHECK_COLUMNS, CHECK_META, isPlaceholderCandidate } from "@/lib/manualRiskPdf";
+import { CHECK_COLUMNS, CHECK_META, isPlaceholderCandidate, generateManualRiskPdf, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
+import { PdfPreview } from "@/pages/ManualRiskAssessments";
+import { toast } from "sonner";
 import {
-  Users, ShieldCheck, Clock, AlertTriangle, CheckCircle2, Building2, Activity,
+  Users, ShieldCheck, Clock, AlertTriangle, CheckCircle2, Building2, Activity, Eye, Loader2,
 } from "lucide-react";
 
 const sb = supabase as any;
@@ -137,7 +139,7 @@ export function MrClientDashboardTab({
   );
   const rangedSubIds = useMemo(() => new Set(rangedSubs.map((s) => s.id)), [rangedSubs]);
 
-  type CandRow = { id: string; name: string; surname: string; idNumber: string; account: string; order: string };
+  type CandRow = { id: string; name: string; surname: string; idNumber: string; account: string; order: string; subId: string; released: boolean };
 
   const stats = useMemo(() => {
     let total = 0, pendingChecks = 0, completedCands = 0, flagged = 0, idInvalid = 0;
@@ -168,6 +170,8 @@ export function MrClientDashboardTab({
         idNumber: c.id_number,
         account: name,
         order: s.order_number,
+        subId: s.id,
+        released,
       };
 
       const active = (s.requested_checks?.length ? s.requested_checks : ["id_verification", "credit", "criminal"])
@@ -205,6 +209,70 @@ export function MrClientDashboardTab({
   }, [candidates, subById, rangedSubIds, clientById]);
 
   const [listView, setListView] = useState<null | "pending" | "flagged" | "idInvalid">(null);
+  const [reportPreview, setReportPreview] = useState<{ blob: Blob; title: string } | null>(null);
+  const [previewingSub, setPreviewingSub] = useState<string | null>(null);
+
+  // Renders the exact report that was sent for the candidate's submission,
+  // using the same unencrypted in-app preview the Accounts tab uses.
+  const viewReport = async (row: CandRow) => {
+    setPreviewingSub(row.subId);
+    try {
+      const [{ data: sub, error: subErr }, { data: cands, error: candErr }, { data: settings }] = await Promise.all([
+        sb.from("manual_risk_submissions").select("*").eq("id", row.subId).single(),
+        sb.from("manual_risk_candidates").select("*").eq("submission_id", row.subId).order("sort_order", { ascending: true }),
+        sb.from("manual_risk_settings").select("terms_and_conditions").limit(1).maybeSingle(),
+      ]);
+      if (subErr) throw subErr;
+      if (candErr) throw candErr;
+
+      let client: any = null;
+      if (sub.client_id) {
+        const { data } = await sb.from("manual_risk_clients").select("*").eq("id", sub.client_id).maybeSingle();
+        client = data;
+      }
+
+      const activeChecks = (sub.requested_checks?.length
+        ? sub.requested_checks
+        : ["id_verification", "credit", "criminal"]
+      ).filter((k: string) => CHECK_COLUMNS[k]);
+
+      const pdfCandidates: ManualRiskCandidatePdf[] = (cands ?? [])
+        .filter((c: any) => !isPlaceholderCandidate(c))
+        .map((c: any) => {
+          const results: Record<string, string | null> = {};
+          const notes: Record<string, string | null> = {};
+          for (const k of activeChecks) {
+            results[k] = c[CHECK_COLUMNS[k].result] ?? null;
+            notes[k] = c[CHECK_COLUMNS[k].notes] ?? null;
+          }
+          return {
+            id_number: c.id_number,
+            surname: c.surname,
+            first_name: c.first_name,
+            results,
+            notes,
+            id_verification_data: c.id_verification_data ?? null,
+          };
+        });
+
+      const blob = await generateManualRiskPdf({
+        orderNumber: sub.order_number,
+        clientName: client?.client_name,
+        clientContact: client?.contact_person,
+        clientEmail: client?.email,
+        submissionType: sub.submission_type,
+        candidates: pdfCandidates,
+        termsAndConditions: settings?.terms_and_conditions ?? "",
+        requestedChecks: activeChecks,
+        skipEncryption: true,
+      });
+      setReportPreview({ blob, title: `PreAppliCheck Report — ${sub.order_number}` });
+    } catch (e: any) {
+      toast.error("Failed to load report: " + (e?.message ?? String(e)));
+    } finally {
+      setPreviewingSub(null);
+    }
+  };
 
   const inProgress = useMemo(
     () => rangedSubs
@@ -375,6 +443,7 @@ export function MrClientDashboardTab({
                     <TableHead>Surname</TableHead>
                     <TableHead>ID Number</TableHead>
                     <TableHead>Account</TableHead>
+                    {listView !== "pending" && <TableHead className="w-12 text-right">Report</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -384,12 +453,41 @@ export function MrClientDashboardTab({
                       <TableCell className="text-sm">{r.surname}</TableCell>
                       <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
                       <TableCell className="text-sm">{r.account}</TableCell>
+                      {listView !== "pending" && (
+                        <TableCell className="text-right">
+                          {r.released && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="View the report that was sent"
+                              disabled={previewingSub === r.subId}
+                              onClick={() => viewReport(r)}
+                            >
+                              {previewingSub === r.subId
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <Eye className="h-4 w-4" />}
+                            </Button>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!reportPreview} onOpenChange={(open) => { if (!open) setReportPreview(null); }}>
+        <DialogContent className="max-w-6xl h-[92vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="px-4 pt-4 pb-2 border-b">
+            <DialogTitle>{reportPreview?.title ?? "Report Preview"}</DialogTitle>
+          </DialogHeader>
+          {reportPreview && (
+            <PdfPreview blob={reportPreview.blob} title={reportPreview.title} />
+          )}
         </DialogContent>
       </Dialog>
     </div>

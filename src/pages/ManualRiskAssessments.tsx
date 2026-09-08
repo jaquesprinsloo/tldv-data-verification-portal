@@ -850,7 +850,7 @@ export default function ManualRiskAssessments() {
   );
 }
 
-function PdfPreview({ blob, title }: { blob: Blob; title: string }) {
+export function PdfPreview({ blob, title }: { blob: Blob; title: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState("Loading preview...");
 
