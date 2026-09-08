@@ -283,27 +283,22 @@ async function uploadIndemnity(
 
   let onedrive_web_url: string | null = null;
   let onedrive_item_id: string | null = null;
+  let shared_onedrive_web_url: string | null = null;
+  let shared_onedrive_item_id: string | null = null;
+  const contentType = file.type || "application/pdf";
+  const base64 = await blobToBase64(file);
+  const common = { fileName: file.name, base64, contentType, clientName, orderNumber, kind: "indemnity" as const };
   try {
-    const base64 = await blobToBase64(file);
-    const { data, error } = await supabase.functions.invoke("upload-manual-risk-to-onedrive", {
-      body: {
-        fileName: file.name,
-        fileBase64: base64,
-        contentType: file.type || "application/pdf",
-        clientName: clientName ?? "Unassigned",
-        orderNumber,
-        kind: "indemnity",
-      },
-    });
-    if (error) throw error;
-    if ((data as any)?.success) {
-      onedrive_web_url = (data as any).webUrl ?? null;
-      onedrive_item_id = (data as any).itemId ?? null;
-    } else if ((data as any)?.error) {
-      throw new Error((data as any).error);
-    }
+    const od = await uploadToOneDrive(common);
+    onedrive_web_url = od.webUrl; onedrive_item_id = od.itemId;
   } catch (e) {
     toast.warning(`Uploaded "${file.name}" to storage, but OneDrive mirror failed: ${(e as Error).message}`);
+  }
+  try {
+    const od = await uploadToOneDrive({ ...common, shared: true });
+    shared_onedrive_web_url = od.webUrl; shared_onedrive_item_id = od.itemId;
+  } catch (e) {
+    toast.warning(`Client-shared OneDrive copy of "${file.name}" failed: ${(e as Error).message}`);
   }
 
   return {
@@ -311,9 +306,11 @@ async function uploadIndemnity(
     path,
     uploaded_at: new Date().toISOString(),
     size: file.size,
-    content_type: file.type || "application/pdf",
+    content_type: contentType,
     onedrive_web_url,
     onedrive_item_id,
+    shared_onedrive_web_url,
+    shared_onedrive_item_id,
   };
 }
 
