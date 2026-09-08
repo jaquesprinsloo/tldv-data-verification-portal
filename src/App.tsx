@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { InstallAppButton } from "@/components/shared/InstallAppButton";
 import ImpersonationBanner from "@/components/shared/ImpersonationBanner";
+import ClientFacingIdleGuard from "@/components/shared/ClientFacingIdleGuard";
 
 const Home = lazy(() => import("./pages/Home"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
