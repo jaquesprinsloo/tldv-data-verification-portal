@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface ImpersonationTarget {
   userId: string;
-  role: "admin" | "master_admin" | "examiner";
+  role: "admin" | "master_admin" | "examiner" | "client_facing";
   fullName: string;
   email: string;
   startedAt: string;
