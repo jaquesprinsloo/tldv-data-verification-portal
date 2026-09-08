@@ -136,10 +136,10 @@ export function MrClientDashboardTab({
       for (const k of active) {
         const v = c[CHECK_COLUMNS[k].result] as string | null;
         const entry = perCheck.get(k) ?? { done: 0, pending: 0 };
-        if (!v || v === "pending") { candPending += 1; entry.pending += 1; }
+        if ((!v || v === "pending") && !released) { candPending += 1; entry.pending += 1; }
         else {
           entry.done += 1;
-          if ((ADVERSE[k] ?? []).includes(v)) candFlag = true;
+          if (v && (ADVERSE[k] ?? []).includes(v)) candFlag = true;
         }
         perCheck.set(k, entry);
       }
