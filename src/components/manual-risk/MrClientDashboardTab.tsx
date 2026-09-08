@@ -7,6 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
@@ -49,10 +52,11 @@ const ADVERSE: Record<string, string[]> = {
 };
 
 function Kpi({
-  label, value, sub, icon, tone = "slate",
+  label, value, sub, icon, tone = "slate", onClick,
 }: {
   label: string; value: string | number; sub?: string; icon: React.ReactNode;
   tone?: "slate" | "emerald" | "amber" | "rose" | "blue";
+  onClick?: () => void;
 }) {
   const ring =
     tone === "emerald" ? "bg-emerald-50 text-emerald-700 ring-emerald-100" :
@@ -61,7 +65,11 @@ function Kpi({
     tone === "blue" ? "bg-blue-50 text-blue-700 ring-blue-100" :
     "bg-slate-100 text-slate-700 ring-slate-200";
   return (
-    <Card className="p-5 border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+    <Card
+      className={`p-5 border-slate-200/80 shadow-sm hover:shadow-md transition-shadow ${onClick ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{label}</p>
@@ -129,10 +137,15 @@ export function MrClientDashboardTab({
   );
   const rangedSubIds = useMemo(() => new Set(rangedSubs.map((s) => s.id)), [rangedSubs]);
 
+  type CandRow = { id: string; name: string; surname: string; idNumber: string; account: string; order: string };
+
   const stats = useMemo(() => {
     let total = 0, pendingChecks = 0, completedCands = 0, flagged = 0, idInvalid = 0;
     const perAccount = new Map<string, number>();
     const perCheck = new Map<string, { done: number; pending: number }>();
+    const pendingList: CandRow[] = [];
+    const flaggedList: CandRow[] = [];
+    const idInvalidList: CandRow[] = [];
 
     for (const c of candidates) {
       const s = subById.get(c.submission_id);
@@ -148,6 +161,15 @@ export function MrClientDashboardTab({
         : clientById.get(effId)?.client_name ?? "Unassigned";
       perAccount.set(name, (perAccount.get(name) ?? 0) + 1);
 
+      const row: CandRow = {
+        id: c.id,
+        name: c.first_name,
+        surname: c.surname,
+        idNumber: c.id_number,
+        account: name,
+        order: s.order_number,
+      };
+
       const active = (s.requested_checks?.length ? s.requested_checks : ["id_verification", "credit", "criminal"])
         .filter((k) => CHECK_COLUMNS[k]);
       let candPending = 0;
@@ -162,10 +184,10 @@ export function MrClientDashboardTab({
         }
         perCheck.set(k, entry);
       }
-      if (candPending > 0) pendingChecks += 1; else completedCands += 1;
-      if (candFlag) flagged += 1;
+      if (candPending > 0) { pendingChecks += 1; pendingList.push(row); } else completedCands += 1;
+      if (candFlag) { flagged += 1; flaggedList.push(row); }
       const idv = c[CHECK_COLUMNS.id_verification.result] as string | null;
-      if (idv && ["invalid", "deceased"].includes(idv)) idInvalid += 1;
+      if (idv && ["invalid", "deceased"].includes(idv)) { idInvalid += 1; idInvalidList.push(row); }
     }
 
     const accountBars = Array.from(perAccount.entries())
@@ -179,8 +201,10 @@ export function MrClientDashboardTab({
       "In progress": v.pending,
     }));
 
-    return { total, pendingChecks, completedCands, flagged, idInvalid, accountBars, checkBars, accounts: perAccount.size };
+    return { total, pendingChecks, completedCands, flagged, idInvalid, accountBars, checkBars, accounts: perAccount.size, pendingList, flaggedList, idInvalidList };
   }, [candidates, subById, rangedSubIds, clientById]);
+
+  const [listView, setListView] = useState<null | "pending" | "flagged" | "idInvalid">(null);
 
   const inProgress = useMemo(
     () => rangedSubs
@@ -238,11 +262,11 @@ export function MrClientDashboardTab({
         <Kpi label="Completed" value={stats.completedCands} icon={<CheckCircle2 className="h-5 w-5" />} tone="emerald"
           sub={stats.total ? `${Math.round((stats.completedCands / stats.total) * 100)}% of candidates` : "—"} />
         <Kpi label="Still in progress" value={stats.pendingChecks} icon={<Clock className="h-5 w-5" />} tone="amber"
-          sub="Awaiting verification feedback" />
+          sub="Awaiting verification feedback" onClick={() => setListView("pending")} />
         <Kpi label="Risk identified" value={stats.flagged} icon={<AlertTriangle className="h-5 w-5" />} tone="rose"
-          sub="Candidates with an adverse finding" />
+          sub="Candidates with an adverse finding" onClick={() => setListView("flagged")} />
         <Kpi label="ID not valid" value={stats.idInvalid} icon={<ShieldCheck className="h-5 w-5" />} tone="slate"
-          sub="Invalid or deceased on Home Affairs" />
+          sub="Invalid or deceased on Home Affairs" onClick={() => setListView("idInvalid")} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -326,6 +350,48 @@ export function MrClientDashboardTab({
           </Table>
         </div>
       </Card>
+
+      <Dialog open={listView !== null} onOpenChange={(open) => { if (!open) setListView(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {listView === "pending" && `Candidates still in progress (${stats.pendingChecks})`}
+              {listView === "flagged" && `Candidates with risk identified (${stats.flagged})`}
+              {listView === "idInvalid" && `Candidates with invalid IDs (${stats.idInvalid})`}
+            </DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const rows =
+              listView === "pending" ? stats.pendingList :
+              listView === "flagged" ? stats.flaggedList :
+              listView === "idInvalid" ? stats.idInvalidList : [];
+            return rows.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">No candidates in this category.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Surname</TableHead>
+                    <TableHead>ID Number</TableHead>
+                    <TableHead>Account</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="text-sm">{r.name}</TableCell>
+                      <TableCell className="text-sm">{r.surname}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
+                      <TableCell className="text-sm">{r.account}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
