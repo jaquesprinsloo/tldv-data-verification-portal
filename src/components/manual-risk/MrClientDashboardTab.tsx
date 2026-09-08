@@ -137,10 +137,15 @@ export function MrClientDashboardTab({
   );
   const rangedSubIds = useMemo(() => new Set(rangedSubs.map((s) => s.id)), [rangedSubs]);
 
+  type CandRow = { id: string; name: string; surname: string; idNumber: string; account: string; order: string };
+
   const stats = useMemo(() => {
     let total = 0, pendingChecks = 0, completedCands = 0, flagged = 0, idInvalid = 0;
     const perAccount = new Map<string, number>();
     const perCheck = new Map<string, { done: number; pending: number }>();
+    const pendingList: CandRow[] = [];
+    const flaggedList: CandRow[] = [];
+    const idInvalidList: CandRow[] = [];
 
     for (const c of candidates) {
       const s = subById.get(c.submission_id);
@@ -156,6 +161,15 @@ export function MrClientDashboardTab({
         : clientById.get(effId)?.client_name ?? "Unassigned";
       perAccount.set(name, (perAccount.get(name) ?? 0) + 1);
 
+      const row: CandRow = {
+        id: c.id,
+        name: c.first_name,
+        surname: c.surname,
+        idNumber: c.id_number,
+        account: name,
+        order: s.order_number,
+      };
+
       const active = (s.requested_checks?.length ? s.requested_checks : ["id_verification", "credit", "criminal"])
         .filter((k) => CHECK_COLUMNS[k]);
       let candPending = 0;
@@ -170,10 +184,10 @@ export function MrClientDashboardTab({
         }
         perCheck.set(k, entry);
       }
-      if (candPending > 0) pendingChecks += 1; else completedCands += 1;
-      if (candFlag) flagged += 1;
+      if (candPending > 0) { pendingChecks += 1; pendingList.push(row); } else completedCands += 1;
+      if (candFlag) { flagged += 1; flaggedList.push(row); }
       const idv = c[CHECK_COLUMNS.id_verification.result] as string | null;
-      if (idv && ["invalid", "deceased"].includes(idv)) idInvalid += 1;
+      if (idv && ["invalid", "deceased"].includes(idv)) { idInvalid += 1; idInvalidList.push(row); }
     }
 
     const accountBars = Array.from(perAccount.entries())
@@ -187,8 +201,10 @@ export function MrClientDashboardTab({
       "In progress": v.pending,
     }));
 
-    return { total, pendingChecks, completedCands, flagged, idInvalid, accountBars, checkBars, accounts: perAccount.size };
+    return { total, pendingChecks, completedCands, flagged, idInvalid, accountBars, checkBars, accounts: perAccount.size, pendingList, flaggedList, idInvalidList };
   }, [candidates, subById, rangedSubIds, clientById]);
+
+  const [listView, setListView] = useState<null | "pending" | "flagged" | "idInvalid">(null);
 
   const inProgress = useMemo(
     () => rangedSubs
