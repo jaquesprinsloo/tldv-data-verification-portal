@@ -177,13 +177,10 @@ const AdminPortalDashboard = () => {
   useEffect(() => {
     const preAppliCheckKey = "candex-pre-screening";
 
-    const visiblePortals = allPortals
-      .filter((portal) => !portal.requiresMasterAdmin || hasFullAccess)
-      // Client-facing profiles only ever see the portals they are allowed to open —
-      // no locked "Contact Master Admin" cards.
-      .filter((portal) =>
-        !isClientFacingOnly || permissionsLoading || hasFullAccess || hasPermission(portal.permissionKey)
-      );
+    // Every profile sees every portal so they can tell what the platform offers.
+    // Cards they were not granted stay locked and cannot be opened.
+    const visiblePortals = [...allPortals];
+
 
     console.log("[Portal Debug] hasFullAccess:", hasFullAccess, "| allPortals:", allPortals.length, "| visiblePortals:", visiblePortals.length);
     console.log("[Portal Debug] PreAppliCheck in allPortals:", allPortals.some((portal) => portal.key === preAppliCheckKey));
