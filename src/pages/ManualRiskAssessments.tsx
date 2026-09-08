@@ -2494,7 +2494,13 @@ function SupplierReportSection({
           : undefined);
       if (!rec) continue;
       usedPrefixes.add(candPrefix);
-      const confirmed = /confirm|complete|verified|valid|match/i.test(String(rec.status ?? ""));
+      const statusText = String(rec.status ?? "");
+      const negative =
+        /not\s*confirm|unconfirm|no\s*result|invalid|not\s*found|fail|unable|error|deceased|decease/i.test(
+          statusText,
+        );
+      const confirmed =
+        !negative && /confirm|complete|verified|\bvalid\b|match/i.test(statusText);
       const result = confirmed ? "valid" : "invalid";
       const noteParts = [
         `Matched supplier report ${sourceLabel} on ID prefix ${candPrefix}`,
