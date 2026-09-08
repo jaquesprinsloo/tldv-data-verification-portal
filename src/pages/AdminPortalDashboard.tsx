@@ -177,13 +177,10 @@ const AdminPortalDashboard = () => {
   useEffect(() => {
     const preAppliCheckKey = "candex-pre-screening";
 
-    const visiblePortals = allPortals
-      .filter((portal) => !portal.requiresMasterAdmin || hasFullAccess)
-      // Client-facing profiles only ever see the portals they are allowed to open —
-      // no locked "Contact Master Admin" cards.
-      .filter((portal) =>
-        !isClientFacingOnly || permissionsLoading || hasFullAccess || hasPermission(portal.permissionKey)
-      );
+    // Every profile sees every portal so they can tell what the platform offers.
+    // Cards they were not granted stay locked and cannot be opened.
+    const visiblePortals = [...allPortals];
+
 
     console.log("[Portal Debug] hasFullAccess:", hasFullAccess, "| allPortals:", allPortals.length, "| visiblePortals:", visiblePortals.length);
     console.log("[Portal Debug] PreAppliCheck in allPortals:", allPortals.some((portal) => portal.key === preAppliCheckKey));
@@ -319,6 +316,13 @@ const AdminPortalDashboard = () => {
       navigate(portal.path);
       return;
     }
+
+    if (portal.requiresMasterAdmin) {
+      toast.error(`${portal.title} is only available to master admins`);
+      return;
+    }
+
+
 
     if (checkAccessWithNotification(portal.permissionKey, portal.title)) {
       navigate(portal.path);
@@ -510,7 +514,7 @@ const AdminPortalDashboard = () => {
           ) : (
           <div className={`grid grid-cols-1 sm:grid-cols-2 ${hasFullAccess ? 'xl:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-4 md:gap-6`}>
             {orderedPortals.map((portal, index) => {
-              const hasAccess = hasFullAccess || hasPermission(portal.permissionKey);
+              const hasAccess = hasFullAccess || (!portal.requiresMasterAdmin && hasPermission(portal.permissionKey));
               
               return (
                 <Card
