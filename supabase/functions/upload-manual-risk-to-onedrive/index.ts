@@ -81,8 +81,16 @@ Deno.serve(async (req) => {
       contentType,
       clientName,
       orderNumber,
-      kind, // "report" | "indemnity"
+      kind, // "report" | "indemnity" | "supplier" | "invoice"
+      shared, // true => client-facing folder (never supplier reports / invoices)
     } = body || {};
+
+    if (shared && kind !== "report" && kind !== "indemnity") {
+      return new Response(
+        JSON.stringify({ success: false, error: "Only reports and indemnities may be placed in the client-shared folder" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // Delete an existing OneDrive item by id
     if (action === "delete") {
