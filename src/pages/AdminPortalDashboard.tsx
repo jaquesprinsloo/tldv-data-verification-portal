@@ -38,6 +38,7 @@ const AdminPortalDashboard = () => {
   const [isExiting, setIsExiting] = useState(false);
   const [userName, setUserName] = useState(cachedUserName);
   const [isMasterAdmin, setIsMasterAdmin] = useState(cachedIsMasterAdmin);
+  const [isClientFacingOnly, setIsClientFacingOnly] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -176,7 +177,13 @@ const AdminPortalDashboard = () => {
   useEffect(() => {
     const preAppliCheckKey = "candex-pre-screening";
 
-    const visiblePortals = allPortals.filter((portal) => !portal.requiresMasterAdmin || hasFullAccess);
+    const visiblePortals = allPortals
+      .filter((portal) => !portal.requiresMasterAdmin || hasFullAccess)
+      // Client-facing profiles only ever see the portals they are allowed to open —
+      // no locked "Contact Master Admin" cards.
+      .filter((portal) =>
+        !isClientFacingOnly || permissionsLoading || hasFullAccess || hasPermission(portal.permissionKey)
+      );
 
     console.log("[Portal Debug] hasFullAccess:", hasFullAccess, "| allPortals:", allPortals.length, "| visiblePortals:", visiblePortals.length);
     console.log("[Portal Debug] PreAppliCheck in allPortals:", allPortals.some((portal) => portal.key === preAppliCheckKey));
@@ -202,7 +209,7 @@ const AdminPortalDashboard = () => {
     }
 
     const preAppliCheckPortal = visiblePortals.find((portal) => portal.key === preAppliCheckKey)
-      ?? allPortals.find((portal) => portal.key === preAppliCheckKey);
+      ?? (isClientFacingOnly ? undefined : allPortals.find((portal) => portal.key === preAppliCheckKey));
 
     const remainingPortals = visiblePortals.filter((portal) => portal.key !== preAppliCheckKey);
     const newPortals = preAppliCheckPortal ? [preAppliCheckPortal, ...remainingPortals] : visiblePortals;
@@ -211,7 +218,7 @@ const AdminPortalDashboard = () => {
 
     setOrderedPortals(newPortals);
     setPortalsInitialized(true);
-  }, [hasFullAccess, allPortals, savedOrder]);
+  }, [hasFullAccess, allPortals, savedOrder, isClientFacingOnly, hasPermission, permissionsLoading]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -239,6 +246,11 @@ const AdminPortalDashboard = () => {
         const isExaminer = roleData.some((role) => role.role === "examiner");
         const isAdminOrMaster = roleData.some((role) => role.role === "admin" || role.role === "master_admin");
         const isClientFacing = roleData.some((role) => role.role === "client_facing");
+        // Matches the Risk Assessments portal: a client-facing profile stays restricted
+        // unless it is also a master admin.
+        setIsClientFacingOnly(
+          isClientFacing && !roleData.some((role) => role.role === "master_admin")
+        );
         if (isExaminer && !isAdminOrMaster && !isClientFacing) {
           navigate("/examiner");
           return;
