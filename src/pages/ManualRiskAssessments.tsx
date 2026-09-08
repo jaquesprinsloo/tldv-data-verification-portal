@@ -4100,13 +4100,38 @@ function ClientAccountDialog({
  * (sent ones only) and indemnities into the client-shared OneDrive folder
  * tree. Supplier reports are never copied. Already-synced files are skipped.
  */
+// The copy job runs outside React so that switching tabs (which unmounts the
+// card) cannot interrupt it. State lives in this module and the card subscribes.
+type SharedSyncState = {
+  running: boolean;
+  progress: { done: number; total: number; current: string } | null;
+  log: string[];
+};
+const sharedSync: SharedSyncState & { listeners: Set<() => void> } = {
+  running: false, progress: null, log: [], listeners: new Set(),
+};
+const notifySharedSync = () => sharedSync.listeners.forEach((l) => l());
+const useSharedSyncState = (): SharedSyncState => {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const l = () => force((n) => n + 1);
+    sharedSync.listeners.add(l);
+    return () => { sharedSync.listeners.delete(l); };
+  }, []);
+  return sharedSync;
+};
+
 function ClientFolderSyncCard({
   submissions, clients, userName,
 }: { submissions: Submission[]; clients: Client[]; userName: string }) {
   const qc = useQueryClient();
-  const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number; current: string } | null>(null);
-  const [log, setLog] = useState<string[]>([]);
+  const { running, progress, log } = useSharedSyncState();
+  const setRunning = (v: boolean) => { sharedSync.running = v; notifySharedSync(); };
+  const setProgress = (v: SharedSyncState["progress"]) => { sharedSync.progress = v; notifySharedSync(); };
+  const setLog = (fn: string[] | ((l: string[]) => string[])) => {
+    sharedSync.log = typeof fn === "function" ? fn(sharedSync.log) : fn;
+    notifySharedSync();
+  };
 
   const pending = useMemo(() => {
     let reports = 0, indemnities = 0;
@@ -4118,6 +4143,7 @@ function ClientFolderSyncCard({
   }, [submissions]);
 
   const run = async () => {
+    if (sharedSync.running) { toast.info("A copy is already running"); return; }
     const targets = submissions.filter((s) =>
       (s.sent_at && !s.report_shared_onedrive_item_id) ||
       (s.indemnity_files ?? []).some((f) => !f.shared_onedrive_item_id),
@@ -4128,6 +4154,7 @@ function ClientFolderSyncCard({
     setRunning(true); setLog([]);
     let ok = 0, failed = 0;
     for (let i = 0; i < targets.length; i++) {
+
       const s = targets[i];
       const client = s.client_id ? clients.find((c) => c.id === s.client_id) : undefined;
       setProgress({ done: i, total: targets.length, current: s.order_number });
