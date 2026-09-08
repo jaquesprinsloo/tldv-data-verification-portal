@@ -318,9 +318,10 @@ const AdminPortalDashboard = () => {
     }
 
     if (portal.requiresMasterAdmin) {
-      checkAccessWithNotification("__master_admin_only__", portal.title);
+      toast.error(`${portal.title} is only available to master admins`);
       return;
     }
+
 
 
     if (checkAccessWithNotification(portal.permissionKey, portal.title)) {
