@@ -83,6 +83,8 @@ export function MrClientDashboardTab({
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
+  const qc = useQueryClient();
+
   const { data: candidates = [], isLoading } = useQuery<Cand[]>({
     queryKey: ["mra-client-dash-cands"],
     queryFn: async () => {
