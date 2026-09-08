@@ -118,6 +118,9 @@ export function MrClientDashboardTab({
     for (const c of candidates) {
       const s = subById.get(c.submission_id);
       if (!s || !rangedSubIds.has(s.id)) continue;
+      // A released (report sent) submission is finished, regardless of any
+      // blank result fields left behind on individual candidate rows.
+      const released = !!s.sent_at;
       total += 1;
 
       const effId = c.override_client_id ?? s.client_id ?? "__unassigned__";
