@@ -7,6 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
@@ -49,10 +52,11 @@ const ADVERSE: Record<string, string[]> = {
 };
 
 function Kpi({
-  label, value, sub, icon, tone = "slate",
+  label, value, sub, icon, tone = "slate", onClick,
 }: {
   label: string; value: string | number; sub?: string; icon: React.ReactNode;
   tone?: "slate" | "emerald" | "amber" | "rose" | "blue";
+  onClick?: () => void;
 }) {
   const ring =
     tone === "emerald" ? "bg-emerald-50 text-emerald-700 ring-emerald-100" :
@@ -61,7 +65,11 @@ function Kpi({
     tone === "blue" ? "bg-blue-50 text-blue-700 ring-blue-100" :
     "bg-slate-100 text-slate-700 ring-slate-200";
   return (
-    <Card className="p-5 border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+    <Card
+      className={`p-5 border-slate-200/80 shadow-sm hover:shadow-md transition-shadow ${onClick ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{label}</p>
