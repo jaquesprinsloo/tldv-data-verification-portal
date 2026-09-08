@@ -348,6 +348,9 @@ export default function ManualRiskAssessments() {
   const [previewReport, setPreviewReport] = useState<{ blob: Blob; title: string } | null>(null);
   const [activeTab, setActiveTab] = useState<string>("submissions");
   const [resendingId, setResendingId] = useState<string | null>(null);
+  // Client-facing profiles get a read-only view: no costing, no invoicing,
+  // no supplier reports and no ability to create or change submissions.
+  const [clientFacing, setClientFacing] = useState(false);
 
   const closePreviewReport = () => {
     setPreviewReport(null);
@@ -360,13 +363,17 @@ export default function ManualRiskAssessments() {
       setUserId(session.user.id);
       const { data: roleData } = await sb
         .from("user_roles").select("role").eq("user_id", session.user.id);
-      const isMaster = (roleData ?? []).some((r: any) => r.role === "master_admin");
-      if (!isMaster) {
-        toast.error("Master admin access required");
+      const roles = (roleData ?? []).map((r: any) => r.role as string);
+      const isMaster = roles.includes("master_admin");
+      const isClientFacing = !isMaster && roles.includes("client_facing");
+      if (!isMaster && !isClientFacing) {
+        toast.error("You do not have access to the Risk Assessments portal");
         navigate("/admin/portal"); return;
       }
       const { data: p } = await sb.from("profiles").select("full_name").eq("id", session.user.id).maybeSingle();
       setUserName(p?.full_name ?? "");
+      setClientFacing(isClientFacing);
+      if (isClientFacing) setActiveTab("dashboard");
       setAllowed(true);
     })();
   }, [navigate]);
