@@ -94,6 +94,23 @@ export function MrClientDashboardTab({
     },
   });
 
+  // Live refresh: new submissions, saved results and released reports show up
+  // without the viewer having to reload the page.
+  useEffect(() => {
+    const bump = () => {
+      qc.invalidateQueries({ queryKey: ["mra-client-dash-cands"] });
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+    };
+    const channel = supabase
+      .channel("mra-client-dashboard-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_submissions" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_candidates" }, bump)
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
+
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
   const subById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions]);
 
