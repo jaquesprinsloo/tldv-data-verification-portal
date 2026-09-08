@@ -73,14 +73,11 @@ const AdminLogin = () => {
     try {
       if (isOtpMode) {
         if (!otpSent) {
-          const { error } = await supabase.auth.signInWithOtp({
-            email,
-            options: {
-              shouldCreateUser: false,
-              emailRedirectTo: `${window.location.origin}/admin/portal`,
-            },
+          const { data: otpRes, error } = await supabase.functions.invoke("send-login-otp", {
+            body: { email: email.trim().toLowerCase() },
           });
           if (error) throw error;
+          if (otpRes?.error) throw new Error(otpRes.error);
           setOtpSent(true);
           toast({
             title: "Code Sent",
