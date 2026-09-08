@@ -139,7 +139,7 @@ export function MrClientDashboardTab({
   );
   const rangedSubIds = useMemo(() => new Set(rangedSubs.map((s) => s.id)), [rangedSubs]);
 
-  type CandRow = { id: string; name: string; surname: string; idNumber: string; account: string; order: string };
+  type CandRow = { id: string; name: string; surname: string; idNumber: string; account: string; order: string; subId: string; released: boolean };
 
   const stats = useMemo(() => {
     let total = 0, pendingChecks = 0, completedCands = 0, flagged = 0, idInvalid = 0;
