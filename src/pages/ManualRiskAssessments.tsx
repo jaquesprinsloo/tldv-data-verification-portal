@@ -84,6 +84,9 @@ type Submission = {
   report_onedrive_web_url: string | null;
   report_onedrive_item_id: string | null;
   report_onedrive_path: string | null;
+  report_shared_onedrive_web_url?: string | null;
+  report_shared_onedrive_item_id?: string | null;
+  report_shared_onedrive_path?: string | null;
   supplier_report_files: SupplierReportFile[] | null;
   recipients?: MrRecipient[] | null;
 };
@@ -95,6 +98,9 @@ export type IndemnityFile = {
   content_type?: string;
   onedrive_web_url?: string | null;
   onedrive_item_id?: string | null;
+  // Copy in the client-shared OneDrive folder (PreAppliCheck/ClientShared/...)
+  shared_onedrive_web_url?: string | null;
+  shared_onedrive_item_id?: string | null;
 };
 export type SupplierReportFile = {
   name: string;
@@ -107,6 +113,41 @@ export type SupplierReportFile = {
   extracted_id_numbers?: string[];
 };
 
+type OneDriveUploadResult = { webUrl: string | null; itemId: string | null; fullPath: string | null };
+
+/** Uploads a file to OneDrive via the edge function. `shared: true` targets the
+ *  client-facing folder tree (reports + indemnities only, never supplier reports). */
+async function uploadToOneDrive(args: {
+  fileName: string;
+  base64: string;
+  contentType: string;
+  clientName: string | null | undefined;
+  orderNumber: string;
+  kind: "report" | "indemnity" | "supplier";
+  shared?: boolean;
+}): Promise<OneDriveUploadResult> {
+  const { data, error } = await supabase.functions.invoke("upload-manual-risk-to-onedrive", {
+    body: {
+      fileName: args.fileName,
+      fileBase64: args.base64,
+      contentType: args.contentType,
+      clientName: args.clientName ?? "Unassigned",
+      orderNumber: args.orderNumber,
+      kind: args.kind,
+      shared: !!args.shared,
+    },
+  });
+  if (error) throw error;
+  if ((data as any)?.success) {
+    return {
+      webUrl: (data as any).webUrl ?? null,
+      itemId: (data as any).itemId ?? null,
+      fullPath: (data as any).fullPath ?? null,
+    };
+  }
+  throw new Error((data as any)?.error || "OneDrive upload failed");
+}
+
 // Uploads supplier risk report PDF to storage + OneDrive (SupplierReports subfolder)
 async function deleteFromOneDrive(itemId: string | null | undefined): Promise<void> {
   if (!itemId) return;
@@ -118,6 +159,19 @@ async function deleteFromOneDrive(itemId: string | null | undefined): Promise<vo
     if ((data as any)?.success === false) throw new Error((data as any)?.error || "OneDrive delete failed");
   } catch (e) {
     toast.warning(`OneDrive copy could not be deleted: ${(e as Error).message}`);
+  }
+}
+
+/** Removes every OneDrive copy (internal + client-shared) belonging to a submission. */
+async function purgeSubmissionOneDrive(s: Partial<Submission>): Promise<void> {
+  await deleteFromOneDrive(s.report_onedrive_item_id);
+  await deleteFromOneDrive(s.report_shared_onedrive_item_id);
+  for (const f of (s.indemnity_files ?? []) as IndemnityFile[]) {
+    await deleteFromOneDrive(f.onedrive_item_id);
+    await deleteFromOneDrive(f.shared_onedrive_item_id);
+  }
+  for (const f of (s.supplier_report_files ?? []) as SupplierReportFile[]) {
+    await deleteFromOneDrive(f.onedrive_item_id);
   }
 }
 
@@ -229,27 +283,22 @@ async function uploadIndemnity(
 
   let onedrive_web_url: string | null = null;
   let onedrive_item_id: string | null = null;
+  let shared_onedrive_web_url: string | null = null;
+  let shared_onedrive_item_id: string | null = null;
+  const contentType = file.type || "application/pdf";
+  const base64 = await blobToBase64(file);
+  const common = { fileName: file.name, base64, contentType, clientName, orderNumber, kind: "indemnity" as const };
   try {
-    const base64 = await blobToBase64(file);
-    const { data, error } = await supabase.functions.invoke("upload-manual-risk-to-onedrive", {
-      body: {
-        fileName: file.name,
-        fileBase64: base64,
-        contentType: file.type || "application/pdf",
-        clientName: clientName ?? "Unassigned",
-        orderNumber,
-        kind: "indemnity",
-      },
-    });
-    if (error) throw error;
-    if ((data as any)?.success) {
-      onedrive_web_url = (data as any).webUrl ?? null;
-      onedrive_item_id = (data as any).itemId ?? null;
-    } else if ((data as any)?.error) {
-      throw new Error((data as any).error);
-    }
+    const od = await uploadToOneDrive(common);
+    onedrive_web_url = od.webUrl; onedrive_item_id = od.itemId;
   } catch (e) {
     toast.warning(`Uploaded "${file.name}" to storage, but OneDrive mirror failed: ${(e as Error).message}`);
+  }
+  try {
+    const od = await uploadToOneDrive({ ...common, shared: true });
+    shared_onedrive_web_url = od.webUrl; shared_onedrive_item_id = od.itemId;
+  } catch (e) {
+    toast.warning(`Client-shared OneDrive copy of "${file.name}" failed: ${(e as Error).message}`);
   }
 
   return {
@@ -257,9 +306,11 @@ async function uploadIndemnity(
     path,
     uploaded_at: new Date().toISOString(),
     size: file.size,
-    content_type: file.type || "application/pdf",
+    content_type: contentType,
     onedrive_web_url,
     onedrive_item_id,
+    shared_onedrive_web_url,
+    shared_onedrive_item_id,
   };
 }
 
@@ -508,6 +559,7 @@ export default function ManualRiskAssessments() {
           </TabsList>
 
           <TabsContent value="dashboard" className="mt-4">
+            <ClientFolderSyncCard submissions={submissions} clients={clients} userName={userName} />
             <MrDashboardTab submissions={submissions} clients={clients} />
           </TabsContent>
 
@@ -596,14 +648,8 @@ export default function ManualRiskAssessments() {
                             onClick={async (e) => {
                               e.stopPropagation();
                               if (!confirm(`Delete submission ${s.order_number}? This permanently removes all candidates and results.`)) return;
-                              // Purge OneDrive copies (report + indemnities + supplier reports)
-                              await deleteFromOneDrive((s as any).report_onedrive_item_id);
-                              for (const f of ((s as any).indemnity_files ?? []) as IndemnityFile[]) {
-                                await deleteFromOneDrive(f.onedrive_item_id);
-                              }
-                              for (const f of ((s as any).supplier_report_files ?? []) as SupplierReportFile[]) {
-                                await deleteFromOneDrive(f.onedrive_item_id);
-                              }
+                              // Purge OneDrive copies (internal + client-shared)
+                              await purgeSubmissionOneDrive(s as any);
                               // Also purge storage buckets
                               const indPaths = (((s as any).indemnity_files ?? []) as IndemnityFile[]).map((f) => f.path);
                               if (indPaths.length) await supabase.storage.from("manual-risk-indemnities").remove(indPaths);
@@ -1829,34 +1875,26 @@ function SubmissionDetailsDialog({
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
 
-      // Mirror the Background Screening Report (only) to OneDrive
-      let odWebUrl: string | null = null;
-      let odItemId: string | null = null;
-      let odPath: string | null = null;
+      // Mirror the Background Screening Report to OneDrive (internal + client-shared)
+      let od: OneDriveUploadResult = { webUrl: null, itemId: null, fullPath: null };
+      let odShared: OneDriveUploadResult = { webUrl: null, itemId: null, fullPath: null };
+      const reportArgs = {
+        fileName: `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`,
+        base64,
+        contentType: "application/pdf",
+        clientName: client?.client_name,
+        orderNumber: sub?.order_number ?? "",
+        kind: "report" as const,
+      };
       try {
-        const { data: odData, error: odErr } = await supabase.functions.invoke(
-          "upload-manual-risk-to-onedrive",
-          {
-            body: {
-              fileName: `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`,
-              fileBase64: base64,
-              contentType: "application/pdf",
-              clientName: client?.client_name ?? "Unassigned",
-              orderNumber: sub?.order_number,
-              kind: "report",
-            },
-          },
-        );
-        if (odErr) throw odErr;
-        if ((odData as any)?.success) {
-          odWebUrl = (odData as any).webUrl ?? null;
-          odItemId = (odData as any).itemId ?? null;
-          odPath = (odData as any).fullPath ?? null;
-        } else if ((odData as any)?.error) {
-          throw new Error((odData as any).error);
-        }
+        od = await uploadToOneDrive(reportArgs);
       } catch (e) {
         toast.warning(`Report emailed, but OneDrive save failed: ${(e as Error).message}`);
+      }
+      try {
+        odShared = await uploadToOneDrive({ ...reportArgs, shared: true });
+      } catch (e) {
+        toast.warning(`Client-shared OneDrive copy failed: ${(e as Error).message}`);
       }
 
       // Mark submission as sent so it moves to Accounts tab
@@ -1864,9 +1902,12 @@ function SubmissionDetailsDialog({
         .from("manual_risk_submissions")
         .update({
           sent_at: new Date().toISOString(),
-          report_onedrive_web_url: odWebUrl,
-          report_onedrive_item_id: odItemId,
-          report_onedrive_path: odPath,
+          report_onedrive_web_url: od.webUrl,
+          report_onedrive_item_id: od.itemId,
+          report_onedrive_path: od.fullPath,
+          report_shared_onedrive_web_url: odShared.webUrl,
+          report_shared_onedrive_item_id: odShared.itemId,
+          report_shared_onedrive_path: odShared.fullPath,
         })
         .eq("id", submissionId);
       qc.invalidateQueries({ queryKey: ["mra-submissions"] });
@@ -2210,6 +2251,7 @@ function IndemnitySection({
     try {
       await supabase.storage.from("manual-risk-indemnities").remove([f.path]);
       await deleteFromOneDrive(f.onedrive_item_id);
+      await deleteFromOneDrive(f.shared_onedrive_item_id);
       const next = files.filter((x) => x.path !== f.path);
       const { error } = await sb
         .from("manual_risk_submissions")
@@ -2715,6 +2757,7 @@ async function buildSentReportBlob(
   submissionId: string,
   clients: Client[],
   userName: string,
+  opts: { encrypted?: boolean } = {},
 ): Promise<{ blob: Blob; orderNumber: string }> {
   const [{ data: sub, error: subErr }, { data: cands, error: candErr }, { data: settings }] = await Promise.all([
     sb.from("manual_risk_submissions").select("*").eq("id", submissionId).maybeSingle(),
@@ -2761,7 +2804,7 @@ async function buildSentReportBlob(
     termsAndConditions: settings?.terms_and_conditions ?? "",
     generatedByName: userName,
     requestedChecks: activeChecks,
-    skipEncryption: true,
+    skipEncryption: !opts.encrypted,
   });
   return { blob, orderNumber: sub.order_number };
 }
@@ -3626,13 +3669,7 @@ function ClientAccountDialog({
         await supabase.storage.from("invoices").remove([sub.invoice_file_path]);
       }
       if (sub) {
-        await deleteFromOneDrive((sub as any).report_onedrive_item_id);
-        for (const f of ((sub as any).indemnity_files ?? []) as IndemnityFile[]) {
-          await deleteFromOneDrive(f.onedrive_item_id);
-        }
-        for (const f of ((sub as any).supplier_report_files ?? []) as SupplierReportFile[]) {
-          await deleteFromOneDrive(f.onedrive_item_id);
-        }
+        await purgeSubmissionOneDrive(sub as any);
         const indPaths = (((sub as any).indemnity_files ?? []) as IndemnityFile[]).map((f) => f.path);
         if (indPaths.length) await supabase.storage.from("manual-risk-indemnities").remove(indPaths);
         const supPaths = (((sub as any).supplier_report_files ?? []) as SupplierReportFile[]).map((f) => f.path);
@@ -3664,15 +3701,9 @@ function ClientAccountDialog({
       const indPaths: string[] = [];
       const supPaths: string[] = [];
       for (const sub of targetSubs) {
-        await deleteFromOneDrive((sub as any).report_onedrive_item_id);
-        for (const f of ((sub as any).indemnity_files ?? []) as IndemnityFile[]) {
-          await deleteFromOneDrive(f.onedrive_item_id);
-          indPaths.push(f.path);
-        }
-        for (const f of ((sub as any).supplier_report_files ?? []) as SupplierReportFile[]) {
-          await deleteFromOneDrive(f.onedrive_item_id);
-          supPaths.push(f.path);
-        }
+        await purgeSubmissionOneDrive(sub as any);
+        for (const f of ((sub as any).indemnity_files ?? []) as IndemnityFile[]) indPaths.push(f.path);
+        for (const f of ((sub as any).supplier_report_files ?? []) as SupplierReportFile[]) supPaths.push(f.path);
       }
       if (indPaths.length) await supabase.storage.from("manual-risk-indemnities").remove(indPaths);
       if (supPaths.length) await supabase.storage.from("manual-risk-supplier-reports").remove(supPaths);
@@ -4062,5 +4093,130 @@ function ClientAccountDialog({
         </Dialog>
       </DialogContent>
     </Dialog>
+  );
+}
+/**
+ * One-click backfill: copies every existing submission's background report
+ * (sent ones only) and indemnities into the client-shared OneDrive folder
+ * tree. Supplier reports are never copied. Already-synced files are skipped.
+ */
+function ClientFolderSyncCard({
+  submissions, clients, userName,
+}: { submissions: Submission[]; clients: Client[]; userName: string }) {
+  const qc = useQueryClient();
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number; current: string } | null>(null);
+  const [log, setLog] = useState<string[]>([]);
+
+  const pending = useMemo(() => {
+    let reports = 0, indemnities = 0;
+    for (const s of submissions) {
+      if (s.sent_at && !s.report_shared_onedrive_item_id) reports++;
+      for (const f of (s.indemnity_files ?? [])) if (!f.shared_onedrive_item_id) indemnities++;
+    }
+    return { reports, indemnities };
+  }, [submissions]);
+
+  const run = async () => {
+    const targets = submissions.filter((s) =>
+      (s.sent_at && !s.report_shared_onedrive_item_id) ||
+      (s.indemnity_files ?? []).some((f) => !f.shared_onedrive_item_id),
+    );
+    if (!targets.length) { toast.info("Client folders are already up to date"); return; }
+    if (!confirm(`Copy ${pending.reports} report(s) and ${pending.indemnities} indemnity file(s) into the client-shared OneDrive folders?`)) return;
+
+    setRunning(true); setLog([]);
+    let ok = 0, failed = 0;
+    for (let i = 0; i < targets.length; i++) {
+      const s = targets[i];
+      const client = s.client_id ? clients.find((c) => c.id === s.client_id) : undefined;
+      setProgress({ done: i, total: targets.length, current: s.order_number });
+      const update: Record<string, any> = {};
+
+      // Indemnities
+      const files = (s.indemnity_files ?? []) as IndemnityFile[];
+      let filesChanged = false;
+      const nextFiles: IndemnityFile[] = [];
+      for (const f of files) {
+        if (f.shared_onedrive_item_id) { nextFiles.push(f); continue; }
+        try {
+          const { data, error } = await supabase.storage.from("manual-risk-indemnities").download(f.path);
+          if (error || !data) throw error ?? new Error("Download failed");
+          const od = await uploadToOneDrive({
+            fileName: f.name, base64: await blobToBase64(data),
+            contentType: f.content_type || "application/pdf",
+            clientName: client?.client_name, orderNumber: s.order_number,
+            kind: "indemnity", shared: true,
+          });
+          nextFiles.push({ ...f, shared_onedrive_web_url: od.webUrl, shared_onedrive_item_id: od.itemId });
+          filesChanged = true; ok++;
+        } catch (e) {
+          failed++; nextFiles.push(f);
+          setLog((l) => [...l, `${s.order_number} — indemnity "${f.name}": ${(e as Error).message}`]);
+        }
+      }
+      if (filesChanged) update.indemnity_files = nextFiles;
+
+      // Background report (only for submissions that were sent to the client)
+      if (s.sent_at && !s.report_shared_onedrive_item_id) {
+        try {
+          const { blob } = await buildSentReportBlob(s.id, clients, userName, { encrypted: true });
+          const od = await uploadToOneDrive({
+            fileName: `PreAppliCheck-Report-${s.order_number}.pdf`,
+            base64: await blobToBase64(blob), contentType: "application/pdf",
+            clientName: client?.client_name, orderNumber: s.order_number,
+            kind: "report", shared: true,
+          });
+          update.report_shared_onedrive_web_url = od.webUrl;
+          update.report_shared_onedrive_item_id = od.itemId;
+          update.report_shared_onedrive_path = od.fullPath;
+          ok++;
+        } catch (e) {
+          failed++;
+          setLog((l) => [...l, `${s.order_number} — report: ${(e as Error).message}`]);
+        }
+      }
+
+      if (Object.keys(update).length) {
+        const { error } = await sb.from("manual_risk_submissions").update(update).eq("id", s.id);
+        if (error) { failed++; setLog((l) => [...l, `${s.order_number} — save: ${error.message}`]); }
+      }
+    }
+    setProgress({ done: targets.length, total: targets.length, current: "" });
+    setRunning(false);
+    qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+    if (failed) toast.warning(`Client folder sync finished: ${ok} copied, ${failed} failed`);
+    else toast.success(`Client folder sync finished: ${ok} file(s) copied`);
+  };
+
+  const outstanding = pending.reports + pending.indemnities;
+  return (
+    <Card className="p-4 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-semibold text-sm">Client-shared OneDrive folders</p>
+          <p className="text-xs text-muted-foreground">
+            PreAppliCheck / ClientShared / [Client] / [Order] — background report + indemnities only (no supplier reports).
+            {outstanding > 0
+              ? ` ${pending.reports} report(s) and ${pending.indemnities} indemnity file(s) still to copy.`
+              : " All submissions are synced."}
+          </p>
+          {progress && (
+            <p className="text-xs mt-1">
+              {running ? `Copying ${progress.current}… (${progress.done}/${progress.total})` : `Done (${progress.total} submission(s) processed)`}
+            </p>
+          )}
+        </div>
+        <Button size="sm" variant="outline" onClick={run} disabled={running || outstanding === 0}>
+          {running ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+          Copy existing submissions to client folders
+        </Button>
+      </div>
+      {log.length > 0 && (
+        <ul className="mt-3 text-xs text-red-600 list-disc pl-5 space-y-0.5 max-h-40 overflow-auto">
+          {log.map((l, i) => <li key={i}>{l}</li>)}
+        </ul>
+      )}
+    </Card>
   );
 }

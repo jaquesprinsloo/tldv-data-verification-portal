@@ -81,8 +81,16 @@ Deno.serve(async (req) => {
       contentType,
       clientName,
       orderNumber,
-      kind, // "report" | "indemnity"
+      kind, // "report" | "indemnity" | "supplier" | "invoice"
+      shared, // true => client-facing folder (never supplier reports / invoices)
     } = body || {};
+
+    if (shared && kind !== "report" && kind !== "indemnity") {
+      return new Response(
+        JSON.stringify({ success: false, error: "Only reports and indemnities may be placed in the client-shared folder" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // Delete an existing OneDrive item by id
     if (action === "delete") {
@@ -142,9 +150,13 @@ Deno.serve(async (req) => {
       kind === "supplier" ? "/SupplierReports" : "";
     // Invoices are filed per client under a single Invoices folder, keyed by the
     // invoice reference (passed as orderNumber) so one invoice maps to one batch.
-    const folderPath = kind === "invoice"
-      ? `PreAppliCheck/ManualRiskAssessments/${client}/Invoices/${order}`
-      : `PreAppliCheck/ManualRiskAssessments/${client}/${order}${subFolder}`;
+    // Shared copies live in a separate per-client tree that can be shared with the
+    // client directly; it never contains supplier reports or invoices.
+    const folderPath = shared
+      ? `PreAppliCheck/ClientShared/${client}/${order}${subFolder}`
+      : kind === "invoice"
+        ? `PreAppliCheck/ManualRiskAssessments/${client}/Invoices/${order}`
+        : `PreAppliCheck/ManualRiskAssessments/${client}/${order}${subFolder}`;
     const safeFileName = sanitize(fileName.replace(/\//g, "_"));
     const fullPath = `${folderPath}/${safeFileName}`;
     const encodedPath = encodeURI(fullPath);
