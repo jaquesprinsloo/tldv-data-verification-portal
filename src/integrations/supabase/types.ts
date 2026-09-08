@@ -1080,6 +1080,9 @@ export type Database = {
           report_onedrive_item_id: string | null
           report_onedrive_path: string | null
           report_onedrive_web_url: string | null
+          report_shared_onedrive_item_id: string | null
+          report_shared_onedrive_path: string | null
+          report_shared_onedrive_web_url: string | null
           requested_checks: string[]
           sent_at: string | null
           status: string
@@ -1102,6 +1105,9 @@ export type Database = {
           report_onedrive_item_id?: string | null
           report_onedrive_path?: string | null
           report_onedrive_web_url?: string | null
+          report_shared_onedrive_item_id?: string | null
+          report_shared_onedrive_path?: string | null
+          report_shared_onedrive_web_url?: string | null
           requested_checks?: string[]
           sent_at?: string | null
           status?: string
@@ -1124,6 +1130,9 @@ export type Database = {
           report_onedrive_item_id?: string | null
           report_onedrive_path?: string | null
           report_onedrive_web_url?: string | null
+          report_shared_onedrive_item_id?: string | null
+          report_shared_onedrive_path?: string | null
+          report_shared_onedrive_web_url?: string | null
           requested_checks?: string[]
           sent_at?: string | null
           status?: string
