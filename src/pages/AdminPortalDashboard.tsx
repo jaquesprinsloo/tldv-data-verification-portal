@@ -218,7 +218,7 @@ const AdminPortalDashboard = () => {
 
     setOrderedPortals(newPortals);
     setPortalsInitialized(true);
-  }, [hasFullAccess, allPortals, savedOrder, isClientFacingOnly, hasPermission]);
+  }, [hasFullAccess, allPortals, savedOrder, isClientFacingOnly, hasPermission, permissionsLoading]);
 
   useEffect(() => {
     const checkAuth = async () => {
