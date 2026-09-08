@@ -443,6 +443,7 @@ export function MrClientDashboardTab({
                     <TableHead>Surname</TableHead>
                     <TableHead>ID Number</TableHead>
                     <TableHead>Account</TableHead>
+                    {listView !== "pending" && <TableHead className="w-12 text-right">Report</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -452,6 +453,24 @@ export function MrClientDashboardTab({
                       <TableCell className="text-sm">{r.surname}</TableCell>
                       <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
                       <TableCell className="text-sm">{r.account}</TableCell>
+                      {listView !== "pending" && (
+                        <TableCell className="text-right">
+                          {r.released && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="View the report that was sent"
+                              disabled={previewingSub === r.subId}
+                              onClick={() => viewReport(r)}
+                            >
+                              {previewingSub === r.subId
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <Eye className="h-4 w-4" />}
+                            </Button>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
