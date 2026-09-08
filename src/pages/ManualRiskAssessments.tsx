@@ -2165,7 +2165,21 @@ function SubmissionDetailsDialog({
                         <ResultCell
                           value={c[cols.result] ?? null}
                           options={CHECK_META[k]?.options ?? []}
-                          onValue={(v) => updateRow(idx, { [cols.result]: v } as any)}
+                          onValue={(v) => {
+                            const patch: Record<string, unknown> = { [cols.result]: v };
+                            // A risk assessment is only valid when the ID is valid.
+                            if (k === "id_verification" && activeChecks.includes("risk_assessment")) {
+                              if (v === "invalid" || v === "deceased") {
+                                patch.risk_assessment_result = "invalid";
+                                patch.risk_assessment_notes =
+                                  "Risk Assessment invalid — ID verification could not be confirmed.";
+                              } else if (c.risk_assessment_result === "invalid") {
+                                patch.risk_assessment_result = "pending";
+                                patch.risk_assessment_notes = null;
+                              }
+                            }
+                            updateRow(idx, patch as any);
+                          }}
                         />
                       </TableCell>
                     );
@@ -2513,7 +2527,12 @@ function SupplierReportSection({
       };
       // Auto-populate Risk Assessment outcome from supplier's Risk Assessment Check.
       const raText = String(rec.risk_assessment ?? "");
-      if (raText) {
+      if (result === "invalid") {
+        // A risk assessment can only be relied on when the ID itself is valid.
+        update.risk_assessment_result = "invalid";
+        update.risk_assessment_notes =
+          `Risk Assessment invalid — ID verification could not be confirmed${raText ? ` (supplier risk assessment: ${raText})` : ""}.`;
+      } else if (raText) {
         const isNoRisk = /no\s+further\s+investigation/i.test(raText);
         const isRisk = /further\s+investigation/i.test(raText) && !isNoRisk;
         if (isNoRisk || isRisk) {
@@ -2801,7 +2820,7 @@ type AccountRow = {
 const ADVERSE_RESULTS: Record<string, string[]> = {
   credit: ["medium", "high", "very_high"],
   criminal: ["record_found"],
-  risk_assessment: ["risk_identified"],
+  risk_assessment: ["risk_identified", "invalid"],
   drivers_license: ["invalid", "expired"],
   pdp: ["invalid", "expired"],
   qualification: ["not_verified"],

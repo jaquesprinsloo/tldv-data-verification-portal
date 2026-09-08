@@ -58,6 +58,7 @@ export const CHECK_META: Record<string, { label: string; short: string; options:
     options: [
       { v: "no_risk", l: "No Risk Identified" },
       { v: "risk_identified", l: "Risk Identified" },
+      { v: "invalid", l: "Invalid" },
       { v: "pending", l: "Pending" },
     ],
   },
@@ -316,10 +317,13 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     margin: { left: margin, right: margin, bottom: 90 },
   });
 
-  // Auto-generated notes: currently only Risk Assessment "risk_identified" injects a note.
+  // Auto-generated notes for specific Risk Assessment outcomes.
   const autoNoteFor = (k: string, result?: string | null): string | null => {
     if (k === "risk_assessment" && result === "risk_identified") {
       return "Probable Risk Identified — candidate should have their fingerprints submitted for clearance.";
+    }
+    if (k === "risk_assessment" && result === "invalid") {
+      return "Risk Assessment invalid — the ID number could not be verified, so the risk assessment cannot be relied upon.";
     }
     return null;
   };
