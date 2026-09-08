@@ -559,6 +559,7 @@ export default function ManualRiskAssessments() {
           </TabsList>
 
           <TabsContent value="dashboard" className="mt-4">
+            <ClientFolderSyncCard submissions={submissions} clients={clients} userName={userName} />
             <MrDashboardTab submissions={submissions} clients={clients} />
           </TabsContent>
 
@@ -647,14 +648,8 @@ export default function ManualRiskAssessments() {
                             onClick={async (e) => {
                               e.stopPropagation();
                               if (!confirm(`Delete submission ${s.order_number}? This permanently removes all candidates and results.`)) return;
-                              // Purge OneDrive copies (report + indemnities + supplier reports)
-                              await deleteFromOneDrive((s as any).report_onedrive_item_id);
-                              for (const f of ((s as any).indemnity_files ?? []) as IndemnityFile[]) {
-                                await deleteFromOneDrive(f.onedrive_item_id);
-                              }
-                              for (const f of ((s as any).supplier_report_files ?? []) as SupplierReportFile[]) {
-                                await deleteFromOneDrive(f.onedrive_item_id);
-                              }
+                              // Purge OneDrive copies (internal + client-shared)
+                              await purgeSubmissionOneDrive(s as any);
                               // Also purge storage buckets
                               const indPaths = (((s as any).indemnity_files ?? []) as IndemnityFile[]).map((f) => f.path);
                               if (indPaths.length) await supabase.storage.from("manual-risk-indemnities").remove(indPaths);
@@ -1880,34 +1875,26 @@ function SubmissionDetailsDialog({
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
 
-      // Mirror the Background Screening Report (only) to OneDrive
-      let odWebUrl: string | null = null;
-      let odItemId: string | null = null;
-      let odPath: string | null = null;
+      // Mirror the Background Screening Report to OneDrive (internal + client-shared)
+      let od: OneDriveUploadResult = { webUrl: null, itemId: null, fullPath: null };
+      let odShared: OneDriveUploadResult = { webUrl: null, itemId: null, fullPath: null };
+      const reportArgs = {
+        fileName: `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`,
+        base64,
+        contentType: "application/pdf",
+        clientName: client?.client_name,
+        orderNumber: sub?.order_number ?? "",
+        kind: "report" as const,
+      };
       try {
-        const { data: odData, error: odErr } = await supabase.functions.invoke(
-          "upload-manual-risk-to-onedrive",
-          {
-            body: {
-              fileName: `PreAppliCheck-Report-${sub?.order_number ?? "report"}.pdf`,
-              fileBase64: base64,
-              contentType: "application/pdf",
-              clientName: client?.client_name ?? "Unassigned",
-              orderNumber: sub?.order_number,
-              kind: "report",
-            },
-          },
-        );
-        if (odErr) throw odErr;
-        if ((odData as any)?.success) {
-          odWebUrl = (odData as any).webUrl ?? null;
-          odItemId = (odData as any).itemId ?? null;
-          odPath = (odData as any).fullPath ?? null;
-        } else if ((odData as any)?.error) {
-          throw new Error((odData as any).error);
-        }
+        od = await uploadToOneDrive(reportArgs);
       } catch (e) {
         toast.warning(`Report emailed, but OneDrive save failed: ${(e as Error).message}`);
+      }
+      try {
+        odShared = await uploadToOneDrive({ ...reportArgs, shared: true });
+      } catch (e) {
+        toast.warning(`Client-shared OneDrive copy failed: ${(e as Error).message}`);
       }
 
       // Mark submission as sent so it moves to Accounts tab
@@ -1915,9 +1902,12 @@ function SubmissionDetailsDialog({
         .from("manual_risk_submissions")
         .update({
           sent_at: new Date().toISOString(),
-          report_onedrive_web_url: odWebUrl,
-          report_onedrive_item_id: odItemId,
-          report_onedrive_path: odPath,
+          report_onedrive_web_url: od.webUrl,
+          report_onedrive_item_id: od.itemId,
+          report_onedrive_path: od.fullPath,
+          report_shared_onedrive_web_url: odShared.webUrl,
+          report_shared_onedrive_item_id: odShared.itemId,
+          report_shared_onedrive_path: odShared.fullPath,
         })
         .eq("id", submissionId);
       qc.invalidateQueries({ queryKey: ["mra-submissions"] });
@@ -2261,6 +2251,7 @@ function IndemnitySection({
     try {
       await supabase.storage.from("manual-risk-indemnities").remove([f.path]);
       await deleteFromOneDrive(f.onedrive_item_id);
+      await deleteFromOneDrive(f.shared_onedrive_item_id);
       const next = files.filter((x) => x.path !== f.path);
       const { error } = await sb
         .from("manual_risk_submissions")
@@ -2766,6 +2757,7 @@ async function buildSentReportBlob(
   submissionId: string,
   clients: Client[],
   userName: string,
+  opts: { encrypted?: boolean } = {},
 ): Promise<{ blob: Blob; orderNumber: string }> {
   const [{ data: sub, error: subErr }, { data: cands, error: candErr }, { data: settings }] = await Promise.all([
     sb.from("manual_risk_submissions").select("*").eq("id", submissionId).maybeSingle(),
@@ -2812,7 +2804,7 @@ async function buildSentReportBlob(
     termsAndConditions: settings?.terms_and_conditions ?? "",
     generatedByName: userName,
     requestedChecks: activeChecks,
-    skipEncryption: true,
+    skipEncryption: !opts.encrypted,
   });
   return { blob, orderNumber: sub.order_number };
 }
@@ -3677,13 +3669,7 @@ function ClientAccountDialog({
         await supabase.storage.from("invoices").remove([sub.invoice_file_path]);
       }
       if (sub) {
-        await deleteFromOneDrive((sub as any).report_onedrive_item_id);
-        for (const f of ((sub as any).indemnity_files ?? []) as IndemnityFile[]) {
-          await deleteFromOneDrive(f.onedrive_item_id);
-        }
-        for (const f of ((sub as any).supplier_report_files ?? []) as SupplierReportFile[]) {
-          await deleteFromOneDrive(f.onedrive_item_id);
-        }
+        await purgeSubmissionOneDrive(sub as any);
         const indPaths = (((sub as any).indemnity_files ?? []) as IndemnityFile[]).map((f) => f.path);
         if (indPaths.length) await supabase.storage.from("manual-risk-indemnities").remove(indPaths);
         const supPaths = (((sub as any).supplier_report_files ?? []) as SupplierReportFile[]).map((f) => f.path);
@@ -3715,15 +3701,9 @@ function ClientAccountDialog({
       const indPaths: string[] = [];
       const supPaths: string[] = [];
       for (const sub of targetSubs) {
-        await deleteFromOneDrive((sub as any).report_onedrive_item_id);
-        for (const f of ((sub as any).indemnity_files ?? []) as IndemnityFile[]) {
-          await deleteFromOneDrive(f.onedrive_item_id);
-          indPaths.push(f.path);
-        }
-        for (const f of ((sub as any).supplier_report_files ?? []) as SupplierReportFile[]) {
-          await deleteFromOneDrive(f.onedrive_item_id);
-          supPaths.push(f.path);
-        }
+        await purgeSubmissionOneDrive(sub as any);
+        for (const f of ((sub as any).indemnity_files ?? []) as IndemnityFile[]) indPaths.push(f.path);
+        for (const f of ((sub as any).supplier_report_files ?? []) as SupplierReportFile[]) supPaths.push(f.path);
       }
       if (indPaths.length) await supabase.storage.from("manual-risk-indemnities").remove(indPaths);
       if (supPaths.length) await supabase.storage.from("manual-risk-supplier-reports").remove(supPaths);
