@@ -2165,7 +2165,21 @@ function SubmissionDetailsDialog({
                         <ResultCell
                           value={c[cols.result] ?? null}
                           options={CHECK_META[k]?.options ?? []}
-                          onValue={(v) => updateRow(idx, { [cols.result]: v } as any)}
+                          onValue={(v) => {
+                            const patch: Record<string, unknown> = { [cols.result]: v };
+                            // A risk assessment is only valid when the ID is valid.
+                            if (k === "id_verification" && activeChecks.includes("risk_assessment")) {
+                              if (v === "invalid" || v === "deceased") {
+                                patch.risk_assessment_result = "invalid";
+                                patch.risk_assessment_notes =
+                                  "Risk Assessment invalid — ID verification could not be confirmed.";
+                              } else if (c.risk_assessment_result === "invalid") {
+                                patch.risk_assessment_result = "pending";
+                                patch.risk_assessment_notes = null;
+                              }
+                            }
+                            updateRow(idx, patch as any);
+                          }}
                         />
                       </TableCell>
                     );
