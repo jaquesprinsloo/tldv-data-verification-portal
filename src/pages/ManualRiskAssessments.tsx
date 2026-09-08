@@ -538,6 +538,98 @@ export default function ManualRiskAssessments() {
     return <div className="min-h-screen flex items-center justify-center bg-black text-white">Loading...</div>;
   }
 
+  if (clientFacing) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="container mx-auto px-4 sm:px-6 pt-4">
+          <button
+            onClick={() => navigate("/admin/portal")}
+            className="bg-white border-[3px] border-red-600 text-foreground px-6 py-2 rounded-lg hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] transition-all duration-500 flex items-center gap-2 font-medium"
+          >
+            <Home className="h-4 w-4" /> Main Portal
+          </button>
+        </div>
+
+        <main className="container mx-auto px-4 sm:px-6 py-6">
+          <div className="flex items-center gap-3 mb-1">
+            <ClipboardList className="h-6 w-6 text-red-600" />
+            <h1 className="text-2xl font-bold tracking-tight">Risk Assessments</h1>
+            <Badge variant="outline" className="border-slate-300 text-slate-600">View only</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground mb-6">
+            Screening overview, account search and released reports. Documents open in the app only —
+            downloading, printing and sharing are disabled.
+          </p>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="dashboard"><LayoutDashboard className="h-4 w-4 mr-2" />Dashboard</TabsTrigger>
+              <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />In Progress</TabsTrigger>
+              <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="dashboard" className="mt-4">
+              <MrClientDashboardTab submissions={submissions as any} clients={clients} />
+            </TabsContent>
+
+            <TabsContent value="submissions" className="mt-4">
+              <Card className="p-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  {openSubmissions.length} check group(s) still awaiting verification feedback.
+                </p>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Order #</TableHead>
+                        <TableHead>Account</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Submitted</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {openSubmissions.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                            Nothing outstanding — every submission has been released.
+                          </TableCell>
+                        </TableRow>
+                      ) : openSubmissions.map((s) => (
+                        <TableRow key={s.id}>
+                          <TableCell className="font-mono text-xs">{s.order_number}</TableCell>
+                          <TableCell>{s.client_id ? clientById.get(s.client_id)?.client_name ?? "—" : "—"}</TableCell>
+                          <TableCell><Badge variant="outline">{s.submission_type === "single" ? "Single" : "Batch"}</Badge></TableCell>
+                          <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <Badge className={s.status === "completed" ? "bg-emerald-600" : "bg-amber-500 hover:bg-amber-500"}>
+                              {s.status === "completed" ? "Ready for release" : "In progress"}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="accounts" className="mt-4">
+              <AccountsTab
+                submissions={sentSubmissions}
+                clients={clients}
+                userName={userName}
+                clientFacing
+                onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
+              />
+            </TabsContent>
+          </Tabs>
+        </main>
+      </div>
+    );
+  }
+
+
   return (
     <div className="min-h-screen bg-white">
       <div className="container mx-auto px-4 sm:px-6 pt-4">
