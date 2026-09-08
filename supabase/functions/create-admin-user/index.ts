@@ -20,8 +20,8 @@ serve(async (req) => {
     }
 
     // Validate role
-    if (!['admin', 'master_admin', 'examiner'].includes(role)) {
-      throw new Error("Invalid role. Must be 'admin', 'master_admin', or 'examiner'");
+    if (!['admin', 'master_admin', 'examiner', 'client_facing'].includes(role)) {
+      throw new Error("Invalid role. Must be 'admin', 'master_admin', 'examiner', or 'client_facing'");
     }
 
     // Validate password length
@@ -135,7 +135,7 @@ serve(async (req) => {
     if (resendApiKey) {
       try {
         const siteUrl = Deno.env.get('SITE_URL') || 'https://tldv-data-verification-portal.lovable.app';
-        const roleDisplay = role === 'master_admin' ? 'Master Admin' : role === 'examiner' ? 'Examiner' : 'Admin';
+        const roleDisplay = role === 'master_admin' ? 'Master Admin' : role === 'examiner' ? 'Examiner' : role === 'client_facing' ? 'Client Facing' : 'Admin';
 
         // Generate one-time recovery link so the user sets their own password.
         // Never email the plaintext password.

@@ -447,6 +447,22 @@ export const ProfileDetailsDialog = ({
                   <p className="text-gray-400 text-xs">Full access to all features including user and permission management</p>
                 </div>
               </div>
+              <div className="flex items-center space-x-3 p-3 border border-emerald-600/50 rounded-lg">
+                <Checkbox
+                  id="role-client-facing"
+                  checked={roles.includes("client_facing")}
+                  onCheckedChange={(checked) => handleRoleToggle("client_facing", checked as boolean)}
+                  disabled={isSavingRoles}
+                  className="border-emerald-600 data-[state=checked]:bg-emerald-600"
+                />
+                <div>
+                  <Label htmlFor="role-client-facing" className="text-white font-medium">Client Facing</Label>
+                  <p className="text-gray-400 text-xs">
+                    Read-only view of Risk Assessments: screening progress, account search, released reports and
+                    indemnities. No costs, invoicing, supplier reports or edits.
+                  </p>
+                </div>
+              </div>
             </div>
             {!roles.includes("master_admin") && (
               <div className="mt-4 p-3 bg-yellow-600/10 border border-yellow-600/50 rounded-lg">
