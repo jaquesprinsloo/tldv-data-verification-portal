@@ -84,6 +84,9 @@ type Submission = {
   report_onedrive_web_url: string | null;
   report_onedrive_item_id: string | null;
   report_onedrive_path: string | null;
+  report_shared_onedrive_web_url?: string | null;
+  report_shared_onedrive_item_id?: string | null;
+  report_shared_onedrive_path?: string | null;
   supplier_report_files: SupplierReportFile[] | null;
   recipients?: MrRecipient[] | null;
 };
@@ -95,6 +98,9 @@ export type IndemnityFile = {
   content_type?: string;
   onedrive_web_url?: string | null;
   onedrive_item_id?: string | null;
+  // Copy in the client-shared OneDrive folder (PreAppliCheck/ClientShared/...)
+  shared_onedrive_web_url?: string | null;
+  shared_onedrive_item_id?: string | null;
 };
 export type SupplierReportFile = {
   name: string;
@@ -107,6 +113,41 @@ export type SupplierReportFile = {
   extracted_id_numbers?: string[];
 };
 
+type OneDriveUploadResult = { webUrl: string | null; itemId: string | null; fullPath: string | null };
+
+/** Uploads a file to OneDrive via the edge function. `shared: true` targets the
+ *  client-facing folder tree (reports + indemnities only, never supplier reports). */
+async function uploadToOneDrive(args: {
+  fileName: string;
+  base64: string;
+  contentType: string;
+  clientName: string | null | undefined;
+  orderNumber: string;
+  kind: "report" | "indemnity" | "supplier";
+  shared?: boolean;
+}): Promise<OneDriveUploadResult> {
+  const { data, error } = await supabase.functions.invoke("upload-manual-risk-to-onedrive", {
+    body: {
+      fileName: args.fileName,
+      fileBase64: args.base64,
+      contentType: args.contentType,
+      clientName: args.clientName ?? "Unassigned",
+      orderNumber: args.orderNumber,
+      kind: args.kind,
+      shared: !!args.shared,
+    },
+  });
+  if (error) throw error;
+  if ((data as any)?.success) {
+    return {
+      webUrl: (data as any).webUrl ?? null,
+      itemId: (data as any).itemId ?? null,
+      fullPath: (data as any).fullPath ?? null,
+    };
+  }
+  throw new Error((data as any)?.error || "OneDrive upload failed");
+}
+
 // Uploads supplier risk report PDF to storage + OneDrive (SupplierReports subfolder)
 async function deleteFromOneDrive(itemId: string | null | undefined): Promise<void> {
   if (!itemId) return;
@@ -118,6 +159,19 @@ async function deleteFromOneDrive(itemId: string | null | undefined): Promise<vo
     if ((data as any)?.success === false) throw new Error((data as any)?.error || "OneDrive delete failed");
   } catch (e) {
     toast.warning(`OneDrive copy could not be deleted: ${(e as Error).message}`);
+  }
+}
+
+/** Removes every OneDrive copy (internal + client-shared) belonging to a submission. */
+async function purgeSubmissionOneDrive(s: Partial<Submission>): Promise<void> {
+  await deleteFromOneDrive(s.report_onedrive_item_id);
+  await deleteFromOneDrive(s.report_shared_onedrive_item_id);
+  for (const f of (s.indemnity_files ?? []) as IndemnityFile[]) {
+    await deleteFromOneDrive(f.onedrive_item_id);
+    await deleteFromOneDrive(f.shared_onedrive_item_id);
+  }
+  for (const f of (s.supplier_report_files ?? []) as SupplierReportFile[]) {
+    await deleteFromOneDrive(f.onedrive_item_id);
   }
 }
 
