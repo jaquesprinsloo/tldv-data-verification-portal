@@ -4095,3 +4095,128 @@ function ClientAccountDialog({
     </Dialog>
   );
 }
+/**
+ * One-click backfill: copies every existing submission's background report
+ * (sent ones only) and indemnities into the client-shared OneDrive folder
+ * tree. Supplier reports are never copied. Already-synced files are skipped.
+ */
+function ClientFolderSyncCard({
+  submissions, clients, userName,
+}: { submissions: Submission[]; clients: Client[]; userName: string }) {
+  const qc = useQueryClient();
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number; current: string } | null>(null);
+  const [log, setLog] = useState<string[]>([]);
+
+  const pending = useMemo(() => {
+    let reports = 0, indemnities = 0;
+    for (const s of submissions) {
+      if (s.sent_at && !s.report_shared_onedrive_item_id) reports++;
+      for (const f of (s.indemnity_files ?? [])) if (!f.shared_onedrive_item_id) indemnities++;
+    }
+    return { reports, indemnities };
+  }, [submissions]);
+
+  const run = async () => {
+    const targets = submissions.filter((s) =>
+      (s.sent_at && !s.report_shared_onedrive_item_id) ||
+      (s.indemnity_files ?? []).some((f) => !f.shared_onedrive_item_id),
+    );
+    if (!targets.length) { toast.info("Client folders are already up to date"); return; }
+    if (!confirm(`Copy ${pending.reports} report(s) and ${pending.indemnities} indemnity file(s) into the client-shared OneDrive folders?`)) return;
+
+    setRunning(true); setLog([]);
+    let ok = 0, failed = 0;
+    for (let i = 0; i < targets.length; i++) {
+      const s = targets[i];
+      const client = s.client_id ? clients.find((c) => c.id === s.client_id) : undefined;
+      setProgress({ done: i, total: targets.length, current: s.order_number });
+      const update: Record<string, any> = {};
+
+      // Indemnities
+      const files = (s.indemnity_files ?? []) as IndemnityFile[];
+      let filesChanged = false;
+      const nextFiles: IndemnityFile[] = [];
+      for (const f of files) {
+        if (f.shared_onedrive_item_id) { nextFiles.push(f); continue; }
+        try {
+          const { data, error } = await supabase.storage.from("manual-risk-indemnities").download(f.path);
+          if (error || !data) throw error ?? new Error("Download failed");
+          const od = await uploadToOneDrive({
+            fileName: f.name, base64: await blobToBase64(data),
+            contentType: f.content_type || "application/pdf",
+            clientName: client?.client_name, orderNumber: s.order_number,
+            kind: "indemnity", shared: true,
+          });
+          nextFiles.push({ ...f, shared_onedrive_web_url: od.webUrl, shared_onedrive_item_id: od.itemId });
+          filesChanged = true; ok++;
+        } catch (e) {
+          failed++; nextFiles.push(f);
+          setLog((l) => [...l, `${s.order_number} — indemnity "${f.name}": ${(e as Error).message}`]);
+        }
+      }
+      if (filesChanged) update.indemnity_files = nextFiles;
+
+      // Background report (only for submissions that were sent to the client)
+      if (s.sent_at && !s.report_shared_onedrive_item_id) {
+        try {
+          const { blob } = await buildSentReportBlob(s.id, clients, userName, { encrypted: true });
+          const od = await uploadToOneDrive({
+            fileName: `PreAppliCheck-Report-${s.order_number}.pdf`,
+            base64: await blobToBase64(blob), contentType: "application/pdf",
+            clientName: client?.client_name, orderNumber: s.order_number,
+            kind: "report", shared: true,
+          });
+          update.report_shared_onedrive_web_url = od.webUrl;
+          update.report_shared_onedrive_item_id = od.itemId;
+          update.report_shared_onedrive_path = od.fullPath;
+          ok++;
+        } catch (e) {
+          failed++;
+          setLog((l) => [...l, `${s.order_number} — report: ${(e as Error).message}`]);
+        }
+      }
+
+      if (Object.keys(update).length) {
+        const { error } = await sb.from("manual_risk_submissions").update(update).eq("id", s.id);
+        if (error) { failed++; setLog((l) => [...l, `${s.order_number} — save: ${error.message}`]); }
+      }
+    }
+    setProgress({ done: targets.length, total: targets.length, current: "" });
+    setRunning(false);
+    qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+    if (failed) toast.warning(`Client folder sync finished: ${ok} copied, ${failed} failed`);
+    else toast.success(`Client folder sync finished: ${ok} file(s) copied`);
+  };
+
+  const outstanding = pending.reports + pending.indemnities;
+  return (
+    <Card className="p-4 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-semibold text-sm">Client-shared OneDrive folders</p>
+          <p className="text-xs text-muted-foreground">
+            PreAppliCheck / ClientShared / [Client] / [Order] — background report + indemnities only (no supplier reports).
+            {outstanding > 0
+              ? ` ${pending.reports} report(s) and ${pending.indemnities} indemnity file(s) still to copy.`
+              : " All submissions are synced."}
+          </p>
+          {progress && (
+            <p className="text-xs mt-1">
+              {running ? `Copying ${progress.current}… (${progress.done}/${progress.total})` : `Done (${progress.total} submission(s) processed)`}
+            </p>
+          )}
+        </div>
+        <Button size="sm" variant="outline" onClick={run} disabled={running || outstanding === 0}>
+          {running ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+          Copy existing submissions to client folders
+        </Button>
+      </div>
+      {log.length > 0 && (
+        <ul className="mt-3 text-xs text-red-600 list-disc pl-5 space-y-0.5 max-h-40 overflow-auto">
+          {log.map((l, i) => <li key={i}>{l}</li>)}
+        </ul>
+      )}
+    </Card>
+  );
+}
