@@ -15,9 +15,11 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
-import { CHECK_COLUMNS, CHECK_META, isPlaceholderCandidate } from "@/lib/manualRiskPdf";
+import { CHECK_COLUMNS, CHECK_META, isPlaceholderCandidate, generateManualRiskPdf, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
+import { PdfPreview } from "@/pages/ManualRiskAssessments";
+import { toast } from "sonner";
 import {
-  Users, ShieldCheck, Clock, AlertTriangle, CheckCircle2, Building2, Activity,
+  Users, ShieldCheck, Clock, AlertTriangle, CheckCircle2, Building2, Activity, Eye, Loader2,
 } from "lucide-react";
 
 const sb = supabase as any;
