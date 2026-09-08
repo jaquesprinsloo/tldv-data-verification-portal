@@ -244,7 +244,11 @@ const AdminPortalDashboard = () => {
         const isExaminer = roleData.some((role) => role.role === "examiner");
         const isAdminOrMaster = roleData.some((role) => role.role === "admin" || role.role === "master_admin");
         const isClientFacing = roleData.some((role) => role.role === "client_facing");
-        setIsClientFacingOnly(isClientFacing && !isAdminOrMaster);
+        // Matches the Risk Assessments portal: a client-facing profile stays restricted
+        // unless it is also a master admin.
+        setIsClientFacingOnly(
+          isClientFacing && !roleData.some((role) => role.role === "master_admin")
+        );
         if (isExaminer && !isAdminOrMaster && !isClientFacing) {
           navigate("/examiner");
           return;
