@@ -317,6 +317,12 @@ const AdminPortalDashboard = () => {
       return;
     }
 
+    if (portal.requiresMasterAdmin) {
+      checkAccessWithNotification("__master_admin_only__", portal.title);
+      return;
+    }
+
+
     if (checkAccessWithNotification(portal.permissionKey, portal.title)) {
       navigate(portal.path);
     }
