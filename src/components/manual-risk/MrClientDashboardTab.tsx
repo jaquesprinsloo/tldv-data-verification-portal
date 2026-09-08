@@ -479,6 +479,17 @@ export function MrClientDashboardTab({
           })()}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!reportPreview} onOpenChange={(open) => { if (!open) setReportPreview(null); }}>
+        <DialogContent className="max-w-6xl h-[92vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="px-4 pt-4 pb-2 border-b">
+            <DialogTitle>{reportPreview?.title ?? "Report Preview"}</DialogTitle>
+          </DialogHeader>
+          {reportPreview && (
+            <PdfPreview blob={reportPreview.blob} title={reportPreview.title} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
