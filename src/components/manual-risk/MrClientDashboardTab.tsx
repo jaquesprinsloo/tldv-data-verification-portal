@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -83,6 +83,8 @@ export function MrClientDashboardTab({
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
+  const qc = useQueryClient();
+
   const { data: candidates = [], isLoading } = useQuery<Cand[]>({
     queryKey: ["mra-client-dash-cands"],
     queryFn: async () => {
@@ -91,6 +93,23 @@ export function MrClientDashboardTab({
       return (data as Cand[]).filter((c) => !isPlaceholderCandidate(c as any));
     },
   });
+
+  // Live refresh: new submissions, saved results and released reports show up
+  // without the viewer having to reload the page.
+  useEffect(() => {
+    const bump = () => {
+      qc.invalidateQueries({ queryKey: ["mra-client-dash-cands"] });
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+    };
+    const channel = supabase
+      .channel("mra-client-dashboard-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_submissions" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_candidates" }, bump)
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc]);
 
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
   const subById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions]);
@@ -118,6 +137,9 @@ export function MrClientDashboardTab({
     for (const c of candidates) {
       const s = subById.get(c.submission_id);
       if (!s || !rangedSubIds.has(s.id)) continue;
+      // A released (report sent) submission is finished, regardless of any
+      // blank result fields left behind on individual candidate rows.
+      const released = !!s.sent_at;
       total += 1;
 
       const effId = c.override_client_id ?? s.client_id ?? "__unassigned__";
@@ -133,10 +155,10 @@ export function MrClientDashboardTab({
       for (const k of active) {
         const v = c[CHECK_COLUMNS[k].result] as string | null;
         const entry = perCheck.get(k) ?? { done: 0, pending: 0 };
-        if (!v || v === "pending") { candPending += 1; entry.pending += 1; }
+        if ((!v || v === "pending") && !released) { candPending += 1; entry.pending += 1; }
         else {
           entry.done += 1;
-          if ((ADVERSE[k] ?? []).includes(v)) candFlag = true;
+          if (v && (ADVERSE[k] ?? []).includes(v)) candFlag = true;
         }
         perCheck.set(k, entry);
       }
@@ -162,7 +184,7 @@ export function MrClientDashboardTab({
 
   const inProgress = useMemo(
     () => rangedSubs
-      .filter((s) => s.status !== "completed")
+      .filter((s) => !s.sent_at && s.status !== "completed")
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 12),
     [rangedSubs],

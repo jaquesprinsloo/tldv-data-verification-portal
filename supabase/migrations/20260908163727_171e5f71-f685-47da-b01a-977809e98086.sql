@@ -1,0 +1,2 @@
+ALTER PUBLICATION supabase_realtime ADD TABLE public.manual_risk_submissions;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.manual_risk_candidates;
