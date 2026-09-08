@@ -161,7 +161,7 @@ const AdminPortalDashboard = () => {
     },
     {
       key: "manual-risk-assessments",
-      title: "Manual Risk Assessments",
+      title: "Risk Assessments",
       description: "Off-system ID Verification, Credit and Criminal checks with report PDF",
       icon: ClipboardList,
       path: "/admin/manual-risk-assessments",
