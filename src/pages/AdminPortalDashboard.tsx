@@ -513,7 +513,7 @@ const AdminPortalDashboard = () => {
           ) : (
           <div className={`grid grid-cols-1 sm:grid-cols-2 ${hasFullAccess ? 'xl:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-4 md:gap-6`}>
             {orderedPortals.map((portal, index) => {
-              const hasAccess = hasFullAccess || hasPermission(portal.permissionKey);
+              const hasAccess = hasFullAccess || (!portal.requiresMasterAdmin && hasPermission(portal.permissionKey));
               
               return (
                 <Card
