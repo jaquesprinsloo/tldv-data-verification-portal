@@ -207,3 +207,10 @@ All colors MUST be HSL.
     min-height: 20px !important;
   }
 }
+
+/* View-only documents (client-facing profiles): never printable. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

@@ -27,7 +27,7 @@ export const ProfileManagement = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<"admin" | "master_admin" | "examiner">("admin");
+  const [selectedRole, setSelectedRole] = useState<"admin" | "master_admin" | "examiner" | "client_facing">("admin");
   const [isLoading, setIsLoading] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
@@ -94,7 +94,7 @@ export const ProfileManagement = () => {
       const { data: allRoles } = await supabase
         .from("user_roles")
         .select("user_id, role")
-        .in("role", ["admin", "master_admin", "examiner"]);
+        .in("role", ["admin", "master_admin", "examiner", "client_facing"]);
 
       if (!allRoles || allRoles.length === 0) return [];
 
@@ -173,7 +173,7 @@ export const ProfileManagement = () => {
         return;
       }
 
-      toast.success(`${selectedRole === 'master_admin' ? 'Master Admin' : selectedRole === 'examiner' ? 'Examiner' : 'Admin'} created successfully! Login credentials have been sent to their email.`);
+      toast.success(`${selectedRole === 'master_admin' ? 'Master Admin' : selectedRole === 'examiner' ? 'Examiner' : selectedRole === 'client_facing' ? 'Client Facing profile' : 'Admin'} created successfully! Login credentials have been sent to their email.`);
       setFirstName("");
       setLastName("");
       setEmail("");
@@ -237,10 +237,11 @@ export const ProfileManagement = () => {
 
     const roles = profile.roles || [];
     // Prefer the more privileged role if the user has multiple.
-    const role: "admin" | "master_admin" | "examiner" =
+    const role: "admin" | "master_admin" | "examiner" | "client_facing" =
       (roles.includes("master_admin") && "master_admin") ||
       (roles.includes("admin") && "admin") ||
       (roles.includes("examiner") && "examiner") ||
+      (roles.includes("client_facing") && "client_facing") ||
       "admin";
 
     // Prevent master from impersonating themselves.
@@ -367,7 +368,7 @@ export const ProfileManagement = () => {
               </div>
               <div>
                 <Label htmlFor="role" className="text-white">Role</Label>
-                <Select value={selectedRole} onValueChange={(value: "admin" | "master_admin" | "examiner") => setSelectedRole(value)}>
+                <Select value={selectedRole} onValueChange={(value: "admin" | "master_admin" | "examiner" | "client_facing") => setSelectedRole(value)}>
                   <SelectTrigger className="bg-black border-red-600 text-white">
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
@@ -375,6 +376,7 @@ export const ProfileManagement = () => {
                     <SelectItem value="admin" className="text-white hover:bg-red-600/20">Admin</SelectItem>
                     <SelectItem value="master_admin" className="text-white hover:bg-red-600/20">Master Admin</SelectItem>
                     <SelectItem value="examiner" className="text-white hover:bg-red-600/20">Examiner</SelectItem>
+                    <SelectItem value="client_facing" className="text-white hover:bg-red-600/20">Client Facing</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-gray-500 text-xs mt-1">
@@ -382,6 +384,8 @@ export const ProfileManagement = () => {
                     ? 'Master Admins have full access including user management' 
                     : selectedRole === 'examiner'
                     ? 'Examiners can view assigned polygraph appointments and candidate data'
+                    : selectedRole === 'client_facing'
+                    ? 'Client Facing profiles get a read-only view: screening progress, account search, released reports and indemnities — no costs, invoicing or supplier reports'
                     : 'Admins have access based on assigned permissions'}
                 </p>
               </div>
@@ -486,10 +490,12 @@ export const ProfileManagement = () => {
                                   ? 'border-yellow-500 text-yellow-500' 
                                   : role === 'examiner'
                                   ? 'border-blue-500 text-blue-500'
+                                  : role === 'client_facing'
+                                  ? 'border-emerald-500 text-emerald-500'
                                   : 'border-red-500 text-red-500'
                               }`}
                             >
-                              {role === 'master_admin' ? 'Master' : role === 'examiner' ? 'Examiner' : 'Admin'}
+                              {role === 'master_admin' ? 'Master' : role === 'examiner' ? 'Examiner' : role === 'client_facing' ? 'Client Facing' : 'Admin'}
                             </Badge>
                           ))}
                         </div>

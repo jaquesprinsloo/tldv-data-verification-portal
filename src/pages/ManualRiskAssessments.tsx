@@ -7,7 +7,7 @@ import * as XLSX from "xlsx";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download, Eye, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo2, RefreshCw } from "lucide-react";
-import { Star, ArrowRightLeft, Percent } from "lucide-react";
+import { Star, ArrowRightLeft, Percent, FolderOpen, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +31,8 @@ import { AddressBookTab } from "@/components/manual-risk/AddressBookTab";
 import { MrDashboardTab } from "@/components/manual-risk/MrDashboardTab";
 import SupplierReconTab from "@/components/manual-risk/SupplierReconTab";
 import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk/MrInvoicedTab";
+import { MrClientDashboardTab } from "@/components/manual-risk/MrClientDashboardTab";
+import { IndemnityViewerDialog, type IndemnityFileRef } from "@/components/manual-risk/IndemnityViewerDialog";
 import { BookUser } from "lucide-react";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -346,6 +348,9 @@ export default function ManualRiskAssessments() {
   const [previewReport, setPreviewReport] = useState<{ blob: Blob; title: string } | null>(null);
   const [activeTab, setActiveTab] = useState<string>("submissions");
   const [resendingId, setResendingId] = useState<string | null>(null);
+  // Client-facing profiles get a read-only view: no costing, no invoicing,
+  // no supplier reports and no ability to create or change submissions.
+  const [clientFacing, setClientFacing] = useState(false);
 
   const closePreviewReport = () => {
     setPreviewReport(null);
@@ -358,13 +363,17 @@ export default function ManualRiskAssessments() {
       setUserId(session.user.id);
       const { data: roleData } = await sb
         .from("user_roles").select("role").eq("user_id", session.user.id);
-      const isMaster = (roleData ?? []).some((r: any) => r.role === "master_admin");
-      if (!isMaster) {
-        toast.error("Master admin access required");
+      const roles = (roleData ?? []).map((r: any) => r.role as string);
+      const isMaster = roles.includes("master_admin");
+      const isClientFacing = !isMaster && roles.includes("client_facing");
+      if (!isMaster && !isClientFacing) {
+        toast.error("You do not have access to the Risk Assessments portal");
         navigate("/admin/portal"); return;
       }
       const { data: p } = await sb.from("profiles").select("full_name").eq("id", session.user.id).maybeSingle();
       setUserName(p?.full_name ?? "");
+      setClientFacing(isClientFacing);
+      if (isClientFacing) setActiveTab("dashboard");
       setAllowed(true);
     })();
   }, [navigate]);
@@ -528,6 +537,98 @@ export default function ManualRiskAssessments() {
   if (allowed === null) {
     return <div className="min-h-screen flex items-center justify-center bg-black text-white">Loading...</div>;
   }
+
+  if (clientFacing) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="container mx-auto px-4 sm:px-6 pt-4">
+          <button
+            onClick={() => navigate("/admin/portal")}
+            className="bg-white border-[3px] border-red-600 text-foreground px-6 py-2 rounded-lg hover:border-red-500 hover:shadow-[0_0_60px_rgba(239,68,68,0.7)] transition-all duration-500 flex items-center gap-2 font-medium"
+          >
+            <Home className="h-4 w-4" /> Main Portal
+          </button>
+        </div>
+
+        <main className="container mx-auto px-4 sm:px-6 py-6">
+          <div className="flex items-center gap-3 mb-1">
+            <ClipboardList className="h-6 w-6 text-red-600" />
+            <h1 className="text-2xl font-bold tracking-tight">Risk Assessments</h1>
+            <Badge variant="outline" className="border-slate-300 text-slate-600">View only</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground mb-6">
+            Screening overview, account search and released reports. Documents open in the app only —
+            downloading, printing and sharing are disabled.
+          </p>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="dashboard"><LayoutDashboard className="h-4 w-4 mr-2" />Dashboard</TabsTrigger>
+              <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />In Progress</TabsTrigger>
+              <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="dashboard" className="mt-4">
+              <MrClientDashboardTab submissions={submissions as any} clients={clients} />
+            </TabsContent>
+
+            <TabsContent value="submissions" className="mt-4">
+              <Card className="p-4">
+                <p className="text-sm text-muted-foreground mb-4">
+                  {openSubmissions.length} check group(s) still awaiting verification feedback.
+                </p>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Order #</TableHead>
+                        <TableHead>Account</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Submitted</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {openSubmissions.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                            Nothing outstanding — every submission has been released.
+                          </TableCell>
+                        </TableRow>
+                      ) : openSubmissions.map((s) => (
+                        <TableRow key={s.id}>
+                          <TableCell className="font-mono text-xs">{s.order_number}</TableCell>
+                          <TableCell>{s.client_id ? clientById.get(s.client_id)?.client_name ?? "—" : "—"}</TableCell>
+                          <TableCell><Badge variant="outline">{s.submission_type === "single" ? "Single" : "Batch"}</Badge></TableCell>
+                          <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <Badge className={s.status === "completed" ? "bg-emerald-600" : "bg-amber-500 hover:bg-amber-500"}>
+                              {s.status === "completed" ? "Ready for release" : "In progress"}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="accounts" className="mt-4">
+              <AccountsTab
+                submissions={sentSubmissions}
+                clients={clients}
+                userName={userName}
+                clientFacing
+                onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
+              />
+            </TabsContent>
+          </Tabs>
+        </main>
+      </div>
+    );
+  }
+
 
   return (
     <div className="min-h-screen bg-white">
@@ -2820,12 +2921,13 @@ function findPtvsClient(clients: Client[]): Client | null {
 }
 
 function AccountsTab({
-  submissions, clients, onChanged, userName,
+  submissions, clients, onChanged, userName, clientFacing = false,
 }: {
   submissions: Submission[];
   clients: Client[];
   onChanged: () => void;
   userName: string;
+  clientFacing?: boolean;
 }) {
   const [openClientId, setOpenClientId] = useState<string | "unassigned" | null>(null);
   const [highlightCandidateId, setHighlightCandidateId] = useState<string | null>(null);
@@ -3033,30 +3135,35 @@ function AccountsTab({
     <Card className="p-4">
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <p className="text-sm text-muted-foreground">
-          {totalChecks} un-invoiced check(s) across {groups.length} client account(s). Each candidate counts as one check —
-          invoiced checks move to the Invoiced tab.
+          {clientFacing
+            ? `${totalChecks} check(s) across ${groups.length} account(s). Search by name, surname or ID number to find a candidate.`
+            : `${totalChecks} un-invoiced check(s) across ${groups.length} client account(s). Each candidate counts as one check — invoiced checks move to the Invoiced tab.`}
         </p>
         <div className="flex-1" />
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="mra-filter-regular"
-            checked={filterRegular}
-            onCheckedChange={(v) => setFilterRegular(!!v)}
-          />
-          <label htmlFor="mra-filter-regular" className="text-xs cursor-pointer flex items-center gap-1">
-            <Star className="h-3 w-3 text-amber-500" /> Regulars only
-          </label>
-        </div>
-        <div className="flex items-center gap-2">
-          <Checkbox
-            id="mra-sort-regular"
-            checked={sortByRegular}
-            onCheckedChange={(v) => setSortByRegular(!!v)}
-          />
-          <label htmlFor="mra-sort-regular" className="text-xs cursor-pointer">
-            Sort regulars first
-          </label>
-        </div>
+        {!clientFacing && (
+          <>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="mra-filter-regular"
+                checked={filterRegular}
+                onCheckedChange={(v) => setFilterRegular(!!v)}
+              />
+              <label htmlFor="mra-filter-regular" className="text-xs cursor-pointer flex items-center gap-1">
+                <Star className="h-3 w-3 text-amber-500" /> Regulars only
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="mra-sort-regular"
+                checked={sortByRegular}
+                onCheckedChange={(v) => setSortByRegular(!!v)}
+              />
+              <label htmlFor="mra-sort-regular" className="text-xs cursor-pointer">
+                Sort regulars first
+              </label>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="mb-4 rounded-md border bg-muted/30 p-3">
@@ -3088,9 +3195,11 @@ function AccountsTab({
           {windowActive && (
             <>
               <Button variant="ghost" size="sm" onClick={() => { setFromDate(""); setToDate(""); }}>Clear</Button>
-              <Button variant="outline" size="sm" onClick={exportWindow}>
-                <FileDown className="h-4 w-4 mr-2" /> Export window
-              </Button>
+              {!clientFacing && (
+                <Button variant="outline" size="sm" onClick={exportWindow}>
+                  <FileDown className="h-4 w-4 mr-2" /> Export window
+                </Button>
+              )}
             </>
           )}
         </div>
@@ -3207,8 +3316,8 @@ function AccountsTab({
           <TableHeader>
             <TableRow>
               <TableHead>Client</TableHead>
-              <TableHead className="text-center">Open checks</TableHead>
-              <TableHead className="text-center">Discounted</TableHead>
+              <TableHead className="text-center">{clientFacing ? "Candidates" : "Open checks"}</TableHead>
+              {!clientFacing && <TableHead className="text-center">Discounted</TableHead>}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -3218,30 +3327,32 @@ function AccountsTab({
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-2">
                     {g.name}
-                    {g.isRegular && (
+                    {!clientFacing && g.isRegular && (
                       <Badge className="bg-amber-500 text-white gap-1"><Star className="h-3 w-3 fill-current" /> Regular</Badge>
                     )}
                   </div>
                 </TableCell>
                 <TableCell className="text-center">{g.checkCount}</TableCell>
-                <TableCell className="text-center">
-                  {g.discounted ? (
-                    <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
-                      {g.discounted} discounted
-                    </Badge>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
-                  {g.mirrored ? (
-                    <Badge
-                      variant="outline"
-                      className="ml-1 border-amber-500 text-amber-700 text-[10px]"
-                      title="PTVS-discount checks mirrored here for invoicing — not counted in this account"
-                    >
-                      +{g.mirrored} PTVS mirrored
-                    </Badge>
-                  ) : null}
-                </TableCell>
+                {!clientFacing && (
+                  <TableCell className="text-center">
+                    {g.discounted ? (
+                      <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
+                        {g.discounted} discounted
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                    {g.mirrored ? (
+                      <Badge
+                        variant="outline"
+                        className="ml-1 border-amber-500 text-amber-700 text-[10px]"
+                        title="PTVS-discount checks mirrored here for invoicing — not counted in this account"
+                      >
+                        +{g.mirrored} PTVS mirrored
+                      </Badge>
+                    ) : null}
+                  </TableCell>
+                )}
                 <TableCell className="text-right">
                   <Button size="sm" variant="outline" onClick={() => setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key)}>
                     Open account
@@ -3265,6 +3376,7 @@ function AccountsTab({
           initialFromDate={fromDate}
           initialToDate={toDate}
           initialDateBasis={dateBasis}
+          clientFacing={clientFacing}
         />
       )}
     </Card>
@@ -3273,7 +3385,7 @@ function AccountsTab({
 
 function ClientAccountDialog({
   groupKey, onClose, submissions, clients, onChanged, highlightCandidateId, userName,
-  initialFromDate = "", initialToDate = "", initialDateBasis = "submitted",
+  initialFromDate = "", initialToDate = "", initialDateBasis = "submitted", clientFacing = false,
 }: {
   groupKey: string;
   userName: string;
@@ -3285,6 +3397,7 @@ function ClientAccountDialog({
   initialFromDate?: string;
   initialToDate?: string;
   initialDateBasis?: DateBasis;
+  clientFacing?: boolean;
 }) {
   const qc = useQueryClient();
   const client = groupKey === "__unassigned__" ? null : clients.find((c) => c.id === groupKey) ?? null;
@@ -3345,7 +3458,11 @@ function ClientAccountDialog({
   // Polygraph & Truth Verification Services can be invoiced for them. These rows
   // are read-only and never counted in this account.
   const ptvsClient = useMemo(() => findPtvsClient(clients), [clients]);
-  const isPtvsAccount = !!ptvsClient && groupKey === ptvsClient.id;
+  const isPtvsAccount = !clientFacing && !!ptvsClient && groupKey === ptvsClient.id;
+  // Client-facing profiles see a reduced table: no discount or invoice columns,
+  // no selection checkbox and no administrative actions.
+  const colCount = clientFacing ? 8 : 11;
+  const [indemnityFor, setIndemnityFor] = useState<{ orderNumber: string; files: IndemnityFileRef[] } | null>(null);
   const sentSubIdsAll = useMemo(() => submissions.map((s) => s.id), [submissions]);
   const { data: mirrorCandidates = [] } = useQuery<Candidate[]>({
     queryKey: ["mra-ptvs-mirror", groupKey, sentSubIdsAll.join(",")],
@@ -3779,78 +3896,84 @@ function ClientAccountDialog({
             <Button variant="ghost" size="sm" onClick={() => { setFromDate(""); setToDate(""); }}>Clear</Button>
           )}
           <div className="flex-1" />
-          <Button variant="outline" onClick={exportExcel}>
-            <FileDown className="h-4 w-4 mr-2" /> Export to Excel
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setTldvInternal(true)}
-            disabled={!selectedCandidateIds.length}
-            title="Mark selected check(s) as TLDV internal pre-employment (100% discount, still counted)"
-          >
-            <Percent className="h-4 w-4 mr-2" /> Mark TLDV Internal
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => setTldvInternal(false)}
-            disabled={!selectedCandidateIds.length}
-            title="Remove the TLDV internal / 100% discount flag from selected check(s)"
-          >
-            Unmark
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setPtvsDiscount(true)}
-            disabled={!selectedCandidateIds.length}
-            className="border-amber-600 text-amber-700 hover:bg-amber-50"
-            title="Mark selected check(s) as PTVS discount"
-          >
-            <Percent className="h-4 w-4 mr-2" /> Mark PTVS Discount
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => setPtvsDiscount(false)}
-            disabled={!selectedCandidateIds.length}
-            title="Remove the PTVS discount flag from selected check(s)"
-          >
-            Unmark PTVS
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setMoveOpen(true)}
-            disabled={!selectedCandidateIds.length}
-            title="Move selected check(s) to a different client account"
-          >
-            <ArrowRightLeft className="h-4 w-4 mr-2" /> Move to Account
-          </Button>
-          <Button
-            className="bg-red-600 hover:bg-red-700"
-            onClick={() => setInvoiceOpen(true)}
-            disabled={!selectedCandidateIds.length}
-            title="Batch the selected checks under one invoice reference and move them to the Invoiced tab"
-          >
-            <FileText className="h-4 w-4 mr-2" /> Invoice Selected Checks
-          </Button>
-          <Button
-            variant="outline"
-            className="border-red-600 text-red-600 hover:bg-red-50"
-            onClick={deleteSelected}
-            disabled={!selectedSubmissionIds.length}
-          >
-            <Trash2 className="h-4 w-4 mr-2" /> Delete Selected
-          </Button>
+          {!clientFacing && (
+            <>
+              <Button variant="outline" onClick={exportExcel}>
+                <FileDown className="h-4 w-4 mr-2" /> Export to Excel
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setTldvInternal(true)}
+                disabled={!selectedCandidateIds.length}
+                title="Mark selected check(s) as TLDV internal pre-employment (100% discount, still counted)"
+              >
+                <Percent className="h-4 w-4 mr-2" /> Mark TLDV Internal
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setTldvInternal(false)}
+                disabled={!selectedCandidateIds.length}
+                title="Remove the TLDV internal / 100% discount flag from selected check(s)"
+              >
+                Unmark
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setPtvsDiscount(true)}
+                disabled={!selectedCandidateIds.length}
+                className="border-amber-600 text-amber-700 hover:bg-amber-50"
+                title="Mark selected check(s) as PTVS discount"
+              >
+                <Percent className="h-4 w-4 mr-2" /> Mark PTVS Discount
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setPtvsDiscount(false)}
+                disabled={!selectedCandidateIds.length}
+                title="Remove the PTVS discount flag from selected check(s)"
+              >
+                Unmark PTVS
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setMoveOpen(true)}
+                disabled={!selectedCandidateIds.length}
+                title="Move selected check(s) to a different client account"
+              >
+                <ArrowRightLeft className="h-4 w-4 mr-2" /> Move to Account
+              </Button>
+              <Button
+                className="bg-red-600 hover:bg-red-700"
+                onClick={() => setInvoiceOpen(true)}
+                disabled={!selectedCandidateIds.length}
+                title="Batch the selected checks under one invoice reference and move them to the Invoiced tab"
+              >
+                <FileText className="h-4 w-4 mr-2" /> Invoice Selected Checks
+              </Button>
+              <Button
+                variant="outline"
+                className="border-red-600 text-red-600 hover:bg-red-50"
+                onClick={deleteSelected}
+                disabled={!selectedSubmissionIds.length}
+              >
+                <Trash2 className="h-4 w-4 mr-2" /> Delete Selected
+              </Button>
+            </>
+          )}
         </div>
 
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={rows.length > 0 && selected.size === rows.length}
-                    onCheckedChange={toggleAll}
-                  />
-                </TableHead>
+                {!clientFacing && (
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={rows.length > 0 && selected.size === rows.length}
+                      onCheckedChange={toggleAll}
+                    />
+                  </TableHead>
+                )}
                 <TableHead>Order #</TableHead>
                 <TableHead>Submitted</TableHead>
                 <TableHead>Sent</TableHead>
@@ -3858,15 +3981,15 @@ function ClientAccountDialog({
                 <TableHead>ID Number</TableHead>
                 <TableHead>ID Valid</TableHead>
                 <TableHead>Risk</TableHead>
-                <TableHead>Discount</TableHead>
-                <TableHead>Invoice</TableHead>
+                {!clientFacing && <TableHead>Discount</TableHead>}
+                {!clientFacing && <TableHead>Invoice</TableHead>}
                 <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.length === 0 && mirrorRows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center text-muted-foreground py-6">
+                  <TableCell colSpan={colCount} className="text-center text-muted-foreground py-6">
                     No checks in this range.
                   </TableCell>
                 </TableRow>
@@ -3877,12 +4000,14 @@ function ClientAccountDialog({
                   id={`cand-row-${r.candidateId}`}
                   className={highlightCandidateId === r.candidateId ? "bg-amber-100 ring-1 ring-amber-400" : undefined}
                 >
-                  <TableCell>
-                    <Checkbox
-                      checked={selected.has(r.candidateId)}
-                      onCheckedChange={() => toggleOne(r.candidateId)}
-                    />
-                  </TableCell>
+                  {!clientFacing && (
+                    <TableCell>
+                      <Checkbox
+                        checked={selected.has(r.candidateId)}
+                        onCheckedChange={() => toggleOne(r.candidateId)}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
                   <TableCell className="text-xs">{new Date(r.submittedAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
@@ -3897,37 +4022,41 @@ function ClientAccountDialog({
                   <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
                   <TableCell>{renderIdStatus(r)}</TableCell>
                   <TableCell>{renderRiskStatus(r)}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {r.isTldvInternal && (
-                        <Badge className="bg-blue-600 gap-1">
-                          <Percent className="h-3 w-3" /> Discounted 100%
-                        </Badge>
-                      )}
-                      {r.isPtvsDiscount && (
-                        <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
-                          <Percent className="h-3 w-3" /> PTVS Discount
-                        </Badge>
-                      )}
-                      {!r.isTldvInternal && !r.isPtvsDiscount && (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {r.invoicedAt ? (
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-emerald-600">Invoiced</Badge>
-                        {r.invoiceFilePath && (
-                          <Button variant="ghost" size="icon" title="View invoice" onClick={() => viewInvoice(r.invoiceFilePath!)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                  {!clientFacing && (
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {r.isTldvInternal && (
+                          <Badge className="bg-blue-600 gap-1">
+                            <Percent className="h-3 w-3" /> Discounted 100%
+                          </Badge>
+                        )}
+                        {r.isPtvsDiscount && (
+                          <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
+                            <Percent className="h-3 w-3" /> PTVS Discount
+                          </Badge>
+                        )}
+                        {!r.isTldvInternal && !r.isPtvsDiscount && (
+                          <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </div>
-                    ) : (
-                      <Badge variant="outline">Pending</Badge>
-                    )}
-                  </TableCell>
+                    </TableCell>
+                  )}
+                  {!clientFacing && (
+                    <TableCell>
+                      {r.invoicedAt ? (
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-emerald-600">Invoiced</Badge>
+                          {r.invoiceFilePath && (
+                            <Button variant="ghost" size="icon" title="View invoice" onClick={() => viewInvoice(r.invoiceFilePath!)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <Badge variant="outline">Pending</Badge>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <Button
                       variant="ghost"
@@ -3938,22 +4067,39 @@ function ClientAccountDialog({
                     >
                       <FileText className={loadingReport === r.submissionId ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-blue-600"} />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Delete submission"
-                      onClick={() => deleteSubmission(r.submissionId, r.orderNumber)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Move back to Submissions"
-                      onClick={() => moveBackToSubmission(r.submissionId, r.orderNumber)}
-                    >
-                      <Undo2 className="h-4 w-4 text-amber-600" />
-                    </Button>
+                    {clientFacing ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="View uploaded indemnities"
+                        onClick={() => setIndemnityFor({
+                          orderNumber: r.orderNumber,
+                          files: ((subById.get(r.submissionId)?.indemnity_files ?? []) as IndemnityFile[])
+                            .map((f) => ({ path: f.path, name: f.name })),
+                        })}
+                      >
+                        <FolderOpen className="h-4 w-4 text-amber-600" />
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Delete submission"
+                          onClick={() => deleteSubmission(r.submissionId, r.orderNumber)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Move back to Submissions"
+                          onClick={() => moveBackToSubmission(r.submissionId, r.orderNumber)}
+                        >
+                          <Undo2 className="h-4 w-4 text-amber-600" />
+                        </Button>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -4018,9 +4164,24 @@ function ClientAccountDialog({
             <DialogHeader className="px-4 pt-4 pb-2 border-b">
               <DialogTitle>{reportPreview?.title ?? "Report"}</DialogTitle>
             </DialogHeader>
-            {reportPreview && <PdfPreview blob={reportPreview.blob} title={reportPreview.title} />}
+            {reportPreview && (
+              <div
+                className={clientFacing ? "flex-1 min-h-0 flex flex-col select-none no-print" : "flex-1 min-h-0 flex flex-col"}
+                onContextMenu={clientFacing ? (e) => e.preventDefault() : undefined}
+              >
+                <PdfPreview blob={reportPreview.blob} title={reportPreview.title} />
+              </div>
+            )}
           </DialogContent>
         </Dialog>
+
+        {indemnityFor && (
+          <IndemnityViewerDialog
+            orderNumber={indemnityFor.orderNumber}
+            files={indemnityFor.files}
+            onClose={() => setIndemnityFor(null)}
+          />
+        )}
 
         <Dialog open={moveOpen} onOpenChange={setMoveOpen}>
           <DialogContent>

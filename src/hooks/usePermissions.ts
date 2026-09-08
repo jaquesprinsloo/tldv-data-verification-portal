@@ -10,6 +10,7 @@ export const PERMISSION_KEYS = {
   PORTAL_REPORTS_ACCOUNTS: "portal.reports_accounts",
   PORTAL_PROFILE_MANAGEMENT: "portal.profile_management",
   PORTAL_CANDEX_PRE_SCREENING: "portal.candex_pre_screening",
+  PORTAL_MANUAL_RISK_ASSESSMENTS: "portal.manual_risk_assessments",
   
   // Reports & Accounts permissions
   ACCOUNTS_SELECT_ACCOUNTS: "accounts.select_accounts",
@@ -65,6 +66,11 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; descripti
   [PERMISSION_KEYS.PORTAL_CANDEX_PRE_SCREENING]: {
     label: "PreAppliCheck Portal",
     description: "Access to the PreAppliCheck portal card",
+    category: "Portal Access",
+  },
+  [PERMISSION_KEYS.PORTAL_MANUAL_RISK_ASSESSMENTS]: {
+    label: "Risk Assessments Portal",
+    description: "Access to the Risk Assessments portal card (client-facing profiles get a read-only view)",
     category: "Portal Access",
   },
   

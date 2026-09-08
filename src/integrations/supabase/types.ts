@@ -2475,7 +2475,12 @@ export type Database = {
         | "2_5_years"
         | "5_plus_years"
         | "never"
-      app_role: "admin" | "employee" | "master_admin" | "examiner"
+      app_role:
+        | "admin"
+        | "employee"
+        | "master_admin"
+        | "examiner"
+        | "client_facing"
       designation_type:
         | "team_leader"
         | "fdo"
@@ -2630,7 +2635,13 @@ export const Constants = {
         "5_plus_years",
         "never",
       ],
-      app_role: ["admin", "employee", "master_admin", "examiner"],
+      app_role: [
+        "admin",
+        "employee",
+        "master_admin",
+        "examiner",
+        "client_facing",
+      ],
       designation_type: [
         "team_leader",
         "fdo",

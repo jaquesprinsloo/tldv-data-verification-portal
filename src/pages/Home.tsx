@@ -21,7 +21,7 @@ const Home = () => {
         .from("user_roles")
         .select("role")
         .eq("user_id", session.user.id)
-        .in("role", ["admin", "master_admin", "examiner"]);
+        .in("role", ["admin", "master_admin", "examiner", "client_facing"]);
 
       if (!isActive) return;
 
