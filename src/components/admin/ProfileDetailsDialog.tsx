@@ -33,7 +33,7 @@ interface ProfileDetailsDialogProps {
   onUpdate: () => void;
 }
 
-type AppRole = "admin" | "master_admin";
+type AppRole = "admin" | "master_admin" | "client_facing";
 
 export const ProfileDetailsDialog = ({
   profile,
