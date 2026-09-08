@@ -38,6 +38,7 @@ const AdminPortalDashboard = () => {
   const [isExiting, setIsExiting] = useState(false);
   const [userName, setUserName] = useState(cachedUserName);
   const [isMasterAdmin, setIsMasterAdmin] = useState(cachedIsMasterAdmin);
+  const [isClientFacingOnly, setIsClientFacingOnly] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -239,6 +240,7 @@ const AdminPortalDashboard = () => {
         const isExaminer = roleData.some((role) => role.role === "examiner");
         const isAdminOrMaster = roleData.some((role) => role.role === "admin" || role.role === "master_admin");
         const isClientFacing = roleData.some((role) => role.role === "client_facing");
+        setIsClientFacingOnly(isClientFacing && !isAdminOrMaster);
         if (isExaminer && !isAdminOrMaster && !isClientFacing) {
           navigate("/examiner");
           return;
