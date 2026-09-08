@@ -170,6 +170,8 @@ export function MrClientDashboardTab({
         idNumber: c.id_number,
         account: name,
         order: s.order_number,
+        subId: s.id,
+        released,
       };
 
       const active = (s.requested_checks?.length ? s.requested_checks : ["id_verification", "credit", "criminal"])
