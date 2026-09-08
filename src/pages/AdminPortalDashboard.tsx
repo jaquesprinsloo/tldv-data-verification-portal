@@ -181,7 +181,9 @@ const AdminPortalDashboard = () => {
       .filter((portal) => !portal.requiresMasterAdmin || hasFullAccess)
       // Client-facing profiles only ever see the portals they are allowed to open —
       // no locked "Contact Master Admin" cards.
-      .filter((portal) => !isClientFacingOnly || hasFullAccess || hasPermission(portal.permissionKey));
+      .filter((portal) =>
+        !isClientFacingOnly || permissionsLoading || hasFullAccess || hasPermission(portal.permissionKey)
+      );
 
     console.log("[Portal Debug] hasFullAccess:", hasFullAccess, "| allPortals:", allPortals.length, "| visiblePortals:", visiblePortals.length);
     console.log("[Portal Debug] PreAppliCheck in allPortals:", allPortals.some((portal) => portal.key === preAppliCheckKey));
