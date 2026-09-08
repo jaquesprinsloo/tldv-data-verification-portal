@@ -2513,7 +2513,12 @@ function SupplierReportSection({
       };
       // Auto-populate Risk Assessment outcome from supplier's Risk Assessment Check.
       const raText = String(rec.risk_assessment ?? "");
-      if (raText) {
+      if (result === "invalid") {
+        // A risk assessment can only be relied on when the ID itself is valid.
+        update.risk_assessment_result = "invalid";
+        update.risk_assessment_notes =
+          `Risk Assessment invalid — ID verification could not be confirmed${raText ? ` (supplier risk assessment: ${raText})` : ""}.`;
+      } else if (raText) {
         const isNoRisk = /no\s+further\s+investigation/i.test(raText);
         const isRisk = /further\s+investigation/i.test(raText) && !isNoRisk;
         if (isNoRisk || isRisk) {
