@@ -207,7 +207,7 @@ const AdminPortalDashboard = () => {
     }
 
     const preAppliCheckPortal = visiblePortals.find((portal) => portal.key === preAppliCheckKey)
-      ?? allPortals.find((portal) => portal.key === preAppliCheckKey);
+      ?? (isClientFacingOnly ? undefined : allPortals.find((portal) => portal.key === preAppliCheckKey));
 
     const remainingPortals = visiblePortals.filter((portal) => portal.key !== preAppliCheckKey);
     const newPortals = preAppliCheckPortal ? [preAppliCheckPortal, ...remainingPortals] : visiblePortals;
