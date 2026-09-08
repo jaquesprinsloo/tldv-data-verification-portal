@@ -166,22 +166,48 @@ Deno.serve(async (req) => {
     let itemId: string | null = null;
 
     if (totalSize <= SIMPLE_LIMIT) {
-      const res = await gatewayFetch(
-        `/me/drive/root:/${encodedPath}:/content`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": contentType || "application/octet-stream" },
-          body: bytes,
-        },
-        LOVABLE_API_KEY,
-        ONEDRIVE_API_KEY,
-      );
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(`OneDrive upload failed [${res.status}]: ${JSON.stringify(data)}`);
+      // OneDrive returns 409 (nameAlreadyExists / resourceModified) when the same
+      // file is written concurrently or already exists. Force a replace and retry
+      // a few times; if it still conflicts, fall back to reading the existing item.
+      let data: any = null;
+      let lastStatus = 0;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const res = await gatewayFetch(
+          `/me/drive/root:/${encodedPath}:/content?@microsoft.graph.conflictBehavior=replace`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": contentType || "application/octet-stream" },
+            body: bytes,
+          },
+          LOVABLE_API_KEY,
+          ONEDRIVE_API_KEY,
+        );
+        data = await res.json().catch(() => ({}));
+        lastStatus = res.status;
+        if (res.ok) break;
+        if (res.status !== 409 && res.status !== 423 && res.status < 500) {
+          throw new Error(`OneDrive upload failed [${res.status}]: ${JSON.stringify(data)}`);
+        }
+        await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+      }
+
+      if (lastStatus < 200 || lastStatus >= 300) {
+        // Last resort: the file most likely landed already — return the existing item.
+        const existingRes = await gatewayFetch(
+          `/me/drive/root:/${encodedPath}`,
+          { method: "GET" },
+          LOVABLE_API_KEY,
+          ONEDRIVE_API_KEY,
+        );
+        const existing = await existingRes.json().catch(() => ({}));
+        if (!existingRes.ok || !existing?.id) {
+          throw new Error(`OneDrive upload failed [${lastStatus}]: ${JSON.stringify(data)}`);
+        }
+        data = existing;
       }
       webUrl = data.webUrl ?? null;
       itemId = data.id ?? null;
+
     } else {
       const sessionRes = await gatewayFetch(
         `/me/drive/root:/${encodedPath}:/createUploadSession`,
