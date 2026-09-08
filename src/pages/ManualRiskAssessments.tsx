@@ -2806,7 +2806,7 @@ type AccountRow = {
 const ADVERSE_RESULTS: Record<string, string[]> = {
   credit: ["medium", "high", "very_high"],
   criminal: ["record_found"],
-  risk_assessment: ["risk_identified"],
+  risk_assessment: ["risk_identified", "invalid"],
   drivers_license: ["invalid", "expired"],
   pdp: ["invalid", "expired"],
   qualification: ["not_verified"],
