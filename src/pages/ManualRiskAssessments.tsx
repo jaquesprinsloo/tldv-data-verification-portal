@@ -3277,6 +3277,7 @@ function AccountsTab({
           initialFromDate={fromDate}
           initialToDate={toDate}
           initialDateBasis={dateBasis}
+          clientFacing={clientFacing}
         />
       )}
     </Card>
