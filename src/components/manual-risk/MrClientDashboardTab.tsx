@@ -165,7 +165,7 @@ export function MrClientDashboardTab({
 
   const inProgress = useMemo(
     () => rangedSubs
-      .filter((s) => s.status !== "completed")
+      .filter((s) => !s.sent_at && s.status !== "completed")
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 12),
     [rangedSubs],
