@@ -127,12 +127,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Resolve the profile for this email (must exist and be an active portal profile)
     const { data: profile } = await supabaseAdmin
-      .from("admin_profiles")
-      .select("user_id, full_name, email")
+      .from("profiles")
+      .select("id, full_name, email")
       .ilike("email", email)
       .maybeSingle();
 
-    if (!profile?.user_id) {
+    if (!profile?.id) {
       console.log("send-login-otp: no profile for requested address");
       return jsonResponse(generic);
     }
@@ -140,7 +140,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: roleRows } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", profile.user_id);
+      .eq("user_id", profile.id);
     const roles = (roleRows || []).map((r: any) => r.role as string);
     const allowed = ["client_facing", "admin", "master_admin", "examiner"];
     if (!roles.some((r) => allowed.includes(r))) {
