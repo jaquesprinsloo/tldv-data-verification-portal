@@ -209,6 +209,70 @@ export function MrClientDashboardTab({
   }, [candidates, subById, rangedSubIds, clientById]);
 
   const [listView, setListView] = useState<null | "pending" | "flagged" | "idInvalid">(null);
+  const [reportPreview, setReportPreview] = useState<{ blob: Blob; title: string } | null>(null);
+  const [previewingSub, setPreviewingSub] = useState<string | null>(null);
+
+  // Renders the exact report that was sent for the candidate's submission,
+  // using the same unencrypted in-app preview the Accounts tab uses.
+  const viewReport = async (row: CandRow) => {
+    setPreviewingSub(row.subId);
+    try {
+      const [{ data: sub, error: subErr }, { data: cands, error: candErr }, { data: settings }] = await Promise.all([
+        sb.from("manual_risk_submissions").select("*").eq("id", row.subId).single(),
+        sb.from("manual_risk_candidates").select("*").eq("submission_id", row.subId).order("sort_order", { ascending: true }),
+        sb.from("manual_risk_settings").select("terms_and_conditions").limit(1).maybeSingle(),
+      ]);
+      if (subErr) throw subErr;
+      if (candErr) throw candErr;
+
+      let client: any = null;
+      if (sub.client_id) {
+        const { data } = await sb.from("manual_risk_clients").select("*").eq("id", sub.client_id).maybeSingle();
+        client = data;
+      }
+
+      const activeChecks = (sub.requested_checks?.length
+        ? sub.requested_checks
+        : ["id_verification", "credit", "criminal"]
+      ).filter((k: string) => CHECK_COLUMNS[k]);
+
+      const pdfCandidates: ManualRiskCandidatePdf[] = (cands ?? [])
+        .filter((c: any) => !isPlaceholderCandidate(c))
+        .map((c: any) => {
+          const results: Record<string, string | null> = {};
+          const notes: Record<string, string | null> = {};
+          for (const k of activeChecks) {
+            results[k] = c[CHECK_COLUMNS[k].result] ?? null;
+            notes[k] = c[CHECK_COLUMNS[k].notes] ?? null;
+          }
+          return {
+            id_number: c.id_number,
+            surname: c.surname,
+            first_name: c.first_name,
+            results,
+            notes,
+            id_verification_data: c.id_verification_data ?? null,
+          };
+        });
+
+      const blob = await generateManualRiskPdf({
+        orderNumber: sub.order_number,
+        clientName: client?.client_name,
+        clientContact: client?.contact_person,
+        clientEmail: client?.email,
+        submissionType: sub.submission_type,
+        candidates: pdfCandidates,
+        termsAndConditions: settings?.terms_and_conditions ?? "",
+        requestedChecks: activeChecks,
+        skipEncryption: true,
+      });
+      setReportPreview({ blob, title: `PreAppliCheck Report — ${sub.order_number}` });
+    } catch (e: any) {
+      toast.error("Failed to load report: " + (e?.message ?? String(e)));
+    } finally {
+      setPreviewingSub(null);
+    }
+  };
 
   const inProgress = useMemo(
     () => rangedSubs
