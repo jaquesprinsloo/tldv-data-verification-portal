@@ -350,6 +350,48 @@ export function MrClientDashboardTab({
           </Table>
         </div>
       </Card>
+
+      <Dialog open={listView !== null} onOpenChange={(open) => { if (!open) setListView(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {listView === "pending" && `Candidates still in progress (${stats.pendingChecks})`}
+              {listView === "flagged" && `Candidates with risk identified (${stats.flagged})`}
+              {listView === "idInvalid" && `Candidates with invalid IDs (${stats.idInvalid})`}
+            </DialogTitle>
+          </DialogHeader>
+          {(() => {
+            const rows =
+              listView === "pending" ? stats.pendingList :
+              listView === "flagged" ? stats.flaggedList :
+              listView === "idInvalid" ? stats.idInvalidList : [];
+            return rows.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">No candidates in this category.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Surname</TableHead>
+                    <TableHead>ID Number</TableHead>
+                    <TableHead>Account</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="text-sm">{r.name}</TableCell>
+                      <TableCell className="text-sm">{r.surname}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.idNumber}</TableCell>
+                      <TableCell className="text-sm">{r.account}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
