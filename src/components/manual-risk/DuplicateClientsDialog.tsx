@@ -162,9 +162,13 @@ const DuplicateClientsDialog = ({ open, onOpenChange, clients, onChanged }: Prop
 
   const mergeGroup = async (group: Group) => {
     const keeperId = keepers[group.id] ?? group.keeperId;
+    const skip = excluded[group.id] ?? new Set<string>();
     const keeper = group.members.find((m) => m.id === keeperId);
-    const losers = group.members.filter((m) => m.id !== keeperId);
-    if (!keeper || !losers.length) return;
+    const losers = group.members.filter((m) => m.id !== keeperId && !skip.has(m.id));
+    if (!keeper || !losers.length) {
+      toast.error("Select at least one account to merge in");
+      return;
+    }
     if (!confirm(`Merge ${losers.length} account(s) into "${keeper.client_name}"? All their orders, candidates and contacts move across and the duplicates are removed.`)) return;
 
     setMerging(group.id);
