@@ -699,4 +699,264 @@ function ArchiveDocumentsCard({
   );
 }
 
+/**
+ * Bulk folder upload — mirrors how the archive is stored on disk:
+ *   "June 2026 / 02 June 2026 / Risk Assessments CCS.pdf"   -> batch report
+ *   "June 2026 / 02 June 2026 / CCS / <anything>.pdf"        -> indemnity for CCS
+ * The date folder gives the submission date; the store folder (or the report
+ * filename) gives the account. Everything is matched up front and shown for
+ * correction before a single byte is uploaded.
+ */
+const MONTHS = ["january","february","march","april","may","june","july","august","september","october","november","december"];
+
+function dateFromFolder(name: string): string | null {
+  const m = normName(name).match(/^(\d{1,2}) ([a-z]+) (\d{4})$/);
+  if (!m) return null;
+  const mi = MONTHS.findIndex((x) => x.startsWith(m[2]));
+  if (mi < 0) return null;
+  return `${m[3]}-${String(mi + 1).padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+}
+
+function storeFromReportName(fileName: string): string {
+  return fileName
+    .replace(/\.[^.]+$/, "")
+    .replace(/^\s*risk\s+assessments?\s*(for)?\s*/i, "")
+    .replace(/[_-]+/g, " ")
+    .trim();
+}
+
+type PlannedFile = {
+  id: string;
+  file: File;
+  kind: "report" | "indemnity";
+  date: string;
+  store: string;
+  submissionId: string | null;
+};
+
+function BulkFolderUploadCard({
+  submissions, clients, onChanged, addLog,
+}: {
+  submissions: ArchiveSubmission[];
+  clients: Client[];
+  onChanged: () => void;
+  addLog: (s: string) => void;
+}) {
+  const [planned, setPlanned] = useState<PlannedFile[]>([]);
+  const [running, setRunning] = useState(false);
+  const [done, setDone] = useState(0);
+  const [failed, setFailed] = useState(0);
+
+  const clientName = (id: string | null) => (id ? clients.find((c) => c.id === id)?.client_name ?? "—" : "—");
+
+  const ordersByDate = useMemo(() => {
+    const map = new Map<string, ArchiveSubmission[]>();
+    for (const s of submissions) {
+      const d = new Date(s.created_at).toISOString().slice(0, 10);
+      map.set(d, [...(map.get(d) ?? []), s]);
+    }
+    return map;
+  }, [submissions]);
+
+  const matchOrder = (date: string, store: string): string | null => {
+    const sameDay = ordersByDate.get(date) ?? [];
+    let best: { id: string; score: number } | null = null;
+    for (const s of sameDay) {
+      const score = Math.max(
+        similarity(store, clientName(s.client_id)),
+        similarity(store, s.archive_batch_label ?? ""),
+      );
+      if (!best || score > best.score) best = { id: s.id, score };
+    }
+    return best && best.score >= 0.35 ? best.id : null;
+  };
+
+  const onPick = (list: FileList | null) => {
+    if (!list?.length) return;
+    const next: PlannedFile[] = [];
+    Array.from(list).forEach((file, i) => {
+      const rel = (file as any).webkitRelativePath || file.name;
+      const parts = String(rel).split("/").filter(Boolean);
+      let dateIdx = -1, date: string | null = null;
+      for (let p = 0; p < parts.length - 1; p++) {
+        const d = dateFromFolder(parts[p]);
+        if (d) { dateIdx = p; date = d; }
+      }
+      if (!date) return;                                   // outside a date folder
+      const tail = parts.slice(dateIdx + 1);
+      if (/\.(xlsx|xls|csv)$/i.test(file.name)) return;    // data sheets are not documents
+      let kind: "report" | "indemnity";
+      let store: string;
+      if (tail.length === 1) { kind = "report"; store = storeFromReportName(file.name); }
+      else { kind = "indemnity"; store = tail[tail.length - 2]; }
+      next.push({
+        id: `${i}-${rel}`, file, kind, date, store,
+        submissionId: matchOrder(date, store),
+      });
+    });
+    setPlanned(next);
+    setDone(0); setFailed(0);
+    if (!next.length) toast.error("No dated folders found in that selection");
+  };
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, PlannedFile[]>();
+    for (const p of planned) {
+      const k = `${p.date}|${normName(p.store)}`;
+      map.set(k, [...(map.get(k) ?? []), p]);
+    }
+    return Array.from(map.entries()).map(([k, files]) => ({ key: k, files }));
+  }, [planned]);
+
+  const setGroupOrder = (key: string, submissionId: string) => {
+    setPlanned((prev) => prev.map((p) =>
+      `${p.date}|${normName(p.store)}` === key ? { ...p, submissionId: submissionId || null } : p));
+  };
+
+  const unmatched = planned.filter((p) => !p.submissionId).length;
+
+  const runUpload = async () => {
+    setRunning(true); setDone(0); setFailed(0);
+    let ok = 0, bad = 0;
+    for (const p of planned) {
+      if (!p.submissionId) { bad++; setFailed(bad); continue; }
+      const sub = submissions.find((s) => s.id === p.submissionId);
+      if (!sub) { bad++; setFailed(bad); continue; }
+      try {
+        if (p.kind === "report") {
+          const path = `${sub.id}/${p.file.name}`;
+          const { error: upErr } = await sb.storage.from("archive-reports")
+            .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/pdf" });
+          if (upErr) throw upErr;
+          const { error } = await sb.from("manual_risk_submissions")
+            .update({ archive_report_path: path, archive_report_name: p.file.name } as any)
+            .eq("id", sub.id);
+          if (error) throw error;
+        } else {
+          const existing: any[] = Array.isArray(sub.indemnity_files) ? sub.indemnity_files : [];
+          if (existing.some((f) => f.name === p.file.name)) { ok++; setDone(ok); continue; }
+          const path = `${sub.id}/${Date.now()}-${p.file.name.replace(/[^\w.\-]+/g, "_")}`;
+          const { error: upErr } = await sb.storage.from("manual-risk-indemnities")
+            .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/octet-stream" });
+          if (upErr) throw upErr;
+          const entry = {
+            name: p.file.name, path, uploaded_at: new Date().toISOString(),
+            size: p.file.size, content_type: p.file.type || null,
+          };
+          (sub as any).indemnity_files = [...existing, entry];
+          const { error } = await sb.from("manual_risk_submissions")
+            .update({ indemnity_files: [...existing, entry] } as any)
+            .eq("id", sub.id);
+          if (error) throw error;
+        }
+        ok++; setDone(ok);
+      } catch (e: any) {
+        bad++; setFailed(bad);
+        addLog(`Failed "${p.file.name}" (${p.date} ${p.store}): ${e.message}`);
+      }
+    }
+    addLog(`Bulk upload finished — ${ok} attached, ${bad} skipped/failed`);
+    toast.success(`${ok} file(s) attached`);
+    setRunning(false);
+    onChanged();
+  };
+
+  return (
+    <Card className="p-4 space-y-3">
+      <h3 className="font-semibold flex items-center gap-2">
+        <Upload className="h-4 w-4 text-red-600" /> Bulk upload from your date folders
+      </h3>
+      <p className="text-sm text-muted-foreground">
+        Choose a month folder (or a single date folder) exactly as you save it. Reports saved beside the
+        date folder are treated as the batch report; anything inside a store sub-folder is treated as an
+        indemnity for that store. Data sheets are ignored. Check the matches below, fix any that are
+        wrong, then upload.
+      </p>
+
+      <label className="inline-flex">
+        <Button asChild variant="outline" size="sm" disabled={running}>
+          <span className="cursor-pointer flex items-center gap-2">
+            <FolderOpen className="h-4 w-4" /> Choose folder
+          </span>
+        </Button>
+        <input
+          type="file"
+          multiple
+          className="hidden"
+          disabled={running}
+          // @ts-expect-error non-standard but supported in Chromium/WebKit
+          webkitdirectory="true"
+          directory=""
+          onChange={(e) => { onPick(e.target.files); e.currentTarget.value = ""; }}
+        />
+      </label>
+
+      {planned.length > 0 && (
+        <>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <Badge variant="outline">{planned.length} file(s)</Badge>
+            <Badge variant="outline">{grouped.length} batch(es)</Badge>
+            {unmatched > 0
+              ? <span className="text-amber-600 flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" />{unmatched} unmatched</span>
+              : <span className="text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" />all matched</span>}
+            {running && <span className="text-muted-foreground">Uploading {done + failed}/{planned.length}…</span>}
+          </div>
+
+          <div className="overflow-x-auto max-h-96">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Folder / store</TableHead>
+                  <TableHead>Files</TableHead>
+                  <TableHead className="w-80">Archive order</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {grouped.map(({ key, files }) => {
+                  const first = files[0];
+                  const options = ordersByDate.get(first.date) ?? [];
+                  return (
+                    <TableRow key={key}>
+                      <TableCell className="whitespace-nowrap">{prettyDate(first.date)}</TableCell>
+                      <TableCell>{first.store || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {files.filter((f) => f.kind === "report").length} report ·{" "}
+                        {files.filter((f) => f.kind === "indemnity").length} indemnity
+                      </TableCell>
+                      <TableCell>
+                        <select
+                          className="w-full h-8 rounded-md border bg-background px-2 text-xs"
+                          value={first.submissionId ?? ""}
+                          disabled={running}
+                          onChange={(e) => setGroupOrder(key, e.target.value)}
+                        >
+                          <option value="">— not matched —</option>
+                          {(options.length ? options : submissions).map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {clientName(s.client_id)} — {s.order_number}
+                            </option>
+                          ))}
+                        </select>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          <Button
+            className="bg-red-600 hover:bg-red-700"
+            disabled={running || planned.length === 0}
+            onClick={runUpload}
+          >
+            {running ? `Uploading ${done + failed}/${planned.length}…` : `Upload ${planned.length} file(s)`}
+          </Button>
+        </>
+      )}
+    </Card>
+  );
+}
+
 export default ArchiveImportTab;
