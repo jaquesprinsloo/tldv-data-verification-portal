@@ -34,6 +34,7 @@ import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk
 import { MrClientDashboardTab } from "@/components/manual-risk/MrClientDashboardTab";
 import { IndemnityViewerDialog, type IndemnityFileRef } from "@/components/manual-risk/IndemnityViewerDialog";
 import { ArchiveImportTab } from "@/components/manual-risk/ArchiveImportTab";
+import DuplicateClientsDialog from "@/components/manual-risk/DuplicateClientsDialog";
 
 import { BookUser } from "lucide-react";
 
@@ -979,6 +980,7 @@ export function PdfPreview({ blob, title }: { blob: Blob; title: string }) {
 function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId: string; onChanged: () => void }) {
   const [editing, setEditing] = useState<Partial<Client> | null>(null);
   const [bookClient, setBookClient] = useState<Client | null>(null);
+  const [dupOpen, setDupOpen] = useState(false);
 
   const save = async () => {
     if (!editing?.client_name?.trim()) { toast.error("Client name is required"); return; }
@@ -1011,12 +1013,19 @@ function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId:
 
   return (
     <Card className="p-4">
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
         <p className="text-sm text-muted-foreground">{clients.length} saved client(s)</p>
-        <Button onClick={() => setEditing({})} className="bg-red-600 hover:bg-red-700">
-          <Plus className="h-4 w-4 mr-2" /> Add Client
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setDupOpen(true)}>
+            <Users className="h-4 w-4 mr-2" /> Find similar accounts
+          </Button>
+          <Button onClick={() => setEditing({})} className="bg-red-600 hover:bg-red-700">
+            <Plus className="h-4 w-4 mr-2" /> Add Client
+          </Button>
+        </div>
       </div>
+
+      <DuplicateClientsDialog open={dupOpen} onOpenChange={setDupOpen} clients={clients} onChanged={onChanged} />
 
       <Table>
         <TableHeader>
