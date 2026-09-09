@@ -94,12 +94,12 @@ export function MrDashboardTab({
   });
 
   // Supplier statement lines (reconciliation)
-  const { data: reconLines = [] } = useQuery<{ matched_candidate_id: string | null; check_key: string | null; match_status: string }[]>({
+  const { data: reconLines = [] } = useQuery<{ matched_candidate_id: string | null; check_key: string | null; match_status: string; supplier_created_at: string | null; created_at: string }[]>({
     queryKey: ["mra-dashboard-recon-lines"],
     queryFn: async () => {
       const { data, error } = await sb
         .from("manual_risk_supplier_lines")
-        .select("matched_candidate_id, check_key, match_status");
+        .select("matched_candidate_id, check_key, match_status, supplier_created_at, created_at");
       if (error) throw error;
       return (data ?? []) as any[];
     },

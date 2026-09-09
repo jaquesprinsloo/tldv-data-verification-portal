@@ -366,7 +366,18 @@ export default function ManualRiskAssessments() {
       const roles = (roleData ?? []).map((r: any) => r.role as string);
       const isMaster = roles.includes("master_admin");
       const isClientFacing = !isMaster && roles.includes("client_facing");
+      // Admins may also be granted the portal explicitly via Profile Management.
+      let hasPortalPermission = false;
       if (!isMaster && !isClientFacing) {
+        const { data: perm } = await sb
+          .from("user_permissions")
+          .select("granted")
+          .eq("user_id", session.user.id)
+          .eq("permission_key", "portal.manual_risk_assessments")
+          .maybeSingle();
+        hasPortalPermission = !!perm?.granted;
+      }
+      if (!isMaster && !isClientFacing && !hasPortalPermission) {
         toast.error("You do not have access to the Risk Assessments portal");
         navigate("/admin/portal"); return;
       }
