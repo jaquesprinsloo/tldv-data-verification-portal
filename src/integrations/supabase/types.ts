@@ -1066,6 +1066,9 @@ export type Database = {
       }
       manual_risk_submissions: {
         Row: {
+          archive_batch_label: string | null
+          archive_report_name: string | null
+          archive_report_path: string | null
           client_id: string | null
           created_at: string
           created_by: string | null
@@ -1074,6 +1077,7 @@ export type Database = {
           invoice_file_path: string | null
           invoice_number: string | null
           invoiced_at: string | null
+          is_archive: boolean
           notes: string | null
           order_number: string
           recipients: Json
@@ -1091,6 +1095,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archive_batch_label?: string | null
+          archive_report_name?: string | null
+          archive_report_path?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1099,6 +1106,7 @@ export type Database = {
           invoice_file_path?: string | null
           invoice_number?: string | null
           invoiced_at?: string | null
+          is_archive?: boolean
           notes?: string | null
           order_number: string
           recipients?: Json
@@ -1116,6 +1124,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archive_batch_label?: string | null
+          archive_report_name?: string | null
+          archive_report_path?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1124,6 +1135,7 @@ export type Database = {
           invoice_file_path?: string | null
           invoice_number?: string | null
           invoiced_at?: string | null
+          is_archive?: boolean
           notes?: string | null
           order_number?: string
           recipients?: Json

@@ -22,7 +22,9 @@ export type MrDashboardSubmission = {
   created_at: string;
   sent_at: string | null;
   requested_checks: string[] | null;
+  is_archive?: boolean | null;
 };
+
 
 type Cand = {
   id: string;
@@ -126,9 +128,21 @@ export function MrDashboardTab({
     return set;
   }, [submissions, fromDate, toDate]);
 
-  const scoped = useMemo(
+  // Historical archive records are already invoiced: they count towards volume
+  // but never towards costing, invoicing or profitability.
+  const archiveSubIds = useMemo(
+    () => new Set(submissions.filter((s) => s.is_archive).map((s) => s.id)),
+    [submissions],
+  );
+
+  const scopedAll = useMemo(
     () => candidates.filter((c) => rangedSubIds.has(c.submission_id)),
     [candidates, rangedSubIds],
+  );
+
+  const scoped = useMemo(
+    () => scopedAll.filter((c) => !archiveSubIds.has(c.submission_id)),
+    [scopedAll, archiveSubIds],
   );
 
   const stats = useMemo(() => {
@@ -144,18 +158,23 @@ export function MrDashboardTab({
       if (c.invoice_batch_id) invoiced += 1;
     }
     const subs = submissions.filter((s) => rangedSubIds.has(s.id));
+    const liveSubs = subs.filter((s) => !s.is_archive);
     return {
       perCheck,
       internal,
       ptvs,
       invoiced,
-      totalChecks: scoped.length,
-      totalSubmissions: subs.length,
-      sentSubmissions: subs.filter((s) => !!s.sent_at).length,
-      openSubmissions: subs.filter((s) => !s.sent_at).length,
+      totalChecks: scopedAll.length,
+      billableChecks: scoped.length,
+      archiveChecks: scopedAll.length - scoped.length,
+      archiveSubmissions: subs.length - liveSubs.length,
+      totalSubmissions: liveSubs.length,
+      sentSubmissions: liveSubs.filter((s) => !!s.sent_at).length,
+      openSubmissions: liveSubs.filter((s) => !s.sent_at).length,
       notInvoiced: scoped.length - invoiced,
     };
-  }, [scoped, subById, submissions, rangedSubIds]);
+  }, [scoped, scopedAll, subById, submissions, rangedSubIds]);
+
 
   // Reconciliation coverage for the candidates in range
   const recon = useMemo(() => {
@@ -292,7 +311,8 @@ export function MrDashboardTab({
 
   const perClient = useMemo(() => {
     const m = new Map<string, { name: string; isRegular: boolean; checks: number; invoiced: number; discounted: number }>();
-    for (const c of scoped) {
+    for (const c of scopedAll) {
+
       const sub = subById.get(c.submission_id);
       const effId = c.override_client_id ?? sub?.client_id ?? "__unassigned__";
       if (!m.has(effId)) {
@@ -309,7 +329,7 @@ export function MrDashboardTab({
       if (c.is_tldv_internal || c.is_ptvs_discount) g.discounted += 1;
     }
     return Array.from(m.values()).sort((a, b) => b.checks - a.checks);
-  }, [scoped, subById, clientById]);
+  }, [scopedAll, subById, clientById]);
 
   const setPreset = (days: number | "month" | "all") => {
     const now = new Date();
@@ -346,15 +366,24 @@ export function MrDashboardTab({
           <Button variant="ghost" size="sm" onClick={() => setPreset("all")}>All time</Button>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          {isLoading ? "Loading…" : `${stats.totalChecks} check(s) across ${stats.totalSubmissions} submission(s) in range. Each candidate on a submission counts as one check per requested verification.`}
+          {isLoading ? "Loading…" : `${stats.totalChecks} check(s) in range — ${stats.billableChecks} live across ${stats.totalSubmissions} submission(s)${stats.archiveChecks ? ` and ${stats.archiveChecks} historical archive check(s) (already invoiced, excluded from costing)` : ""}. Each candidate on a submission counts as one check per requested verification.`}
         </p>
       </Card>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Total checks" value={stats.totalChecks} icon={<Users className="h-3 w-3" />} />
+        <Stat
+          label="Total checks"
+          value={stats.totalChecks}
+          icon={<Users className="h-3 w-3" />}
+          details={stats.archiveChecks ? [
+            { label: "Live checks", value: String(stats.billableChecks) },
+            { label: "Archive (already invoiced)", value: String(stats.archiveChecks) },
+          ] : undefined}
+        />
         <Stat label="Submissions (sent / open)" value={`${stats.sentSubmissions} / ${stats.openSubmissions}`} icon={<FileText className="h-3 w-3" />} />
         <Stat label="Invoiced checks" value={stats.invoiced} tone="emerald" icon={<FileText className="h-3 w-3" />} />
         <Stat label="Awaiting invoice" value={stats.notInvoiced} tone="amber" icon={<FileText className="h-3 w-3" />} />
+
         <Stat
           label="TLDV internal (risk assessment 100% off)"
           value={stats.internal}
@@ -381,7 +410,7 @@ export function MrDashboardTab({
         />
         <Stat
           label="Matched to supplier recon"
-          value={`${recon.matchedCandidates} / ${stats.totalChecks}`}
+          value={`${recon.matchedCandidates} / ${stats.billableChecks}`}
           tone={recon.unmatchedCandidates ? "amber" : "emerald"}
           icon={<Link2 className="h-3 w-3" />}
           details={[

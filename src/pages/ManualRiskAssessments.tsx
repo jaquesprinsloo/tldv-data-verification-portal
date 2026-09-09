@@ -33,6 +33,8 @@ import SupplierReconTab from "@/components/manual-risk/SupplierReconTab";
 import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk/MrInvoicedTab";
 import { MrClientDashboardTab } from "@/components/manual-risk/MrClientDashboardTab";
 import { IndemnityViewerDialog, type IndemnityFileRef } from "@/components/manual-risk/IndemnityViewerDialog";
+import { ArchiveImportTab } from "@/components/manual-risk/ArchiveImportTab";
+
 import { BookUser } from "lucide-react";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -91,7 +93,13 @@ type Submission = {
   report_shared_onedrive_path?: string | null;
   supplier_report_files: SupplierReportFile[] | null;
   recipients?: MrRecipient[] | null;
+  // Historical archive import: already invoiced, kept for record keeping only.
+  is_archive?: boolean | null;
+  archive_batch_label?: string | null;
+  archive_report_path?: string | null;
+  archive_report_name?: string | null;
 };
+
 export type IndemnityFile = {
   name: string;
   path: string; // storage path in manual-risk-indemnities bucket
@@ -351,6 +359,8 @@ export default function ManualRiskAssessments() {
   // Client-facing profiles get a read-only view: no costing, no invoicing,
   // no supplier reports and no ability to create or change submissions.
   const [clientFacing, setClientFacing] = useState(false);
+  const [isMasterAdmin, setIsMasterAdmin] = useState(false);
+
 
   const closePreviewReport = () => {
     setPreviewReport(null);
@@ -384,6 +394,8 @@ export default function ManualRiskAssessments() {
       const { data: p } = await sb.from("profiles").select("full_name").eq("id", session.user.id).maybeSingle();
       setUserName(p?.full_name ?? "");
       setClientFacing(isClientFacing);
+      setIsMasterAdmin(isMaster);
+
       if (isClientFacing) setActiveTab("dashboard");
       setAllowed(true);
     })();
@@ -421,14 +433,21 @@ export default function ManualRiskAssessments() {
     return m;
   }, [clients]);
 
-  const openSubmissions = useMemo(
-    () => submissions.filter((s) => !s.sent_at),
+  // Archive records are historical, already-invoiced imports: they never appear
+  // in the working queues (submissions / invoicing) but stay searchable in Accounts.
+  const liveSubmissions = useMemo(
+    () => submissions.filter((s) => !s.is_archive),
     [submissions],
+  );
+  const openSubmissions = useMemo(
+    () => liveSubmissions.filter((s) => !s.sent_at),
+    [liveSubmissions],
   );
   const sentSubmissions = useMemo(
     () => submissions.filter((s) => !!s.sent_at),
     [submissions],
   );
+
 
   const previewPdf = async (submissionId: string) => {
     setPreviewing(submissionId);
@@ -667,13 +686,26 @@ export default function ManualRiskAssessments() {
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
             <TabsTrigger value="address-book"><Users className="h-4 w-4 mr-2" />Address Book</TabsTrigger>
             <TabsTrigger value="supplier-recon"><ClipboardList className="h-4 w-4 mr-2" />Supplier Recon</TabsTrigger>
+            {isMasterAdmin && (
+              <TabsTrigger value="archive"><FolderOpen className="h-4 w-4 mr-2" />Archive Import</TabsTrigger>
+            )}
             <TabsTrigger value="settings">T&amp;Cs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="mt-4">
-            <ClientFolderSyncCard submissions={submissions} clients={clients} userName={userName} />
+            <ClientFolderSyncCard submissions={liveSubmissions} clients={clients} userName={userName} />
             <MrDashboardTab submissions={submissions} clients={clients} />
           </TabsContent>
+
+          {isMasterAdmin && (
+            <TabsContent value="archive" className="mt-4">
+              <ArchiveImportTab clients={clients} userId={userId} onChanged={() => {
+                qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+                qc.invalidateQueries({ queryKey: ["mra-clients"] });
+              }} />
+            </TabsContent>
+          )}
+
 
           <TabsContent value="supplier-recon" className="mt-4">
             <SupplierReconTab />
@@ -799,7 +831,8 @@ export default function ManualRiskAssessments() {
           <TabsContent value="invoiced" className="mt-4">
             <MrInvoicedTab
               clients={clients}
-              submissions={submissions}
+              submissions={liveSubmissions}
+
               onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
             />
           </TabsContent>
@@ -2905,6 +2938,17 @@ async function buildSentReportBlob(
   if (subErr) throw subErr;
   if (candErr) throw candErr;
   if (!sub) throw new Error("Submission not found");
+
+  // Historical archive submissions have the original report stored as a file:
+  // show that exact document instead of regenerating one.
+  if ((sub as any).is_archive && (sub as any).archive_report_path) {
+    const { data: file, error: dlErr } = await sb.storage
+      .from("archive-reports")
+      .download((sub as any).archive_report_path);
+    if (dlErr || !file) throw dlErr ?? new Error("Archived report unavailable");
+    return { blob: file, orderNumber: sub.order_number };
+  }
+
 
   const client = sub.client_id ? clients.find((c) => c.id === sub.client_id) : undefined;
   const activeChecks = (sub.requested_checks?.length
