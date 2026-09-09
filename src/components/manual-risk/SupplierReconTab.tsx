@@ -176,11 +176,15 @@ export default function SupplierReconTab() {
     queryFn: async () => {
       const { data, error } = await sb
         .from("manual_risk_submissions")
-        .select("id, order_number, client_id, created_at, requested_checks");
+        .select("id, order_number, client_id, created_at, requested_checks")
+        // Historical archive records were invoiced long ago and must never be
+        // reconciled against current supplier statements.
+        .eq("is_archive", false);
       if (error) throw error;
       return (data ?? []) as any;
     },
   });
+
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
