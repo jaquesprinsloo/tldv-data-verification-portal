@@ -210,19 +210,20 @@ Deno.serve(async (req) => {
         if (res.status !== 409 && res.status !== 423 && res.status < 500) {
           throw new Error(`OneDrive upload failed [${res.status}]: ${JSON.stringify(data)}`);
         }
-        await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
+        // A 409 (nameAlreadyExists / resourceModified) means a concurrent write
+        // touched the same path. If the file is already there, accept it.
+        if (res.status === 409) {
+          const existing = await readExisting();
+          if (existing) { data = existing; lastStatus = 200; break; }
+        }
+        // Backoff with jitter so parallel uploads stop colliding on retry.
+        await new Promise((r) => setTimeout(r, 700 * (attempt + 1) + Math.floor(Math.random() * 500)));
       }
 
       if (lastStatus < 200 || lastStatus >= 300) {
         // Last resort: the file most likely landed already — return the existing item.
-        const existingRes = await gatewayFetch(
-          `/me/drive/root:/${encodedPath}`,
-          { method: "GET" },
-          LOVABLE_API_KEY,
-          ONEDRIVE_API_KEY,
-        );
-        const existing = await existingRes.json().catch(() => ({}));
-        if (!existingRes.ok || !existing?.id) {
+        const existing = await readExisting();
+        if (!existing) {
           throw new Error(`OneDrive upload failed [${lastStatus}]: ${JSON.stringify(data)}`);
         }
         data = existing;
