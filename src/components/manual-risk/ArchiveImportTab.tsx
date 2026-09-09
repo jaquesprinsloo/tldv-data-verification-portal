@@ -197,7 +197,7 @@ export function ArchiveImportTab({
       }
       setRows(out);
       setSkipped(bad);
-      setApprovedNew({});
+      setMappedTo({});
       toast.success(`${out.length} record(s) loaded${bad ? `, ${bad} row(s) skipped` : ""}`);
     } catch (e: any) {
       toast.error("Could not read the file: " + e.message);
@@ -226,19 +226,22 @@ export function ArchiveImportTab({
     return { stores, exact, similar, create };
   }, [rows, clients]);
 
-  /** Stores that still need a client account created (new + unapproved similars). */
+  /** Stores that still need a client account created (new + similars mapped to "create new"). */
   const toCreate = useMemo(() => {
     const list = [...recon.create];
-    for (const s of recon.similar) if (approvedNew[s.store]) list.push(s.store);
+    for (const s of recon.similar) if (mappedTo[s.store] === "__new__") list.push(s.store);
     return list;
-  }, [recon, approvedNew]);
+  }, [recon, mappedTo]);
 
   const resolveClientId = (store: string): string | null => {
     const hit = clients.find((c) => normName(c.client_name) === normName(store));
     if (hit) return hit.id;
     const sim = recon.similar.find((s) => s.store === store);
-    if (sim && !approvedNew[store]) return sim.matches[0].client.id;
-    return null;
+    if (!sim) return null;
+    const chosen = mappedTo[store];
+    if (chosen === "__new__") return null;
+    if (chosen && clients.some((c) => c.id === chosen)) return chosen;
+    return sim.matches[0].client.id; // default: closest match
   };
 
   const createMissingClients = async () => {
