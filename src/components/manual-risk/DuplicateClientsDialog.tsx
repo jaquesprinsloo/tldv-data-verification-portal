@@ -88,6 +88,15 @@ const DuplicateClientsDialog = ({ open, onOpenChange, clients, onChanged }: Prop
   const [merging, setMerging] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [keepers, setKeepers] = useState<Record<string, string>>({});
+  const [excluded, setExcluded] = useState<Record<string, Set<string>>>({});
+
+  const toggleExcluded = (groupId: string, memberId: string) =>
+    setExcluded((prev) => {
+      const set = new Set(prev[groupId] ?? []);
+      if (set.has(memberId)) set.delete(memberId);
+      else set.add(memberId);
+      return { ...prev, [groupId]: set };
+    });
 
   const groups = useMemo<Group[]>(() => {
     const normed = clients.map((c) => ({ c, n: normalise(c.client_name) }));
@@ -153,9 +162,13 @@ const DuplicateClientsDialog = ({ open, onOpenChange, clients, onChanged }: Prop
 
   const mergeGroup = async (group: Group) => {
     const keeperId = keepers[group.id] ?? group.keeperId;
+    const skip = excluded[group.id] ?? new Set<string>();
     const keeper = group.members.find((m) => m.id === keeperId);
-    const losers = group.members.filter((m) => m.id !== keeperId);
-    if (!keeper || !losers.length) return;
+    const losers = group.members.filter((m) => m.id !== keeperId && !skip.has(m.id));
+    if (!keeper || !losers.length) {
+      toast.error("Select at least one account to merge in");
+      return;
+    }
     if (!confirm(`Merge ${losers.length} account(s) into "${keeper.client_name}"? All their orders, candidates and contacts move across and the duplicates are removed.`)) return;
 
     setMerging(group.id);
@@ -225,27 +238,44 @@ const DuplicateClientsDialog = ({ open, onOpenChange, clients, onChanged }: Prop
               )}
               {groups.map((group) => {
                 const keeperId = keepers[group.id] ?? group.keeperId;
+                const skip = excluded[group.id] ?? new Set<string>();
                 return (
                   <Card key={group.id} className="p-3">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Untick any account that is not the same client — it stays exactly as it is.
+                    </p>
                     <div className="space-y-2">
                       {group.members.map((m) => {
                         const c = counts[m.id] ?? { orders: 0, candidates: 0 };
+                        const isKeeper = keeperId === m.id;
+                        const isSkipped = skip.has(m.id);
                         return (
-                          <label key={m.id} className="flex items-center gap-3 cursor-pointer">
+                          <div key={m.id} className={`flex items-center gap-3 ${isSkipped ? "opacity-50" : ""}`}>
+                            <input
+                              type="checkbox"
+                              checked={!isSkipped}
+                              disabled={isKeeper}
+                              onChange={() => toggleExcluded(group.id, m.id)}
+                              className="accent-red-600"
+                              aria-label={`Include ${m.client_name}`}
+                            />
                             <input
                               type="radio"
                               name={`keep-${group.id}`}
-                              checked={keeperId === m.id}
+                              checked={isKeeper}
+                              disabled={isSkipped}
                               onChange={() => setKeepers((p) => ({ ...p, [group.id]: m.id }))}
                               className="accent-red-600"
+                              aria-label={`Keep ${m.client_name}`}
                             />
                             <span className="font-medium flex-1">{m.client_name}</span>
                             {m.is_regular && <Badge className="bg-amber-500 text-white">Regular</Badge>}
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
                               {c.orders} order(s) · {c.candidates} candidate(s)
                             </span>
-                            {keeperId === m.id && <Badge variant="outline">Keep</Badge>}
-                          </label>
+                            {isKeeper && <Badge variant="outline">Keep</Badge>}
+                            {isSkipped && <Badge variant="outline">Leave alone</Badge>}
+                          </div>
                         );
                       })}
                     </div>
