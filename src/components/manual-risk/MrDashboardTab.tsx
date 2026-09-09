@@ -410,7 +410,7 @@ export function MrDashboardTab({
         />
         <Stat
           label="Matched to supplier recon"
-          value={`${recon.matchedCandidates} / ${stats.totalChecks}`}
+          value={`${recon.matchedCandidates} / ${stats.billableChecks}`}
           tone={recon.unmatchedCandidates ? "amber" : "emerald"}
           icon={<Link2 className="h-3 w-3" />}
           details={[
