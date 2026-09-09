@@ -22,7 +22,9 @@ export type MrDashboardSubmission = {
   created_at: string;
   sent_at: string | null;
   requested_checks: string[] | null;
+  is_archive?: boolean | null;
 };
+
 
 type Cand = {
   id: string;
