@@ -311,7 +311,8 @@ export function MrDashboardTab({
 
   const perClient = useMemo(() => {
     const m = new Map<string, { name: string; isRegular: boolean; checks: number; invoiced: number; discounted: number }>();
-    for (const c of scoped) {
+    for (const c of scopedAll) {
+
       const sub = subById.get(c.submission_id);
       const effId = c.override_client_id ?? sub?.client_id ?? "__unassigned__";
       if (!m.has(effId)) {
