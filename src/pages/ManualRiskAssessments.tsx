@@ -34,6 +34,7 @@ import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk
 import { MrClientDashboardTab } from "@/components/manual-risk/MrClientDashboardTab";
 import { IndemnityViewerDialog, type IndemnityFileRef } from "@/components/manual-risk/IndemnityViewerDialog";
 import { ArchiveImportTab } from "@/components/manual-risk/ArchiveImportTab";
+import DuplicateClientsDialog from "@/components/manual-risk/DuplicateClientsDialog";
 
 import { BookUser } from "lucide-react";
 
