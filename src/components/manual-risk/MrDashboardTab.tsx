@@ -128,9 +128,21 @@ export function MrDashboardTab({
     return set;
   }, [submissions, fromDate, toDate]);
 
-  const scoped = useMemo(
+  // Historical archive records are already invoiced: they count towards volume
+  // but never towards costing, invoicing or profitability.
+  const archiveSubIds = useMemo(
+    () => new Set(submissions.filter((s) => s.is_archive).map((s) => s.id)),
+    [submissions],
+  );
+
+  const scopedAll = useMemo(
     () => candidates.filter((c) => rangedSubIds.has(c.submission_id)),
     [candidates, rangedSubIds],
+  );
+
+  const scoped = useMemo(
+    () => scopedAll.filter((c) => !archiveSubIds.has(c.submission_id)),
+    [scopedAll, archiveSubIds],
   );
 
   const stats = useMemo(() => {
@@ -146,18 +158,23 @@ export function MrDashboardTab({
       if (c.invoice_batch_id) invoiced += 1;
     }
     const subs = submissions.filter((s) => rangedSubIds.has(s.id));
+    const liveSubs = subs.filter((s) => !s.is_archive);
     return {
       perCheck,
       internal,
       ptvs,
       invoiced,
-      totalChecks: scoped.length,
-      totalSubmissions: subs.length,
-      sentSubmissions: subs.filter((s) => !!s.sent_at).length,
-      openSubmissions: subs.filter((s) => !s.sent_at).length,
+      totalChecks: scopedAll.length,
+      billableChecks: scoped.length,
+      archiveChecks: scopedAll.length - scoped.length,
+      archiveSubmissions: subs.length - liveSubs.length,
+      totalSubmissions: liveSubs.length,
+      sentSubmissions: liveSubs.filter((s) => !!s.sent_at).length,
+      openSubmissions: liveSubs.filter((s) => !s.sent_at).length,
       notInvoiced: scoped.length - invoiced,
     };
-  }, [scoped, subById, submissions, rangedSubIds]);
+  }, [scoped, scopedAll, subById, submissions, rangedSubIds]);
+
 
   // Reconciliation coverage for the candidates in range
   const recon = useMemo(() => {
