@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -143,7 +145,8 @@ export function ArchiveImportTab({
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
   const [log, setLog] = useState<string[]>([]);
-  const [approvedNew, setApprovedNew] = useState<Record<string, boolean>>({});
+  /** Per spreadsheet store name: existing client id it maps to, or "__new__" to create one. */
+  const [mappedTo, setMappedTo] = useState<Record<string, string>>({});
 
   const addLog = (line: string) => setLog((l) => [`${new Date().toLocaleTimeString()} — ${line}`, ...l].slice(0, 400));
 
@@ -194,7 +197,7 @@ export function ArchiveImportTab({
       }
       setRows(out);
       setSkipped(bad);
-      setApprovedNew({});
+      setMappedTo({});
       toast.success(`${out.length} record(s) loaded${bad ? `, ${bad} row(s) skipped` : ""}`);
     } catch (e: any) {
       toast.error("Could not read the file: " + e.message);
@@ -223,19 +226,22 @@ export function ArchiveImportTab({
     return { stores, exact, similar, create };
   }, [rows, clients]);
 
-  /** Stores that still need a client account created (new + unapproved similars). */
+  /** Stores that still need a client account created (new + similars mapped to "create new"). */
   const toCreate = useMemo(() => {
     const list = [...recon.create];
-    for (const s of recon.similar) if (approvedNew[s.store]) list.push(s.store);
+    for (const s of recon.similar) if (mappedTo[s.store] === "__new__") list.push(s.store);
     return list;
-  }, [recon, approvedNew]);
+  }, [recon, mappedTo]);
 
   const resolveClientId = (store: string): string | null => {
     const hit = clients.find((c) => normName(c.client_name) === normName(store));
     if (hit) return hit.id;
     const sim = recon.similar.find((s) => s.store === store);
-    if (sim && !approvedNew[store]) return sim.matches[0].client.id;
-    return null;
+    if (!sim) return null;
+    const chosen = mappedTo[store];
+    if (chosen === "__new__") return null;
+    if (chosen && clients.some((c) => c.id === chosen)) return chosen;
+    return sim.matches[0].client.id; // default: closest match
   };
 
   const createMissingClients = async () => {
@@ -276,7 +282,7 @@ export function ArchiveImportTab({
   const unresolvedStores = useMemo(
     () => orders.filter((o) => !resolveClientId(o.storeAccount)).map((o) => o.storeAccount),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [orders, clients, approvedNew],
+    [orders, clients, mappedTo],
   );
 
   const runImport = async () => {
@@ -433,35 +439,44 @@ export function ArchiveImportTab({
               <div className="space-y-2">
                 <p className="text-sm flex items-center gap-1.5">
                   <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  These names look like accounts you already have. Leave unticked to use the existing
-                  account, or tick to create a separate new account.
+                  These names look like accounts you already have. Choose which existing account the
+                  checks belong to, or choose "Create new account" if it really is a different client.
                 </p>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name in spreadsheet</TableHead>
-                        <TableHead>Closest existing account(s)</TableHead>
-                        <TableHead className="w-32">Create new</TableHead>
+                        <TableHead>Checks fall under</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {recon.similar.map((s) => (
                         <TableRow key={s.store}>
                           <TableCell className="font-medium">{s.store}</TableCell>
-                          <TableCell className="text-sm">
-                            {s.matches.map((m) => (
-                              <div key={m.client.id}>
-                                {m.client.client_name}{" "}
-                                <Badge variant="outline" className="text-[10px]">{Math.round(m.score * 100)}% alike</Badge>
-                              </div>
-                            ))}
-                          </TableCell>
                           <TableCell>
-                            <Checkbox
-                              checked={!!approvedNew[s.store]}
-                              onCheckedChange={(v) => setApprovedNew((p) => ({ ...p, [s.store]: !!v }))}
-                            />
+                            <Select
+                              value={mappedTo[s.store] ?? s.matches[0].client.id}
+                              onValueChange={(v) => setMappedTo((p) => ({ ...p, [s.store]: v }))}
+                            >
+                              <SelectTrigger className="w-full max-w-md">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {s.matches.map((m) => (
+                                  <SelectItem key={m.client.id} value={m.client.id}>
+                                    {m.client.client_name} ({Math.round(m.score * 100)}% alike)
+                                  </SelectItem>
+                                ))}
+                                {clients
+                                  .filter((c) => !s.matches.some((m) => m.client.id === c.id))
+                                  .sort((a, b) => a.client_name.localeCompare(b.client_name))
+                                  .map((c) => (
+                                    <SelectItem key={c.id} value={c.id}>{c.client_name}</SelectItem>
+                                  ))}
+                                <SelectItem value="__new__">— Create new account "{s.store}" —</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </TableCell>
                         </TableRow>
                       ))}
