@@ -176,9 +176,24 @@ Deno.serve(async (req) => {
       // OneDrive returns 409 (nameAlreadyExists / resourceModified) when the same
       // file is written concurrently or already exists. Force a replace and retry
       // a few times; if it still conflicts, fall back to reading the existing item.
+      const readExisting = async () => {
+        for (let i = 0; i < 3; i++) {
+          const res = await gatewayFetch(
+            `/me/drive/root:/${encodedPath}`,
+            { method: "GET" },
+            LOVABLE_API_KEY,
+            ONEDRIVE_API_KEY,
+          );
+          const json = await res.json().catch(() => ({}));
+          if (res.ok && json?.id) return json;
+          await new Promise((r) => setTimeout(r, 600 * (i + 1)));
+        }
+        return null;
+      };
+
       let data: any = null;
       let lastStatus = 0;
-      for (let attempt = 0; attempt < 4; attempt++) {
+      for (let attempt = 0; attempt < 6; attempt++) {
         const res = await gatewayFetch(
           `/me/drive/root:/${encodedPath}:/content?@microsoft.graph.conflictBehavior=replace`,
           {
