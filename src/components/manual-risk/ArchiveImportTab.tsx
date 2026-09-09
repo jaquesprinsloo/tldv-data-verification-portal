@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -143,7 +145,8 @@ export function ArchiveImportTab({
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
   const [log, setLog] = useState<string[]>([]);
-  const [approvedNew, setApprovedNew] = useState<Record<string, boolean>>({});
+  /** Per spreadsheet store name: existing client id it maps to, or "__new__" to create one. */
+  const [mappedTo, setMappedTo] = useState<Record<string, string>>({});
 
   const addLog = (line: string) => setLog((l) => [`${new Date().toLocaleTimeString()} — ${line}`, ...l].slice(0, 400));
 
