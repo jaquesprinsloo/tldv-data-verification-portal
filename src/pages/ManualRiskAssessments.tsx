@@ -357,6 +357,8 @@ export default function ManualRiskAssessments() {
   // Client-facing profiles get a read-only view: no costing, no invoicing,
   // no supplier reports and no ability to create or change submissions.
   const [clientFacing, setClientFacing] = useState(false);
+  const [isMasterAdmin, setIsMasterAdmin] = useState(false);
+
 
   const closePreviewReport = () => {
     setPreviewReport(null);
