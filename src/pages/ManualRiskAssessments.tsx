@@ -91,7 +91,13 @@ type Submission = {
   report_shared_onedrive_path?: string | null;
   supplier_report_files: SupplierReportFile[] | null;
   recipients?: MrRecipient[] | null;
+  // Historical archive import: already invoiced, kept for record keeping only.
+  is_archive?: boolean | null;
+  archive_batch_label?: string | null;
+  archive_report_path?: string | null;
+  archive_report_name?: string | null;
 };
+
 export type IndemnityFile = {
   name: string;
   path: string; // storage path in manual-risk-indemnities bucket
