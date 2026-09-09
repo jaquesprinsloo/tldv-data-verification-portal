@@ -366,15 +366,24 @@ export function MrDashboardTab({
           <Button variant="ghost" size="sm" onClick={() => setPreset("all")}>All time</Button>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          {isLoading ? "Loading…" : `${stats.totalChecks} check(s) across ${stats.totalSubmissions} submission(s) in range. Each candidate on a submission counts as one check per requested verification.`}
+          {isLoading ? "Loading…" : `${stats.totalChecks} check(s) in range — ${stats.billableChecks} live across ${stats.totalSubmissions} submission(s)${stats.archiveChecks ? ` and ${stats.archiveChecks} historical archive check(s) (already invoiced, excluded from costing)` : ""}. Each candidate on a submission counts as one check per requested verification.`}
         </p>
       </Card>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Total checks" value={stats.totalChecks} icon={<Users className="h-3 w-3" />} />
+        <Stat
+          label="Total checks"
+          value={stats.totalChecks}
+          icon={<Users className="h-3 w-3" />}
+          details={stats.archiveChecks ? [
+            { label: "Live checks", value: String(stats.billableChecks) },
+            { label: "Archive (already invoiced)", value: String(stats.archiveChecks) },
+          ] : undefined}
+        />
         <Stat label="Submissions (sent / open)" value={`${stats.sentSubmissions} / ${stats.openSubmissions}`} icon={<FileText className="h-3 w-3" />} />
         <Stat label="Invoiced checks" value={stats.invoiced} tone="emerald" icon={<FileText className="h-3 w-3" />} />
         <Stat label="Awaiting invoice" value={stats.notInvoiced} tone="amber" icon={<FileText className="h-3 w-3" />} />
+
         <Stat
           label="TLDV internal (risk assessment 100% off)"
           value={stats.internal}
