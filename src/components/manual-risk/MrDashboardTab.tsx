@@ -285,7 +285,7 @@ export function MrDashboardTab({
       rows: list as (Row & { effectiveCost: number; profit: number })[],
       totals, unaccountedQty, unaccountedCost, netCost, profit, margin,
     };
-  }, [scoped, subById, pm, reconLines]);
+  }, [scoped, subById, pm, reconLines, fromDate, toDate]);
 
 
 
