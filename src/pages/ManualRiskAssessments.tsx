@@ -427,14 +427,21 @@ export default function ManualRiskAssessments() {
     return m;
   }, [clients]);
 
-  const openSubmissions = useMemo(
-    () => submissions.filter((s) => !s.sent_at),
+  // Archive records are historical, already-invoiced imports: they never appear
+  // in the working queues (submissions / invoicing) but stay searchable in Accounts.
+  const liveSubmissions = useMemo(
+    () => submissions.filter((s) => !s.is_archive),
     [submissions],
+  );
+  const openSubmissions = useMemo(
+    () => liveSubmissions.filter((s) => !s.sent_at),
+    [liveSubmissions],
   );
   const sentSubmissions = useMemo(
     () => submissions.filter((s) => !!s.sent_at),
     [submissions],
   );
+
 
   const previewPdf = async (submissionId: string) => {
     setPreviewing(submissionId);
