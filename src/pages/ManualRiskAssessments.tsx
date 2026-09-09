@@ -392,6 +392,8 @@ export default function ManualRiskAssessments() {
       const { data: p } = await sb.from("profiles").select("full_name").eq("id", session.user.id).maybeSingle();
       setUserName(p?.full_name ?? "");
       setClientFacing(isClientFacing);
+      setIsMasterAdmin(isMaster);
+
       if (isClientFacing) setActiveTab("dashboard");
       setAllowed(true);
     })();
