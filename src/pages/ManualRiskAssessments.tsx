@@ -33,6 +33,8 @@ import SupplierReconTab from "@/components/manual-risk/SupplierReconTab";
 import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk/MrInvoicedTab";
 import { MrClientDashboardTab } from "@/components/manual-risk/MrClientDashboardTab";
 import { IndemnityViewerDialog, type IndemnityFileRef } from "@/components/manual-risk/IndemnityViewerDialog";
+import { ArchiveImportTab } from "@/components/manual-risk/ArchiveImportTab";
+
 import { BookUser } from "lucide-react";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
