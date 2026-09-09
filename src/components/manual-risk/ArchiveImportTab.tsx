@@ -516,12 +516,20 @@ export function ArchiveImportTab({
         </>
       )}
 
+      <BulkFolderUploadCard
+        submissions={archiveSubs}
+        clients={clients}
+        onChanged={() => { refetchArchive(); onChanged(); }}
+        addLog={addLog}
+      />
+
       <ArchiveDocumentsCard
         submissions={archiveSubs}
         clients={clients}
         onChanged={() => { refetchArchive(); onChanged(); }}
         addLog={addLog}
       />
+
 
       {log.length > 0 && (
         <Card className="p-4">
