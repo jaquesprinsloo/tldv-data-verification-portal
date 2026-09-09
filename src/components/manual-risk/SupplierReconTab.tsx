@@ -163,13 +163,23 @@ export default function SupplierReconTab() {
   const { data: ourCandidates = [] } = useQuery<OurCandidate[]>({
     queryKey: ["mra-recon-candidates"],
     queryFn: async () => {
+      // Historical archive submissions are already invoiced and must never be
+      // matched against a current supplier statement.
+      const { data: archiveSubs, error: archErr } = await sb
+        .from("manual_risk_submissions")
+        .select("id")
+        .eq("is_archive", true);
+      if (archErr) throw archErr;
+      const archiveIds = new Set((archiveSubs ?? []).map((s: any) => s.id));
       const { data, error } = await sb
         .from("manual_risk_candidates")
         .select("id, submission_id, id_number, first_name, surname, is_tldv_internal, is_ptvs_discount, override_client_id");
       if (error) throw error;
-      return ((data ?? []) as any[]).filter((c) => !isPlaceholderCandidate(c as any)) as any;
+      return ((data ?? []) as any[])
+        .filter((c) => !isPlaceholderCandidate(c as any) && !archiveIds.has(c.submission_id)) as any;
     },
   });
+
 
   const { data: ourSubmissions = [] } = useQuery<OurSubmission[]>({
     queryKey: ["mra-recon-submissions"],
