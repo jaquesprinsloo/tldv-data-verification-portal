@@ -979,6 +979,7 @@ export function PdfPreview({ blob, title }: { blob: Blob; title: string }) {
 function ClientsTab({ clients, userId, onChanged }: { clients: Client[]; userId: string; onChanged: () => void }) {
   const [editing, setEditing] = useState<Partial<Client> | null>(null);
   const [bookClient, setBookClient] = useState<Client | null>(null);
+  const [dupOpen, setDupOpen] = useState(false);
 
   const save = async () => {
     if (!editing?.client_name?.trim()) { toast.error("Client name is required"); return; }
