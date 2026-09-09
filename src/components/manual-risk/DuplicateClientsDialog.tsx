@@ -238,27 +238,44 @@ const DuplicateClientsDialog = ({ open, onOpenChange, clients, onChanged }: Prop
               )}
               {groups.map((group) => {
                 const keeperId = keepers[group.id] ?? group.keeperId;
+                const skip = excluded[group.id] ?? new Set<string>();
                 return (
                   <Card key={group.id} className="p-3">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Untick any account that is not the same client — it stays exactly as it is.
+                    </p>
                     <div className="space-y-2">
                       {group.members.map((m) => {
                         const c = counts[m.id] ?? { orders: 0, candidates: 0 };
+                        const isKeeper = keeperId === m.id;
+                        const isSkipped = skip.has(m.id);
                         return (
-                          <label key={m.id} className="flex items-center gap-3 cursor-pointer">
+                          <div key={m.id} className={`flex items-center gap-3 ${isSkipped ? "opacity-50" : ""}`}>
+                            <input
+                              type="checkbox"
+                              checked={!isSkipped}
+                              disabled={isKeeper}
+                              onChange={() => toggleExcluded(group.id, m.id)}
+                              className="accent-red-600"
+                              aria-label={`Include ${m.client_name}`}
+                            />
                             <input
                               type="radio"
                               name={`keep-${group.id}`}
-                              checked={keeperId === m.id}
+                              checked={isKeeper}
+                              disabled={isSkipped}
                               onChange={() => setKeepers((p) => ({ ...p, [group.id]: m.id }))}
                               className="accent-red-600"
+                              aria-label={`Keep ${m.client_name}`}
                             />
                             <span className="font-medium flex-1">{m.client_name}</span>
                             {m.is_regular && <Badge className="bg-amber-500 text-white">Regular</Badge>}
                             <span className="text-xs text-muted-foreground whitespace-nowrap">
                               {c.orders} order(s) · {c.candidates} candidate(s)
                             </span>
-                            {keeperId === m.id && <Badge variant="outline">Keep</Badge>}
-                          </label>
+                            {isKeeper && <Badge variant="outline">Keep</Badge>}
+                            {isSkipped && <Badge variant="outline">Leave alone</Badge>}
+                          </div>
                         );
                       })}
                     </div>
