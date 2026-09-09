@@ -829,7 +829,8 @@ export default function ManualRiskAssessments() {
           <TabsContent value="invoiced" className="mt-4">
             <MrInvoicedTab
               clients={clients}
-              submissions={submissions}
+              submissions={liveSubmissions}
+
               onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
             />
           </TabsContent>
