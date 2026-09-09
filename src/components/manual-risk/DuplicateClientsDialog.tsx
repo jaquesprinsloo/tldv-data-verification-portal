@@ -88,6 +88,15 @@ const DuplicateClientsDialog = ({ open, onOpenChange, clients, onChanged }: Prop
   const [merging, setMerging] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [keepers, setKeepers] = useState<Record<string, string>>({});
+  const [excluded, setExcluded] = useState<Record<string, Set<string>>>({});
+
+  const toggleExcluded = (groupId: string, memberId: string) =>
+    setExcluded((prev) => {
+      const set = new Set(prev[groupId] ?? []);
+      if (set.has(memberId)) set.delete(memberId);
+      else set.add(memberId);
+      return { ...prev, [groupId]: set };
+    });
 
   const groups = useMemo<Group[]>(() => {
     const normed = clients.map((c) => ({ c, n: normalise(c.client_name) }));
