@@ -94,12 +94,12 @@ export function MrDashboardTab({
   });
 
   // Supplier statement lines (reconciliation)
-  const { data: reconLines = [] } = useQuery<{ matched_candidate_id: string | null; check_key: string | null; match_status: string }[]>({
+  const { data: reconLines = [] } = useQuery<{ matched_candidate_id: string | null; check_key: string | null; match_status: string; supplier_created_at: string | null; created_at: string }[]>({
     queryKey: ["mra-dashboard-recon-lines"],
     queryFn: async () => {
       const { data, error } = await sb
         .from("manual_risk_supplier_lines")
-        .select("matched_candidate_id, check_key, match_status");
+        .select("matched_candidate_id, check_key, match_status, supplier_created_at, created_at");
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -230,6 +230,16 @@ export function MrDashboardTab({
     }
 
     // Statement lines matched to candidates in range -> actual supplier charges
+    const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
+    const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
+    const lineInRange = (l: { supplier_created_at: string | null; created_at: string }) => {
+      if (from === null && to === null) return true;
+      const ts = new Date(l.supplier_created_at ?? l.created_at).getTime();
+      if (Number.isNaN(ts)) return false;
+      if (from !== null && ts < from) return false;
+      if (to !== null && ts > to) return false;
+      return true;
+    };
     let unaccountedQty = 0, unaccountedCost = 0;
     for (const l of reconLines) {
       const key = l.check_key;
@@ -239,7 +249,9 @@ export function MrDashboardTab({
         const r = get(key);
         r.reconQty += 1;
         r.reconCost += supplierCost;
-      } else if (l.match_status !== "matched") {
+      } else if (l.match_status !== "matched" && lineInRange(l)) {
+        // Only supplier charges dated inside the selected window count against
+        // the revenue shown for that window.
         unaccountedQty += 1;
         unaccountedCost += supplierCost;
       }
@@ -273,7 +285,7 @@ export function MrDashboardTab({
       rows: list as (Row & { effectiveCost: number; profit: number })[],
       totals, unaccountedQty, unaccountedCost, netCost, profit, margin,
     };
-  }, [scoped, subById, pm, reconLines]);
+  }, [scoped, subById, pm, reconLines, fromDate, toDate]);
 
 
 
