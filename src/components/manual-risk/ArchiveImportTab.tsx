@@ -2005,7 +2005,71 @@ function BulkFolderUploadCard({
           </Button>
         </>
       )}
+
+      {unresolved.length > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-semibold text-amber-800 flex items-center gap-1">
+              <AlertTriangle className="h-4 w-4" />
+              {unresolved.length} batch(es) saved to revisit
+            </span>
+            <Button variant="outline" size="sm" onClick={downloadUnresolved}>
+              Download list
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setUnresolved([])}
+            >
+              Clear list
+            </Button>
+          </div>
+          <p className="text-xs text-amber-800">
+            These folders could not be placed on an archive order during the name check. They stay here
+            (even after a reload) until you clear them, so you can come back once everything else is loaded.
+          </p>
+          <div className="overflow-x-auto max-h-72">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Folder / store</TableHead>
+                  <TableHead>Why</TableHead>
+                  <TableHead>Files</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {unresolved.map((u) => (
+                  <TableRow key={u.key}>
+                    <TableCell className="whitespace-nowrap">{prettyDate(u.date)}</TableCell>
+                    <TableCell>{u.store || "—"}</TableCell>
+                    <TableCell className="text-xs text-amber-700">{u.reason}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {u.files.length} file(s)
+                      {u.files.length > 0 && (
+                        <div className="text-[11px]">{u.files.slice(0, 4).join(", ")}
+                          {u.files.length > 4 ? ` +${u.files.length - 4} more` : ""}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        className="text-[11px] text-red-600 hover:underline"
+                        onClick={() => setUnresolved((prev) => prev.filter((x) => x.key !== u.key))}
+                      >
+                        Remove
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
     </Card>
+
   );
 }
 
