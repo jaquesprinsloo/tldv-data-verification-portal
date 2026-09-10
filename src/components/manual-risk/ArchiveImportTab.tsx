@@ -1167,6 +1167,7 @@ function BulkFolderUploadCard({
     URL.revokeObjectURL(url);
   };
 
+  const candCache = useRef<ArchiveCandidateRow[] | null>(null);
 
 
   /** All archive candidates, loaded once and cached (paged past the 1000 limit). */
