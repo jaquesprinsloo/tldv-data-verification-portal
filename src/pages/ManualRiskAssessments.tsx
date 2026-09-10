@@ -3395,6 +3395,7 @@ function AccountsTab({
                   <TableHead>Surname</TableHead>
                   <TableHead>ID number</TableHead>
                   <TableHead>Client</TableHead>
+                  <TableHead>Source</TableHead>
                   <TableHead>Order #</TableHead>
                   <TableHead>Sent</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -3402,21 +3403,27 @@ function AccountsTab({
               </TableHeader>
               <TableBody>
                 {searching && searchResults.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-4">Searching…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-4">Searching…</TableCell></TableRow>
                 ) : searchResults.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-4">No matching candidates found.</TableCell></TableRow>
-                ) : searchResults.map(({ c, sub, client }) => (
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-4">No matching candidates found.</TableCell></TableRow>
+                ) : searchResults.map(({ c, sub, client, isArchive }) => (
                   <TableRow key={c.id}>
                     <TableCell>{c.first_name}</TableCell>
                     <TableCell>{c.surname}</TableCell>
                     <TableCell>{c.id_number}</TableCell>
                     <TableCell>{client?.client_name ?? "Unassigned"}</TableCell>
+                    <TableCell>
+                      {isArchive
+                        ? <Badge variant="outline" className="text-[10px]">Archive</Badge>
+                        : <Badge className="bg-emerald-600 text-[10px]">Current</Badge>}
+                    </TableCell>
                     <TableCell>{sub!.order_number}</TableCell>
                     <TableCell>{sub!.sent_at ? new Date(sub!.sent_at).toLocaleDateString() : "—"}</TableCell>
                     <TableCell className="text-right">
                       <Button size="sm" variant="outline" onClick={() => {
                         const effId = (c as any).override_client_id ?? sub!.client_id ?? null;
                         setHighlightCandidateId(c.id);
+                        setOpenMode(isArchive ? "archive" : "live");
                         setOpenClientId(effId ?? "unassigned");
                       }}>
                         Open account
