@@ -1524,8 +1524,13 @@ function BulkFolderUploadCard({
 
   /** Attaches one file to one archive order (skipping exact duplicates) and mirrors it to OneDrive. */
   const attachFileTo = async (sub: ArchiveSubmission, p: PlannedFile) => {
+    if (isMasterIndemnity(p.file.name)) {
+      addLog(`Skipped "${p.file.name}" — master indemnity files are never attached`);
+      return;
+    }
     const clientName = clients.find((c) => c.id === sub.client_id)?.client_name ?? "Unassigned";
     const contentType = p.file.type || "application/octet-stream";
+
 
     if (p.kind === "report") {
       // Already attached with the same file name — leave it alone.
