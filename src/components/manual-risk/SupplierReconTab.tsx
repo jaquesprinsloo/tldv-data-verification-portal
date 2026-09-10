@@ -316,7 +316,29 @@ export default function SupplierReconTab() {
         if (error) throw error;
       }
 
+      // Record, per order, when it was actually sent to the provider for screening.
+      // The earliest "Created at" on the statement is the send date.
+      const earliest = new Map<string, string>();
+      for (const p of parsed) {
+        const ord = norm(p.internal_order_number).toLowerCase();
+        if (!ord || !p.supplier_created_at) continue;
+        const prev = earliest.get(ord);
+        if (!prev || p.supplier_created_at < prev) earliest.set(ord, p.supplier_created_at);
+      }
+      let dated = 0;
+      for (const [ord, ts] of earliest) {
+        const match = ourSubmissions.find((s) => norm(s.order_number).toLowerCase() === ord);
+        if (!match) continue;
+        const { error } = await sb.from("manual_risk_submissions")
+          .update({ sent_to_supplier_at: ts })
+          .eq("id", match.id)
+          .is("sent_to_supplier_at", null);
+        if (!error) dated++;
+      }
+      if (dated) toast.success(`Screening send date recorded for ${dated} order(s)`);
+
       toast.success(`Imported ${rows.length} statement line(s)`);
+
       setUploadOpen(false);
       setFile(null);
       setForm({ name: "", period_start: "", period_end: "", supplier_invoice_number: "", supplier_invoice_total: "", notes: "" });

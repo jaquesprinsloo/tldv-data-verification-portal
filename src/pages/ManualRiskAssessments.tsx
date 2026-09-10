@@ -7,7 +7,7 @@ import * as XLSX from "xlsx";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download, Eye, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo2, RefreshCw } from "lucide-react";
-import { Star, ArrowRightLeft, Percent, FolderOpen, LayoutDashboard } from "lucide-react";
+import { Star, ArrowRightLeft, Percent, FolderOpen, LayoutDashboard, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +35,8 @@ import { MrClientDashboardTab } from "@/components/manual-risk/MrClientDashboard
 import { IndemnityViewerDialog, type IndemnityFileRef } from "@/components/manual-risk/IndemnityViewerDialog";
 import { ArchiveImportTab } from "@/components/manual-risk/ArchiveImportTab";
 import DuplicateClientsDialog from "@/components/manual-risk/DuplicateClientsDialog";
+import ComplianceTab from "@/components/manual-risk/ComplianceTab";
+
 
 import { BookUser } from "lucide-react";
 
@@ -82,6 +84,9 @@ type Submission = {
   notes: string | null; created_at: string;
   requested_checks: string[] | null;
   sent_at: string | null;
+  sent_to_supplier_at?: string | null;
+  compliance_flag?: string | null;
+
   invoiced_at: string | null;
   invoice_number: string | null;
   invoice_file_path: string | null;
@@ -105,6 +110,8 @@ export type IndemnityFile = {
   name: string;
   path: string; // storage path in manual-risk-indemnities bucket
   uploaded_at: string;
+  uploaded_by?: string | null;
+  uploaded_by_name?: string | null;
   size?: number;
   content_type?: string;
   onedrive_web_url?: string | null;
@@ -117,6 +124,8 @@ export type SupplierReportFile = {
   name: string;
   path: string; // storage path in manual-risk-supplier-reports bucket
   uploaded_at: string;
+  uploaded_by?: string | null;
+  uploaded_by_name?: string | null;
   size?: number;
   content_type?: string;
   onedrive_web_url?: string | null;
@@ -124,7 +133,45 @@ export type SupplierReportFile = {
   extracted_id_numbers?: string[];
 };
 
+/** Who is doing this, for the record trail. Cached for the session. */
+let actorCache: { id: string; name: string } | null = null;
+export async function currentActor(): Promise<{ id: string; name: string }> {
+  if (actorCache) return actorCache;
+  const { data: { session } } = await supabase.auth.getSession();
+  const id = session?.user?.id ?? "";
+  let name = "";
+  if (id) {
+    const { data } = await (supabase as any).from("profiles").select("full_name, email").eq("id", id).maybeSingle();
+    name = data?.full_name || data?.email || "";
+  }
+  actorCache = { id, name };
+  return actorCache;
+}
+
+/** Records that a user opened a consent form, supplier report or client report. */
+export async function logRecordAccess(args: {
+  submissionId?: string | null;
+  candidateId?: string | null;
+  action: string;
+  detail?: string | null;
+}): Promise<void> {
+  try {
+    const actor = await currentActor();
+    if (!actor.id) return;
+    await (supabase as any).from("manual_risk_access_log").insert({
+      user_id: actor.id,
+      submission_id: args.submissionId ?? null,
+      candidate_id: args.candidateId ?? null,
+      action: args.action,
+      detail: args.detail ?? null,
+    });
+  } catch (e) {
+    console.warn("access log failed", e);
+  }
+}
+
 type OneDriveUploadResult = { webUrl: string | null; itemId: string | null; fullPath: string | null };
+
 
 /** Uploads a file to OneDrive via the edge function. `shared: true` targets the
  *  client-facing folder tree (reports + indemnities only, never supplier reports). */
@@ -228,6 +275,9 @@ async function uploadSupplierReport(
     name: file.name,
     path,
     uploaded_at: new Date().toISOString(),
+    uploaded_by: (await currentActor()).id || null,
+    uploaded_by_name: (await currentActor()).name || null,
+
     size: file.size,
     content_type: file.type || "application/pdf",
     onedrive_web_url,
@@ -316,6 +366,9 @@ async function uploadIndemnity(
     name: file.name,
     path,
     uploaded_at: new Date().toISOString(),
+    uploaded_by: (await currentActor()).id || null,
+    uploaded_by_name: (await currentActor()).name || null,
+
     size: file.size,
     content_type: contentType,
     onedrive_web_url,
@@ -502,7 +555,9 @@ export default function ManualRiskAssessments() {
         skipEncryption: true,
       });
 
+      void logRecordAccess({ submissionId: sub.id, action: "view_client_report", detail: sub.order_number });
       setPreviewReport({ blob, title: `PreAppliCheck Report — ${sub.order_number}` });
+
     } catch (e: any) {
       toast.error("Failed to preview report: " + e.message);
     } finally {
@@ -687,11 +742,17 @@ export default function ManualRiskAssessments() {
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
             <TabsTrigger value="address-book"><Users className="h-4 w-4 mr-2" />Address Book</TabsTrigger>
             <TabsTrigger value="supplier-recon"><ClipboardList className="h-4 w-4 mr-2" />Supplier Recon</TabsTrigger>
+            <TabsTrigger value="compliance"><ShieldAlert className="h-4 w-4 mr-2" />Compliance</TabsTrigger>
             {isMasterAdmin && (
               <TabsTrigger value="archive"><FolderOpen className="h-4 w-4 mr-2" />Archive Import</TabsTrigger>
             )}
             <TabsTrigger value="settings">T&amp;Cs</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="compliance" className="mt-4">
+            <ComplianceTab userId={userId} userName={userName} />
+          </TabsContent>
+
 
           <TabsContent value="dashboard" className="mt-4">
             <ClientFolderSyncCard submissions={liveSubmissions} clients={clients} userName={userName} />
@@ -1236,13 +1297,8 @@ function NewSubmissionDialog({
   const [mailCc, setMailCc] = useState("admin@tldv.co.za");
   const [mailSubject, setMailSubject] = useState("");
   const [mailMessage, setMailMessage] = useState("");
-  const [createdDate, setCreatedDate] = useState<string>(() => {
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  });
+
+
 
   useEffect(() => {
     if (clients.length === 0) setClientMode("new");
@@ -1408,16 +1464,6 @@ function NewSubmissionDialog({
 
     setBusy(true);
     try {
-      // Build created_at from the admin-selected date, preserving current time-of-day
-      let createdAtIso: string | undefined;
-      if (createdDate) {
-        const [y, m, d] = createdDate.split("-").map(Number);
-        if (y && m && d) {
-          const now = new Date();
-          const dt = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
-          createdAtIso = dt.toISOString();
-        }
-      }
       const { data: sub, error: subErr } = await sb.from("manual_risk_submissions")
         .insert({
           order_number: orderNumber.trim(),
@@ -1427,9 +1473,9 @@ function NewSubmissionDialog({
           requested_checks: selectedChecks,
           created_by: userId,
           recipients: recipients.filter((r) => r.email?.trim()),
-          ...(createdAtIso ? { created_at: createdAtIso } : {}),
         })
         .select("id").single();
+
       if (subErr) throw subErr;
 
       const rows = candidates.map((c, idx) => ({
@@ -1714,17 +1760,8 @@ function NewSubmissionDialog({
               )}
             </div>
 
-            <div className="space-y-2 border-t pt-4">
-              <Label>Submission Date</Label>
-              <p className="text-xs text-muted-foreground">
-                Defaults to today. Adjust if you're recording a submission received earlier.
-              </p>
-              <Input
-                type="date"
-                value={createdDate}
-                onChange={(e) => setCreatedDate(e.target.value)}
-              />
-            </div>
+
+
 
             <div className="border-t pt-4">
               <label className="flex items-start gap-2 text-sm cursor-pointer">
@@ -2171,6 +2208,39 @@ function SubmissionDetailsDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Record trail: what happened when, and who did it */}
+        <div className="border rounded-md p-3 mb-3 text-xs bg-muted/20 grid gap-1 sm:grid-cols-2">
+          <div><span className="text-muted-foreground">Submission captured: </span>{new Date(sub.created_at).toLocaleString("en-ZA")}</div>
+          <div>
+            <span className="text-muted-foreground">Sent for screening: </span>
+            {sub.sent_to_supplier_at ? new Date(sub.sent_to_supplier_at).toLocaleString("en-ZA") : "not recorded yet"}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Consent form(s) uploaded: </span>
+            {(sub.indemnity_files ?? []).length
+              ? (sub.indemnity_files ?? []).map((f) =>
+                  `${new Date(f.uploaded_at).toLocaleDateString("en-ZA")}${f.uploaded_by_name ? ` by ${f.uploaded_by_name}` : ""}`,
+                ).join(", ")
+              : "none"}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Provider report(s) uploaded: </span>
+            {(sub.supplier_report_files ?? []).length
+              ? (sub.supplier_report_files ?? []).map((f) =>
+                  `${new Date(f.uploaded_at).toLocaleDateString("en-ZA")}${f.uploaded_by_name ? ` by ${f.uploaded_by_name}` : ""}`,
+                ).join(", ")
+              : "none"}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Report released to client: </span>
+            {sub.sent_at ? new Date(sub.sent_at).toLocaleString("en-ZA") : "not yet"}
+          </div>
+          {sub.compliance_flag && (
+            <div className="text-red-600 font-medium">Flagged for review: {sub.compliance_flag.replace(/_/g, " ")}</div>
+          )}
+        </div>
+
+
         <IndemnitySection
           submissionId={submissionId}
           submission={sub}
@@ -2411,8 +2481,10 @@ function IndemnitySection({
       .from("manual-risk-indemnities")
       .createSignedUrl(f.path, 300);
     if (error) { toast.error(error.message); return; }
+    void logRecordAccess({ submissionId, action: "view_consent", detail: f.name });
     window.open(data.signedUrl, "_blank");
   };
+
 
   const handleDelete = async (f: IndemnityFile) => {
     if (!confirm(`Delete indemnity "${f.name}"? This removes it from storage and OneDrive.`)) return;
@@ -2573,11 +2645,17 @@ function SupplierReportSection({
         `Matched supplier report ${sourceLabel} on ID prefix ${candPrefix}`,
         rec.status ? `Status: ${rec.status}` : null,
       ].filter(Boolean);
+      const actor = await currentActor();
       const update: Record<string, unknown> = {
         id_verification_result: result,
         id_verification_notes: noteParts.join(" • "),
         id_verification_data: rec as unknown as Record<string, unknown>,
+        outcome_extracted_at: new Date().toISOString(),
+        outcome_extracted_by: actor.id || null,
+        outcome_extracted_by_name: actor.name || null,
+        outcome_extracted_source: `Supplier report: ${sourceLabel}`,
       };
+
       // Auto-populate Risk Assessment outcome from supplier's Risk Assessment Check.
       const raText = String(rec.risk_assessment ?? "");
       if (result === "invalid") {
@@ -2710,8 +2788,10 @@ function SupplierReportSection({
       .from("manual-risk-supplier-reports")
       .createSignedUrl(f.path, 300);
     if (error) { toast.error(error.message); return; }
+    void logRecordAccess({ submissionId, action: "view_supplier_report", detail: f.name });
     window.open(data.signedUrl, "_blank");
   };
+
 
   const handleDelete = async (f: SupplierReportFile) => {
     if (!confirm(`Delete supplier report "${f.name}"? This removes it from storage and OneDrive.`)) return;
