@@ -3501,6 +3501,7 @@ function AccountsTab({
           initialFromDate={fromDate}
           initialToDate={toDate}
           initialDateBasis={dateBasis}
+          initialMode={openMode}
           clientFacing={clientFacing}
         />
       )}
