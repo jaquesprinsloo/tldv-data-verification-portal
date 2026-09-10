@@ -673,7 +673,22 @@ function ArchiveDocumentsCard({
         .eq("id", sub.id);
       if (error) throw error;
       addLog(`Report attached to ${sub.order_number}: ${file.name}`);
-      toast.success("Report attached");
+      toast.success("Report attached — reading outcomes…");
+
+      // Read the ID Verification / Risk Assessment outcomes off the original
+      // report and apply the same rules the live reports use.
+      try {
+        const res = await applyArchiveReportOutcomes(sub.id, file, file.name);
+        addLog(
+          `Outcomes for ${sub.order_number}: ${res.matched} candidate(s) populated from ${res.records} report record(s)` +
+            (res.unmatched.length ? ` • not matched: ${res.unmatched.join(", ")}` : ""),
+        );
+        if (res.matched) toast.success(`${res.matched} candidate outcome(s) captured from the report`);
+        else toast.warning("No candidate on this order matched the report — outcomes were not filled in");
+      } catch (e: any) {
+        addLog(`Outcome extraction failed for ${sub.order_number}: ${e.message}`);
+        toast.warning("Report attached, but outcomes could not be read: " + e.message);
+      }
       onChanged();
     } catch (e: any) {
       toast.error("Report upload failed: " + e.message);
