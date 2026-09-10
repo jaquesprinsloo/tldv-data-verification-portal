@@ -1713,7 +1713,9 @@ function BulkFolderUploadCard({
       <p className="text-sm text-muted-foreground">
         Choose a month folder (or a single date folder) exactly as you save it. Reports saved beside the
         date folder are treated as the batch report; anything inside a store sub-folder is treated as an
-        indemnity for that store. Data sheets are ignored. Check the matches below, fix any that are
+        indemnity for that store. Data sheets and "Master Indemnity" files are ignored — the individual
+        indemnities in the store folders are used instead. Check the matches below, fix any that are
+
         wrong, then upload.
       </p>
 
