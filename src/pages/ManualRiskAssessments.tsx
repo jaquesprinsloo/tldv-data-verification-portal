@@ -3690,7 +3690,7 @@ function ClientAccountDialog({
   }, [candidates, subById, fromDate, toDate, dateBasis, groupKey, mode]);
 
   const mirrorRows: AccountRow[] = useMemo(() => {
-    if (!isPtvsAccount) return [];
+    if (!isPtvsAccount || mode === "archive") return [];
     const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
     const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
     return mirrorCandidates
