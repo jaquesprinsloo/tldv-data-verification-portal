@@ -647,7 +647,7 @@ export default function ManualRiskAssessments() {
 
             <TabsContent value="accounts" className="mt-4">
               <AccountsTab
-                submissions={submissions}
+                submissions={sentSubmissions}
                 clients={clients}
                 userName={userName}
                 clientFacing
@@ -3665,6 +3665,8 @@ function ClientAccountDialog({
         // Archive view, current-system checks only in the current view.
         const isArchive = !!(s as any).is_archive;
         if (mode === "archive" ? !isArchive : isArchive) return null;
+        // Clients only ever see checks whose report was actually released.
+        if (clientFacing && !s.sent_at) return null;
         const sentAt = s.sent_at ?? s.created_at;
         const basisTs = new Date(dateBasis === "submitted" ? s.created_at : sentAt).getTime();
         if (from !== null && basisTs < from) return null;
