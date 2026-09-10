@@ -27,14 +27,23 @@ type Sub = {
   indemnity_files: any[] | null;
 };
 
-const needsWork = (s: Sub) => {
-  const reportPending =
-    !!s.archive_report_path && (!s.report_onedrive_item_id || !s.report_shared_onedrive_item_id);
-  const indemnityPending = (Array.isArray(s.indemnity_files) ? s.indemnity_files : []).some(
-    (f: any) => f?.path && (!f?.onedrive_item_id || !f?.shared_onedrive_item_id),
-  );
-  return reportPending || indemnityPending;
+/** How many single OneDrive copies this submission still needs (internal + shared). */
+const pendingCopies = (s: Sub) => {
+  let n = 0;
+  if (s.archive_report_path) {
+    if (!s.report_onedrive_item_id) n += 1;
+    if (!s.report_shared_onedrive_item_id) n += 1;
+  }
+  for (const f of Array.isArray(s.indemnity_files) ? s.indemnity_files : []) {
+    if (!f?.path) continue;
+    if (!f?.onedrive_item_id) n += 1;
+    if (!f?.shared_onedrive_item_id) n += 1;
+  }
+  return n;
 };
+
+const needsWork = (s: Sub) => pendingCopies(s) > 0;
+
 
 function toBase64(bytes: Uint8Array): string {
   let binary = "";
