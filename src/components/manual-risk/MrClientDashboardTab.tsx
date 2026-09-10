@@ -128,13 +128,11 @@ export function MrClientDashboardTab({
   }, [qc]);
 
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
-  // Imported historical (archive) checks were completed and invoiced under the
-  // old system — they must never inflate current activity figures.
-  const liveSubmissions = useMemo(
-    () => submissions.filter((s) => !(s as any).is_archive),
-    [submissions],
-  );
+  // The client view mirrors what they see in Accounts: current checks plus the
+  // historical (imported) records, all of which were released to them.
+  const liveSubmissions = submissions;
   const subById = useMemo(() => new Map(liveSubmissions.map((s) => [s.id, s])), [liveSubmissions]);
+
 
   const inRange = (iso: string) => {
     const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
