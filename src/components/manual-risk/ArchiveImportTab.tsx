@@ -661,9 +661,14 @@ function ArchiveDocumentsCard({
   }, [submissions, search, clients]);
 
   const uploadReport = async (sub: ArchiveSubmission, file: File) => {
+    if (sub.archive_report_path && sub.archive_report_name === file.name) {
+      toast.info("That report is already attached to this order");
+      return;
+    }
     setBusy(sub.id);
     try {
       const path = `${sub.id}/${file.name}`;
+
       const { error: upErr } = await sb.storage
         .from("archive-reports")
         .upload(path, file, { upsert: true, contentType: file.type || "application/pdf" });
