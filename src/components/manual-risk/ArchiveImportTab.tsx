@@ -898,29 +898,44 @@ function BulkFolderUploadCard({
     return out;
   };
 
-  /** Reads the people inside each unmatched report and points it at the archive
-   *  order that holds those same candidates. */
+  /**
+   * Reads the people inside EVERY report in the selection and confirms them
+   * against the candidates on the order it is matched to. Unmatched reports get
+   * pointed at the order that holds their people; already-matched reports get a
+   * confirmation line (or a warning when the names sit on another order).
+   */
   const matchByCandidateNames = async () => {
-    const reports = planned.filter((p) => p.kind === "report" && !p.submissionId);
-    if (!reports.length) { toast.info("Every report is already matched"); return; }
+    const reports = planned.filter((p) => p.kind === "report");
+    if (!reports.length) { toast.info("There are no reports in this selection"); return; }
     setNameMatching(true);
     try {
       const cands = await loadArchiveCandidates();
+      let confirmed = 0, warned = 0, linked = 0;
+
       for (const p of reports) {
+        const key = `${p.date}|${normName(p.store)}`;
         let records: Awaited<ReturnType<typeof extractArchiveReportRecords>> = [];
         try {
           records = await extractArchiveReportRecords(p.file);
         } catch (e: any) {
           addLog(`Could not read "${p.file.name}": ${e.message}`);
+          setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — report could not be read` }));
           continue;
         }
-        if (!records.length) { addLog(`No candidates found inside "${p.file.name}"`); continue; }
+        if (!records.length) {
+          addLog(`No candidates found inside "${p.file.name}"`);
+          setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — no candidates found in report` }));
+          continue;
+        }
 
+        // Tally, per archive order, how many people in the report are on it.
         const tally = new Map<string, number>();
+        let onCurrent = 0;
         for (const r of records) {
           const rs = normPersonName(r.surname);
           const rf = normPersonName(r.first_names);
           const prefix = String(r.id_prefix ?? "").replace(/\D/g, "").slice(0, 6);
+          const hitOrders = new Set<string>();
           for (const c of cands) {
             const cs = normPersonName(c.surname);
             const cf = normPersonName(c.first_name);
@@ -929,25 +944,58 @@ function BulkFolderUploadCard({
               !!rs && rs === cs &&
               (!rf || !cf || rf.startsWith(cf) || cf.startsWith(rf));
             const idHit = prefix.length === 6 && prefix === cPrefix;
-            if (nameHit || idHit) {
-              tally.set(c.submission_id, (tally.get(c.submission_id) ?? 0) + (nameHit && idHit ? 2 : 1));
-            }
+            if (nameHit || idHit) hitOrders.add(c.submission_id);
           }
+          for (const id of hitOrders) tally.set(id, (tally.get(id) ?? 0) + 1);
+          if (p.submissionId && hitOrders.has(p.submissionId)) onCurrent += 1;
         }
-        const best = Array.from(tally.entries()).sort((a, b) => b[1] - a[1])[0];
-        const key = `${p.date}|${normName(p.store)}`;
-        if (!best) { addLog(`No archive order holds the people in "${p.file.name}"`); continue; }
-        const sub = submissions.find((s) => s.id === best[0]);
-        setGroupOrder(key, best[0]);
-        setMatchNote((prev) => ({
-          ...prev,
-          [key]: `${records.length} name(s) in report → ${clientName(sub?.client_id ?? null)} (${sub?.order_number ?? ""})`,
-        }));
-        addLog(
-          `"${p.file.name}" matched by candidate names to ${clientName(sub?.client_id ?? null)} ${sub?.order_number ?? ""}`,
-        );
+
+        const ranked = Array.from(tally.entries()).sort((a, b) => b[1] - a[1]);
+        const best = ranked[0];
+        const label = (id: string) => {
+          const s = submissions.find((x) => x.id === id);
+          return `${clientName(s?.client_id ?? null)} (${s?.order_number ?? ""})`;
+        };
+
+        if (!p.submissionId) {
+          if (!best) {
+            addLog(`No archive order holds the people in "${p.file.name}"`);
+            setMatchNote((prev) => ({ ...prev, [key]: `Names not found on any archive order` }));
+            continue;
+          }
+          setGroupOrder(key, best[0]);
+          linked += 1;
+          setMatchNote((prev) => ({
+            ...prev,
+            [key]: `Matched by names — ${best[1]}/${records.length} candidate(s) confirmed on ${label(best[0])}`,
+          }));
+          addLog(`"${p.file.name}" matched by names (${best[1]}/${records.length}) to ${label(best[0])}`);
+          continue;
+        }
+
+        // Already matched by folder/date — verify the names line up.
+        const better = best && best[0] !== p.submissionId && best[1] > onCurrent ? best : null;
+        if (onCurrent > 0 && !better) {
+          confirmed += 1;
+          setMatchNote((prev) => ({
+            ...prev,
+            [key]: `Names verified — ${onCurrent}/${records.length} candidate(s) confirmed on this order`,
+          }));
+          addLog(`"${p.file.name}": names verified ${onCurrent}/${records.length} on ${label(p.submissionId)}`);
+        } else {
+          warned += 1;
+          const suggestion = better ? ` — names match ${label(better[0])} (${better[1]}/${records.length}) instead` : "";
+          setMatchNote((prev) => ({
+            ...prev,
+            [key]: `Name check failed — ${onCurrent}/${records.length} confirmed on this order${suggestion}`,
+          }));
+          addLog(`"${p.file.name}": name check failed (${onCurrent}/${records.length})${suggestion}`);
+        }
       }
-      toast.success("Name matching finished — check the suggestions below");
+
+      toast.success(
+        `Name check done — ${confirmed} verified, ${linked} newly matched, ${warned} need attention`,
+      );
     } catch (e: any) {
       toast.error(e.message ?? "Name matching failed");
     } finally {
