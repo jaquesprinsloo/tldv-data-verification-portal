@@ -75,7 +75,13 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const batchSize = Math.min(Math.max(Number(body?.batchSize) || 3, 1), 10);
+    // Each copy means loading a whole PDF into memory and re-encoding it, which is
+    // the expensive part. Budget the work per call in single copies (not orders) so
+    // a store with many indemnities can never blow the function's CPU/time limit.
+    const maxCopies = Math.min(Math.max(Number(body?.maxCopies) || 4, 1), 10);
+    const startedAt = Date.now();
+    const TIME_BUDGET_MS = 30_000;
+
     const countOnly = !!body?.countOnly;
 
     // Every archive submission that still carries a document.
