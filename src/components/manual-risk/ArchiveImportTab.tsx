@@ -62,7 +62,20 @@ type ArchiveSubmission = {
   archive_batch_label: string | null;
   archive_report_path: string | null;
   archive_report_name: string | null;
-  indemnity_files: { name: string; path: string }[] | null;
+  report_onedrive_web_url?: string | null;
+  report_onedrive_item_id?: string | null;
+  report_onedrive_path?: string | null;
+  report_shared_onedrive_web_url?: string | null;
+  report_shared_onedrive_item_id?: string | null;
+  report_shared_onedrive_path?: string | null;
+  indemnity_files: {
+    name: string;
+    path: string;
+    onedrive_web_url?: string | null;
+    onedrive_item_id?: string | null;
+    shared_onedrive_web_url?: string | null;
+    shared_onedrive_item_id?: string | null;
+  }[] | null;
 };
 
 // ---------- helpers ----------
