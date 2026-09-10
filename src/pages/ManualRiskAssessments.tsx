@@ -38,7 +38,9 @@ import DuplicateClientsDialog from "@/components/manual-risk/DuplicateClientsDia
 import ComplianceTab from "@/components/manual-risk/ComplianceTab";
 
 
-import { BookUser } from "lucide-react";
+import { BookUser, FileSpreadsheet } from "lucide-react";
+import { MrEmployeeCheckTab } from "@/components/manual-risk/MrEmployeeCheckTab";
+
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
