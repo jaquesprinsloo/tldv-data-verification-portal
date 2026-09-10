@@ -956,26 +956,36 @@ function BulkFolderUploadCard({
 
 
         // Tally, per archive order, how many people in the report are on it.
+        // A person only counts as the same person when at least TWO of the three
+        // identifiers agree (surname, first name, first 6 digits of the ID), so
+        // two different people sharing a name are never treated as one.
         const tally = new Map<string, number>();
         let onCurrent = 0;
+        let strongTotal = 0;
         for (const r of records) {
           const rs = normPersonName(r.surname);
           const rf = normPersonName(r.first_names);
           const prefix = String(r.id_prefix ?? "").replace(/\D/g, "").slice(0, 6);
           const hitOrders = new Set<string>();
+          let strong = false;
           for (const c of cands) {
             const cs = normPersonName(c.surname);
             const cf = normPersonName(c.first_name);
             const cPrefix = String(c.id_number ?? "").replace(/\D/g, "").slice(0, 6);
-            const nameHit =
-              !!rs && rs === cs &&
-              (!rf || !cf || rf.startsWith(cf) || cf.startsWith(rf));
-            const idHit = prefix.length === 6 && prefix === cPrefix;
-            if (nameHit || idHit) hitOrders.add(c.submission_id);
+            const surnameHit = !!rs && !!cs && rs === cs;
+            const firstHit =
+              !!rf && !!cf && (rf === cf || rf.startsWith(cf) || cf.startsWith(rf));
+            const prefixHit = prefix.length === 6 && prefix === cPrefix;
+            const signals = [surnameHit, firstHit, prefixHit].filter(Boolean).length;
+            if (signals < 2) continue;
+            if (surnameHit && firstHit && prefixHit) strong = true;
+            hitOrders.add(c.submission_id);
           }
+          if (strong) strongTotal += 1;
           for (const id of hitOrders) tally.set(id, (tally.get(id) ?? 0) + 1);
           if (p.submissionId && hitOrders.has(p.submissionId)) onCurrent += 1;
         }
+
 
         const ranked = Array.from(tally.entries()).sort((a, b) => b[1] - a[1]);
         const best = ranked[0];
@@ -1023,7 +1033,7 @@ function BulkFolderUploadCard({
           confirmed += 1;
           setMatchNote((prev) => ({
             ...prev,
-            [key]: `Names verified — ${onCurrent}/${records.length} candidate(s) confirmed on this order`,
+            [key]: `Names verified — ${onCurrent}/${records.length} candidate(s) confirmed on this order (${strongTotal} with name, surname and ID digits all matching)`,
           }));
           addLog(`"${p.file.name}": names verified ${onCurrent}/${records.length} on ${label(p.submissionId)}`);
         } else {

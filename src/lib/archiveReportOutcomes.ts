@@ -92,21 +92,30 @@ export async function applyArchiveReportOutcomes(
   for (const c of rows) {
     const digits = String(c.id_number ?? "").replace(/\D/g, "");
     const prefix = digits.slice(0, 6);
-    const rec =
-      (/^\d{6}$/.test(prefix) ? records.find((r) => r.id_prefix === prefix) : undefined) ??
-      records.find(
-        (r) =>
-          norm(r.surname) &&
-          norm(r.surname) === norm(c.surname) &&
-          (!norm(r.first_names) ||
-            !norm(c.first_name) ||
-            norm(r.first_names).startsWith(norm(c.first_name)) ||
-            norm(c.first_name).startsWith(norm(r.first_names))),
-      ) ??
-      (fullIds.includes(digits)
-        ? ({ id_prefix: prefix, status: "Confirmed" } as ArchiveSupplierRecord)
-        : undefined);
+    const cs = norm(c.surname);
+    const cf = norm(c.first_name);
+    // A report record is the same person only when at least TWO of surname,
+    // first name and the first 6 ID digits agree.
+    const score = (r: ArchiveSupplierRecord) => {
+      const rs = norm(r.surname);
+      const rf = norm(r.first_names);
+      const rp = String(r.id_prefix ?? "").replace(/\D/g, "").slice(0, 6);
+      const surnameHit = !!rs && !!cs && rs === cs;
+      const firstHit = !!rf && !!cf && (rf === cf || rf.startsWith(cf) || cf.startsWith(rf));
+      const prefixHit = rp.length === 6 && rp === prefix;
+      return [surnameHit, firstHit, prefixHit].filter(Boolean).length;
+    };
+    let rec: ArchiveSupplierRecord | undefined;
+    let bestScore = 1;
+    for (const r of records) {
+      const s = score(r);
+      if (s > bestScore) { bestScore = s; rec = r; }
+    }
+    if (!rec && fullIds.includes(digits)) {
+      rec = { id_prefix: prefix, status: "Confirmed" } as ArchiveSupplierRecord;
+    }
     if (!rec) continue;
+
     used.add(rec);
 
     const invalid = isIdInvalid(rec);
