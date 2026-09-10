@@ -3019,6 +3019,7 @@ function AccountsTab({
   clientFacing?: boolean;
 }) {
   const [openClientId, setOpenClientId] = useState<string | "unassigned" | null>(null);
+  const [openMode, setOpenMode] = useState<"live" | "archive">("live");
   const [highlightCandidateId, setHighlightCandidateId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const trimmedQuery = searchQuery.trim();
