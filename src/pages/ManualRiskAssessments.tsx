@@ -647,7 +647,7 @@ export default function ManualRiskAssessments() {
 
             <TabsContent value="accounts" className="mt-4">
               <AccountsTab
-                submissions={sentSubmissions}
+                submissions={submissions}
                 clients={clients}
                 userName={userName}
                 clientFacing
@@ -822,7 +822,7 @@ export default function ManualRiskAssessments() {
 
           <TabsContent value="accounts" className="mt-4">
             <AccountsTab
-              submissions={sentSubmissions}
+              submissions={submissions}
               clients={clients}
               userName={userName}
               onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
@@ -3019,6 +3019,7 @@ function AccountsTab({
   clientFacing?: boolean;
 }) {
   const [openClientId, setOpenClientId] = useState<string | "unassigned" | null>(null);
+  const [openMode, setOpenMode] = useState<"live" | "archive">("live");
   const [highlightCandidateId, setHighlightCandidateId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const trimmedQuery = searchQuery.trim();
@@ -3062,33 +3063,68 @@ function AccountsTab({
     return true;
   };
 
-  const sentSubmissionIds = useMemo(() => submissions.map((s) => s.id), [submissions]);
+  // Current-system submissions (since the new portal went live) versus imported
+  // historical archive records. Counts and invoicing only ever use the current
+  // ones; archives are shown separately and stay searchable.
+  const liveSubs = useMemo(() => submissions.filter((s) => !(s as any).is_archive), [submissions]);
+  const archiveSubs = useMemo(() => submissions.filter((s) => !!(s as any).is_archive), [submissions]);
+  const liveSubIds = useMemo(() => liveSubs.map((s) => s.id), [liveSubs]);
 
-  // Load all NOT-YET-INVOICED candidates for sent submissions so we can count
+  // Load all NOT-YET-INVOICED candidates of current submissions so we can count
   // checks (per-candidate) and honor override_client_id when grouping them.
   // Invoiced checks live in the Invoiced tab and must not appear here.
   const { data: allCandidates = [] } = useQuery<Candidate[]>({
-    queryKey: ["mra-accounts-all-cands", sentSubmissionIds.join(",")],
-    enabled: sentSubmissionIds.length > 0,
+    queryKey: ["mra-accounts-all-cands", liveSubIds.join(",")],
+    enabled: liveSubIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await sb.from("manual_risk_candidates")
-        .select("*").in("submission_id", sentSubmissionIds).is("invoice_batch_id", null);
-      if (error) throw error;
-      return (data as Candidate[]).filter((c) => !isPlaceholderCandidate(c));
+      const all: Candidate[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb.from("manual_risk_candidates")
+          .select("*").in("submission_id", liveSubIds).is("invoice_batch_id", null)
+          .range(from, from + 999);
+        if (error) throw error;
+        all.push(...((data ?? []) as Candidate[]));
+        if (!data || data.length < 1000) break;
+      }
+      return all.filter((c) => !isPlaceholderCandidate(c));
     },
   });
 
+  // How many historical (archive) candidates sit under each account.
+  const { data: archiveCountByClient = new Map<string, number>() } = useQuery<Map<string, number>>({
+    queryKey: ["mra-accounts-archive-counts", archiveSubs.length],
+    enabled: archiveSubs.length > 0,
+    queryFn: async () => {
+      const archiveSubMap = new Map(archiveSubs.map((s) => [s.id, s]));
+      const counts = new Map<string, number>();
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb.from("manual_risk_candidates")
+          .select("submission_id,override_client_id,id_number,surname,first_name")
+          .range(from, from + 999);
+        if (error) throw error;
+        for (const c of (data ?? []) as any[]) {
+          const s = archiveSubMap.get(c.submission_id);
+          if (!s) continue;
+          if (isPlaceholderCandidate(c)) continue;
+          const key: string = c.override_client_id ?? s.client_id ?? "__unassigned__";
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        if (!data || data.length < 1000) break;
+      }
+      return counts;
+    },
+  });
+
+  // Search spans BOTH current submissions and the historical archive.
   const { data: searchCandidates = [], isFetching: searching } = useQuery<(Candidate & { submission_id: string })[]>({
-    queryKey: ["mra-accounts-search", trimmedQuery, sentSubmissionIds.join(",")],
-    enabled: searchActive && sentSubmissionIds.length > 0,
+    queryKey: ["mra-accounts-search", trimmedQuery],
+    enabled: searchActive,
     queryFn: async () => {
       const q = trimmedQuery.replace(/[%,]/g, " ");
       const { data, error } = await sb.from("manual_risk_candidates")
         .select("*")
-        .in("submission_id", sentSubmissionIds)
-        .is("invoice_batch_id", null)
         .or(`first_name.ilike.%${q}%,surname.ilike.%${q}%,id_number.ilike.%${q}%`)
-        .limit(200);
+        .limit(300);
       if (error) throw error;
       return (data as Candidate[]).filter((c) => !isPlaceholderCandidate(c)) as any;
     },
@@ -3099,7 +3135,7 @@ function AccountsTab({
       const sub = submissions.find((s) => s.id === c.submission_id) || null;
       const effClientId = (c as any).override_client_id ?? sub?.client_id ?? null;
       const client = effClientId ? clients.find((cl) => cl.id === effClientId) ?? null : null;
-      return { c, sub, client };
+      return { c, sub, client, isArchive: !!(sub as any)?.is_archive };
     }).filter((r) => r.sub);
   }, [searchCandidates, submissions, clients]);
 
@@ -3150,6 +3186,7 @@ function AccountsTab({
         name: v.client?.client_name ?? "Unassigned",
         isRegular: !!v.client?.is_regular,
         checkCount: v.candCount,
+        archiveCount: archiveCountByClient.get(key) ?? 0,
         discounted: v.discounted,
         mirrored: ptvs && key === ptvs.id ? ptvsMirrored : 0,
       };
@@ -3157,7 +3194,7 @@ function AccountsTab({
       if (sortByRegular && a.isRegular !== b.isRegular) return a.isRegular ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-  }, [allCandidates, submissions, clients, sortByRegular, windowActive, fromDate, toDate, dateBasis]);
+  }, [allCandidates, submissions, clients, sortByRegular, windowActive, fromDate, toDate, dateBasis, archiveCountByClient]);
 
   const visibleGroups = useMemo(
     () => (filterRegular ? groups.filter((g) => g.isRegular) : groups),
@@ -3359,6 +3396,7 @@ function AccountsTab({
                   <TableHead>Surname</TableHead>
                   <TableHead>ID number</TableHead>
                   <TableHead>Client</TableHead>
+                  <TableHead>Source</TableHead>
                   <TableHead>Order #</TableHead>
                   <TableHead>Sent</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -3366,21 +3404,27 @@ function AccountsTab({
               </TableHeader>
               <TableBody>
                 {searching && searchResults.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-4">Searching…</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-4">Searching…</TableCell></TableRow>
                 ) : searchResults.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-4">No matching candidates found.</TableCell></TableRow>
-                ) : searchResults.map(({ c, sub, client }) => (
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-4">No matching candidates found.</TableCell></TableRow>
+                ) : searchResults.map(({ c, sub, client, isArchive }) => (
                   <TableRow key={c.id}>
                     <TableCell>{c.first_name}</TableCell>
                     <TableCell>{c.surname}</TableCell>
                     <TableCell>{c.id_number}</TableCell>
                     <TableCell>{client?.client_name ?? "Unassigned"}</TableCell>
+                    <TableCell>
+                      {isArchive
+                        ? <Badge variant="outline" className="text-[10px]">Archive</Badge>
+                        : <Badge className="bg-emerald-600 text-[10px]">Current</Badge>}
+                    </TableCell>
                     <TableCell>{sub!.order_number}</TableCell>
                     <TableCell>{sub!.sent_at ? new Date(sub!.sent_at).toLocaleDateString() : "—"}</TableCell>
                     <TableCell className="text-right">
                       <Button size="sm" variant="outline" onClick={() => {
                         const effId = (c as any).override_client_id ?? sub!.client_id ?? null;
                         setHighlightCandidateId(c.id);
+                        setOpenMode(isArchive ? "archive" : "live");
                         setOpenClientId(effId ?? "unassigned");
                       }}>
                         Open account
@@ -3405,7 +3449,8 @@ function AccountsTab({
           <TableHeader>
             <TableRow>
               <TableHead>Client</TableHead>
-              <TableHead className="text-center">{clientFacing ? "Candidates" : "Open checks"}</TableHead>
+              <TableHead className="text-center">Candidates (current)</TableHead>
+              <TableHead className="text-center">Historical (archive)</TableHead>
               {!clientFacing && <TableHead className="text-center">Discounted</TableHead>}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -3422,6 +3467,11 @@ function AccountsTab({
                   </div>
                 </TableCell>
                 <TableCell className="text-center">{g.checkCount}</TableCell>
+                <TableCell className="text-center">
+                  {g.archiveCount
+                    ? <Badge variant="outline" className="text-[10px]">{g.archiveCount}</Badge>
+                    : <span className="text-xs text-muted-foreground">—</span>}
+                </TableCell>
                 {!clientFacing && (
                   <TableCell className="text-center">
                     {g.discounted ? (
@@ -3443,9 +3493,22 @@ function AccountsTab({
                   </TableCell>
                 )}
                 <TableCell className="text-right">
-                  <Button size="sm" variant="outline" onClick={() => setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key)}>
-                    Open account
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setOpenMode("live");
+                      setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key);
+                    }}>
+                      Open account
+                    </Button>
+                    {g.archiveCount > 0 && (
+                      <Button size="sm" variant="ghost" title="View the historical (archive) checks for this account" onClick={() => {
+                        setOpenMode("archive");
+                        setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key);
+                      }}>
+                        Archive
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -3465,6 +3528,7 @@ function AccountsTab({
           initialFromDate={fromDate}
           initialToDate={toDate}
           initialDateBasis={dateBasis}
+          initialMode={openMode}
           clientFacing={clientFacing}
         />
       )}
@@ -3475,6 +3539,7 @@ function AccountsTab({
 function ClientAccountDialog({
   groupKey, onClose, submissions, clients, onChanged, highlightCandidateId, userName,
   initialFromDate = "", initialToDate = "", initialDateBasis = "submitted", clientFacing = false,
+  initialMode = "live",
 }: {
   groupKey: string;
   userName: string;
@@ -3487,6 +3552,8 @@ function ClientAccountDialog({
   initialToDate?: string;
   initialDateBasis?: DateBasis;
   clientFacing?: boolean;
+  /** Which set of checks to show: current-system or imported historical archive. */
+  initialMode?: "live" | "archive";
 }) {
   const qc = useQueryClient();
   const client = groupKey === "__unassigned__" ? null : clients.find((c) => c.id === groupKey) ?? null;
@@ -3503,6 +3570,12 @@ function ClientAccountDialog({
   const [fromDate, setFromDate] = useState(initialFromDate);
   const [toDate, setToDate] = useState(initialToDate);
   const [dateBasis, setDateBasis] = useState<DateBasis>(initialDateBasis);
+  // Current-system checks versus imported historical (archive) checks.
+  const [mode, setMode] = useState<"live" | "archive">(initialMode);
+  const archiveSubCount = useMemo(
+    () => submissions.filter((s) => (s as any).is_archive && (s.client_id ?? "__unassigned__") === groupKey).length,
+    [submissions, groupKey],
+  );
 
   // Load candidates: (a) those from this account's own submissions,
   // and (b) those moved into this account via override_client_id from other subs.
@@ -3510,15 +3583,20 @@ function ClientAccountDialog({
   const { data: candidates = [] } = useQuery<Candidate[]>({
     queryKey: ["mra-account-cands", groupKey, ownSubIds.join(",")],
     queryFn: async () => {
-      // Own submissions' candidates
-      let own: Candidate[] = [];
+      // Own submissions' candidates (paged — a historical account can hold well
+      // over the 1000-row single-request cap).
+      const own: Candidate[] = [];
       if (ownSubIds.length > 0) {
-        const { data, error } = await sb.from("manual_risk_candidates")
-          .select("*").in("submission_id", ownSubIds)
-          .is("invoice_batch_id", null)
-          .order("sort_order", { ascending: true });
-        if (error) throw error;
-        own = data as Candidate[];
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await sb.from("manual_risk_candidates")
+            .select("*").in("submission_id", ownSubIds)
+            .is("invoice_batch_id", null)
+            .order("sort_order", { ascending: true })
+            .range(from, from + 999);
+          if (error) throw error;
+          own.push(...((data ?? []) as Candidate[]));
+          if (!data || data.length < 1000) break;
+        }
       }
       // Candidates moved INTO this account from other submissions.
       let moved: Candidate[] = [];
@@ -3550,7 +3628,7 @@ function ClientAccountDialog({
   const isPtvsAccount = !clientFacing && !!ptvsClient && groupKey === ptvsClient.id;
   // Client-facing profiles see a reduced table: no discount or invoice columns,
   // no selection checkbox and no administrative actions.
-  const colCount = clientFacing ? 8 : 11;
+  const colCount = clientFacing ? 8 : mode === "live" ? 11 : 10;
   const [indemnityFor, setIndemnityFor] = useState<{ orderNumber: string; files: IndemnityFileRef[] } | null>(null);
   const sentSubIdsAll = useMemo(() => submissions.map((s) => s.id), [submissions]);
   const { data: mirrorCandidates = [] } = useQuery<Candidate[]>({
@@ -3580,15 +3658,20 @@ function ClientAccountDialog({
       })
       .map((c) => {
         const s = subById.get(c.submission_id);
-        if (!s || !s.sent_at) return null;
-        const basisTs = new Date(dateBasis === "submitted" ? s.created_at : s.sent_at).getTime();
+        if (!s) return null;
+        // Keep the two worlds apart: historical archive checks only show in the
+        // Archive view, current-system checks only in the current view.
+        const isArchive = !!(s as any).is_archive;
+        if (mode === "archive" ? !isArchive : isArchive) return null;
+        const sentAt = s.sent_at ?? s.created_at;
+        const basisTs = new Date(dateBasis === "submitted" ? s.created_at : sentAt).getTime();
         if (from !== null && basisTs < from) return null;
         if (to !== null && basisTs > to) return null;
         return {
           submissionId: s.id,
           candidateId: c.id,
           orderNumber: s.order_number,
-          sentAt: s.sent_at,
+          sentAt,
           submittedAt: s.created_at,
           invoicedAt: s.invoiced_at,
           invoiceNumber: s.invoice_number,
@@ -3604,10 +3687,10 @@ function ClientAccountDialog({
         } as AccountRow;
       })
       .filter((r): r is AccountRow => r !== null);
-  }, [candidates, subById, fromDate, toDate, dateBasis, groupKey]);
+  }, [candidates, subById, fromDate, toDate, dateBasis, groupKey, mode]);
 
   const mirrorRows: AccountRow[] = useMemo(() => {
-    if (!isPtvsAccount) return [];
+    if (!isPtvsAccount || mode === "archive") return [];
     const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
     const to = toDate ? new Date(toDate + "T23:59:59").getTime() : null;
     return mirrorCandidates
@@ -3643,7 +3726,7 @@ function ClientAccountDialog({
         } as AccountRow;
       })
       .filter((r): r is AccountRow => r !== null);
-  }, [isPtvsAccount, mirrorCandidates, subById, fromDate, toDate, dateBasis, groupKey, clients]);
+  }, [isPtvsAccount, mirrorCandidates, subById, fromDate, toDate, dateBasis, groupKey, clients, mode]);
 
   // Selection is per-candidate now.
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -3955,12 +4038,32 @@ function ClientAccountDialog({
         <DialogHeader>
           <DialogTitle>{clientName} — Account</DialogTitle>
           <DialogDescription>
-            {rows.length} check(s) shown • {selectedSubmissionIds.length} submission(s) selected
+            {rows.length} check(s) shown • {mode === "archive" ? "historical (archive) records" : "current submissions"}
+            {mode === "live" && <> • {selectedSubmissionIds.length} submission(s) selected</>}
             {mirrorRows.length > 0 && (
               <> • {mirrorRows.length} PTVS-discount check(s) mirrored from other accounts (invoicing only, not counted)</>
             )}
           </DialogDescription>
         </DialogHeader>
+
+        <div className="inline-flex rounded-md border p-1 mb-3 w-fit">
+          <Button
+            size="sm"
+            variant={mode === "live" ? "default" : "ghost"}
+            className={mode === "live" ? "bg-red-600 hover:bg-red-700" : ""}
+            onClick={() => { setMode("live"); setSelected(new Set()); }}
+          >
+            Current submissions
+          </Button>
+          <Button
+            size="sm"
+            variant={mode === "archive" ? "default" : "ghost"}
+            className={mode === "archive" ? "bg-slate-700 hover:bg-slate-800" : ""}
+            onClick={() => { setMode("archive"); setSelected(new Set()); }}
+          >
+            Historical archive{archiveSubCount ? ` (${archiveSubCount} order${archiveSubCount === 1 ? "" : "s"})` : ""}
+          </Button>
+        </div>
 
         <div className="flex flex-wrap items-end gap-3 mb-3">
           <div>
@@ -3985,7 +4088,7 @@ function ClientAccountDialog({
             <Button variant="ghost" size="sm" onClick={() => { setFromDate(""); setToDate(""); }}>Clear</Button>
           )}
           <div className="flex-1" />
-          {!clientFacing && (
+          {!clientFacing && mode === "live" && (
             <>
               <Button variant="outline" onClick={exportExcel}>
                 <FileDown className="h-4 w-4 mr-2" /> Export to Excel
@@ -4055,7 +4158,7 @@ function ClientAccountDialog({
           <Table>
             <TableHeader>
               <TableRow>
-                {!clientFacing && (
+                {!clientFacing && mode === "live" && (
                   <TableHead className="w-10">
                     <Checkbox
                       checked={rows.length > 0 && selected.size === rows.length}
@@ -4089,7 +4192,7 @@ function ClientAccountDialog({
                   id={`cand-row-${r.candidateId}`}
                   className={highlightCandidateId === r.candidateId ? "bg-amber-100 ring-1 ring-amber-400" : undefined}
                 >
-                  {!clientFacing && (
+                  {!clientFacing && mode === "live" && (
                     <TableCell>
                       <Checkbox
                         checked={selected.has(r.candidateId)}
@@ -4156,7 +4259,7 @@ function ClientAccountDialog({
                     >
                       <FileText className={loadingReport === r.submissionId ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-blue-600"} />
                     </Button>
-                    {clientFacing ? (
+                    {clientFacing || mode === "archive" ? (
                       <Button
                         variant="ghost"
                         size="icon"
