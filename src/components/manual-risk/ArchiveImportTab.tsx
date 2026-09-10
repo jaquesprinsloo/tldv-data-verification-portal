@@ -1117,6 +1117,14 @@ function BulkFolderUploadCard({
               ? <span className="text-amber-600 flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" />{unmatched} unmatched</span>
               : <span className="text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" />all matched</span>}
             {running && <span className="text-muted-foreground">Uploading {done + failed}/{planned.length}…</span>}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={running || nameMatching}
+              onClick={matchByCandidateNames}
+            >
+              {nameMatching ? "Reading reports…" : "Match by candidate names in report"}
+            </Button>
           </div>
 
           <div className="overflow-x-auto max-h-96">
