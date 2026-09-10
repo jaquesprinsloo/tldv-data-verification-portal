@@ -468,6 +468,25 @@ export default function ManualRiskAssessments() {
     },
   });
 
+  // Live updates: new submissions, saved results and released reports refresh
+  // every view (including the read-only client views) without a page reload.
+  useEffect(() => {
+    if (!allowed) return;
+    const bump = () => {
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      qc.invalidateQueries({ queryKey: ["mra-client-dash-cands"] });
+      qc.invalidateQueries({ queryKey: ["mra-employee-check-records"] });
+      qc.invalidateQueries({ queryKey: ["mra-candidates"] });
+    };
+    const channel = supabase
+      .channel("mra-page-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_submissions" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_candidates" }, bump)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [allowed, qc]);
+
+
   const { data: clients = [] } = useQuery({
     queryKey: ["mra-clients"],
     enabled: !!allowed,
