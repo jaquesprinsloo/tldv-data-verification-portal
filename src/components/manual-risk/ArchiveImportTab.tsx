@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase as sb } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -870,6 +870,7 @@ function BulkFolderUploadCard({
   const [failed, setFailed] = useState(0);
   const [nameMatching, setNameMatching] = useState(false);
   const [matchNote, setMatchNote] = useState<Record<string, string>>({});
+  const [suggested, setSuggested] = useState<Record<string, string>>({});
   const candCache = useRef<ArchiveCandidateRow[] | null>(null);
 
   /** All archive candidates, loaded once and cached (paged past the 1000 limit). */
@@ -913,20 +914,32 @@ function BulkFolderUploadCard({
       let confirmed = 0, warned = 0, linked = 0;
 
       for (const p of reports) {
-        const key = `${p.date}|${normName(p.store)}`;
+        const key = keyOf(p);
         let records: Awaited<ReturnType<typeof extractArchiveReportRecords>> = [];
-        try {
-          records = await extractArchiveReportRecords(p.file);
-        } catch (e: any) {
-          addLog(`Could not read "${p.file.name}": ${e.message}`);
-          setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — report could not be read` }));
+        let readErr = "";
+        // Reading a scanned report can time out on the first pass — try again
+        // before calling it unreadable.
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            records = await extractArchiveReportRecords(p.file);
+            readErr = "";
+            if (records.length) break;
+          } catch (e: any) {
+            readErr = e?.message ?? "unknown error";
+            await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));
+          }
+        }
+        if (readErr) {
+          addLog(`Could not read "${p.file.name}" after 3 attempts: ${readErr}`);
+          setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — report could not be read (try again, or check this batch by hand)` }));
           continue;
         }
         if (!records.length) {
           addLog(`No candidates found inside "${p.file.name}"`);
-          setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — no candidates found in report` }));
+          setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — no names could be read out of this report` }));
           continue;
         }
+
 
         // Tally, per archive order, how many people in the report are on it.
         const tally = new Map<string, number>();
@@ -985,6 +998,7 @@ function BulkFolderUploadCard({
         } else {
           warned += 1;
           const suggestion = better ? ` — names match ${label(better[0])} (${better[1]}/${records.length}) instead` : "";
+          if (better) setSuggested((prev) => ({ ...prev, [key]: better[0] }));
           setMatchNote((prev) => ({
             ...prev,
             [key]: `Name check failed — ${onCurrent}/${records.length} confirmed on this order${suggestion}`,
@@ -1055,21 +1069,92 @@ function BulkFolderUploadCard({
     if (!next.length) toast.error("No dated folders found in that selection");
   };
 
+  /**
+ * Files on the same date whose folder / report names are the same store written
+ * differently ("Maponya" beside "Maponya Mall") belong to ONE batch, so they are
+ * clustered together before anything is shown or uploaded.
+ */
+  const groupKeyOf = useMemo(() => {
+    const byDate = new Map<string, PlannedFile[]>();
+    for (const p of planned) byDate.set(p.date, [...(byDate.get(p.date) ?? []), p]);
+    const keyFor = new Map<string, string>();
+    const labelFor = new Map<string, string>();
+    for (const [date, list] of byDate) {
+      const stores = Array.from(new Set(list.map((p) => p.store)))
+        .sort((a, b) => b.length - a.length); // longest first: "Maponya" folds into "Maponya Mall"
+      const clusters: { canon: string; stores: string[] }[] = [];
+      for (const s of stores) {
+        const hit = clusters.find((c) =>
+          c.stores.some((x) => {
+            const a = matchKey(x), b = matchKey(s);
+            if (!a || !b) return false;
+            return a === b || a.startsWith(b) || b.startsWith(a) || similarity(x, s) >= 0.8;
+          }));
+        if (hit) hit.stores.push(s);
+        else clusters.push({ canon: s, stores: [s] });
+      }
+      for (const p of list) {
+        const c = clusters.find((x) => x.stores.includes(p.store))!;
+        const key = `${date}|${normName(c.canon)}`;
+        keyFor.set(p.id, key);
+        labelFor.set(key, c.stores.length > 1 ? `${c.canon} (+ ${c.stores.filter((x) => x !== c.canon).join(", ")})` : c.canon);
+      }
+    }
+    return { keyFor, labelFor };
+  }, [planned]);
+
+  const keyOf = (p: PlannedFile) => groupKeyOf.keyFor.get(p.id) ?? `${p.date}|${normName(p.store)}`;
+
   const grouped = useMemo(() => {
     const map = new Map<string, PlannedFile[]>();
     for (const p of planned) {
-      const k = `${p.date}|${normName(p.store)}`;
+      const k = keyOf(p);
       map.set(k, [...(map.get(k) ?? []), p]);
     }
     return Array.from(map.entries()).map(([k, files]) => ({ key: k, files }));
-  }, [planned]);
+  }, [planned, groupKeyOf]);
 
   const setGroupOrder = (key: string, submissionId: string) => {
     setPlanned((prev) => prev.map((p) =>
-      `${p.date}|${normName(p.store)}` === key ? { ...p, submissionId: submissionId || null } : p));
+      keyOf(p) === key ? { ...p, submissionId: submissionId || null } : p));
+  };
+
+  // A merged batch must point at a single archive order.
+  useEffect(() => {
+    for (const { files } of grouped) {
+      const target = files.find((f) => f.submissionId)?.submissionId ?? null;
+      if (target && files.some((f) => f.submissionId !== target)) {
+        setGroupOrder(keyOf(files[0]), target);
+        return;
+      }
+    }
+  }, [grouped]);
+
+  const applySuggestion = (key: string) => {
+    const id = suggested[key];
+    if (!id) return;
+    setGroupOrder(key, id);
+    setSuggested((prev) => { const n = { ...prev }; delete n[key]; return n; });
+    setMatchNote((prev) => ({ ...prev, [key]: `Moved to the order the names belong to` }));
+  };
+
+  const applyAllSuggestions = () => {
+    const keys = Object.keys(suggested);
+    setPlanned((prev) => prev.map((p) => {
+      const id = suggested[keyOf(p)];
+      return id ? { ...p, submissionId: id } : p;
+    }));
+    setMatchNote((prev) => {
+      const n = { ...prev };
+      for (const k of keys) n[k] = `Moved to the order the names belong to`;
+      return n;
+    });
+    setSuggested({});
+    toast.success(`${keys.length} batch(es) moved to the order their names belong to`);
   };
 
   const unmatched = planned.filter((p) => !p.submissionId).length;
+
 
   const runUpload = async () => {
     setRunning(true); setDone(0); setFailed(0);
@@ -1173,6 +1258,16 @@ function BulkFolderUploadCard({
             >
               {nameMatching ? "Checking names in reports…" : "Verify names in all reports"}
             </Button>
+            {Object.keys(suggested).length > 0 && (
+              <Button
+                size="sm"
+                className="bg-amber-600 hover:bg-amber-700"
+                disabled={running || nameMatching}
+                onClick={applyAllSuggestions}
+              >
+                Move {Object.keys(suggested).length} batch(es) to the suggested order
+              </Button>
+            )}
           </div>
 
           <div className="overflow-x-auto max-h-96">
@@ -1199,17 +1294,27 @@ function BulkFolderUploadCard({
                     <TableRow key={key}>
                       <TableCell className="whitespace-nowrap">{prettyDate(first.date)}</TableCell>
                       <TableCell>
-                        {first.store || "—"}
+                        {groupKeyOf.labelFor.get(key) || first.store || "—"}
                         {matchNote[key] && (
                           <div
                             className={`text-[11px] mt-0.5 ${
-                              /^(Names verified|Matched by names)/.test(matchNote[key])
+                              /^(Names verified|Matched by names|Moved to)/.test(matchNote[key])
                                 ? "text-emerald-600"
                                 : "text-amber-600"
                             }`}
                           >
                             {matchNote[key]}
                           </div>
+                        )}
+                        {suggested[key] && (
+                          <button
+                            type="button"
+                            className="text-[11px] mt-0.5 text-red-600 hover:underline"
+                            disabled={running}
+                            onClick={() => applySuggestion(key)}
+                          >
+                            Use the suggested order
+                          </button>
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
