@@ -1356,10 +1356,51 @@ function BulkFolderUploadCard({
                           </button>
                         )}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {files.filter((f) => f.kind === "report").length} report ·{" "}
-                        {files.filter((f) => f.kind === "indemnity").length} indemnity
+                      <TableCell className="text-xs">
+                        <div className={missing ? "text-amber-600 font-medium" : "text-muted-foreground"}>
+                          {files.filter((f) => f.kind === "report").length} report ·{" "}
+                          {files.filter((f) => f.kind === "indemnity").length} indemnity
+                        </div>
+                        {missing && (
+                          <div className="mt-1 space-y-1">
+                            <div className="flex items-center gap-1 text-amber-600">
+                              <AlertTriangle className="h-3 w-3" />
+                              No {missing === "report" ? "report" : "indemnities"} in this folder
+                            </div>
+                            <label className="inline-flex">
+                              <span className="text-[11px] text-red-600 hover:underline cursor-pointer">
+                                Add {missing === "report" ? "report" : "indemnities"} by hand
+                              </span>
+                              <input
+                                type="file"
+                                multiple={missing === "indemnity"}
+                                className="hidden"
+                                disabled={running}
+                                onChange={(e) => {
+                                  addFilesToGroup(key, missing, e.target.files);
+                                  e.currentTarget.value = "";
+                                }}
+                              />
+                            </label>
+                            {missing === "report" && reportOnlyGroups.length > 0 && (
+                              <select
+                                className="w-full h-7 rounded-md border bg-background px-1 text-[11px]"
+                                value=""
+                                disabled={running}
+                                onChange={(e) => e.target.value && mergeGroupInto(key, e.target.value)}
+                              >
+                                <option value="">— join to a report folder —</option>
+                                {reportOnlyGroups.filter((g) => g.key !== key).map((g) => (
+                                  <option key={g.key} value={g.key}>
+                                    {prettyDate(g.files[0].date)} — {groupKeyOf.labelFor.get(g.key) || g.files[0].store}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
+
                       <TableCell>
                         <select
                           className="w-full h-8 rounded-md border bg-background px-2 text-xs"
