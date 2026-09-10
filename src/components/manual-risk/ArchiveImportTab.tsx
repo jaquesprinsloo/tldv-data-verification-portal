@@ -1201,7 +1201,15 @@ function BulkFolderUploadCard({
                       <TableCell>
                         {first.store || "—"}
                         {matchNote[key] && (
-                          <div className="text-[11px] text-emerald-600 mt-0.5">{matchNote[key]}</div>
+                          <div
+                            className={`text-[11px] mt-0.5 ${
+                              /^(Names verified|Matched by names)/.test(matchNote[key])
+                                ? "text-emerald-600"
+                                : "text-amber-600"
+                            }`}
+                          >
+                            {matchNote[key]}
+                          </div>
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
