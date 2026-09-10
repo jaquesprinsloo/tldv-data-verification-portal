@@ -1140,7 +1140,13 @@ function BulkFolderUploadCard({
               <TableBody>
                 {grouped.map(({ key, files }) => {
                   const first = files[0];
-                  const options = ordersByDate.get(first.date) ?? [];
+                  const sameDay = ordersByDate.get(first.date) ?? [];
+                  const picked = first.submissionId
+                    ? submissions.find((s) => s.id === first.submissionId)
+                    : undefined;
+                  const options = picked && !sameDay.some((s) => s.id === picked.id)
+                    ? [picked, ...sameDay]
+                    : sameDay;
                   return (
                     <TableRow key={key}>
                       <TableCell className="whitespace-nowrap">{prettyDate(first.date)}</TableCell>
