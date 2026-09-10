@@ -21,6 +21,8 @@ export type ArchiveSupplierRecord = {
   surname?: string | null;
   dead_alive?: string | null;
   risk_assessment?: string | null;
+  risk_assessment_detail?: string | null;
+  id_verification_detail?: string | null;
 };
 
 const blobToBase64 = (blob: Blob): Promise<string> =>
