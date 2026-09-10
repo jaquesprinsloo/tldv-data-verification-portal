@@ -647,7 +647,7 @@ export default function ManualRiskAssessments() {
 
             <TabsContent value="accounts" className="mt-4">
               <AccountsTab
-                submissions={sentSubmissions}
+                submissions={submissions}
                 clients={clients}
                 userName={userName}
                 clientFacing
@@ -822,7 +822,7 @@ export default function ManualRiskAssessments() {
 
           <TabsContent value="accounts" className="mt-4">
             <AccountsTab
-              submissions={sentSubmissions}
+              submissions={submissions}
               clients={clients}
               userName={userName}
               onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
