@@ -269,7 +269,7 @@ export function ArchiveImportTab({
       if (savedClient) { remembered.push({ store, client: savedClient }); continue; }
       const near = clients
         .map((c) => ({ client: c, score: similarity(store, c.client_name) }))
-        .filter((x) => x.score >= 0.6)
+        .filter((x) => x.score >= 0.7)
         .sort((a, b) => b.score - a.score)
         .slice(0, 3);
       if (near.length) similar.push({ store, matches: near });
