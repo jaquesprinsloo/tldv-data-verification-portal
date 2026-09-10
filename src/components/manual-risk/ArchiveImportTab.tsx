@@ -1052,6 +1052,37 @@ const bulkSession: {
   running: false, done: 0, failed: 0,
 };
 
+/**
+ * Batches whose people could not be found in the archive are written down here
+ * (kept in the browser, so they survive a reload) and stay on a "to revisit"
+ * list until they are dealt with.
+ */
+type UnresolvedBatch = {
+  key: string;
+  date: string;
+  store: string;
+  reason: string;
+  files: string[];
+  savedAt: string;
+};
+
+const UNRESOLVED_LS_KEY = "tldv.archive.unresolvedBatches";
+
+const loadUnresolved = (): UnresolvedBatch[] => {
+  try {
+    const raw = localStorage.getItem(UNRESOLVED_LS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? (arr as UnresolvedBatch[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveUnresolved = (list: UnresolvedBatch[]) => {
+  try { localStorage.setItem(UNRESOLVED_LS_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+};
+
+
 function BulkFolderUploadCard({
   submissions, clients, onChanged, addLog,
 }: {
@@ -1107,7 +1138,37 @@ function BulkFolderUploadCard({
     return () => window.removeEventListener("beforeunload", warn);
   }, [running]);
 
+  /** Batches saved for later, because their names were not found in the archive. */
+  const [unresolved, setUnresolved] = useState<UnresolvedBatch[]>(loadUnresolved);
+  useEffect(() => { saveUnresolved(unresolved); }, [unresolved]);
+
+  /** Writes one batch onto the revisit list (replacing an earlier note for it). */
+  const rememberUnresolved = (key: string, date: string, store: string, reason: string) => {
+    const files = planned.filter((x) => keyOf(x) === key).map((x) => x.file.name);
+    setUnresolved((prev) => [
+      { key, date, store, reason, files, savedAt: new Date().toISOString() },
+      ...prev.filter((u) => u.key !== key),
+    ]);
+  };
+
+  const downloadUnresolved = () => {
+    const rows = [
+      ["Date", "Folder / store", "Reason", "Files", "Saved at"],
+      ...unresolved.map((u) => [u.date, u.store, u.reason, u.files.join(" | "), u.savedAt]),
+    ];
+    const csv = rows
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `archive-batches-to-revisit-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const candCache = useRef<ArchiveCandidateRow[] | null>(null);
+
 
   /** All archive candidates, loaded once and cached (paged past the 1000 limit). */
   const loadArchiveCandidates = async (): Promise<ArchiveCandidateRow[]> => {
@@ -1168,13 +1229,16 @@ function BulkFolderUploadCard({
         if (readErr) {
           addLog(`Could not read "${p.file.name}" after 3 attempts: ${readErr}`);
           setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — report could not be read (try again, or check this batch by hand)` }));
+          rememberUnresolved(key, p.date, p.store, "Report could not be read");
           continue;
         }
         if (!records.length) {
           addLog(`No candidates found inside "${p.file.name}"`);
           setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — no names could be read out of this report` }));
+          rememberUnresolved(key, p.date, p.store, "No names could be read out of the report");
           continue;
         }
+
 
 
         // Tally, per archive order, how many people in the report are on it.
@@ -1277,7 +1341,9 @@ function BulkFolderUploadCard({
           if (!best) {
             addLog(`No archive order holds the people in "${p.file.name}"`);
             setMatchNote((prev) => ({ ...prev, [key]: `Names not found on any archive order` }));
+            rememberUnresolved(key, p.date, p.store, "Names not found on any archive order");
             continue;
+
           }
           setGroupOrder(key, best[0]);
           const extras = recordExtras(best[0]);
@@ -1939,7 +2005,71 @@ function BulkFolderUploadCard({
           </Button>
         </>
       )}
+
+      {unresolved.length > 0 && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-3 space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-semibold text-amber-800 flex items-center gap-1">
+              <AlertTriangle className="h-4 w-4" />
+              {unresolved.length} batch(es) saved to revisit
+            </span>
+            <Button variant="outline" size="sm" onClick={downloadUnresolved}>
+              Download list
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setUnresolved([])}
+            >
+              Clear list
+            </Button>
+          </div>
+          <p className="text-xs text-amber-800">
+            These folders could not be placed on an archive order during the name check. They stay here
+            (even after a reload) until you clear them, so you can come back once everything else is loaded.
+          </p>
+          <div className="overflow-x-auto max-h-72">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Folder / store</TableHead>
+                  <TableHead>Why</TableHead>
+                  <TableHead>Files</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {unresolved.map((u) => (
+                  <TableRow key={u.key}>
+                    <TableCell className="whitespace-nowrap">{prettyDate(u.date)}</TableCell>
+                    <TableCell>{u.store || "—"}</TableCell>
+                    <TableCell className="text-xs text-amber-700">{u.reason}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {u.files.length} file(s)
+                      {u.files.length > 0 && (
+                        <div className="text-[11px]">{u.files.slice(0, 4).join(", ")}
+                          {u.files.length > 4 ? ` +${u.files.length - 4} more` : ""}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        className="text-[11px] text-red-600 hover:underline"
+                        onClick={() => setUnresolved((prev) => prev.filter((x) => x.key !== u.key))}
+                      >
+                        Remove
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
     </Card>
+
   );
 }
 
