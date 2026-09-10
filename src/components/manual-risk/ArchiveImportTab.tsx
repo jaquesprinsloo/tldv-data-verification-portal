@@ -1213,6 +1213,11 @@ function BulkFolderUploadCard({
       if (!sub) { bad++; setFailed(bad); continue; }
       try {
         if (p.kind === "report") {
+          // Already attached with the same file name — leave it alone.
+          if ((sub as any).archive_report_name === p.file.name && (sub as any).archive_report_path) {
+            addLog(`Skipped "${p.file.name}" — report already on ${sub.order_number}`);
+            ok++; setDone(ok); continue;
+          }
           const path = `${sub.id}/${p.file.name}`;
           const { error: upErr } = await sb.storage.from("archive-reports")
             .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/pdf" });
@@ -1221,6 +1226,8 @@ function BulkFolderUploadCard({
             .update({ archive_report_path: path, archive_report_name: p.file.name } as any)
             .eq("id", sub.id);
           if (error) throw error;
+          (sub as any).archive_report_path = path;
+          (sub as any).archive_report_name = p.file.name;
           try {
             const res = await applyArchiveReportOutcomes(sub.id, p.file, p.file.name);
             addLog(
@@ -1232,8 +1239,14 @@ function BulkFolderUploadCard({
           }
         } else {
           const existing: any[] = Array.isArray(sub.indemnity_files) ? sub.indemnity_files : [];
-          if (existing.some((f) => f.name === p.file.name)) { ok++; setDone(ok); continue; }
+          const norm = (n: string) => n.trim().toLowerCase();
+          if (existing.some((f) => norm(String(f.name ?? "")) === norm(p.file.name)
+            || (f.size != null && Number(f.size) === p.file.size && norm(String(f.name ?? "")) === norm(p.file.name)))) {
+            addLog(`Skipped "${p.file.name}" — indemnity already on ${sub.order_number}`);
+            ok++; setDone(ok); continue;
+          }
           const path = `${sub.id}/${Date.now()}-${p.file.name.replace(/[^\w.\-]+/g, "_")}`;
+
           const { error: upErr } = await sb.storage.from("manual-risk-indemnities")
             .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/octet-stream" });
           if (upErr) throw upErr;
