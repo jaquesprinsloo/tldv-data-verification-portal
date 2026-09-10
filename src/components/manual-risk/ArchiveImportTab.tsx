@@ -451,7 +451,14 @@ export function ArchiveImportTab({
                 <p className="text-2xl font-bold text-amber-600">{recon.similar.length}</p>
                 {recon.remembered.length > 0 && (
                   <p className="text-xs text-emerald-600 mt-1">
-                    {recon.remembered.length} linked earlier — remembered
+                    {recon.remembered.length} linked earlier — remembered{" "}
+                    <button
+                      type="button"
+                      className="underline text-muted-foreground"
+                      onClick={() => { setMappedTo({}); saveMap({}); }}
+                    >
+                      reset
+                    </button>
                   </p>
                 )}
               </div>
