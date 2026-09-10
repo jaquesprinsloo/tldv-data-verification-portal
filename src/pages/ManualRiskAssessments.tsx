@@ -1456,16 +1456,6 @@ function NewSubmissionDialog({
 
     setBusy(true);
     try {
-      // Build created_at from the admin-selected date, preserving current time-of-day
-      let createdAtIso: string | undefined;
-      if (createdDate) {
-        const [y, m, d] = createdDate.split("-").map(Number);
-        if (y && m && d) {
-          const now = new Date();
-          const dt = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
-          createdAtIso = dt.toISOString();
-        }
-      }
       const { data: sub, error: subErr } = await sb.from("manual_risk_submissions")
         .insert({
           order_number: orderNumber.trim(),
@@ -1475,9 +1465,9 @@ function NewSubmissionDialog({
           requested_checks: selectedChecks,
           created_by: userId,
           recipients: recipients.filter((r) => r.email?.trim()),
-          ...(createdAtIso ? { created_at: createdAtIso } : {}),
         })
         .select("id").single();
+
       if (subErr) throw subErr;
 
       const rows = candidates.map((c, idx) => ({
