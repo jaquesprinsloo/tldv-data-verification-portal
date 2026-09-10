@@ -2599,11 +2599,17 @@ function SupplierReportSection({
         `Matched supplier report ${sourceLabel} on ID prefix ${candPrefix}`,
         rec.status ? `Status: ${rec.status}` : null,
       ].filter(Boolean);
+      const actor = await currentActor();
       const update: Record<string, unknown> = {
         id_verification_result: result,
         id_verification_notes: noteParts.join(" • "),
         id_verification_data: rec as unknown as Record<string, unknown>,
+        outcome_extracted_at: new Date().toISOString(),
+        outcome_extracted_by: actor.id || null,
+        outcome_extracted_by_name: actor.name || null,
+        outcome_extracted_source: `Supplier report: ${sourceLabel}`,
       };
+
       // Auto-populate Risk Assessment outcome from supplier's Risk Assessment Check.
       const raText = String(rec.risk_assessment ?? "");
       if (result === "invalid") {
