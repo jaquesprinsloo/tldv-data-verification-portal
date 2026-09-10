@@ -187,6 +187,53 @@ const personKey = (idNumber: string, surname: string, firstName: string) => {
   return `n:${normName(surname)}|${normName(firstName).split(" ")[0] ?? ""}`;
 };
 
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = (reader.result as string)?.split(",")[1];
+      if (base64) resolve(base64);
+      else reject(new Error("Failed to read file as base64"));
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+type OneDriveUploadResult = { webUrl: string | null; itemId: string | null; fullPath: string | null };
+
+/** Mirrors a file to OneDrive. `shared: true` targets the client-facing folder. */
+async function uploadToOneDrive(args: {
+  fileName: string;
+  base64: string;
+  contentType: string;
+  clientName: string;
+  orderNumber: string;
+  kind: "report" | "indemnity";
+  shared?: boolean;
+}): Promise<OneDriveUploadResult> {
+  const { data, error } = await sb.functions.invoke("upload-manual-risk-to-onedrive", {
+    body: {
+      fileName: args.fileName,
+      fileBase64: args.base64,
+      contentType: args.contentType,
+      clientName: args.clientName,
+      orderNumber: args.orderNumber,
+      kind: args.kind,
+      shared: !!args.shared,
+    },
+  });
+  if (error) throw error;
+  if ((data as any)?.success) {
+    return {
+      webUrl: (data as any).webUrl ?? null,
+      itemId: (data as any).itemId ?? null,
+      fullPath: (data as any).fullPath ?? null,
+    };
+  }
+  throw new Error((data as any)?.error || "OneDrive upload failed");
+}
+
 // ---------- component ----------
 
 export function ArchiveImportTab({
