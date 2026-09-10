@@ -69,6 +69,14 @@ type ArchiveSubmission = {
 const normName = (s: string) =>
   (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 
+const MAP_KEY = "mra-archive-store-map";
+function loadSavedMap(): Record<string, string> {
+  try { return JSON.parse(localStorage.getItem(MAP_KEY) || "{}") || {}; } catch { return {}; }
+}
+function saveMap(m: Record<string, string>) {
+  try { localStorage.setItem(MAP_KEY, JSON.stringify(m)); } catch { /* ignore */ }
+}
+
 /** Cheap similarity for "is this the same store spelled differently?" hints. */
 function similarity(a: string, b: string): number {
   const A = normName(a), B = normName(b);
