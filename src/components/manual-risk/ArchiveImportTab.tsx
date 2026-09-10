@@ -1336,6 +1336,7 @@ function BulkFolderUploadCard({
   const onPick = (list: FileList | null) => {
     if (!list?.length) return;
     const next: PlannedFile[] = [];
+    let masters = 0;
     Array.from(list).forEach((file, i) => {
       const rel = (file as any).webkitRelativePath || file.name;
       const parts = String(rel).split("/").filter(Boolean);
@@ -1347,6 +1348,10 @@ function BulkFolderUploadCard({
       if (!date) return;                                   // outside a date folder
       const tail = parts.slice(dateIdx + 1);
       if (/\.(xlsx|xls|csv)$/i.test(file.name)) return;    // data sheets are not documents
+      // A "Master Indemnity" holds every indemnity of the batch in one PDF. The
+      // individual indemnities are already in the store folders, so taking it as
+      // well would file the same signatures twice (and as a report).
+      if (isMasterIndemnity(file.name)) { masters += 1; return; }
       let kind: "report" | "indemnity";
       let store: string;
       if (tail.length === 1) { kind = "report"; store = storeFromReportName(file.name); }
@@ -1358,8 +1363,10 @@ function BulkFolderUploadCard({
     });
     setPlanned(next);
     setDone(0); setFailed(0);
+    if (masters) toast.info(`${masters} master indemnity file(s) skipped — the individual indemnities are used instead`);
     if (!next.length) toast.error("No dated folders found in that selection");
   };
+
 
   /**
  * Files on the same date whose folder / report names are the same store written
