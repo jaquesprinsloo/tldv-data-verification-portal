@@ -727,6 +727,12 @@ function ArchiveDocumentsCard({
       <div className="max-w-sm">
         <Label className="text-xs">Find an archive order</Label>
         <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Store, date or order number" className="h-8" />
+        <p className="text-xs text-muted-foreground mt-1">
+          {submissions.length} archive order(s) in total
+          {visible.length < (search.trim() ? submissions.filter((s) => `${s.order_number} ${s.archive_batch_label ?? ""} ${clientName(s.client_id)}`.toLowerCase().includes(search.trim().toLowerCase())).length : submissions.length)
+            ? " — search to narrow the list (only the first 60 matches are shown)"
+            : ""}
+        </p>
       </div>
 
       <div className="overflow-x-auto">
