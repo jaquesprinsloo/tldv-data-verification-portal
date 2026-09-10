@@ -3441,7 +3441,8 @@ function AccountsTab({
           <TableHeader>
             <TableRow>
               <TableHead>Client</TableHead>
-              <TableHead className="text-center">{clientFacing ? "Candidates" : "Open checks"}</TableHead>
+              <TableHead className="text-center">Candidates (current)</TableHead>
+              <TableHead className="text-center">Historical (archive)</TableHead>
               {!clientFacing && <TableHead className="text-center">Discounted</TableHead>}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -3458,6 +3459,11 @@ function AccountsTab({
                   </div>
                 </TableCell>
                 <TableCell className="text-center">{g.checkCount}</TableCell>
+                <TableCell className="text-center">
+                  {g.archiveCount
+                    ? <Badge variant="outline" className="text-[10px]">{g.archiveCount}</Badge>
+                    : <span className="text-xs text-muted-foreground">—</span>}
+                </TableCell>
                 {!clientFacing && (
                   <TableCell className="text-center">
                     {g.discounted ? (
@@ -3479,9 +3485,22 @@ function AccountsTab({
                   </TableCell>
                 )}
                 <TableCell className="text-right">
-                  <Button size="sm" variant="outline" onClick={() => setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key)}>
-                    Open account
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="outline" onClick={() => {
+                      setOpenMode("live");
+                      setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key);
+                    }}>
+                      Open account
+                    </Button>
+                    {g.archiveCount > 0 && (
+                      <Button size="sm" variant="ghost" title="View the historical (archive) checks for this account" onClick={() => {
+                        setOpenMode("archive");
+                        setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key);
+                      }}>
+                        Archive
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
