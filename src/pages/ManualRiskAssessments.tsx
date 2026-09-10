@@ -3628,7 +3628,7 @@ function ClientAccountDialog({
   const isPtvsAccount = !clientFacing && !!ptvsClient && groupKey === ptvsClient.id;
   // Client-facing profiles see a reduced table: no discount or invoice columns,
   // no selection checkbox and no administrative actions.
-  const colCount = clientFacing ? 8 : 11;
+  const colCount = clientFacing ? 8 : mode === "live" ? 11 : 10;
   const [indemnityFor, setIndemnityFor] = useState<{ orderNumber: string; files: IndemnityFileRef[] } | null>(null);
   const sentSubIdsAll = useMemo(() => submissions.map((s) => s.id), [submissions]);
   const { data: mirrorCandidates = [] } = useQuery<Candidate[]>({
