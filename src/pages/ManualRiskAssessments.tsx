@@ -38,7 +38,9 @@ import DuplicateClientsDialog from "@/components/manual-risk/DuplicateClientsDia
 import ComplianceTab from "@/components/manual-risk/ComplianceTab";
 
 
-import { BookUser } from "lucide-react";
+import { BookUser, FileSpreadsheet } from "lucide-react";
+import { MrEmployeeCheckTab } from "@/components/manual-risk/MrEmployeeCheckTab";
+
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -468,6 +470,25 @@ export default function ManualRiskAssessments() {
     },
   });
 
+  // Live updates: new submissions, saved results and released reports refresh
+  // every view (including the read-only client views) without a page reload.
+  useEffect(() => {
+    if (!allowed) return;
+    const bump = () => {
+      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
+      qc.invalidateQueries({ queryKey: ["mra-client-dash-cands"] });
+      qc.invalidateQueries({ queryKey: ["mra-employee-check-records"] });
+      qc.invalidateQueries({ queryKey: ["mra-candidates"] });
+    };
+    const channel = supabase
+      .channel("mra-page-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_submissions" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_candidates" }, bump)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [allowed, qc]);
+
+
   const { data: clients = [] } = useQuery({
     queryKey: ["mra-clients"],
     enabled: !!allowed,
@@ -652,6 +673,8 @@ export default function ManualRiskAssessments() {
               <TabsTrigger value="dashboard"><LayoutDashboard className="h-4 w-4 mr-2" />Dashboard</TabsTrigger>
               <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />In Progress</TabsTrigger>
               <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
+              <TabsTrigger value="employee-check"><FileSpreadsheet className="h-4 w-4 mr-2" />Employee Check</TabsTrigger>
+
             </TabsList>
 
             <TabsContent value="dashboard" className="mt-4">
@@ -709,7 +732,12 @@ export default function ManualRiskAssessments() {
                 onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
               />
             </TabsContent>
+
+            <TabsContent value="employee-check" className="mt-4">
+              <MrEmployeeCheckTab clients={clients} />
+            </TabsContent>
           </Tabs>
+
         </main>
       </div>
     );
