@@ -914,20 +914,32 @@ function BulkFolderUploadCard({
       let confirmed = 0, warned = 0, linked = 0;
 
       for (const p of reports) {
-        const key = `${p.date}|${normName(p.store)}`;
+        const key = keyOf(p);
         let records: Awaited<ReturnType<typeof extractArchiveReportRecords>> = [];
-        try {
-          records = await extractArchiveReportRecords(p.file);
-        } catch (e: any) {
-          addLog(`Could not read "${p.file.name}": ${e.message}`);
-          setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — report could not be read` }));
+        let readErr = "";
+        // Reading a scanned report can time out on the first pass — try again
+        // before calling it unreadable.
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            records = await extractArchiveReportRecords(p.file);
+            readErr = "";
+            if (records.length) break;
+          } catch (e: any) {
+            readErr = e?.message ?? "unknown error";
+            await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));
+          }
+        }
+        if (readErr) {
+          addLog(`Could not read "${p.file.name}" after 3 attempts: ${readErr}`);
+          setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — report could not be read (try again, or check this batch by hand)` }));
           continue;
         }
         if (!records.length) {
           addLog(`No candidates found inside "${p.file.name}"`);
-          setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — no candidates found in report` }));
+          setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — no names could be read out of this report` }));
           continue;
         }
+
 
         // Tally, per archive order, how many people in the report are on it.
         const tally = new Map<string, number>();
