@@ -66,7 +66,7 @@ async function fetchAll<T>(table: string, columns: string, apply?: (q: any) => a
 
 /* ---------------- component ---------------- */
 
-export default function ComplianceTab({ userId, userName }: { userId: string; userName: string }) {
+export default function ComplianceTab({ userId, userName, onViewSubmission }: { userId: string; userName: string; onViewSubmission?: (submissionId: string) => void }) {
   const qc = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [versionLabel, setVersionLabel] = useState("");
@@ -283,6 +283,24 @@ export default function ComplianceTab({ userId, userName }: { userId: string; us
     }).eq("id", id);
     if (error) { toast.error(error.message); return; }
     qc.invalidateQueries({ queryKey: ["mr-sanctions-matches"] });
+  };
+
+  const [openingCand, setOpeningCand] = useState<string | null>(null);
+
+  const openCandidate = async (m: SanctionsMatch) => {
+    if (!m.candidate_id) { toast.error("This match is not linked to a candidate record"); return; }
+    setOpeningCand(m.id);
+    try {
+      const { data, error } = await sb
+        .from("manual_risk_candidates").select("submission_id").eq("id", m.candidate_id).single();
+      if (error) throw error;
+      if (!data?.submission_id) throw new Error("No order is linked to this candidate");
+      onViewSubmission?.(data.submission_id);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setOpeningCand(null);
+    }
   };
 
   const clearFlag = async (id: string) => {
