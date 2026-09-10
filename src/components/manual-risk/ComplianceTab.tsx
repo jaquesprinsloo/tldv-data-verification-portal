@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Upload, Loader2, ShieldAlert, CalendarClock, CheckCircle2, XCircle, AlertTriangle, FileSpreadsheet,
+  Upload, Loader2, ShieldAlert, CalendarClock, CheckCircle2, XCircle, AlertTriangle, FileSpreadsheet, Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,7 +46,15 @@ type FlaggedOrder = {
 };
 
 const FLAG_LABEL: Record<string, string> = {
-  status_inconsistent: "Report released but the order still reads as open",
+  status_inconsistent: 'Report already sent, but the order still shows "Open" (still busy)',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  open: "Open (still busy)",
+  in_progress: "In progress",
+  sent: "Report sent",
+  completed: "Completed",
+  invoiced: "Invoiced",
 };
 
 /** Reads every row of a table in pages of 1000 so nothing is silently cut off. */
@@ -484,8 +492,9 @@ export default function ComplianceTab({ userId, userName, onViewSubmission }: { 
           <Badge variant={flagged.length ? "destructive" : "outline"}>{flagged.length}</Badge>
         </div>
         <p className="text-xs text-muted-foreground mb-3">
-          These orders were released to the client but their progress wording never moved on. Nothing has been changed
-          automatically — open each one, check it, then mark it as reviewed.
+          The report for these orders was already sent to the client, but the order's progress label was never moved off
+          "Open" (meaning still busy). Nothing was changed automatically — open each one, check the documents, then mark
+          it as reviewed.
         </p>
         {flagged.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nothing flagged.</p>
@@ -495,6 +504,7 @@ export default function ComplianceTab({ userId, userName, onViewSubmission }: { 
               <TableHeader>
                 <TableRow>
                   <TableHead>Order</TableHead>
+                  <TableHead>Progress label</TableHead>
                   <TableHead>Reason</TableHead>
                   <TableHead>Released</TableHead>
                   <TableHead />
@@ -504,9 +514,13 @@ export default function ComplianceTab({ userId, userName, onViewSubmission }: { 
                 {flagged.map((f) => (
                   <TableRow key={f.id}>
                     <TableCell className="text-xs font-medium">{f.order_number}</TableCell>
+                    <TableCell className="text-xs">{STATUS_LABEL[f.status] ?? f.status}</TableCell>
                     <TableCell className="text-xs">{FLAG_LABEL[f.compliance_flag ?? ""] ?? f.compliance_flag}</TableCell>
                     <TableCell className="text-xs">{f.sent_at ? new Date(f.sent_at).toLocaleString("en-ZA") : "—"}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
+                      <Button size="sm" variant="outline" className="mr-2" onClick={() => onViewSubmission?.(f.id)}>
+                        <Eye className="h-3.5 w-3.5 mr-1" /> Inspect
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => clearFlag(f.id)}>Mark reviewed</Button>
                     </TableCell>
                   </TableRow>
