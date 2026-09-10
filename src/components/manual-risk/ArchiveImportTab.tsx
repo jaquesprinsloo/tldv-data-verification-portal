@@ -467,7 +467,21 @@ export function ArchiveImportTab({
                   <AlertTriangle className="h-4 w-4 text-amber-600" />
                   These names look like accounts you already have. Choose which existing account the
                   checks belong to, or choose "Create new account" if it really is a different client.
+                  Your choice is remembered, so a re-upload will not ask again.
                 </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const next = { ...mappedTo };
+                    for (const s of recon.similar) next[s.store] = mappedTo[s.store] ?? s.matches[0].client.id;
+                    setMappedTo(next);
+                    saveMap(next);
+                    toast.success("Suggested links confirmed and remembered");
+                  }}
+                >
+                  Accept all suggested links
+                </Button>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
