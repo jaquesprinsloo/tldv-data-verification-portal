@@ -272,7 +272,13 @@ export function ArchiveImportTab({
     queryFn: async () => {
       const { data, error } = await sb
         .from("manual_risk_submissions")
-        .select("id, order_number, client_id, created_at, archive_batch_label, archive_report_path, archive_report_name, indemnity_files")
+        .select(`
+          id, order_number, client_id, created_at, archive_batch_label,
+          archive_report_path, archive_report_name,
+          report_onedrive_web_url, report_onedrive_item_id, report_onedrive_path,
+          report_shared_onedrive_web_url, report_shared_onedrive_item_id, report_shared_onedrive_path,
+          indemnity_files
+        `)
         .eq("is_archive", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
