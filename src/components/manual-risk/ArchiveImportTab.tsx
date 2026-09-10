@@ -497,7 +497,7 @@ export function ArchiveImportTab({
                           <TableCell>
                             <Select
                               value={mappedTo[s.store] ?? s.matches[0].client.id}
-                              onValueChange={(v) => setMappedTo((p) => ({ ...p, [s.store]: v }))}
+                              onValueChange={(v) => setMapping(s.store, v)}
                             >
                               <SelectTrigger className="w-full max-w-md">
                                 <SelectValue />
