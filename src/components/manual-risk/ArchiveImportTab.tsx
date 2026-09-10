@@ -15,6 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Upload, FileSpreadsheet, FolderOpen, CheckCircle2, AlertTriangle, FileText } from "lucide-react";
+import { applyArchiveReportOutcomes } from "@/lib/archiveReportOutcomes";
 
 /**
  * Archive Import (master admin only).
@@ -672,7 +673,22 @@ function ArchiveDocumentsCard({
         .eq("id", sub.id);
       if (error) throw error;
       addLog(`Report attached to ${sub.order_number}: ${file.name}`);
-      toast.success("Report attached");
+      toast.success("Report attached — reading outcomes…");
+
+      // Read the ID Verification / Risk Assessment outcomes off the original
+      // report and apply the same rules the live reports use.
+      try {
+        const res = await applyArchiveReportOutcomes(sub.id, file, file.name);
+        addLog(
+          `Outcomes for ${sub.order_number}: ${res.matched} candidate(s) populated from ${res.records} report record(s)` +
+            (res.unmatched.length ? ` • not matched: ${res.unmatched.join(", ")}` : ""),
+        );
+        if (res.matched) toast.success(`${res.matched} candidate outcome(s) captured from the report`);
+        else toast.warning("No candidate on this order matched the report — outcomes were not filled in");
+      } catch (e: any) {
+        addLog(`Outcome extraction failed for ${sub.order_number}: ${e.message}`);
+        toast.warning("Report attached, but outcomes could not be read: " + e.message);
+      }
       onChanged();
     } catch (e: any) {
       toast.error("Report upload failed: " + e.message);
@@ -931,6 +947,15 @@ function BulkFolderUploadCard({
             .update({ archive_report_path: path, archive_report_name: p.file.name } as any)
             .eq("id", sub.id);
           if (error) throw error;
+          try {
+            const res = await applyArchiveReportOutcomes(sub.id, p.file, p.file.name);
+            addLog(
+              `Outcomes for ${sub.order_number}: ${res.matched}/${res.records} captured` +
+                (res.unmatched.length ? ` • not matched: ${res.unmatched.join(", ")}` : ""),
+            );
+          } catch (e: any) {
+            addLog(`Outcome extraction failed for ${sub.order_number}: ${e.message}`);
+          }
         } else {
           const existing: any[] = Array.isArray(sub.indemnity_files) ? sub.indemnity_files : [];
           if (existing.some((f) => f.name === p.file.name)) { ok++; setDone(ok); continue; }
