@@ -77,17 +77,48 @@ function saveMap(m: Record<string, string>) {
   try { localStorage.setItem(MAP_KEY, JSON.stringify(m)); } catch { /* ignore */ }
 }
 
-/** Cheap similarity for "is this the same store spelled differently?" hints. */
+/** Noise words stripped before comparing so "Mall"/"The"/"CC" never drive a match. */
+const MATCH_NOISE = new Set(["the", "mall", "cc", "ccs", "pty", "ltd", "branch", "store", "shop", "centre", "center", "plaza", "shopping"]);
+
+function matchKey(s: string): string {
+  return normName(s)
+    .split(" ")
+    .filter((w) => w && !MATCH_NOISE.has(w))
+    .join(" ");
+}
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+/** Letter-by-letter similarity so spelling mistakes suggest the closest name,
+ *  rather than any account that happens to share a word like "Mall". */
 function similarity(a: string, b: string): number {
-  const A = normName(a), B = normName(b);
+  const A = matchKey(a), B = matchKey(b);
   if (!A || !B) return 0;
   if (A === B) return 1;
-  const wa = new Set(A.split(" ")), wb = new Set(B.split(" "));
+  const contains = A.includes(B) || B.includes(A) ? 0.9 : 0;
+  const lev = 1 - levenshtein(A, B) / Math.max(A.length, B.length);
+  // Word overlap only counts when the words actually start the same (guards
+  // against "Kolonade Mall" matching "Fleurhof Mall" style false positives).
+  const wa = A.split(" "), wb = new Set(B.split(" "));
   let shared = 0;
   for (const w of wa) if (wb.has(w)) shared += 1;
-  const overlap = shared / Math.max(wa.size, wb.size);
-  const contains = A.includes(B) || B.includes(A) ? 0.85 : 0;
-  return Math.max(overlap, contains);
+  const overlap = shared / Math.max(wa.length, wb.size);
+  const sameStart = A[0] === B[0] ? 0.05 : -0.1;
+  return Math.max(contains, lev + sameStart, overlap >= 1 ? overlap : 0);
 }
 
 function toIsoDate(v: any): string | null {
