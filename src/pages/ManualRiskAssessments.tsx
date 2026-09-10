@@ -4088,7 +4088,7 @@ function ClientAccountDialog({
             <Button variant="ghost" size="sm" onClick={() => { setFromDate(""); setToDate(""); }}>Clear</Button>
           )}
           <div className="flex-1" />
-          {!clientFacing && (
+          {!clientFacing && mode === "live" && (
             <>
               <Button variant="outline" onClick={exportExcel}>
                 <FileDown className="h-4 w-4 mr-2" /> Export to Excel
@@ -4158,7 +4158,7 @@ function ClientAccountDialog({
           <Table>
             <TableHeader>
               <TableRow>
-                {!clientFacing && (
+                {!clientFacing && mode === "live" && (
                   <TableHead className="w-10">
                     <Checkbox
                       checked={rows.length > 0 && selected.size === rows.length}
@@ -4192,7 +4192,7 @@ function ClientAccountDialog({
                   id={`cand-row-${r.candidateId}`}
                   className={highlightCandidateId === r.candidateId ? "bg-amber-100 ring-1 ring-amber-400" : undefined}
                 >
-                  {!clientFacing && (
+                  {!clientFacing && mode === "live" && (
                     <TableCell>
                       <Checkbox
                         checked={selected.has(r.candidateId)}
@@ -4259,7 +4259,7 @@ function ClientAccountDialog({
                     >
                       <FileText className={loadingReport === r.submissionId ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-blue-600"} />
                     </Button>
-                    {clientFacing ? (
+                    {clientFacing || mode === "archive" ? (
                       <Button
                         variant="ghost"
                         size="icon"
