@@ -4038,12 +4038,32 @@ function ClientAccountDialog({
         <DialogHeader>
           <DialogTitle>{clientName} — Account</DialogTitle>
           <DialogDescription>
-            {rows.length} check(s) shown • {selectedSubmissionIds.length} submission(s) selected
+            {rows.length} check(s) shown • {mode === "archive" ? "historical (archive) records" : "current submissions"}
+            {mode === "live" && <> • {selectedSubmissionIds.length} submission(s) selected</>}
             {mirrorRows.length > 0 && (
               <> • {mirrorRows.length} PTVS-discount check(s) mirrored from other accounts (invoicing only, not counted)</>
             )}
           </DialogDescription>
         </DialogHeader>
+
+        <div className="inline-flex rounded-md border p-1 mb-3 w-fit">
+          <Button
+            size="sm"
+            variant={mode === "live" ? "default" : "ghost"}
+            className={mode === "live" ? "bg-red-600 hover:bg-red-700" : ""}
+            onClick={() => { setMode("live"); setSelected(new Set()); }}
+          >
+            Current submissions
+          </Button>
+          <Button
+            size="sm"
+            variant={mode === "archive" ? "default" : "ghost"}
+            className={mode === "archive" ? "bg-slate-700 hover:bg-slate-800" : ""}
+            onClick={() => { setMode("archive"); setSelected(new Set()); }}
+          >
+            Historical archive{archiveSubCount ? ` (${archiveSubCount} order${archiveSubCount === 1 ? "" : "s"})` : ""}
+          </Button>
+        </div>
 
         <div className="flex flex-wrap items-end gap-3 mb-3">
           <div>
