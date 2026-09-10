@@ -840,6 +840,13 @@ function storeFromReportName(fileName: string): string {
     .trim();
 }
 
+type ArchiveCandidateRow = {
+  id_number: string | null;
+  first_name: string | null;
+  surname: string | null;
+  submission_id: string;
+};
+
 type PlannedFile = {
   id: string;
   file: File;
