@@ -449,6 +449,11 @@ export function ArchiveImportTab({
               <div className="rounded border p-3">
                 <p className="text-xs text-muted-foreground">Similar name — please confirm</p>
                 <p className="text-2xl font-bold text-amber-600">{recon.similar.length}</p>
+                {recon.remembered.length > 0 && (
+                  <p className="text-xs text-emerald-600 mt-1">
+                    {recon.remembered.length} linked earlier — remembered
+                  </p>
+                )}
               </div>
               <div className="rounded border p-3">
                 <p className="text-xs text-muted-foreground">To be created</p>
