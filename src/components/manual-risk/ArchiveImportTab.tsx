@@ -702,8 +702,12 @@ function ArchiveDocumentsCard({
     try {
       const existing = Array.isArray(sub.indemnity_files) ? sub.indemnity_files : [];
       const added: any[] = [];
+      const norm = (n: string) => n.trim().toLowerCase();
+      const seenNames = new Set(existing.map((f) => norm(String(f.name ?? ""))));
       for (const file of Array.from(files)) {
-        if (existing.some((f) => f.name === file.name)) continue;
+        if (seenNames.has(norm(file.name))) { addLog(`Skipped "${file.name}" — already attached`); continue; }
+        seenNames.add(norm(file.name));
+
         const path = `${sub.id}/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
         const { error: upErr } = await sb.storage
           .from("manual-risk-indemnities")
