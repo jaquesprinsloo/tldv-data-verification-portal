@@ -60,9 +60,10 @@ export function ArchiveOneDriveBackfillCard({ addLog }: { addLog: (s: string) =>
     try { wake = await (navigator as any).wakeLock?.request?.("screen"); } catch { /* not available */ }
 
     try {
-      for (let i = 0; i < 500; i++) {
+      for (let i = 0; i < 5000; i++) {
         if (stop.current) break;
-        const res = await callBackfill({ batchSize: 3 });
+        const res = await callBackfill({ maxCopies: 4 });
+
         totalUp += res.uploaded;
         totalBad += res.failed;
         setCopied(totalUp);
