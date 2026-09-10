@@ -270,6 +270,9 @@ async function uploadSupplierReport(
     name: file.name,
     path,
     uploaded_at: new Date().toISOString(),
+    uploaded_by: (await currentActor()).id || null,
+    uploaded_by_name: (await currentActor()).name || null,
+
     size: file.size,
     content_type: file.type || "application/pdf",
     onedrive_web_url,
