@@ -135,14 +135,17 @@ Deno.serve(async (req) => {
     };
 
     const logs: string[] = [];
-    let uploaded = 0, failed = 0, processed = 0;
+    let uploaded = 0, failed = 0, processed = 0, copies = 0;
+    const haveBudget = () => copies < maxCopies && Date.now() - startedAt < TIME_BUDGET_MS;
 
-    for (const sub of pending.slice(0, batchSize)) {
+    for (const sub of pending) {
+      if (!haveBudget()) break;
       processed += 1;
       const client = clientName.get(sub.client_id ?? "") ?? "Unassigned";
 
       // ---- report ----
       if (sub.archive_report_path && (!sub.report_onedrive_item_id || !sub.report_shared_onedrive_item_id)) {
+
         try {
           const file = await download("archive-reports", sub.archive_report_path);
           const name = sub.archive_report_name || sub.archive_report_path.split("/").pop() || "report.pdf";
