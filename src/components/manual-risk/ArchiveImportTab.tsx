@@ -1213,73 +1213,82 @@ function BulkFolderUploadCard({
 
 
 
+  /** Attaches one file to one archive order (skipping exact duplicates). */
+  const attachFileTo = async (sub: ArchiveSubmission, p: PlannedFile) => {
+    if (p.kind === "report") {
+      // Already attached with the same file name — leave it alone.
+      if ((sub as any).archive_report_name === p.file.name && (sub as any).archive_report_path) {
+        addLog(`Skipped "${p.file.name}" — report already on ${sub.order_number}`);
+        return;
+      }
+      const path = `${sub.id}/${p.file.name}`;
+      const { error: upErr } = await sb.storage.from("archive-reports")
+        .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/pdf" });
+      if (upErr) throw upErr;
+      const { error } = await sb.from("manual_risk_submissions")
+        .update({ archive_report_path: path, archive_report_name: p.file.name } as any)
+        .eq("id", sub.id);
+      if (error) throw error;
+      (sub as any).archive_report_path = path;
+      (sub as any).archive_report_name = p.file.name;
+      try {
+        const res = await applyArchiveReportOutcomes(sub.id, p.file, p.file.name);
+        addLog(
+          `Outcomes for ${sub.order_number}: ${res.matched}/${res.records} captured` +
+            (res.unmatched.length ? ` • not matched: ${res.unmatched.join(", ")}` : ""),
+        );
+      } catch (e: any) {
+        addLog(`Outcome extraction failed for ${sub.order_number}: ${e.message}`);
+      }
+      return;
+    }
+
+    const existing: any[] = Array.isArray(sub.indemnity_files) ? sub.indemnity_files : [];
+    const norm = (n: string) => n.trim().toLowerCase();
+    if (existing.some((f) => norm(String(f.name ?? "")) === norm(p.file.name))) {
+      addLog(`Skipped "${p.file.name}" — indemnity already on ${sub.order_number}`);
+      return;
+    }
+    const path = `${sub.id}/${Date.now()}-${p.file.name.replace(/[^\w.\-]+/g, "_")}`;
+    const { error: upErr } = await sb.storage.from("manual-risk-indemnities")
+      .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/octet-stream" });
+    if (upErr) throw upErr;
+    const entry = {
+      name: p.file.name, path, uploaded_at: new Date().toISOString(),
+      size: p.file.size, content_type: p.file.type || null,
+    };
+    (sub as any).indemnity_files = [...existing, entry];
+    const { error } = await sb.from("manual_risk_submissions")
+      .update({ indemnity_files: [...existing, entry] } as any)
+      .eq("id", sub.id);
+    if (error) throw error;
+  };
+
   const runUpload = async () => {
     setRunning(true); setDone(0); setFailed(0);
     let ok = 0, bad = 0;
     for (const p of planned) {
       if (!p.submissionId) { bad++; setFailed(bad); continue; }
-      const sub = submissions.find((s) => s.id === p.submissionId);
-      if (!sub) { bad++; setFailed(bad); continue; }
-      try {
-        if (p.kind === "report") {
-          // Already attached with the same file name — leave it alone.
-          if ((sub as any).archive_report_name === p.file.name && (sub as any).archive_report_path) {
-            addLog(`Skipped "${p.file.name}" — report already on ${sub.order_number}`);
-            ok++; setDone(ok); continue;
-          }
-          const path = `${sub.id}/${p.file.name}`;
-          const { error: upErr } = await sb.storage.from("archive-reports")
-            .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/pdf" });
-          if (upErr) throw upErr;
-          const { error } = await sb.from("manual_risk_submissions")
-            .update({ archive_report_path: path, archive_report_name: p.file.name } as any)
-            .eq("id", sub.id);
-          if (error) throw error;
-          (sub as any).archive_report_path = path;
-          (sub as any).archive_report_name = p.file.name;
-          try {
-            const res = await applyArchiveReportOutcomes(sub.id, p.file, p.file.name);
-            addLog(
-              `Outcomes for ${sub.order_number}: ${res.matched}/${res.records} captured` +
-                (res.unmatched.length ? ` • not matched: ${res.unmatched.join(", ")}` : ""),
-            );
-          } catch (e: any) {
-            addLog(`Outcome extraction failed for ${sub.order_number}: ${e.message}`);
-          }
-        } else {
-          const existing: any[] = Array.isArray(sub.indemnity_files) ? sub.indemnity_files : [];
-          const norm = (n: string) => n.trim().toLowerCase();
-          if (existing.some((f) => norm(String(f.name ?? "")) === norm(p.file.name)
-            || (f.size != null && Number(f.size) === p.file.size && norm(String(f.name ?? "")) === norm(p.file.name)))) {
-            addLog(`Skipped "${p.file.name}" — indemnity already on ${sub.order_number}`);
-            ok++; setDone(ok); continue;
-          }
-          const path = `${sub.id}/${Date.now()}-${p.file.name.replace(/[^\w.\-]+/g, "_")}`;
-
-          const { error: upErr } = await sb.storage.from("manual-risk-indemnities")
-            .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/octet-stream" });
-          if (upErr) throw upErr;
-          const entry = {
-            name: p.file.name, path, uploaded_at: new Date().toISOString(),
-            size: p.file.size, content_type: p.file.type || null,
-          };
-          (sub as any).indemnity_files = [...existing, entry];
-          const { error } = await sb.from("manual_risk_submissions")
-            .update({ indemnity_files: [...existing, entry] } as any)
-            .eq("id", sub.id);
-          if (error) throw error;
+      const targets = Array.from(new Set([p.submissionId, ...(alsoLink[keyOf(p)] ?? [])]));
+      let anyOk = false;
+      for (const targetId of targets) {
+        const sub = submissions.find((s) => s.id === targetId);
+        if (!sub) continue;
+        try {
+          await attachFileTo(sub, p);
+          anyOk = true;
+        } catch (e: any) {
+          addLog(`Failed "${p.file.name}" (${p.date} ${p.store}) → ${sub.order_number}: ${e.message}`);
         }
-        ok++; setDone(ok);
-      } catch (e: any) {
-        bad++; setFailed(bad);
-        addLog(`Failed "${p.file.name}" (${p.date} ${p.store}): ${e.message}`);
       }
+      if (anyOk) { ok++; setDone(ok); } else { bad++; setFailed(bad); }
     }
     addLog(`Bulk upload finished — ${ok} attached, ${bad} skipped/failed`);
     toast.success(`${ok} file(s) attached`);
     setRunning(false);
     onChanged();
   };
+
 
   return (
     <Card className="p-4 space-y-3">
