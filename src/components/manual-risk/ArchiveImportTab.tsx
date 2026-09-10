@@ -1422,10 +1422,19 @@ function BulkFolderUploadCard({
   };
 
   const runUpload = async () => {
+    const items = [...planned];
+    if (!items.length) return;
     setRunning(true); setDone(0); setFailed(0);
+    bulkSession.running = true; bulkSession.done = 0; bulkSession.failed = 0;
+
+    // Ask the machine to stay awake so a sleeping screen does not cut the run short.
+    let wake: any = null;
+    try { wake = await (navigator as any).wakeLock?.request?.("screen"); } catch { /* not available */ }
+
+    const attached = new Set<string>();
     let ok = 0, bad = 0;
-    for (const p of planned) {
-      if (!p.submissionId) { bad++; setFailed(bad); continue; }
+    for (const p of items) {
+      if (!p.submissionId) { bad++; setFailed(bad); bulkSession.failed = bad; continue; }
       const targets = Array.from(new Set([p.submissionId, ...(alsoLink[keyOf(p)] ?? [])]));
       let anyOk = false;
       for (const targetId of targets) {
@@ -1438,11 +1447,26 @@ function BulkFolderUploadCard({
           addLog(`Failed "${p.file.name}" (${p.date} ${p.store}) → ${sub.order_number}: ${e.message}`);
         }
       }
-      if (anyOk) { ok++; setDone(ok); } else { bad++; setFailed(bad); }
+      if (anyOk) { ok++; attached.add(p.id); setDone(ok); bulkSession.done = ok; }
+      else { bad++; setFailed(bad); bulkSession.failed = bad; }
     }
     addLog(`Bulk upload finished — ${ok} attached, ${bad} skipped/failed`);
     toast.success(`${ok} file(s) attached`);
-    setRunning(false);
+
+    // Everything that went up is cleared off the list, so only the batches that
+    // still need attention stay behind and the next folder can be chosen.
+    const remaining = items.filter((p) => !attached.has(p.id));
+    const liveKeys = new Set(remaining.map((p) => keyOf(p)));
+    const prune = <T,>(rec: Record<string, T>): Record<string, T> =>
+      Object.fromEntries(Object.entries(rec).filter(([k]) => liveKeys.has(k)));
+    setPlanned(remaining); bulkSession.planned = remaining;
+    setMatchNote((prev) => { const n = prune(prev); bulkSession.matchNote = n; return n; });
+    setSuggested((prev) => { const n = prune(prev); bulkSession.suggested = n; return n; });
+    setAlsoOptions((prev) => { const n = prune(prev); bulkSession.alsoOptions = n; return n; });
+    setAlsoLink((prev) => { const n = prune(prev); bulkSession.alsoLink = n; return n; });
+
+    setRunning(false); bulkSession.running = false;
+    try { wake?.release?.(); } catch { /* ignore */ }
     onChanged();
   };
 
