@@ -843,7 +843,9 @@ function ArchiveDocumentsCard({
       const norm = (n: string) => n.trim().toLowerCase();
       const seenNames = new Set(existing.map((f) => norm(String(f.name ?? ""))));
       for (const file of Array.from(files)) {
+        if (isMasterIndemnity(file.name)) { addLog(`Skipped "${file.name}" — master indemnity files are not attached`); continue; }
         if (seenNames.has(norm(file.name))) { addLog(`Skipped "${file.name}" — already attached`); continue; }
+
         seenNames.add(norm(file.name));
 
         const path = `${sub.id}/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
