@@ -740,11 +740,17 @@ export default function ManualRiskAssessments() {
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
             <TabsTrigger value="address-book"><Users className="h-4 w-4 mr-2" />Address Book</TabsTrigger>
             <TabsTrigger value="supplier-recon"><ClipboardList className="h-4 w-4 mr-2" />Supplier Recon</TabsTrigger>
+            <TabsTrigger value="compliance"><ShieldAlert className="h-4 w-4 mr-2" />Compliance</TabsTrigger>
             {isMasterAdmin && (
               <TabsTrigger value="archive"><FolderOpen className="h-4 w-4 mr-2" />Archive Import</TabsTrigger>
             )}
             <TabsTrigger value="settings">T&amp;Cs</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="compliance" className="mt-4">
+            <ComplianceTab userId={userId} userName={userName} />
+          </TabsContent>
+
 
           <TabsContent value="dashboard" className="mt-4">
             <ClientFolderSyncCard submissions={liveSubmissions} clients={clients} userName={userName} />
