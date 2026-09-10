@@ -1004,6 +1004,8 @@ function BulkFolderUploadCard({
             continue;
           }
           setGroupOrder(key, best[0]);
+          recordExtras(best[0]);
+
           linked += 1;
           setMatchNote((prev) => ({
             ...prev,
