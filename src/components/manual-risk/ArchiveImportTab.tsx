@@ -1033,7 +1033,7 @@ function BulkFolderUploadCard({
           confirmed += 1;
           setMatchNote((prev) => ({
             ...prev,
-            [key]: `Names verified — ${onCurrent}/${records.length} candidate(s) confirmed on this order`,
+            [key]: `Names verified — ${onCurrent}/${records.length} candidate(s) confirmed on this order (${strongTotal} with name, surname and ID digits all matching)`,
           }));
           addLog(`"${p.file.name}": names verified ${onCurrent}/${records.length} on ${label(p.submissionId)}`);
         } else {
