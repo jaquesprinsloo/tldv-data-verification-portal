@@ -793,19 +793,47 @@ function ArchiveDocumentsCard({
         <FileText className="h-4 w-4 text-red-600" /> Step 3 — attach reports and indemnities
       </h3>
       <p className="text-sm text-muted-foreground">
-        Pick an archive order, then attach its original report (one per batch) and its indemnity
-        documents. Filenames do not matter — files are linked to the order you choose. Re-uploading a
-        file with the same name replaces it instead of duplicating it.
+        Only the orders that still need documents are listed. Once an order has its report and at
+        least one indemnity it drops off this list and lives in the archive under the Accounts tab.
       </p>
-      <div className="max-w-sm">
-        <Label className="text-xs">Find an archive order</Label>
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Store, date or order number" className="h-8" />
-        <p className="text-xs text-muted-foreground mt-1">
-          {submissions.length} archive order(s) in total
-          {visible.length < (search.trim() ? submissions.filter((s) => `${s.order_number} ${s.archive_batch_label ?? ""} ${clientName(s.client_id)}`.toLowerCase().includes(search.trim().toLowerCase())).length : submissions.length)
-            ? " — search to narrow the list (only the first 60 matches are shown)"
-            : ""}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="rounded-md border p-2">
+          <p className="text-[11px] text-muted-foreground">Still outstanding</p>
+          <p className="text-lg font-semibold">{counts.outstanding}</p>
+        </div>
+        <div className="rounded-md border p-2">
+          <p className="text-[11px] text-muted-foreground">No report</p>
+          <p className="text-lg font-semibold text-amber-600">{counts.noReport}</p>
+        </div>
+        <div className="rounded-md border p-2">
+          <p className="text-[11px] text-muted-foreground">No indemnities</p>
+          <p className="text-lg font-semibold text-amber-600">{counts.noIndemnity}</p>
+        </div>
+        <div className="rounded-md border p-2">
+          <p className="text-[11px] text-muted-foreground">Complete (in archive)</p>
+          <p className="text-lg font-semibold text-emerald-600">{counts.complete}</p>
+        </div>
+      </div>
+      {counts.neither > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {counts.neither} order(s) have neither a report nor indemnities yet.
         </p>
+      )}
+
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="max-w-sm flex-1 min-w-[220px]">
+          <Label className="text-xs">Find an archive order</Label>
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Store, date or order number" className="h-8" />
+          <p className="text-xs text-muted-foreground mt-1">
+            Showing {visible.length} of {matching.length}
+            {matching.length > visible.length ? " — search to narrow the list" : ""}
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-xs cursor-pointer pb-5">
+          <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} />
+          Also show completed orders
+        </label>
       </div>
 
       <div className="overflow-x-auto">
