@@ -220,14 +220,25 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Re-read so the caller sees exactly what is still outstanding (an order with
+    // many indemnities can stay in the queue over several calls).
+    const { data: afterRaw } = await admin
+      .from("manual_risk_submissions")
+      .select(
+        "id, order_number, client_id, archive_report_path, archive_report_name, report_onedrive_item_id, report_shared_onedrive_item_id, indemnity_files",
+      )
+      .eq("is_archive", true);
+    const remaining = ((afterRaw ?? []) as Sub[]).filter(needsWork).length;
+
     return json({
       success: true,
       processed,
       uploaded,
       failed,
-      remaining: Math.max(pending.length - processed, 0),
+      remaining,
       logs,
     });
+
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("backfill-archive-onedrive error:", message);
