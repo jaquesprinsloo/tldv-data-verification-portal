@@ -239,10 +239,13 @@ export function ArchiveImportTab({
           const full = pick(r, ["Full Name", "Fullname"]);
           const resolvedFirst = firstName || full.split(" ").slice(0, -1).join(" ");
           const resolvedSurname = surname || full.split(" ").slice(-1).join(" ");
-          if (!store || !date || (!idNumber && !resolvedSurname)) { bad += 1; return; }
+          // A missing date is fine: the person is still imported, into an
+          // undated archive order for that store, and linked up later when the
+          // document folders are matched.
+          if (!store || (!idNumber && !resolvedSurname)) { bad += 1; return; }
           out.push({
             rowNumber: i + 2,
-            submissionDate: date,
+            submissionDate: date ?? "",
             firstName: resolvedFirst,
             secondName: pick(r, ["Second Name", "Middle Name"]),
             surname: resolvedSurname,
