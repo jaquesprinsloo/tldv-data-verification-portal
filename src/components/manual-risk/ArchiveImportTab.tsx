@@ -947,6 +947,15 @@ function BulkFolderUploadCard({
             .update({ archive_report_path: path, archive_report_name: p.file.name } as any)
             .eq("id", sub.id);
           if (error) throw error;
+          try {
+            const res = await applyArchiveReportOutcomes(sub.id, p.file, p.file.name);
+            addLog(
+              `Outcomes for ${sub.order_number}: ${res.matched}/${res.records} captured` +
+                (res.unmatched.length ? ` • not matched: ${res.unmatched.join(", ")}` : ""),
+            );
+          } catch (e: any) {
+            addLog(`Outcome extraction failed for ${sub.order_number}: ${e.message}`);
+          }
         } else {
           const existing: any[] = Array.isArray(sub.indemnity_files) ? sub.indemnity_files : [];
           if (existing.some((f) => f.name === p.file.name)) { ok++; setDone(ok); continue; }
