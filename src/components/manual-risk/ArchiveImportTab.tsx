@@ -1193,6 +1193,15 @@ function BulkFolderUploadCard({
     return null;
   };
 
+  /** Batches that hold a report but no indemnities — a stray folder of
+   *  indemnities can be joined onto one of these. */
+  const reportOnlyGroups = useMemo(
+    () => grouped.filter((g) => g.files.some((f) => f.kind === "report")),
+    [grouped],
+  );
+
+
+
 
 
   const runUpload = async () => {
