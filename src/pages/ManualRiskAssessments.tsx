@@ -3539,6 +3539,7 @@ function AccountsTab({
 function ClientAccountDialog({
   groupKey, onClose, submissions, clients, onChanged, highlightCandidateId, userName,
   initialFromDate = "", initialToDate = "", initialDateBasis = "submitted", clientFacing = false,
+  initialMode = "live",
 }: {
   groupKey: string;
   userName: string;
@@ -3551,6 +3552,8 @@ function ClientAccountDialog({
   initialToDate?: string;
   initialDateBasis?: DateBasis;
   clientFacing?: boolean;
+  /** Which set of checks to show: current-system or imported historical archive. */
+  initialMode?: "live" | "archive";
 }) {
   const qc = useQueryClient();
   const client = groupKey === "__unassigned__" ? null : clients.find((c) => c.id === groupKey) ?? null;
@@ -3567,6 +3570,12 @@ function ClientAccountDialog({
   const [fromDate, setFromDate] = useState(initialFromDate);
   const [toDate, setToDate] = useState(initialToDate);
   const [dateBasis, setDateBasis] = useState<DateBasis>(initialDateBasis);
+  // Current-system checks versus imported historical (archive) checks.
+  const [mode, setMode] = useState<"live" | "archive">(initialMode);
+  const archiveSubCount = useMemo(
+    () => submissions.filter((s) => (s as any).is_archive && (s.client_id ?? "__unassigned__") === groupKey).length,
+    [submissions, groupKey],
+  );
 
   // Load candidates: (a) those from this account's own submissions,
   // and (b) those moved into this account via override_client_id from other subs.
@@ -3574,15 +3583,20 @@ function ClientAccountDialog({
   const { data: candidates = [] } = useQuery<Candidate[]>({
     queryKey: ["mra-account-cands", groupKey, ownSubIds.join(",")],
     queryFn: async () => {
-      // Own submissions' candidates
-      let own: Candidate[] = [];
+      // Own submissions' candidates (paged — a historical account can hold well
+      // over the 1000-row single-request cap).
+      const own: Candidate[] = [];
       if (ownSubIds.length > 0) {
-        const { data, error } = await sb.from("manual_risk_candidates")
-          .select("*").in("submission_id", ownSubIds)
-          .is("invoice_batch_id", null)
-          .order("sort_order", { ascending: true });
-        if (error) throw error;
-        own = data as Candidate[];
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await sb.from("manual_risk_candidates")
+            .select("*").in("submission_id", ownSubIds)
+            .is("invoice_batch_id", null)
+            .order("sort_order", { ascending: true })
+            .range(from, from + 999);
+          if (error) throw error;
+          own.push(...((data ?? []) as Candidate[]));
+          if (!data || data.length < 1000) break;
+        }
       }
       // Candidates moved INTO this account from other submissions.
       let moved: Candidate[] = [];
@@ -3644,15 +3658,20 @@ function ClientAccountDialog({
       })
       .map((c) => {
         const s = subById.get(c.submission_id);
-        if (!s || !s.sent_at) return null;
-        const basisTs = new Date(dateBasis === "submitted" ? s.created_at : s.sent_at).getTime();
+        if (!s) return null;
+        // Keep the two worlds apart: historical archive checks only show in the
+        // Archive view, current-system checks only in the current view.
+        const isArchive = !!(s as any).is_archive;
+        if (mode === "archive" ? !isArchive : isArchive) return null;
+        const sentAt = s.sent_at ?? s.created_at;
+        const basisTs = new Date(dateBasis === "submitted" ? s.created_at : sentAt).getTime();
         if (from !== null && basisTs < from) return null;
         if (to !== null && basisTs > to) return null;
         return {
           submissionId: s.id,
           candidateId: c.id,
           orderNumber: s.order_number,
-          sentAt: s.sent_at,
+          sentAt,
           submittedAt: s.created_at,
           invoicedAt: s.invoiced_at,
           invoiceNumber: s.invoice_number,
