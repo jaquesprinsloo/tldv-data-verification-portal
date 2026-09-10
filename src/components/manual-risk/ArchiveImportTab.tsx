@@ -1341,7 +1341,9 @@ function BulkFolderUploadCard({
           if (!best) {
             addLog(`No archive order holds the people in "${p.file.name}"`);
             setMatchNote((prev) => ({ ...prev, [key]: `Names not found on any archive order` }));
+            rememberUnresolved(key, p.date, p.store, "Names not found on any archive order");
             continue;
+
           }
           setGroupOrder(key, best[0]);
           const extras = recordExtras(best[0]);
