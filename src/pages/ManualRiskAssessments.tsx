@@ -671,6 +671,8 @@ export default function ManualRiskAssessments() {
               <TabsTrigger value="dashboard"><LayoutDashboard className="h-4 w-4 mr-2" />Dashboard</TabsTrigger>
               <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />In Progress</TabsTrigger>
               <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
+              <TabsTrigger value="employee-check"><FileSpreadsheet className="h-4 w-4 mr-2" />Employee Check</TabsTrigger>
+
             </TabsList>
 
             <TabsContent value="dashboard" className="mt-4">
