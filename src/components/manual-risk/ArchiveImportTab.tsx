@@ -789,10 +789,15 @@ function ArchiveDocumentsCard({
   const visible = useMemo(() => matching.slice(0, 60), [matching]);
 
   const uploadReport = async (sub: ArchiveSubmission, file: File) => {
+    if (isMasterIndemnity(file.name)) {
+      toast.info("Master indemnity files are not attached — upload the individual indemnities instead");
+      return;
+    }
     if (sub.archive_report_path && sub.archive_report_name === file.name) {
       toast.info("That report is already attached to this order");
       return;
     }
+
     setBusy(sub.id);
     try {
       const path = `${sub.id}/${file.name}`;
