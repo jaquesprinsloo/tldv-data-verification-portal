@@ -105,6 +105,8 @@ export type IndemnityFile = {
   name: string;
   path: string; // storage path in manual-risk-indemnities bucket
   uploaded_at: string;
+  uploaded_by?: string | null;
+  uploaded_by_name?: string | null;
   size?: number;
   content_type?: string;
   onedrive_web_url?: string | null;
@@ -117,6 +119,8 @@ export type SupplierReportFile = {
   name: string;
   path: string; // storage path in manual-risk-supplier-reports bucket
   uploaded_at: string;
+  uploaded_by?: string | null;
+  uploaded_by_name?: string | null;
   size?: number;
   content_type?: string;
   onedrive_web_url?: string | null;
@@ -124,7 +128,45 @@ export type SupplierReportFile = {
   extracted_id_numbers?: string[];
 };
 
+/** Who is doing this, for the record trail. Cached for the session. */
+let actorCache: { id: string; name: string } | null = null;
+export async function currentActor(): Promise<{ id: string; name: string }> {
+  if (actorCache) return actorCache;
+  const { data: { session } } = await supabase.auth.getSession();
+  const id = session?.user?.id ?? "";
+  let name = "";
+  if (id) {
+    const { data } = await (supabase as any).from("profiles").select("full_name, email").eq("id", id).maybeSingle();
+    name = data?.full_name || data?.email || "";
+  }
+  actorCache = { id, name };
+  return actorCache;
+}
+
+/** Records that a user opened a consent form, supplier report or client report. */
+export async function logRecordAccess(args: {
+  submissionId?: string | null;
+  candidateId?: string | null;
+  action: string;
+  detail?: string | null;
+}): Promise<void> {
+  try {
+    const actor = await currentActor();
+    if (!actor.id) return;
+    await (supabase as any).from("manual_risk_access_log").insert({
+      user_id: actor.id,
+      submission_id: args.submissionId ?? null,
+      candidate_id: args.candidateId ?? null,
+      action: args.action,
+      detail: args.detail ?? null,
+    });
+  } catch (e) {
+    console.warn("access log failed", e);
+  }
+}
+
 type OneDriveUploadResult = { webUrl: string | null; itemId: string | null; fullPath: string | null };
+
 
 /** Uploads a file to OneDrive via the edge function. `shared: true` targets the
  *  client-facing folder tree (reports + indemnities only, never supplier reports). */
