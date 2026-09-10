@@ -382,6 +382,14 @@ export function ArchiveImportTab({
         const label = `${o.storeAccount} ${prettyDate(o.date)}`;
         const createdAt = new Date(o.date ? `${o.date}T09:00:00` : Date.now()).toISOString();
 
+        // Only the people who are not already on the system anywhere.
+        const fresh = o.candidates.filter((c) => {
+          const key = personKey(c.idNumber, c.surname, c.firstName);
+          if (onSystem.has(key)) { skippedCands += 1; return false; }
+          onSystem.add(key);
+          return true;
+        });
+
         // Idempotent: reuse the order if this store/date was already imported.
         const { data: existing } = await sb
           .from("manual_risk_submissions")
@@ -390,16 +398,19 @@ export function ArchiveImportTab({
           .maybeSingle();
 
         let submissionId = existing?.id as string | undefined;
+        if (!submissionId && !fresh.length) continue;   // nothing new here at all
         if (!submissionId) {
           const { data: ins, error: insErr } = await sb
             .from("manual_risk_submissions")
             .insert({
               order_number: orderNumber,
               client_id: clientId,
-              submission_type: o.candidates.length > 1 ? "batch" : "single",
+              submission_type: fresh.length > 1 ? "batch" : "single",
               status: "completed",
               requested_checks: ARCHIVE_CHECKS,
-              notes: "Historical archive import (already invoiced)",
+              notes: o.date
+                ? "Historical archive import (already invoiced)"
+                : "Historical archive import (already invoiced) — no submission date on the spreadsheet",
               created_by: userId || null,
               created_at: createdAt,
               sent_at: createdAt,
@@ -414,36 +425,25 @@ export function ArchiveImportTab({
           newOrders += 1;
         }
 
-        // Candidates: skip IDs already recorded on this order.
-        const { data: existingCands } = await sb
+        const { count: existingCount } = await sb
           .from("manual_risk_candidates")
-          .select("id_number, first_name, surname")
+          .select("id", { count: "exact", head: true })
           .eq("submission_id", submissionId);
-        const seen = new Set(
-          (existingCands ?? []).map((c: any) => `${(c.id_number ?? "").trim()}|${normName(c.surname)}|${normName(c.first_name)}`),
-        );
 
-        const payload = o.candidates
-          .filter((c) => {
-            const key = `${c.idNumber.trim()}|${normName(c.surname)}|${normName(c.firstName)}`;
-            if (seen.has(key)) { skippedCands += 1; return false; }
-            seen.add(key);
-            return true;
-          })
-          .map((c, idx) => ({
-            submission_id: submissionId!,
-            id_number: c.idNumber || "—",
-            surname: c.surname || "—",
-            first_name: [c.firstName, c.secondName].filter(Boolean).join(" ") || "—",
-            sort_order: idx,
-          }));
+        const payload = fresh.map((c, idx) => ({
+          submission_id: submissionId!,
+          id_number: c.idNumber || "—",
+          surname: c.surname || "—",
+          first_name: [c.firstName, c.secondName].filter(Boolean).join(" ") || "—",
+          sort_order: (existingCount ?? 0) + idx,
+        }));
 
         if (payload.length) {
           const { error: cErr } = await sb.from("manual_risk_candidates").insert(payload as any);
           if (cErr) { addLog(`Candidates for "${label}" failed: ${cErr.message}`); continue; }
           newCands += payload.length;
+          addLog(`${label}: ${payload.length} candidate(s) imported`);
         }
-        addLog(`${label}: ${payload.length} candidate(s) imported`);
       }
       setProgress(null);
       toast.success(`${newOrders} archive order(s), ${newCands} candidate(s) imported${skippedCands ? `, ${skippedCands} already on record` : ""}`);
