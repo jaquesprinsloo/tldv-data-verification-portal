@@ -852,7 +852,11 @@ function ArchiveDocumentsCard({
             {visible.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  No archive orders yet — import the spreadsheet first.
+                  {submissions.length === 0
+                    ? "No archive orders yet — import the spreadsheet first."
+                    : search.trim()
+                      ? "No orders match that search."
+                      : "Every archive order has its report and indemnities — they now live in the archive under the Accounts tab."}
                 </TableCell>
               </TableRow>
             ) : visible.map((s) => (
