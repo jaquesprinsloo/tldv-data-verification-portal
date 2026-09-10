@@ -1459,7 +1459,9 @@ function BulkFolderUploadCard({
     if (!list || list.length === 0) return;
     const anchor = planned.find((p) => keyOf(p) === key);
     if (!anchor) return;
-    const extra: PlannedFile[] = Array.from(list).map((file, i) => ({
+    const usable = Array.from(list).filter((f) => !isMasterIndemnity(f.name));
+    const blocked = list.length - usable.length;
+    const extra: PlannedFile[] = usable.map((file, i) => ({
       id: `${key}-${kind}-${Date.now()}-${i}`,
       file,
       kind,
@@ -1467,9 +1469,11 @@ function BulkFolderUploadCard({
       store: anchor.store,
       submissionId: anchor.submissionId,
     }));
-    setPlanned((prev) => [...prev, ...extra]);
-    toast.success(`${extra.length} ${kind === "report" ? "report" : "indemnity"} file(s) added`);
+    if (extra.length) setPlanned((prev) => [...prev, ...extra]);
+    if (blocked) toast.info(`${blocked} master indemnity file(s) skipped — use the individual indemnities`);
+    if (extra.length) toast.success(`${extra.length} ${kind === "report" ? "report" : "indemnity"} file(s) added`);
   };
+
 
   /** Moves every file on one line onto another line (e.g. a "New Folder" of
    *  indemnities onto the report batch it belongs to). */
