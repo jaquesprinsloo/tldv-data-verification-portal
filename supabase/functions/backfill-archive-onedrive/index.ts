@@ -181,6 +181,7 @@ Deno.serve(async (req) => {
       const files = Array.isArray(sub.indemnity_files) ? [...sub.indemnity_files] : [];
       let changed = false;
       for (let i = 0; i < files.length; i++) {
+        if (!haveBudget()) break;
         const f = files[i] ?? {};
         if (!f.path || (f.onedrive_item_id && f.shared_onedrive_item_id)) continue;
         try {
@@ -191,12 +192,15 @@ Deno.serve(async (req) => {
             const od = await push({ ...file, contentType: f.content_type || file.contentType, fileName: name, clientName: client, orderNumber: sub.order_number, kind: "indemnity", shared: false });
             next.onedrive_web_url = od.webUrl;
             next.onedrive_item_id = od.itemId;
+            copies += 1;
           }
           if (!f.shared_onedrive_item_id) {
             const od = await push({ ...file, contentType: f.content_type || file.contentType, fileName: name, clientName: client, orderNumber: sub.order_number, kind: "indemnity", shared: true });
             next.shared_onedrive_web_url = od.webUrl;
             next.shared_onedrive_item_id = od.itemId;
+            copies += 1;
           }
+
           files[i] = next;
           changed = true;
           uploaded += 1;
