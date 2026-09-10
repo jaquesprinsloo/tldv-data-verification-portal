@@ -82,6 +82,9 @@ type Submission = {
   notes: string | null; created_at: string;
   requested_checks: string[] | null;
   sent_at: string | null;
+  sent_to_supplier_at?: string | null;
+  compliance_flag?: string | null;
+
   invoiced_at: string | null;
   invoice_number: string | null;
   invoice_file_path: string | null;
