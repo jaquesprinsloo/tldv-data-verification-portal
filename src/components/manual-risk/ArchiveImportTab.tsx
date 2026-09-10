@@ -356,8 +356,23 @@ export function ArchiveImportTab({
       return;
     }
     setImporting(true);
-    setProgress({ done: 0, total: orders.length, label: "Importing archive orders" });
+    setProgress({ done: 0, total: orders.length, label: "Checking who is already on the system" });
     try {
+      // Everyone already recorded anywhere on the system, so a re-upload only
+      // ever adds the people that are genuinely new.
+      const onSystem = new Set<string>();
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb
+          .from("manual_risk_candidates")
+          .select("id_number, first_name, surname")
+          .range(from, from + 999);
+        if (error) throw error;
+        const batch = (data ?? []) as any[];
+        for (const c of batch) onSystem.add(personKey(c.id_number ?? "", c.surname ?? "", c.first_name ?? ""));
+        if (batch.length < 1000) break;
+      }
+      addLog(`${onSystem.size} person(s) already on the system`);
+
       let newOrders = 0, newCands = 0, skippedCands = 0;
       for (let i = 0; i < orders.length; i++) {
         const o = orders[i];
@@ -365,7 +380,7 @@ export function ArchiveImportTab({
         const clientId = resolveClientId(o.storeAccount);
         const orderNumber = archiveOrderNumber(o.storeAccount, o.date);
         const label = `${o.storeAccount} ${prettyDate(o.date)}`;
-        const createdAt = new Date(`${o.date}T09:00:00`).toISOString();
+        const createdAt = new Date(o.date ? `${o.date}T09:00:00` : Date.now()).toISOString();
 
         // Idempotent: reuse the order if this store/date was already imported.
         const { data: existing } = await sb
