@@ -15,7 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Upload, FileSpreadsheet, FolderOpen, CheckCircle2, AlertTriangle, FileText } from "lucide-react";
-import { applyArchiveReportOutcomes } from "@/lib/archiveReportOutcomes";
+import { applyArchiveReportOutcomes, extractArchiveReportRecords, normPersonName } from "@/lib/archiveReportOutcomes";
 
 /**
  * Archive Import (master admin only).
@@ -840,6 +840,13 @@ function storeFromReportName(fileName: string): string {
     .trim();
 }
 
+type ArchiveCandidateRow = {
+  id_number: string | null;
+  first_name: string | null;
+  surname: string | null;
+  submission_id: string;
+};
+
 type PlannedFile = {
   id: string;
   file: File;
@@ -861,6 +868,92 @@ function BulkFolderUploadCard({
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(0);
   const [failed, setFailed] = useState(0);
+  const [nameMatching, setNameMatching] = useState(false);
+  const [matchNote, setMatchNote] = useState<Record<string, string>>({});
+  const candCache = useRef<ArchiveCandidateRow[] | null>(null);
+
+  /** All archive candidates, loaded once and cached (paged past the 1000 limit). */
+  const loadArchiveCandidates = async (): Promise<ArchiveCandidateRow[]> => {
+    if (candCache.current) return candCache.current;
+    const ids = submissions.map((s) => s.id);
+    const out: ArchiveCandidateRow[] = [];
+    for (let i = 0; i < ids.length; i += 100) {
+      const slice = ids.slice(i, i + 100);
+      let from = 0;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { data, error } = await sb
+          .from("manual_risk_candidates")
+          .select("id_number, first_name, surname, submission_id")
+          .in("submission_id", slice)
+          .range(from, from + 999);
+        if (error) throw error;
+        const rows = (data ?? []) as unknown as ArchiveCandidateRow[];
+        out.push(...rows);
+        if (rows.length < 1000) break;
+        from += 1000;
+      }
+    }
+    candCache.current = out;
+    return out;
+  };
+
+  /** Reads the people inside each unmatched report and points it at the archive
+   *  order that holds those same candidates. */
+  const matchByCandidateNames = async () => {
+    const reports = planned.filter((p) => p.kind === "report" && !p.submissionId);
+    if (!reports.length) { toast.info("Every report is already matched"); return; }
+    setNameMatching(true);
+    try {
+      const cands = await loadArchiveCandidates();
+      for (const p of reports) {
+        let records: Awaited<ReturnType<typeof extractArchiveReportRecords>> = [];
+        try {
+          records = await extractArchiveReportRecords(p.file);
+        } catch (e: any) {
+          addLog(`Could not read "${p.file.name}": ${e.message}`);
+          continue;
+        }
+        if (!records.length) { addLog(`No candidates found inside "${p.file.name}"`); continue; }
+
+        const tally = new Map<string, number>();
+        for (const r of records) {
+          const rs = normPersonName(r.surname);
+          const rf = normPersonName(r.first_names);
+          const prefix = String(r.id_prefix ?? "").replace(/\D/g, "").slice(0, 6);
+          for (const c of cands) {
+            const cs = normPersonName(c.surname);
+            const cf = normPersonName(c.first_name);
+            const cPrefix = String(c.id_number ?? "").replace(/\D/g, "").slice(0, 6);
+            const nameHit =
+              !!rs && rs === cs &&
+              (!rf || !cf || rf.startsWith(cf) || cf.startsWith(rf));
+            const idHit = prefix.length === 6 && prefix === cPrefix;
+            if (nameHit || idHit) {
+              tally.set(c.submission_id, (tally.get(c.submission_id) ?? 0) + (nameHit && idHit ? 2 : 1));
+            }
+          }
+        }
+        const best = Array.from(tally.entries()).sort((a, b) => b[1] - a[1])[0];
+        const key = `${p.date}|${normName(p.store)}`;
+        if (!best) { addLog(`No archive order holds the people in "${p.file.name}"`); continue; }
+        const sub = submissions.find((s) => s.id === best[0]);
+        setGroupOrder(key, best[0]);
+        setMatchNote((prev) => ({
+          ...prev,
+          [key]: `${records.length} name(s) in report → ${clientName(sub?.client_id ?? null)} (${sub?.order_number ?? ""})`,
+        }));
+        addLog(
+          `"${p.file.name}" matched by candidate names to ${clientName(sub?.client_id ?? null)} ${sub?.order_number ?? ""}`,
+        );
+      }
+      toast.success("Name matching finished — check the suggestions below");
+    } catch (e: any) {
+      toast.error(e.message ?? "Name matching failed");
+    } finally {
+      setNameMatching(false);
+    }
+  };
 
   const clientName = (id: string | null) => (id ? clients.find((c) => c.id === id)?.client_name ?? "—" : "—");
 
@@ -1024,6 +1117,14 @@ function BulkFolderUploadCard({
               ? <span className="text-amber-600 flex items-center gap-1"><AlertTriangle className="h-3.5 w-3.5" />{unmatched} unmatched</span>
               : <span className="text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" />all matched</span>}
             {running && <span className="text-muted-foreground">Uploading {done + failed}/{planned.length}…</span>}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={running || nameMatching}
+              onClick={matchByCandidateNames}
+            >
+              {nameMatching ? "Reading reports…" : "Match by candidate names in report"}
+            </Button>
           </div>
 
           <div className="overflow-x-auto max-h-96">
@@ -1039,11 +1140,22 @@ function BulkFolderUploadCard({
               <TableBody>
                 {grouped.map(({ key, files }) => {
                   const first = files[0];
-                  const options = ordersByDate.get(first.date) ?? [];
+                  const sameDay = ordersByDate.get(first.date) ?? [];
+                  const picked = first.submissionId
+                    ? submissions.find((s) => s.id === first.submissionId)
+                    : undefined;
+                  const options = picked && !sameDay.some((s) => s.id === picked.id)
+                    ? [picked, ...sameDay]
+                    : sameDay;
                   return (
                     <TableRow key={key}>
                       <TableCell className="whitespace-nowrap">{prettyDate(first.date)}</TableCell>
-                      <TableCell>{first.store || "—"}</TableCell>
+                      <TableCell>
+                        {first.store || "—"}
+                        {matchNote[key] && (
+                          <div className="text-[11px] text-emerald-600 mt-0.5">{matchNote[key]}</div>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {files.filter((f) => f.kind === "report").length} report ·{" "}
                         {files.filter((f) => f.kind === "indemnity").length} indemnity

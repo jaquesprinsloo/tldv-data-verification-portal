@@ -158,3 +158,18 @@ export async function applyArchiveReportOutcomes(
 
   return { matched, unmatched, records: records.length };
 }
+
+/** Reads a supplier report PDF and returns the per-candidate records only
+ *  (names + masked ID prefixes) so a report can be matched to an archive order
+ *  by the people it contains, without writing anything. */
+export async function extractArchiveReportRecords(file: File): Promise<ArchiveSupplierRecord[]> {
+  const base64 = await blobToBase64(file);
+  const { data, error } = await supabase.functions.invoke("extract-supplier-report-ids", {
+    body: { fileBase64: base64, contentType: file.type || "application/pdf" },
+  });
+  if (error) throw error;
+  if (!(data as any)?.success) throw new Error((data as any)?.error || "Extraction failed");
+  return Array.isArray((data as any).records) ? ((data as any).records as ArchiveSupplierRecord[]) : [];
+}
+
+export const normPersonName = norm;
