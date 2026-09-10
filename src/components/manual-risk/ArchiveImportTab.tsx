@@ -1229,13 +1229,16 @@ function BulkFolderUploadCard({
         if (readErr) {
           addLog(`Could not read "${p.file.name}" after 3 attempts: ${readErr}`);
           setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — report could not be read (try again, or check this batch by hand)` }));
+          rememberUnresolved(key, p.date, p.store, "Report could not be read");
           continue;
         }
         if (!records.length) {
           addLog(`No candidates found inside "${p.file.name}"`);
           setMatchNote((prev) => ({ ...prev, [key]: `Names not verified — no names could be read out of this report` }));
+          rememberUnresolved(key, p.date, p.store, "No names could be read out of the report");
           continue;
         }
+
 
 
         // Tally, per archive order, how many people in the report are on it.
