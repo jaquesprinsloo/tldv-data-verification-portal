@@ -227,11 +227,15 @@ export function ArchiveImportTab({
   const recon = useMemo(() => {
     const stores = Array.from(new Set(rows.map((r) => r.storeAccount)));
     const exact: { store: string; client: Client }[] = [];
+    const remembered: { store: string; client: Client }[] = [];
     const similar: { store: string; matches: { client: Client; score: number }[] }[] = [];
     const create: string[] = [];
     for (const store of stores) {
       const hit = clients.find((c) => normName(c.client_name) === normName(store));
       if (hit) { exact.push({ store, client: hit }); continue; }
+      const saved = mappedTo[store];
+      const savedClient = saved && saved !== "__new__" ? clients.find((c) => c.id === saved) : undefined;
+      if (savedClient) { remembered.push({ store, client: savedClient }); continue; }
       const near = clients
         .map((c) => ({ client: c, score: similarity(store, c.client_name) }))
         .filter((x) => x.score >= 0.6)
