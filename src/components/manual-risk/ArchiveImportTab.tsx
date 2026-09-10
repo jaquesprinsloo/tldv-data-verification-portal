@@ -169,12 +169,10 @@ const pick = (row: Record<string, any>, names: string[]): string => {
  *  (0712155343080 comes back as 712155343080). SA IDs are always 13 digits, so
  *  a short all-digit value is padded back out with leading zeros. */
 const normalizeIdNumber = (value: string): string => {
-  const digits = String(value ?? "").replace(/\D/g, "");
-  if (!digits) return String(value ?? "").trim();
-  if (digits.length === String(value ?? "").trim().length && digits.length < 13 && digits.length >= 9) {
-    return digits.padStart(13, "0");
-  }
-  return digits.length < 13 && digits.length >= 9 ? digits.padStart(13, "0") : digits;
+  const raw = String(value ?? "").trim();
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length >= 9 && digits.length < 13) return digits.padStart(13, "0");
+  return digits || raw;
 };
 
 const pickRaw = (row: Record<string, any>, names: string[]): any => {
