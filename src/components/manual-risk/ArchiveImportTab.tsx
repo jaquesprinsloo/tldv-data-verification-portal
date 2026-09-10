@@ -984,6 +984,19 @@ function BulkFolderUploadCard({
           return `${clientName(s?.client_id ?? null)} (${s?.order_number ?? ""})`;
         };
 
+        // People in this report who sit on OTHER archive orders (the batch was
+        // saved under one account and later moved) — offer to link them too.
+        const recordExtras = (chosen: string) => {
+          const others = ranked.filter(([id, n]) => id !== chosen && n > 0)
+            .map(([id, n]) => ({ id, count: n }));
+          setAlsoOptions((prev) => {
+            const next = { ...prev };
+            if (others.length) next[key] = others; else delete next[key];
+            return next;
+          });
+        };
+
+
         if (!p.submissionId) {
           if (!best) {
             addLog(`No archive order holds the people in "${p.file.name}"`);
