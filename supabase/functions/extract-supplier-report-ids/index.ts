@@ -1,13 +1,45 @@
 // Extracts South African 13-digit ID numbers from a supplier risk assessment PDF.
 // Uses Lovable AI Gateway (Gemini) for OCR-capable extraction so scanned PDFs work.
+// Word (.docx) reports are unzipped and read as text, because the vision endpoint
+// does not accept the Office mime type.
 
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { unzipSync, strFromU8 } from "npm:fflate@0.8.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+/** Plain text out of a .docx (word/document.xml, paragraph breaks preserved). */
+function docxToText(bytes: Uint8Array): string {
+  const files = unzipSync(bytes);
+  const parts = Object.keys(files)
+    .filter((n) => /^word\/(document|header\d*|footer\d*)\.xml$/.test(n))
+    .sort();
+  let out = "";
+  for (const name of parts) {
+    const xml = strFromU8(files[name]);
+    out += xml
+      .replace(/<w:p[ >]/g, "\n<w:p ")
+      .replace(/<w:tab[^>]*>/g, "\t")
+      .replace(/<w:br[^>]*>/g, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"').replace(/&#x?[0-9a-fA-F]+;/g, " ");
+    out += "\n";
+  }
+  return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+const base64ToBytes = (b64: string): Uint8Array => {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+};
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
