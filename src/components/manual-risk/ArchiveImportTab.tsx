@@ -1258,6 +1258,16 @@ function BulkFolderUploadCard({
             >
               {nameMatching ? "Checking names in reports…" : "Verify names in all reports"}
             </Button>
+            {Object.keys(suggested).length > 0 && (
+              <Button
+                size="sm"
+                className="bg-amber-600 hover:bg-amber-700"
+                disabled={running || nameMatching}
+                onClick={applyAllSuggestions}
+              >
+                Move {Object.keys(suggested).length} batch(es) to the suggested order
+              </Button>
+            )}
           </div>
 
           <div className="overflow-x-auto max-h-96">
