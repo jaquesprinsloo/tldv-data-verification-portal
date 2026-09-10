@@ -2858,6 +2858,8 @@ type AccountRow = {
   isPtvsDiscount: boolean;
   overrideClientId: string | null;
   originalClientId: string | null;
+  /** Candidate's original position within its submission (for stable sorting). */
+  sortOrder: number;
   /** ID verification outcome (raw value, e.g. "valid"/"invalid"/"pending"). */
   idResult: string | null;
   /** Adverse findings across the other requested checks. */
@@ -3683,10 +3685,21 @@ function ClientAccountDialog({
           isPtvsDiscount: !!(c as any).is_ptvs_discount,
           overrideClientId: (c as any).override_client_id ?? null,
           originalClientId: s.client_id,
+          sortOrder: (c as any).sort_order ?? 0,
           ...summariseCandidateChecks(c, s.requested_checks),
         } as AccountRow;
       })
-      .filter((r): r is AccountRow => r !== null);
+      .filter((r): r is AccountRow => r !== null)
+      // Newest orders first; candidates within an order keep their original
+      // capture order. Applies to both current and archive views.
+      .sort((a, b) => {
+        const ta = new Date(dateBasis === "submitted" ? a.submittedAt : a.sentAt).getTime();
+        const tb = new Date(dateBasis === "submitted" ? b.submittedAt : b.sentAt).getTime();
+        if (ta !== tb) return tb - ta;
+        const byOrder = a.orderNumber.localeCompare(b.orderNumber);
+        if (byOrder !== 0) return byOrder;
+        return a.sortOrder - b.sortOrder;
+      });
   }, [candidates, subById, fromDate, toDate, dateBasis, groupKey, mode]);
 
   const mirrorRows: AccountRow[] = useMemo(() => {
@@ -3720,12 +3733,21 @@ function ClientAccountDialog({
           isPtvsDiscount: true,
           overrideClientId: (c as any).override_client_id ?? null,
           originalClientId: s.client_id,
+          sortOrder: (c as any).sort_order ?? 0,
           ...summariseCandidateChecks(c, s.requested_checks),
           isMirror: true,
           mirrorFrom: originName,
         } as AccountRow;
       })
-      .filter((r): r is AccountRow => r !== null);
+      .filter((r): r is AccountRow => r !== null)
+      .sort((a, b) => {
+        const ta = new Date(dateBasis === "submitted" ? a.submittedAt : a.sentAt).getTime();
+        const tb = new Date(dateBasis === "submitted" ? b.submittedAt : b.sentAt).getTime();
+        if (ta !== tb) return tb - ta;
+        const byOrder = a.orderNumber.localeCompare(b.orderNumber);
+        if (byOrder !== 0) return byOrder;
+        return a.sortOrder - b.sortOrder;
+      });
   }, [isPtvsAccount, mirrorCandidates, subById, fromDate, toDate, dateBasis, groupKey, clients, mode]);
 
   // Selection is per-candidate now.
