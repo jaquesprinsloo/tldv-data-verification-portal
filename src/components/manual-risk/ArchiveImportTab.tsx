@@ -960,6 +960,9 @@ function BulkFolderUploadCard({
         // identifiers agree (surname, first name, first 6 digits of the ID), so
         // two different people sharing a name are never treated as one.
         const tally = new Map<string, number>();
+        // Per person in the report: every archive order that holds them. Used to
+        // chase down people who were later moved onto a different order.
+        const perPerson: { name: string; orders: Set<string> }[] = [];
         let onCurrent = 0;
         let strongTotal = 0;
         for (const r of records) {
@@ -984,6 +987,10 @@ function BulkFolderUploadCard({
           if (strong) strongTotal += 1;
           for (const id of hitOrders) tally.set(id, (tally.get(id) ?? 0) + 1);
           if (p.submissionId && hitOrders.has(p.submissionId)) onCurrent += 1;
+          perPerson.push({
+            name: `${r.first_names ?? ""} ${r.surname ?? ""}`.trim() || "(name unreadable)",
+            orders: hitOrders,
+          });
         }
 
 
@@ -994,16 +1001,53 @@ function BulkFolderUploadCard({
           return `${clientName(s?.client_id ?? null)} (${s?.order_number ?? ""})`;
         };
 
-        // People in this report who sit on OTHER archive orders (the batch was
-        // saved under one account and later moved) — offer to link them too.
+        /**
+         * People in this report who are NOT on the chosen order: find every other
+         * archive order that holds them (a batch saved under one account and later
+         * moved), offer those accounts and tick them by default so the report and
+         * indemnities reach all of the people inside them. Also reports anyone who
+         * is nowhere in the archive at all.
+         */
         const recordExtras = (chosen: string) => {
-          const others = ranked.filter(([id, n]) => id !== chosen && n > 0)
+          const leftovers = perPerson.filter((pp) => !pp.orders.has(chosen));
+          const notFound = leftovers.filter((pp) => pp.orders.size === 0);
+          const otherTally = new Map<string, number>();
+          for (const pp of leftovers) {
+            for (const id of pp.orders) otherTally.set(id, (otherTally.get(id) ?? 0) + 1);
+          }
+          const others = Array.from(otherTally.entries())
+            .filter(([id]) => id !== chosen)
+            .sort((a, b) => b[1] - a[1])
             .map(([id, n]) => ({ id, count: n }));
           setAlsoOptions((prev) => {
             const next = { ...prev };
             if (others.length) next[key] = others; else delete next[key];
             return next;
           });
+          // Pre-tick them: the whole point is that these people belong to this report.
+          setAlsoLink((prev) => ({ ...prev, [key]: others.map((o) => o.id) }));
+          if (others.length) {
+            addLog(
+              `"${p.file.name}": ${leftovers.length - notFound.length} person(s) sit on other order(s): ` +
+                others.map((o) => `${label(o.id)} (${o.count})`).join(", "),
+            );
+          }
+          if (notFound.length) {
+            addLog(
+              `"${p.file.name}": not found anywhere in the archive — ${notFound
+                .map((pp) => pp.name)
+                .join(", ")}`,
+            );
+          }
+          const bits: string[] = [];
+          if (others.length) {
+            bits.push(
+              `${leftovers.length - notFound.length} more on ${others.length} other account(s): ` +
+                others.map((o) => `${label(o.id)} (${o.count})`).join(", "),
+            );
+          }
+          if (notFound.length) bits.push(`${notFound.length} not found in the archive`);
+          return bits.length ? ` — ${bits.join("; ")}` : "";
         };
 
 
@@ -1014,12 +1058,12 @@ function BulkFolderUploadCard({
             continue;
           }
           setGroupOrder(key, best[0]);
-          recordExtras(best[0]);
+          const extras = recordExtras(best[0]);
 
           linked += 1;
           setMatchNote((prev) => ({
             ...prev,
-            [key]: `Matched by names — ${best[1]}/${records.length} candidate(s) confirmed on ${label(best[0])}`,
+            [key]: `Matched by names — ${best[1]}/${records.length} candidate(s) confirmed on ${label(best[0])}${extras}`,
           }));
           addLog(`"${p.file.name}" matched by names (${best[1]}/${records.length}) to ${label(best[0])}`);
           continue;
@@ -1027,13 +1071,13 @@ function BulkFolderUploadCard({
 
         // Already matched by folder/date — verify the names line up.
         const better = best && best[0] !== p.submissionId && best[1] > onCurrent ? best : null;
-        recordExtras(better ? better[0] : p.submissionId);
+        const extras = recordExtras(better ? better[0] : p.submissionId);
         if (onCurrent > 0 && !better) {
 
           confirmed += 1;
           setMatchNote((prev) => ({
             ...prev,
-            [key]: `Names verified — ${onCurrent}/${records.length} candidate(s) confirmed on this order (${strongTotal} with name, surname and ID digits all matching)`,
+            [key]: `Names verified — ${onCurrent}/${records.length} candidate(s) confirmed on this order (${strongTotal} with name, surname and ID digits all matching)${extras}`,
           }));
           addLog(`"${p.file.name}": names verified ${onCurrent}/${records.length} on ${label(p.submissionId)}`);
         } else {
@@ -1042,7 +1086,7 @@ function BulkFolderUploadCard({
           if (better) setSuggested((prev) => ({ ...prev, [key]: better[0] }));
           setMatchNote((prev) => ({
             ...prev,
-            [key]: `Name check failed — ${onCurrent}/${records.length} confirmed on this order${suggestion}`,
+            [key]: `Name check failed — ${onCurrent}/${records.length} confirmed on this order${suggestion}${extras}`,
           }));
           addLog(`"${p.file.name}": name check failed (${onCurrent}/${records.length})${suggestion}`);
         }
@@ -1432,8 +1476,9 @@ function BulkFolderUploadCard({
                         {(alsoOptions[key] ?? []).length > 0 && (
                           <div className="mt-1 rounded-md border border-sky-200 bg-sky-50 p-1.5">
                             <div className="text-[11px] font-medium text-sky-800">
-                              Same people also sit on {(alsoOptions[key] ?? []).length} other account(s) —
-                              tick to link the same report and indemnities there too:
+                              Other people in this report sit on {(alsoOptions[key] ?? []).length} other
+                              account(s) — ticked by default so they get the same report and indemnities.
+                              Untick any that should not receive them:
                             </div>
                             {(alsoOptions[key] ?? []).map((o) => {
                               const s = submissions.find((x) => x.id === o.id);
