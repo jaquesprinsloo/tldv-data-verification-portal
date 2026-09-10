@@ -189,7 +189,15 @@ const personKey = (idNumber: string, surname: string, firstName: string) => {
   return `n:${normName(surname)}|${normName(firstName).split(" ")[0] ?? ""}`;
 };
 
+/** "Master Indemnity" PDFs hold the whole batch's indemnities in one file. They
+ *  are never taken in: the individual indemnities in the store folders are used,
+ *  so signatures are not stored twice (and never filed as a report). */
+export function isMasterIndemnity(fileName: string): boolean {
+  return /master[\s_\-.]*indemnit/i.test(fileName || "");
+}
+
 function blobToBase64(blob: Blob): Promise<string> {
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
