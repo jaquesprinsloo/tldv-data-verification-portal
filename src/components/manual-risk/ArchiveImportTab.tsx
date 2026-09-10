@@ -880,6 +880,11 @@ function BulkFolderUploadCard({
   const [nameMatching, setNameMatching] = useState(false);
   const [matchNote, setMatchNote] = useState<Record<string, string>>({});
   const [suggested, setSuggested] = useState<Record<string, string>>({});
+  /** Other archive orders that also hold people named in this batch's report. */
+  const [alsoOptions, setAlsoOptions] = useState<Record<string, { id: string; count: number }[]>>({});
+  /** Extra orders the user chose to link the same files to. */
+  const [alsoLink, setAlsoLink] = useState<Record<string, string[]>>({});
+
   const candCache = useRef<ArchiveCandidateRow[] | null>(null);
 
   /** All archive candidates, loaded once and cached (paged past the 1000 limit). */
