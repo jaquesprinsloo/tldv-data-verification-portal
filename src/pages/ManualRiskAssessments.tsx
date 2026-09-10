@@ -750,7 +750,7 @@ export default function ManualRiskAssessments() {
           </TabsList>
 
           <TabsContent value="compliance" className="mt-4">
-            <ComplianceTab userId={userId} userName={userName} />
+            <ComplianceTab userId={userId} userName={userName} onViewSubmission={(id) => { setActiveTab("submissions"); setDetailsSubId(id); }} />
           </TabsContent>
 
 
