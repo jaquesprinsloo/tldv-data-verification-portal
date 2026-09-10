@@ -128,7 +128,13 @@ export function MrClientDashboardTab({
   }, [qc]);
 
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
-  const subById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions]);
+  // Imported historical (archive) checks were completed and invoiced under the
+  // old system — they must never inflate current activity figures.
+  const liveSubmissions = useMemo(
+    () => submissions.filter((s) => !(s as any).is_archive),
+    [submissions],
+  );
+  const subById = useMemo(() => new Map(liveSubmissions.map((s) => [s.id, s])), [liveSubmissions]);
 
   const inRange = (iso: string) => {
     const from = fromDate ? new Date(fromDate + "T00:00:00").getTime() : null;
@@ -140,8 +146,8 @@ export function MrClientDashboardTab({
   };
 
   const rangedSubs = useMemo(
-    () => submissions.filter((s) => inRange(s.created_at)),
-    [submissions, fromDate, toDate],
+    () => liveSubmissions.filter((s) => inRange(s.created_at)),
+    [liveSubmissions, fromDate, toDate],
   );
   const rangedSubIds = useMemo(() => new Set(rangedSubs.map((s) => s.id)), [rangedSubs]);
 

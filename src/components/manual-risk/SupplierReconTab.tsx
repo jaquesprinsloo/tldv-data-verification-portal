@@ -171,11 +171,19 @@ export default function SupplierReconTab() {
         .eq("is_archive", true);
       if (archErr) throw archErr;
       const archiveIds = new Set((archiveSubs ?? []).map((s: any) => s.id));
-      const { data, error } = await sb
-        .from("manual_risk_candidates")
-        .select("id, submission_id, id_number, first_name, surname, is_tldv_internal, is_ptvs_discount, override_client_id");
-      if (error) throw error;
-      return ((data ?? []) as any[])
+      // Page through every candidate — PostgREST caps a single select at 1000
+      // rows, and the imported historical archive alone exceeds that.
+      const all: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb
+          .from("manual_risk_candidates")
+          .select("id, submission_id, id_number, first_name, surname, is_tldv_internal, is_ptvs_discount, override_client_id")
+          .range(from, from + 999);
+        if (error) throw error;
+        all.push(...((data ?? []) as any[]));
+        if (!data || data.length < 1000) break;
+      }
+      return all
         .filter((c) => !isPlaceholderCandidate(c as any) && !archiveIds.has(c.submission_id)) as any;
     },
   });
