@@ -1465,12 +1465,18 @@ function BulkFolderUploadCard({
                 {grouped.map(({ key, files }) => {
                   const first = files[0];
                   const sameDay = ordersByDate.get(first.date) ?? [];
+                  // Orders imported without a spreadsheet date can never match on
+                  // the date, so they are always offered as a manual choice.
+                  const undated = submissions.filter(
+                    (s) => s.order_number.includes("-NODATE-") && !sameDay.some((x) => x.id === s.id),
+                  );
+                  const base = [...sameDay, ...undated];
                   const picked = first.submissionId
                     ? submissions.find((s) => s.id === first.submissionId)
                     : undefined;
-                  const options = picked && !sameDay.some((s) => s.id === picked.id)
-                    ? [picked, ...sameDay]
-                    : sameDay;
+                  const options = picked && !base.some((s) => s.id === picked.id)
+                    ? [picked, ...base]
+                    : base;
                   const missing = missingSide(files);
 
                   return (
