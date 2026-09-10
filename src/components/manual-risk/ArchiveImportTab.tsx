@@ -998,6 +998,7 @@ function BulkFolderUploadCard({
         } else {
           warned += 1;
           const suggestion = better ? ` — names match ${label(better[0])} (${better[1]}/${records.length}) instead` : "";
+          if (better) setSuggested((prev) => ({ ...prev, [key]: better[0] }));
           setMatchNote((prev) => ({
             ...prev,
             [key]: `Name check failed — ${onCurrent}/${records.length} confirmed on this order${suggestion}`,
