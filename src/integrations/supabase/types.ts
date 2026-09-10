@@ -759,6 +759,51 @@ export type Database = {
           },
         ]
       }
+      manual_risk_access_log: {
+        Row: {
+          action: string
+          candidate_id: string | null
+          created_at: string
+          detail: string | null
+          id: string
+          submission_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          candidate_id?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          submission_id?: string | null
+          user_id?: string
+        }
+        Update: {
+          action?: string
+          candidate_id?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          submission_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_risk_access_log_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_risk_access_log_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manual_risk_candidates: {
         Row: {
           created_at: string
@@ -777,6 +822,10 @@ export type Database = {
           invoice_batch_id: string | null
           is_ptvs_discount: boolean
           is_tldv_internal: boolean
+          outcome_extracted_at: string | null
+          outcome_extracted_by: string | null
+          outcome_extracted_by_name: string | null
+          outcome_extracted_source: string | null
           override_client_id: string | null
           pdp_notes: string | null
           pdp_result: string | null
@@ -806,6 +855,10 @@ export type Database = {
           invoice_batch_id?: string | null
           is_ptvs_discount?: boolean
           is_tldv_internal?: boolean
+          outcome_extracted_at?: string | null
+          outcome_extracted_by?: string | null
+          outcome_extracted_by_name?: string | null
+          outcome_extracted_source?: string | null
           override_client_id?: string | null
           pdp_notes?: string | null
           pdp_result?: string | null
@@ -835,6 +888,10 @@ export type Database = {
           invoice_batch_id?: string | null
           is_ptvs_discount?: boolean
           is_tldv_internal?: boolean
+          outcome_extracted_at?: string | null
+          outcome_extracted_by?: string | null
+          outcome_extracted_by_name?: string | null
+          outcome_extracted_source?: string | null
           override_client_id?: string | null
           pdp_notes?: string | null
           pdp_result?: string | null
@@ -1037,6 +1094,183 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_risk_sanctions_entries: {
+        Row: {
+          aliases: string | null
+          created_at: string
+          date_of_birth: string | null
+          documents: string | null
+          entry_type: string
+          full_name: string
+          id: string
+          list_id: string
+          listed_on: string | null
+          nationality: string | null
+          normalized_name: string
+          raw: Json | null
+          reference_number: string | null
+        }
+        Insert: {
+          aliases?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          documents?: string | null
+          entry_type?: string
+          full_name: string
+          id?: string
+          list_id: string
+          listed_on?: string | null
+          nationality?: string | null
+          normalized_name: string
+          raw?: Json | null
+          reference_number?: string | null
+        }
+        Update: {
+          aliases?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          documents?: string | null
+          entry_type?: string
+          full_name?: string
+          id?: string
+          list_id?: string
+          listed_on?: string | null
+          nationality?: string | null
+          normalized_name?: string
+          raw?: Json | null
+          reference_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_risk_sanctions_entries_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_sanctions_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_risk_sanctions_lists: {
+        Row: {
+          created_at: string
+          entity_count: number
+          file_name: string | null
+          id: string
+          individual_count: number
+          is_current: boolean
+          list_name: string
+          notes: string | null
+          source: string
+          uploaded_by: string | null
+          uploaded_by_name: string | null
+          version_label: string | null
+        }
+        Insert: {
+          created_at?: string
+          entity_count?: number
+          file_name?: string | null
+          id?: string
+          individual_count?: number
+          is_current?: boolean
+          list_name: string
+          notes?: string | null
+          source?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+          version_label?: string | null
+        }
+        Update: {
+          created_at?: string
+          entity_count?: number
+          file_name?: string | null
+          id?: string
+          individual_count?: number
+          is_current?: boolean
+          list_name?: string
+          notes?: string | null
+          source?: string
+          uploaded_by?: string | null
+          uploaded_by_name?: string | null
+          version_label?: string | null
+        }
+        Relationships: []
+      }
+      manual_risk_sanctions_matches: {
+        Row: {
+          candidate_id: string | null
+          candidate_id_number: string | null
+          candidate_name: string | null
+          created_at: string
+          entry_id: string | null
+          id: string
+          list_id: string
+          match_reason: string | null
+          matched_name: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_by_name: string | null
+          score: number | null
+          status: string
+        }
+        Insert: {
+          candidate_id?: string | null
+          candidate_id_number?: string | null
+          candidate_name?: string | null
+          created_at?: string
+          entry_id?: string | null
+          id?: string
+          list_id: string
+          match_reason?: string | null
+          matched_name?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          score?: number | null
+          status?: string
+        }
+        Update: {
+          candidate_id?: string | null
+          candidate_id_number?: string | null
+          candidate_name?: string | null
+          created_at?: string
+          entry_id?: string | null
+          id?: string
+          list_id?: string
+          match_reason?: string | null
+          matched_name?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          score?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_risk_sanctions_matches_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_risk_sanctions_matches_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_sanctions_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_risk_sanctions_matches_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_sanctions_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       manual_risk_settings: {
         Row: {
           created_at: string
@@ -1070,6 +1304,10 @@ export type Database = {
           archive_report_name: string | null
           archive_report_path: string | null
           client_id: string | null
+          compliance_flag: string | null
+          compliance_flag_at: string | null
+          compliance_reviewed_at: string | null
+          compliance_reviewed_by: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -1089,6 +1327,7 @@ export type Database = {
           report_shared_onedrive_web_url: string | null
           requested_checks: string[]
           sent_at: string | null
+          sent_to_supplier_at: string | null
           status: string
           submission_type: string
           supplier_report_files: Json
@@ -1099,6 +1338,10 @@ export type Database = {
           archive_report_name?: string | null
           archive_report_path?: string | null
           client_id?: string | null
+          compliance_flag?: string | null
+          compliance_flag_at?: string | null
+          compliance_reviewed_at?: string | null
+          compliance_reviewed_by?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1118,6 +1361,7 @@ export type Database = {
           report_shared_onedrive_web_url?: string | null
           requested_checks?: string[]
           sent_at?: string | null
+          sent_to_supplier_at?: string | null
           status?: string
           submission_type: string
           supplier_report_files?: Json
@@ -1128,6 +1372,10 @@ export type Database = {
           archive_report_name?: string | null
           archive_report_path?: string | null
           client_id?: string | null
+          compliance_flag?: string | null
+          compliance_flag_at?: string | null
+          compliance_reviewed_at?: string | null
+          compliance_reviewed_by?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1147,6 +1395,7 @@ export type Database = {
           report_shared_onedrive_web_url?: string | null
           requested_checks?: string[]
           sent_at?: string | null
+          sent_to_supplier_at?: string | null
           status?: string
           submission_type?: string
           supplier_report_files?: Json
