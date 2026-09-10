@@ -2742,8 +2742,10 @@ function SupplierReportSection({
       .from("manual-risk-supplier-reports")
       .createSignedUrl(f.path, 300);
     if (error) { toast.error(error.message); return; }
+    void logRecordAccess({ submissionId, action: "view_supplier_report", detail: f.name });
     window.open(data.signedUrl, "_blank");
   };
+
 
   const handleDelete = async (f: SupplierReportFile) => {
     if (!confirm(`Delete supplier report "${f.name}"? This removes it from storage and OneDrive.`)) return;
