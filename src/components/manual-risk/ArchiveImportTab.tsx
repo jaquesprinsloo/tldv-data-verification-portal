@@ -674,17 +674,39 @@ function ArchiveDocumentsCard({
 }) {
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [showDone, setShowDone] = useState(false);
   const clientName = (id: string | null) => (id ? clients.find((c) => c.id === id)?.client_name ?? "—" : "—");
 
-  const visible = useMemo(() => {
+  /** An order is finished once it has its report and at least one indemnity. */
+  const isComplete = (s: ArchiveSubmission) =>
+    !!s.archive_report_path && (s.indemnity_files ?? []).length > 0;
+
+  const counts = useMemo(() => {
+    let noReport = 0, noIndemnity = 0, neither = 0, complete = 0;
+    for (const s of submissions) {
+      const hasR = !!s.archive_report_path;
+      const hasI = (s.indemnity_files ?? []).length > 0;
+      if (hasR && hasI) complete += 1;
+      else {
+        if (!hasR) noReport += 1;
+        if (!hasI) noIndemnity += 1;
+        if (!hasR && !hasI) neither += 1;
+      }
+    }
+    return { noReport, noIndemnity, neither, complete, outstanding: submissions.length - complete };
+  }, [submissions]);
+
+  const matching = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const list = q
-      ? submissions.filter((s) =>
+    const base = showDone ? submissions : submissions.filter((s) => !isComplete(s));
+    return q
+      ? base.filter((s) =>
           `${s.order_number} ${s.archive_batch_label ?? ""} ${clientName(s.client_id)}`.toLowerCase().includes(q))
-      : submissions;
-    return list.slice(0, 60);
+      : base;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submissions, search, clients]);
+  }, [submissions, search, clients, showDone]);
+
+  const visible = useMemo(() => matching.slice(0, 60), [matching]);
 
   const uploadReport = async (sub: ArchiveSubmission, file: File) => {
     if (sub.archive_report_path && sub.archive_report_name === file.name) {
