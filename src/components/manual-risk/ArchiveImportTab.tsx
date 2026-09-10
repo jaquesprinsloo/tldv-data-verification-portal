@@ -891,6 +891,26 @@ type PlannedFile = {
   submissionId: string | null;
 };
 
+/**
+ * Kept outside the component so switching tabs (which throws the card away and
+ * builds it again) never loses the chosen folder, the match notes, or a run in
+ * progress. An upload that is already going keeps going and writes its progress
+ * here, so the card picks it back up exactly where it is.
+ */
+const bulkSession: {
+  planned: PlannedFile[];
+  matchNote: Record<string, string>;
+  suggested: Record<string, string>;
+  alsoOptions: Record<string, { id: string; count: number }[]>;
+  alsoLink: Record<string, string[]>;
+  running: boolean;
+  done: number;
+  failed: number;
+} = {
+  planned: [], matchNote: {}, suggested: {}, alsoOptions: {}, alsoLink: {},
+  running: false, done: 0, failed: 0,
+};
+
 function BulkFolderUploadCard({
   submissions, clients, onChanged, addLog,
 }: {
@@ -899,17 +919,52 @@ function BulkFolderUploadCard({
   onChanged: () => void;
   addLog: (s: string) => void;
 }) {
-  const [planned, setPlanned] = useState<PlannedFile[]>([]);
-  const [running, setRunning] = useState(false);
-  const [done, setDone] = useState(0);
-  const [failed, setFailed] = useState(0);
+  const [planned, setPlanned] = useState<PlannedFile[]>(bulkSession.planned);
+  const [running, setRunning] = useState(bulkSession.running);
+  const [done, setDone] = useState(bulkSession.done);
+  const [failed, setFailed] = useState(bulkSession.failed);
   const [nameMatching, setNameMatching] = useState(false);
-  const [matchNote, setMatchNote] = useState<Record<string, string>>({});
-  const [suggested, setSuggested] = useState<Record<string, string>>({});
+  const [matchNote, setMatchNote] = useState<Record<string, string>>(bulkSession.matchNote);
+  const [suggested, setSuggested] = useState<Record<string, string>>(bulkSession.suggested);
   /** Other archive orders that also hold people named in this batch's report. */
-  const [alsoOptions, setAlsoOptions] = useState<Record<string, { id: string; count: number }[]>>({});
+  const [alsoOptions, setAlsoOptions] = useState<Record<string, { id: string; count: number }[]>>(bulkSession.alsoOptions);
   /** Extra orders the user chose to link the same files to. */
-  const [alsoLink, setAlsoLink] = useState<Record<string, string[]>>({});
+  const [alsoLink, setAlsoLink] = useState<Record<string, string[]>>(bulkSession.alsoLink);
+
+  // Remember everything on screen, so it survives leaving and re-opening the tab.
+  useEffect(() => { bulkSession.planned = planned; }, [planned]);
+  useEffect(() => { bulkSession.matchNote = matchNote; }, [matchNote]);
+  useEffect(() => { bulkSession.suggested = suggested; }, [suggested]);
+  useEffect(() => { bulkSession.alsoOptions = alsoOptions; }, [alsoOptions]);
+  useEffect(() => { bulkSession.alsoLink = alsoLink; }, [alsoLink]);
+
+  // An upload started before the tab was left keeps running in the background —
+  // follow it here until it finishes.
+  useEffect(() => {
+    if (!bulkSession.running) return;
+    const t = window.setInterval(() => {
+      setRunning(bulkSession.running);
+      setDone(bulkSession.done);
+      setFailed(bulkSession.failed);
+      if (!bulkSession.running) {
+        setPlanned(bulkSession.planned);
+        setMatchNote(bulkSession.matchNote);
+        setSuggested(bulkSession.suggested);
+        setAlsoOptions(bulkSession.alsoOptions);
+        setAlsoLink(bulkSession.alsoLink);
+        window.clearInterval(t);
+      }
+    }, 800);
+    return () => window.clearInterval(t);
+  }, []);
+
+  // Warn before the page is closed or reloaded mid-upload.
+  useEffect(() => {
+    if (!running) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [running]);
 
   const candCache = useRef<ArchiveCandidateRow[] | null>(null);
 
