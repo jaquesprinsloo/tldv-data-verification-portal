@@ -82,7 +82,43 @@ Deno.serve(async (req) => {
       });
     }
 
-    const dataUrl = `data:${contentType || "application/pdf"};base64,${fileBase64}`;
+    const bytes = base64ToBytes(fileBase64);
+    const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;
+    const ct = String(contentType || "");
+    const looksDocx =
+      /wordprocessingml|officedocument|msword|\.docx$/i.test(ct) ||
+      (isZip && !/^image\//i.test(ct) && ct !== "application/pdf");
+
+    let userContent: unknown;
+    if (looksDocx) {
+      let text = "";
+      try {
+        text = docxToText(bytes);
+      } catch (_e) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "This Word document could not be read. Please save it as a PDF and upload again.",
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!text || text.replace(/\s/g, "").length < 20) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "No readable text was found in this Word document. Please save it as a PDF and upload again.",
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      userContent = [{
+        type: "text",
+        text: "Extract every ID Verification record from this supplier vetting report. The report text follows:\n\n" +
+          text.slice(0, 200000),
+      }];
+    } else {
+      const dataUrl = `data:${ct || "application/pdf"};base64,${fileBase64}`;
+      userContent = [
+        { type: "text", text: "Extract every ID Verification record from this supplier vetting report." },
+        { type: "image_url", image_url: { url: dataUrl } },
+      ];
+    }
+
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
