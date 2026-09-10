@@ -146,7 +146,16 @@ export function ArchiveImportTab({
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
   const [log, setLog] = useState<string[]>([]);
   /** Per spreadsheet store name: existing client id it maps to, or "__new__" to create one. */
-  const [mappedTo, setMappedTo] = useState<Record<string, string>>({});
+  const [mappedTo, setMappedTo] = useState<Record<string, string>>(() => loadSavedMap());
+
+  /** Remember every confirmed link so a re-upload of the same sheet never asks again. */
+  const setMapping = (store: string, clientId: string) => {
+    setMappedTo((p) => {
+      const next = { ...p, [store]: clientId };
+      saveMap(next);
+      return next;
+    });
+  };
 
   const addLog = (line: string) => setLog((l) => [`${new Date().toLocaleTimeString()} — ${line}`, ...l].slice(0, 400));
 
