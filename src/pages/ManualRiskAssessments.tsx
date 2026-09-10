@@ -3185,6 +3185,7 @@ function AccountsTab({
         name: v.client?.client_name ?? "Unassigned",
         isRegular: !!v.client?.is_regular,
         checkCount: v.candCount,
+        archiveCount: archiveCountByClient.get(key) ?? 0,
         discounted: v.discounted,
         mirrored: ptvs && key === ptvs.id ? ptvsMirrored : 0,
       };
@@ -3192,7 +3193,7 @@ function AccountsTab({
       if (sortByRegular && a.isRegular !== b.isRegular) return a.isRegular ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-  }, [allCandidates, submissions, clients, sortByRegular, windowActive, fromDate, toDate, dateBasis]);
+  }, [allCandidates, submissions, clients, sortByRegular, windowActive, fromDate, toDate, dateBasis, archiveCountByClient]);
 
   const visibleGroups = useMemo(
     () => (filterRegular ? groups.filter((g) => g.isRegular) : groups),
