@@ -447,6 +447,16 @@ export default function ComplianceTab({ userId, userName, onViewSubmission }: { 
                       )}
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap">
+                      {onViewSubmission && (
+                        <Button
+                          size="sm" variant="outline" className="mr-2"
+                          disabled={openingCand === m.id}
+                          onClick={() => openCandidate(m)}
+                        >
+                          {openingCand === m.id ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <FileSpreadsheet className="h-3 w-3 mr-1" />}
+                          Inspect
+                        </Button>
+                      )}
                       {m.status === "pending" && (
                         <>
                           <Button size="sm" variant="outline" className="mr-2" onClick={() => reviewMatch(m.id, "confirmed")}>
