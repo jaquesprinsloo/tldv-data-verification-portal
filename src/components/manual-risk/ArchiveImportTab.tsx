@@ -69,6 +69,14 @@ type ArchiveSubmission = {
 const normName = (s: string) =>
   (s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 
+const MAP_KEY = "mra-archive-store-map";
+function loadSavedMap(): Record<string, string> {
+  try { return JSON.parse(localStorage.getItem(MAP_KEY) || "{}") || {}; } catch { return {}; }
+}
+function saveMap(m: Record<string, string>) {
+  try { localStorage.setItem(MAP_KEY, JSON.stringify(m)); } catch { /* ignore */ }
+}
+
 /** Cheap similarity for "is this the same store spelled differently?" hints. */
 function similarity(a: string, b: string): number {
   const A = normName(a), B = normName(b);
@@ -146,7 +154,16 @@ export function ArchiveImportTab({
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
   const [log, setLog] = useState<string[]>([]);
   /** Per spreadsheet store name: existing client id it maps to, or "__new__" to create one. */
-  const [mappedTo, setMappedTo] = useState<Record<string, string>>({});
+  const [mappedTo, setMappedTo] = useState<Record<string, string>>(() => loadSavedMap());
+
+  /** Remember every confirmed link so a re-upload of the same sheet never asks again. */
+  const setMapping = (store: string, clientId: string) => {
+    setMappedTo((p) => {
+      const next = { ...p, [store]: clientId };
+      saveMap(next);
+      return next;
+    });
+  };
 
   const addLog = (line: string) => setLog((l) => [`${new Date().toLocaleTimeString()} — ${line}`, ...l].slice(0, 400));
 
@@ -197,7 +214,7 @@ export function ArchiveImportTab({
       }
       setRows(out);
       setSkipped(bad);
-      setMappedTo({});
+      setMappedTo(loadSavedMap());
       toast.success(`${out.length} record(s) loaded${bad ? `, ${bad} row(s) skipped` : ""}`);
     } catch (e: any) {
       toast.error("Could not read the file: " + e.message);
@@ -210,11 +227,15 @@ export function ArchiveImportTab({
   const recon = useMemo(() => {
     const stores = Array.from(new Set(rows.map((r) => r.storeAccount)));
     const exact: { store: string; client: Client }[] = [];
+    const remembered: { store: string; client: Client }[] = [];
     const similar: { store: string; matches: { client: Client; score: number }[] }[] = [];
     const create: string[] = [];
     for (const store of stores) {
       const hit = clients.find((c) => normName(c.client_name) === normName(store));
       if (hit) { exact.push({ store, client: hit }); continue; }
+      const saved = mappedTo[store];
+      const savedClient = saved && saved !== "__new__" ? clients.find((c) => c.id === saved) : undefined;
+      if (savedClient) { remembered.push({ store, client: savedClient }); continue; }
       const near = clients
         .map((c) => ({ client: c, score: similarity(store, c.client_name) }))
         .filter((x) => x.score >= 0.6)
@@ -223,8 +244,8 @@ export function ArchiveImportTab({
       if (near.length) similar.push({ store, matches: near });
       else create.push(store);
     }
-    return { stores, exact, similar, create };
-  }, [rows, clients]);
+    return { stores, exact, remembered, similar, create };
+  }, [rows, clients, mappedTo]);
 
   /** Stores that still need a client account created (new + similars mapped to "create new"). */
   const toCreate = useMemo(() => {
@@ -236,11 +257,11 @@ export function ArchiveImportTab({
   const resolveClientId = (store: string): string | null => {
     const hit = clients.find((c) => normName(c.client_name) === normName(store));
     if (hit) return hit.id;
-    const sim = recon.similar.find((s) => s.store === store);
-    if (!sim) return null;
     const chosen = mappedTo[store];
     if (chosen === "__new__") return null;
     if (chosen && clients.some((c) => c.id === chosen)) return chosen;
+    const sim = recon.similar.find((s) => s.store === store);
+    if (!sim) return null;
     return sim.matches[0].client.id; // default: closest match
   };
 
@@ -428,6 +449,18 @@ export function ArchiveImportTab({
               <div className="rounded border p-3">
                 <p className="text-xs text-muted-foreground">Similar name — please confirm</p>
                 <p className="text-2xl font-bold text-amber-600">{recon.similar.length}</p>
+                {recon.remembered.length > 0 && (
+                  <p className="text-xs text-emerald-600 mt-1">
+                    {recon.remembered.length} linked earlier — remembered{" "}
+                    <button
+                      type="button"
+                      className="underline text-muted-foreground"
+                      onClick={() => { setMappedTo({}); saveMap({}); }}
+                    >
+                      reset
+                    </button>
+                  </p>
+                )}
               </div>
               <div className="rounded border p-3">
                 <p className="text-xs text-muted-foreground">To be created</p>
@@ -441,7 +474,21 @@ export function ArchiveImportTab({
                   <AlertTriangle className="h-4 w-4 text-amber-600" />
                   These names look like accounts you already have. Choose which existing account the
                   checks belong to, or choose "Create new account" if it really is a different client.
+                  Your choice is remembered, so a re-upload will not ask again.
                 </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const next = { ...mappedTo };
+                    for (const s of recon.similar) next[s.store] = mappedTo[s.store] ?? s.matches[0].client.id;
+                    setMappedTo(next);
+                    saveMap(next);
+                    toast.success("Suggested links confirmed and remembered");
+                  }}
+                >
+                  Accept all suggested links
+                </Button>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -457,7 +504,7 @@ export function ArchiveImportTab({
                           <TableCell>
                             <Select
                               value={mappedTo[s.store] ?? s.matches[0].client.id}
-                              onValueChange={(v) => setMappedTo((p) => ({ ...p, [s.store]: v }))}
+                              onValueChange={(v) => setMapping(s.store, v)}
                             >
                               <SelectTrigger className="w-full max-w-md">
                                 <SelectValue />
