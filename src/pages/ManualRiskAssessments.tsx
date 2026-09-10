@@ -3062,33 +3062,68 @@ function AccountsTab({
     return true;
   };
 
-  const sentSubmissionIds = useMemo(() => submissions.map((s) => s.id), [submissions]);
+  // Current-system submissions (since the new portal went live) versus imported
+  // historical archive records. Counts and invoicing only ever use the current
+  // ones; archives are shown separately and stay searchable.
+  const liveSubs = useMemo(() => submissions.filter((s) => !(s as any).is_archive), [submissions]);
+  const archiveSubs = useMemo(() => submissions.filter((s) => !!(s as any).is_archive), [submissions]);
+  const liveSubIds = useMemo(() => liveSubs.map((s) => s.id), [liveSubs]);
 
-  // Load all NOT-YET-INVOICED candidates for sent submissions so we can count
+  // Load all NOT-YET-INVOICED candidates of current submissions so we can count
   // checks (per-candidate) and honor override_client_id when grouping them.
   // Invoiced checks live in the Invoiced tab and must not appear here.
   const { data: allCandidates = [] } = useQuery<Candidate[]>({
-    queryKey: ["mra-accounts-all-cands", sentSubmissionIds.join(",")],
-    enabled: sentSubmissionIds.length > 0,
+    queryKey: ["mra-accounts-all-cands", liveSubIds.join(",")],
+    enabled: liveSubIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await sb.from("manual_risk_candidates")
-        .select("*").in("submission_id", sentSubmissionIds).is("invoice_batch_id", null);
-      if (error) throw error;
-      return (data as Candidate[]).filter((c) => !isPlaceholderCandidate(c));
+      const all: Candidate[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb.from("manual_risk_candidates")
+          .select("*").in("submission_id", liveSubIds).is("invoice_batch_id", null)
+          .range(from, from + 999);
+        if (error) throw error;
+        all.push(...((data ?? []) as Candidate[]));
+        if (!data || data.length < 1000) break;
+      }
+      return all.filter((c) => !isPlaceholderCandidate(c));
     },
   });
 
+  // How many historical (archive) candidates sit under each account.
+  const { data: archiveCountByClient = new Map<string, number>() } = useQuery<Map<string, number>>({
+    queryKey: ["mra-accounts-archive-counts", archiveSubs.length],
+    enabled: archiveSubs.length > 0,
+    queryFn: async () => {
+      const archiveSubMap = new Map(archiveSubs.map((s) => [s.id, s]));
+      const counts = new Map<string, number>();
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb.from("manual_risk_candidates")
+          .select("submission_id,override_client_id,id_number,surname,first_name")
+          .range(from, from + 999);
+        if (error) throw error;
+        for (const c of (data ?? []) as any[]) {
+          const s = archiveSubMap.get(c.submission_id);
+          if (!s) continue;
+          if (isPlaceholderCandidate(c)) continue;
+          const key: string = c.override_client_id ?? s.client_id ?? "__unassigned__";
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        if (!data || data.length < 1000) break;
+      }
+      return counts;
+    },
+  });
+
+  // Search spans BOTH current submissions and the historical archive.
   const { data: searchCandidates = [], isFetching: searching } = useQuery<(Candidate & { submission_id: string })[]>({
-    queryKey: ["mra-accounts-search", trimmedQuery, sentSubmissionIds.join(",")],
-    enabled: searchActive && sentSubmissionIds.length > 0,
+    queryKey: ["mra-accounts-search", trimmedQuery],
+    enabled: searchActive,
     queryFn: async () => {
       const q = trimmedQuery.replace(/[%,]/g, " ");
       const { data, error } = await sb.from("manual_risk_candidates")
         .select("*")
-        .in("submission_id", sentSubmissionIds)
-        .is("invoice_batch_id", null)
         .or(`first_name.ilike.%${q}%,surname.ilike.%${q}%,id_number.ilike.%${q}%`)
-        .limit(200);
+        .limit(300);
       if (error) throw error;
       return (data as Candidate[]).filter((c) => !isPlaceholderCandidate(c)) as any;
     },
@@ -3099,7 +3134,7 @@ function AccountsTab({
       const sub = submissions.find((s) => s.id === c.submission_id) || null;
       const effClientId = (c as any).override_client_id ?? sub?.client_id ?? null;
       const client = effClientId ? clients.find((cl) => cl.id === effClientId) ?? null : null;
-      return { c, sub, client };
+      return { c, sub, client, isArchive: !!(sub as any)?.is_archive };
     }).filter((r) => r.sub);
   }, [searchCandidates, submissions, clients]);
 
