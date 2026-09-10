@@ -1155,6 +1155,45 @@ function BulkFolderUploadCard({
 
   const unmatched = planned.filter((p) => !p.submissionId).length;
 
+  /** Adds files the user picks by hand onto an existing batch line. */
+  const addFilesToGroup = (key: string, kind: "report" | "indemnity", list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    const anchor = planned.find((p) => keyOf(p) === key);
+    if (!anchor) return;
+    const extra: PlannedFile[] = Array.from(list).map((file, i) => ({
+      id: `${key}-${kind}-${Date.now()}-${i}`,
+      file,
+      kind,
+      date: anchor.date,
+      store: anchor.store,
+      submissionId: anchor.submissionId,
+    }));
+    setPlanned((prev) => [...prev, ...extra]);
+    toast.success(`${extra.length} ${kind === "report" ? "report" : "indemnity"} file(s) added`);
+  };
+
+  /** Moves every file on one line onto another line (e.g. a "New Folder" of
+   *  indemnities onto the report batch it belongs to). */
+  const mergeGroupInto = (key: string, targetKey: string) => {
+    const target = planned.find((p) => keyOf(p) === targetKey);
+    if (!target || key === targetKey) return;
+    setPlanned((prev) => prev.map((p) =>
+      keyOf(p) === key
+        ? { ...p, date: target.date, store: target.store, submissionId: target.submissionId }
+        : p));
+    setMatchNote((prev) => ({ ...prev, [targetKey]: `Files joined from another folder` }));
+    toast.success("Folder joined to the chosen batch");
+  };
+
+  const missingSide = (files: PlannedFile[]) => {
+    const r = files.filter((f) => f.kind === "report").length;
+    const i = files.filter((f) => f.kind === "indemnity").length;
+    if (r === 0) return "report" as const;
+    if (i === 0) return "indemnity" as const;
+    return null;
+  };
+
+
 
   const runUpload = async () => {
     setRunning(true); setDone(0); setFailed(0);
