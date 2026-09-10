@@ -1055,21 +1055,92 @@ function BulkFolderUploadCard({
     if (!next.length) toast.error("No dated folders found in that selection");
   };
 
+  /**
+ * Files on the same date whose folder / report names are the same store written
+ * differently ("Maponya" beside "Maponya Mall") belong to ONE batch, so they are
+ * clustered together before anything is shown or uploaded.
+ */
+  const groupKeyOf = useMemo(() => {
+    const byDate = new Map<string, PlannedFile[]>();
+    for (const p of planned) byDate.set(p.date, [...(byDate.get(p.date) ?? []), p]);
+    const keyFor = new Map<string, string>();
+    const labelFor = new Map<string, string>();
+    for (const [date, list] of byDate) {
+      const stores = Array.from(new Set(list.map((p) => p.store)))
+        .sort((a, b) => b.length - a.length); // longest first: "Maponya" folds into "Maponya Mall"
+      const clusters: { canon: string; stores: string[] }[] = [];
+      for (const s of stores) {
+        const hit = clusters.find((c) =>
+          c.stores.some((x) => {
+            const a = matchKey(x), b = matchKey(s);
+            if (!a || !b) return false;
+            return a === b || a.startsWith(b) || b.startsWith(a) || similarity(x, s) >= 0.8;
+          }));
+        if (hit) hit.stores.push(s);
+        else clusters.push({ canon: s, stores: [s] });
+      }
+      for (const p of list) {
+        const c = clusters.find((x) => x.stores.includes(p.store))!;
+        const key = `${date}|${normName(c.canon)}`;
+        keyFor.set(p.id, key);
+        labelFor.set(key, c.stores.length > 1 ? `${c.canon} (+ ${c.stores.filter((x) => x !== c.canon).join(", ")})` : c.canon);
+      }
+    }
+    return { keyFor, labelFor };
+  }, [planned]);
+
+  const keyOf = (p: PlannedFile) => groupKeyOf.keyFor.get(p.id) ?? `${p.date}|${normName(p.store)}`;
+
   const grouped = useMemo(() => {
     const map = new Map<string, PlannedFile[]>();
     for (const p of planned) {
-      const k = `${p.date}|${normName(p.store)}`;
+      const k = keyOf(p);
       map.set(k, [...(map.get(k) ?? []), p]);
     }
     return Array.from(map.entries()).map(([k, files]) => ({ key: k, files }));
-  }, [planned]);
+  }, [planned, groupKeyOf]);
 
   const setGroupOrder = (key: string, submissionId: string) => {
     setPlanned((prev) => prev.map((p) =>
-      `${p.date}|${normName(p.store)}` === key ? { ...p, submissionId: submissionId || null } : p));
+      keyOf(p) === key ? { ...p, submissionId: submissionId || null } : p));
+  };
+
+  // A merged batch must point at a single archive order.
+  useEffect(() => {
+    for (const { files } of grouped) {
+      const target = files.find((f) => f.submissionId)?.submissionId ?? null;
+      if (target && files.some((f) => f.submissionId !== target)) {
+        setGroupOrder(keyOf(files[0]), target);
+        return;
+      }
+    }
+  }, [grouped]);
+
+  const applySuggestion = (key: string) => {
+    const id = suggested[key];
+    if (!id) return;
+    setGroupOrder(key, id);
+    setSuggested((prev) => { const n = { ...prev }; delete n[key]; return n; });
+    setMatchNote((prev) => ({ ...prev, [key]: `Moved to the order the names belong to` }));
+  };
+
+  const applyAllSuggestions = () => {
+    const keys = Object.keys(suggested);
+    setPlanned((prev) => prev.map((p) => {
+      const id = suggested[keyOf(p)];
+      return id ? { ...p, submissionId: id } : p;
+    }));
+    setMatchNote((prev) => {
+      const n = { ...prev };
+      for (const k of keys) n[k] = `Moved to the order the names belong to`;
+      return n;
+    });
+    setSuggested({});
+    toast.success(`${keys.length} batch(es) moved to the order their names belong to`);
   };
 
   const unmatched = planned.filter((p) => !p.submissionId).length;
+
 
   const runUpload = async () => {
     setRunning(true); setDone(0); setFailed(0);
