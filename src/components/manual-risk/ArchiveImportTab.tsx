@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/table";
 import { Upload, FileSpreadsheet, FolderOpen, CheckCircle2, AlertTriangle, FileText } from "lucide-react";
 import { applyArchiveReportOutcomes, extractArchiveReportRecords, normPersonName } from "@/lib/archiveReportOutcomes";
+import { ArchiveOneDriveBackfillCard } from "@/components/manual-risk/ArchiveOneDriveBackfillCard";
+
 
 /**
  * Archive Import (master admin only).
