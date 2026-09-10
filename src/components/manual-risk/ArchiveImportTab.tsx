@@ -319,7 +319,7 @@ export function ArchiveImportTab({
         json.forEach((r, i) => {
           const store = pick(r, ["Store / Account", "Store/Account", "Store Account", "Store", "Account", "Client"]);
           const date = toIsoDate(pickRaw(r, ["Submission Date", "Date", "Submitted"]));
-          const idNumber = pick(r, ["ID Number", "IDNumber", "ID"]);
+          const idNumber = normalizeIdNumber(pick(r, ["ID Number", "IDNumber", "ID"]));
           const surname = pick(r, ["Surname", "Last Name"]);
           const firstName = pick(r, ["First Name", "Firstname", "Name"]);
           const full = pick(r, ["Full Name", "Fullname"]);
