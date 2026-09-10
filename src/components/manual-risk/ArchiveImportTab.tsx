@@ -891,6 +891,26 @@ type PlannedFile = {
   submissionId: string | null;
 };
 
+/**
+ * Kept outside the component so switching tabs (which throws the card away and
+ * builds it again) never loses the chosen folder, the match notes, or a run in
+ * progress. An upload that is already going keeps going and writes its progress
+ * here, so the card picks it back up exactly where it is.
+ */
+const bulkSession: {
+  planned: PlannedFile[];
+  matchNote: Record<string, string>;
+  suggested: Record<string, string>;
+  alsoOptions: Record<string, { id: string; count: number }[]>;
+  alsoLink: Record<string, string[]>;
+  running: boolean;
+  done: number;
+  failed: number;
+} = {
+  planned: [], matchNote: {}, suggested: {}, alsoOptions: {}, alsoLink: {},
+  running: false, done: 0, failed: 0,
+};
+
 function BulkFolderUploadCard({
   submissions, clients, onChanged, addLog,
 }: {
@@ -899,17 +919,52 @@ function BulkFolderUploadCard({
   onChanged: () => void;
   addLog: (s: string) => void;
 }) {
-  const [planned, setPlanned] = useState<PlannedFile[]>([]);
-  const [running, setRunning] = useState(false);
-  const [done, setDone] = useState(0);
-  const [failed, setFailed] = useState(0);
+  const [planned, setPlanned] = useState<PlannedFile[]>(bulkSession.planned);
+  const [running, setRunning] = useState(bulkSession.running);
+  const [done, setDone] = useState(bulkSession.done);
+  const [failed, setFailed] = useState(bulkSession.failed);
   const [nameMatching, setNameMatching] = useState(false);
-  const [matchNote, setMatchNote] = useState<Record<string, string>>({});
-  const [suggested, setSuggested] = useState<Record<string, string>>({});
+  const [matchNote, setMatchNote] = useState<Record<string, string>>(bulkSession.matchNote);
+  const [suggested, setSuggested] = useState<Record<string, string>>(bulkSession.suggested);
   /** Other archive orders that also hold people named in this batch's report. */
-  const [alsoOptions, setAlsoOptions] = useState<Record<string, { id: string; count: number }[]>>({});
+  const [alsoOptions, setAlsoOptions] = useState<Record<string, { id: string; count: number }[]>>(bulkSession.alsoOptions);
   /** Extra orders the user chose to link the same files to. */
-  const [alsoLink, setAlsoLink] = useState<Record<string, string[]>>({});
+  const [alsoLink, setAlsoLink] = useState<Record<string, string[]>>(bulkSession.alsoLink);
+
+  // Remember everything on screen, so it survives leaving and re-opening the tab.
+  useEffect(() => { bulkSession.planned = planned; }, [planned]);
+  useEffect(() => { bulkSession.matchNote = matchNote; }, [matchNote]);
+  useEffect(() => { bulkSession.suggested = suggested; }, [suggested]);
+  useEffect(() => { bulkSession.alsoOptions = alsoOptions; }, [alsoOptions]);
+  useEffect(() => { bulkSession.alsoLink = alsoLink; }, [alsoLink]);
+
+  // An upload started before the tab was left keeps running in the background —
+  // follow it here until it finishes.
+  useEffect(() => {
+    if (!bulkSession.running) return;
+    const t = window.setInterval(() => {
+      setRunning(bulkSession.running);
+      setDone(bulkSession.done);
+      setFailed(bulkSession.failed);
+      if (!bulkSession.running) {
+        setPlanned(bulkSession.planned);
+        setMatchNote(bulkSession.matchNote);
+        setSuggested(bulkSession.suggested);
+        setAlsoOptions(bulkSession.alsoOptions);
+        setAlsoLink(bulkSession.alsoLink);
+        window.clearInterval(t);
+      }
+    }, 800);
+    return () => window.clearInterval(t);
+  }, []);
+
+  // Warn before the page is closed or reloaded mid-upload.
+  useEffect(() => {
+    if (!running) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [running]);
 
   const candCache = useRef<ArchiveCandidateRow[] | null>(null);
 
@@ -1367,10 +1422,19 @@ function BulkFolderUploadCard({
   };
 
   const runUpload = async () => {
+    const items = [...planned];
+    if (!items.length) return;
     setRunning(true); setDone(0); setFailed(0);
+    bulkSession.running = true; bulkSession.done = 0; bulkSession.failed = 0;
+
+    // Ask the machine to stay awake so a sleeping screen does not cut the run short.
+    let wake: any = null;
+    try { wake = await (navigator as any).wakeLock?.request?.("screen"); } catch { /* not available */ }
+
+    const attached = new Set<string>();
     let ok = 0, bad = 0;
-    for (const p of planned) {
-      if (!p.submissionId) { bad++; setFailed(bad); continue; }
+    for (const p of items) {
+      if (!p.submissionId) { bad++; setFailed(bad); bulkSession.failed = bad; continue; }
       const targets = Array.from(new Set([p.submissionId, ...(alsoLink[keyOf(p)] ?? [])]));
       let anyOk = false;
       for (const targetId of targets) {
@@ -1383,11 +1447,26 @@ function BulkFolderUploadCard({
           addLog(`Failed "${p.file.name}" (${p.date} ${p.store}) → ${sub.order_number}: ${e.message}`);
         }
       }
-      if (anyOk) { ok++; setDone(ok); } else { bad++; setFailed(bad); }
+      if (anyOk) { ok++; attached.add(p.id); setDone(ok); bulkSession.done = ok; }
+      else { bad++; setFailed(bad); bulkSession.failed = bad; }
     }
     addLog(`Bulk upload finished — ${ok} attached, ${bad} skipped/failed`);
     toast.success(`${ok} file(s) attached`);
-    setRunning(false);
+
+    // Everything that went up is cleared off the list, so only the batches that
+    // still need attention stay behind and the next folder can be chosen.
+    const remaining = items.filter((p) => !attached.has(p.id));
+    const liveKeys = new Set(remaining.map((p) => keyOf(p)));
+    const prune = <T,>(rec: Record<string, T>): Record<string, T> =>
+      Object.fromEntries(Object.entries(rec).filter(([k]) => liveKeys.has(k)));
+    setPlanned(remaining); bulkSession.planned = remaining;
+    setMatchNote((prev) => { const n = prune(prev); bulkSession.matchNote = n; return n; });
+    setSuggested((prev) => { const n = prune(prev); bulkSession.suggested = n; return n; });
+    setAlsoOptions((prev) => { const n = prune(prev); bulkSession.alsoOptions = n; return n; });
+    setAlsoLink((prev) => { const n = prune(prev); bulkSession.alsoLink = n; return n; });
+
+    setRunning(false); bulkSession.running = false;
+    try { wake?.release?.(); } catch { /* ignore */ }
     onChanged();
   };
 
