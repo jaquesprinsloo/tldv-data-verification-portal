@@ -98,9 +98,15 @@ export function MrClientDashboardTab({
   const { data: candidates = [], isLoading } = useQuery<Cand[]>({
     queryKey: ["mra-client-dash-cands"],
     queryFn: async () => {
-      const { data, error } = await sb.from("manual_risk_candidates").select("*");
-      if (error) throw error;
-      return (data as Cand[]).filter((c) => !isPlaceholderCandidate(c as any));
+      // Page through all rows — PostgREST caps a single select at 1000 rows.
+      const all: Cand[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb.from("manual_risk_candidates").select("*").range(from, from + 999);
+        if (error) throw error;
+        all.push(...((data ?? []) as Cand[]));
+        if (!data || data.length < 1000) break;
+      }
+      return all.filter((c) => !isPlaceholderCandidate(c as any));
     },
   });
 
