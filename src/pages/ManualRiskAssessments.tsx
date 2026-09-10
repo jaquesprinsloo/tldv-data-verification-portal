@@ -730,7 +730,12 @@ export default function ManualRiskAssessments() {
                 onChanged={() => qc.invalidateQueries({ queryKey: ["mra-submissions"] })}
               />
             </TabsContent>
+
+            <TabsContent value="employee-check" className="mt-4">
+              <MrEmployeeCheckTab clients={clients} />
+            </TabsContent>
           </Tabs>
+
         </main>
       </div>
     );
