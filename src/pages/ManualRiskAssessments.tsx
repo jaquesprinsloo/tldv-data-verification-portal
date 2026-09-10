@@ -2570,7 +2570,7 @@ function IndemnitySection({
 async function recomputeSubmissionStatus(submissionId: string) {
   const { data: sub } = await sb
     .from("manual_risk_submissions")
-    .select("requested_checks, status")
+    .select("requested_checks, status, sent_at")
     .eq("id", submissionId)
     .maybeSingle();
   const { data: cands } = await sb
@@ -2593,7 +2593,8 @@ async function recomputeSubmissionStatus(submissionId: string) {
       }),
     );
 
-  const next = allComplete ? "completed" : "open";
+  // Once the report has gone to the client the order is closed, whatever the outcomes read.
+  const next = (sub as any)?.sent_at || allComplete ? "completed" : "open";
   if ((sub as any)?.status !== next) {
     await sb.from("manual_risk_submissions").update({ status: next }).eq("id", submissionId);
   }
