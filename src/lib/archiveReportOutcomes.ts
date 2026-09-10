@@ -21,6 +21,8 @@ export type ArchiveSupplierRecord = {
   surname?: string | null;
   dead_alive?: string | null;
   risk_assessment?: string | null;
+  risk_assessment_detail?: string | null;
+  id_verification_detail?: string | null;
 };
 
 const blobToBase64 = (blob: Blob): Promise<string> =>
@@ -109,11 +111,14 @@ export async function applyArchiveReportOutcomes(
 
     const invalid = isIdInvalid(rec);
     const raText = String(rec.risk_assessment ?? "");
+    const raDetail = String(rec.risk_assessment_detail ?? "").trim();
+    const idDetail = String(rec.id_verification_detail ?? "").trim();
     const update: Record<string, unknown> = {
       id_verification_result: invalid ? "invalid" : "valid",
       id_verification_notes: [
         `Auto-populated from archive report ${reportLabel}`,
         rec.status ? `Status: ${rec.status}` : null,
+        idDetail || null,
       ].filter(Boolean).join(" • "),
       id_verification_data: rec as unknown as Record<string, unknown>,
     };
@@ -122,16 +127,21 @@ export async function applyArchiveReportOutcomes(
       // Same rule as the live reports: no valid ID means the risk assessment
       // cannot be relied upon.
       update.risk_assessment_result = "invalid";
-      update.risk_assessment_notes =
-        `Risk Assessment invalid — ID verification could not be confirmed${raText ? ` (supplier risk assessment: ${raText})` : ""}.`;
+      update.risk_assessment_notes = [
+        `Risk Assessment invalid — ID verification could not be confirmed${raText ? ` (supplier risk assessment: ${raText})` : ""}.`,
+        raDetail || null,
+      ].filter(Boolean).join(" • ");
     } else if (raText) {
       const isNoRisk = /no\s+further\s+investigation/i.test(raText);
       const isRisk = /further\s+investigation/i.test(raText) && !isNoRisk;
       if (isNoRisk || isRisk) {
         update.risk_assessment_result = isNoRisk ? "no_risk" : "risk_identified";
-        update.risk_assessment_notes = isRisk
-          ? `Probable Risk Identified — candidate should have their fingerprints submitted for clearance (archive report ${reportLabel}: ${raText}).`
-          : `Auto-populated from archive report ${reportLabel}: ${raText}`;
+        update.risk_assessment_notes = [
+          isRisk
+            ? `Probable Risk Identified — candidate should have their fingerprints submitted for clearance (archive report ${reportLabel}: ${raText}).`
+            : `Auto-populated from archive report ${reportLabel}: ${raText}`,
+          raDetail || null,
+        ].filter(Boolean).join(" • ");
       }
     }
 
