@@ -2435,8 +2435,10 @@ function IndemnitySection({
       .from("manual-risk-indemnities")
       .createSignedUrl(f.path, 300);
     if (error) { toast.error(error.message); return; }
+    void logRecordAccess({ submissionId, action: "view_consent", detail: f.name });
     window.open(data.signedUrl, "_blank");
   };
+
 
   const handleDelete = async (f: IndemnityFile) => {
     if (!confirm(`Delete indemnity "${f.name}"? This removes it from storage and OneDrive.`)) return;
