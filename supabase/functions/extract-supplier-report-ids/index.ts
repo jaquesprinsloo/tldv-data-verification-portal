@@ -136,12 +136,10 @@ Deno.serve(async (req) => {
           },
           {
             role: "user",
-            content: [
-              { type: "text", text: "Extract every ID Verification record from this supplier vetting report." },
-              { type: "image_url", image_url: { url: dataUrl } },
-            ],
+            content: userContent,
           },
         ],
+
       }),
     });
 
