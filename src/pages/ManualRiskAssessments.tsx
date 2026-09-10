@@ -3687,7 +3687,7 @@ function ClientAccountDialog({
         } as AccountRow;
       })
       .filter((r): r is AccountRow => r !== null);
-  }, [candidates, subById, fromDate, toDate, dateBasis, groupKey]);
+  }, [candidates, subById, fromDate, toDate, dateBasis, groupKey, mode]);
 
   const mirrorRows: AccountRow[] = useMemo(() => {
     if (!isPtvsAccount) return [];
