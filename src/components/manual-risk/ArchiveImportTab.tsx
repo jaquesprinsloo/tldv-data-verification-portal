@@ -1484,8 +1484,11 @@ function BulkFolderUploadCard({
 
 
 
-  /** Attaches one file to one archive order (skipping exact duplicates). */
+  /** Attaches one file to one archive order (skipping exact duplicates) and mirrors it to OneDrive. */
   const attachFileTo = async (sub: ArchiveSubmission, p: PlannedFile) => {
+    const clientName = clients.find((c) => c.id === sub.client_id)?.client_name ?? "Unassigned";
+    const contentType = p.file.type || "application/octet-stream";
+
     if (p.kind === "report") {
       // Already attached with the same file name — leave it alone.
       if ((sub as any).archive_report_name === p.file.name && (sub as any).archive_report_path) {
@@ -1494,14 +1497,62 @@ function BulkFolderUploadCard({
       }
       const path = `${sub.id}/${p.file.name}`;
       const { error: upErr } = await sb.storage.from("archive-reports")
-        .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/pdf" });
+        .upload(path, p.file, { upsert: true, contentType });
       if (upErr) throw upErr;
-      const { error } = await sb.from("manual_risk_submissions")
-        .update({ archive_report_path: path, archive_report_name: p.file.name } as any)
-        .eq("id", sub.id);
+
+      let report_onedrive_web_url: string | null = null;
+      let report_onedrive_item_id: string | null = null;
+      let report_onedrive_path: string | null = null;
+      let report_shared_onedrive_web_url: string | null = null;
+      let report_shared_onedrive_item_id: string | null = null;
+      let report_shared_onedrive_path: string | null = null;
+
+      try {
+        const base64 = await blobToBase64(p.file);
+        const od = await uploadToOneDrive({
+          fileName: p.file.name, base64, contentType, clientName,
+          orderNumber: sub.order_number, kind: "report",
+        });
+        report_onedrive_web_url = od.webUrl;
+        report_onedrive_item_id = od.itemId;
+        report_onedrive_path = od.fullPath;
+      } catch (e: any) {
+        addLog(`OneDrive mirror failed for report ${p.file.name}: ${e.message}`);
+      }
+      try {
+        const base64 = await blobToBase64(p.file);
+        const od = await uploadToOneDrive({
+          fileName: p.file.name, base64, contentType, clientName,
+          orderNumber: sub.order_number, kind: "report", shared: true,
+        });
+        report_shared_onedrive_web_url = od.webUrl;
+        report_shared_onedrive_item_id = od.itemId;
+        report_shared_onedrive_path = od.fullPath;
+      } catch (e: any) {
+        addLog(`Client-shared OneDrive copy failed for report ${p.file.name}: ${e.message}`);
+      }
+
+      const update: any = {
+        archive_report_path: path,
+        archive_report_name: p.file.name,
+        report_onedrive_web_url,
+        report_onedrive_item_id,
+        report_onedrive_path,
+        report_shared_onedrive_web_url,
+        report_shared_onedrive_item_id,
+        report_shared_onedrive_path,
+      };
+      const { error } = await sb.from("manual_risk_submissions").update(update).eq("id", sub.id);
       if (error) throw error;
       (sub as any).archive_report_path = path;
       (sub as any).archive_report_name = p.file.name;
+      (sub as any).report_onedrive_web_url = report_onedrive_web_url;
+      (sub as any).report_onedrive_item_id = report_onedrive_item_id;
+      (sub as any).report_onedrive_path = report_onedrive_path;
+      (sub as any).report_shared_onedrive_web_url = report_shared_onedrive_web_url;
+      (sub as any).report_shared_onedrive_item_id = report_shared_onedrive_item_id;
+      (sub as any).report_shared_onedrive_path = report_shared_onedrive_path;
+
       try {
         const res = await applyArchiveReportOutcomes(sub.id, p.file, p.file.name);
         addLog(
@@ -1522,11 +1573,42 @@ function BulkFolderUploadCard({
     }
     const path = `${sub.id}/${Date.now()}-${p.file.name.replace(/[^\w.\-]+/g, "_")}`;
     const { error: upErr } = await sb.storage.from("manual-risk-indemnities")
-      .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/octet-stream" });
+      .upload(path, p.file, { upsert: true, contentType });
     if (upErr) throw upErr;
+
+    let onedrive_web_url: string | null = null;
+    let onedrive_item_id: string | null = null;
+    let shared_onedrive_web_url: string | null = null;
+    let shared_onedrive_item_id: string | null = null;
+
+    try {
+      const base64 = await blobToBase64(p.file);
+      const od = await uploadToOneDrive({
+        fileName: p.file.name, base64, contentType, clientName,
+        orderNumber: sub.order_number, kind: "indemnity",
+      });
+      onedrive_web_url = od.webUrl;
+      onedrive_item_id = od.itemId;
+    } catch (e: any) {
+      addLog(`OneDrive mirror failed for indemnity ${p.file.name}: ${e.message}`);
+    }
+    try {
+      const base64 = await blobToBase64(p.file);
+      const od = await uploadToOneDrive({
+        fileName: p.file.name, base64, contentType, clientName,
+        orderNumber: sub.order_number, kind: "indemnity", shared: true,
+      });
+      shared_onedrive_web_url = od.webUrl;
+      shared_onedrive_item_id = od.itemId;
+    } catch (e: any) {
+      addLog(`Client-shared OneDrive copy failed for indemnity ${p.file.name}: ${e.message}`);
+    }
+
     const entry = {
       name: p.file.name, path, uploaded_at: new Date().toISOString(),
-      size: p.file.size, content_type: p.file.type || null,
+      size: p.file.size, content_type: contentType,
+      onedrive_web_url, onedrive_item_id,
+      shared_onedrive_web_url, shared_onedrive_item_id,
     };
     (sub as any).indemnity_files = [...existing, entry];
     const { error } = await sb.from("manual_risk_submissions")
