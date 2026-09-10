@@ -1762,17 +1762,8 @@ function NewSubmissionDialog({
               )}
             </div>
 
-            <div className="space-y-2 border-t pt-4">
-              <Label>Submission Date</Label>
-              <p className="text-xs text-muted-foreground">
-                Defaults to today. Adjust if you're recording a submission received earlier.
-              </p>
-              <Input
-                type="date"
-                value={createdDate}
-                onChange={(e) => setCreatedDate(e.target.value)}
-              />
-            </div>
+
+
 
             <div className="border-t pt-4">
               <label className="flex items-start gap-2 text-sm cursor-pointer">
