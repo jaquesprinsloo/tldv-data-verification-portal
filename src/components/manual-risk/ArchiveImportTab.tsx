@@ -165,6 +165,16 @@ const pick = (row: Record<string, any>, names: string[]): string => {
   return "";
 };
 
+/** Spreadsheets store an ID as a number, which silently drops leading zeros
+ *  (0712155343080 comes back as 712155343080). SA IDs are always 13 digits, so
+ *  a short all-digit value is padded back out with leading zeros. */
+const normalizeIdNumber = (value: string): string => {
+  const raw = String(value ?? "").trim();
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length >= 9 && digits.length < 13) return digits.padStart(13, "0");
+  return digits || raw;
+};
+
 const pickRaw = (row: Record<string, any>, names: string[]): any => {
   for (const key of Object.keys(row)) {
     const k = normName(key);
@@ -309,7 +319,7 @@ export function ArchiveImportTab({
         json.forEach((r, i) => {
           const store = pick(r, ["Store / Account", "Store/Account", "Store Account", "Store", "Account", "Client"]);
           const date = toIsoDate(pickRaw(r, ["Submission Date", "Date", "Submitted"]));
-          const idNumber = pick(r, ["ID Number", "IDNumber", "ID"]);
+          const idNumber = normalizeIdNumber(pick(r, ["ID Number", "IDNumber", "ID"]));
           const surname = pick(r, ["Surname", "Last Name"]);
           const firstName = pick(r, ["First Name", "Firstname", "Name"]);
           const full = pick(r, ["Full Name", "Fullname"]);
