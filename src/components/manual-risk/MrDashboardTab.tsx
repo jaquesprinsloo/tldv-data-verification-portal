@@ -87,11 +87,19 @@ export function MrDashboardTab({
   const { data: candidates = [], isLoading } = useQuery<Cand[]>({
     queryKey: ["mra-dashboard-cands"],
     queryFn: async () => {
-      const { data, error } = await sb
-        .from("manual_risk_candidates")
-        .select("id, submission_id, override_client_id, invoice_batch_id, is_tldv_internal, is_ptvs_discount, id_number, surname, first_name");
-      if (error) throw error;
-      return (data as Cand[]).filter((c) => !isPlaceholderCandidate(c as any));
+      // Page through all rows — PostgREST caps a single select at 1000 rows.
+      const cols = "id, submission_id, override_client_id, invoice_batch_id, is_tldv_internal, is_ptvs_discount, id_number, surname, first_name";
+      const all: Cand[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb
+          .from("manual_risk_candidates")
+          .select(cols)
+          .range(from, from + 999);
+        if (error) throw error;
+        all.push(...((data ?? []) as Cand[]));
+        if (!data || data.length < 1000) break;
+      }
+      return all.filter((c) => !isPlaceholderCandidate(c as any));
     },
   });
 
