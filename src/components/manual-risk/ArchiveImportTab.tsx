@@ -189,7 +189,15 @@ const personKey = (idNumber: string, surname: string, firstName: string) => {
   return `n:${normName(surname)}|${normName(firstName).split(" ")[0] ?? ""}`;
 };
 
+/** "Master Indemnity" PDFs hold the whole batch's indemnities in one file. They
+ *  are never taken in: the individual indemnities in the store folders are used,
+ *  so signatures are not stored twice (and never filed as a report). */
+export function isMasterIndemnity(fileName: string): boolean {
+  return /master[\s_\-.]*indemnit/i.test(fileName || "");
+}
+
 function blobToBase64(blob: Blob): Promise<string> {
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -781,10 +789,15 @@ function ArchiveDocumentsCard({
   const visible = useMemo(() => matching.slice(0, 60), [matching]);
 
   const uploadReport = async (sub: ArchiveSubmission, file: File) => {
+    if (isMasterIndemnity(file.name)) {
+      toast.info("Master indemnity files are not attached — upload the individual indemnities instead");
+      return;
+    }
     if (sub.archive_report_path && sub.archive_report_name === file.name) {
       toast.info("That report is already attached to this order");
       return;
     }
+
     setBusy(sub.id);
     try {
       const path = `${sub.id}/${file.name}`;
@@ -830,7 +843,9 @@ function ArchiveDocumentsCard({
       const norm = (n: string) => n.trim().toLowerCase();
       const seenNames = new Set(existing.map((f) => norm(String(f.name ?? ""))));
       for (const file of Array.from(files)) {
+        if (isMasterIndemnity(file.name)) { addLog(`Skipped "${file.name}" — master indemnity files are not attached`); continue; }
         if (seenNames.has(norm(file.name))) { addLog(`Skipped "${file.name}" — already attached`); continue; }
+
         seenNames.add(norm(file.name));
 
         const path = `${sub.id}/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
@@ -1336,6 +1351,7 @@ function BulkFolderUploadCard({
   const onPick = (list: FileList | null) => {
     if (!list?.length) return;
     const next: PlannedFile[] = [];
+    let masters = 0;
     Array.from(list).forEach((file, i) => {
       const rel = (file as any).webkitRelativePath || file.name;
       const parts = String(rel).split("/").filter(Boolean);
@@ -1347,6 +1363,10 @@ function BulkFolderUploadCard({
       if (!date) return;                                   // outside a date folder
       const tail = parts.slice(dateIdx + 1);
       if (/\.(xlsx|xls|csv)$/i.test(file.name)) return;    // data sheets are not documents
+      // A "Master Indemnity" holds every indemnity of the batch in one PDF. The
+      // individual indemnities are already in the store folders, so taking it as
+      // well would file the same signatures twice (and as a report).
+      if (isMasterIndemnity(file.name)) { masters += 1; return; }
       let kind: "report" | "indemnity";
       let store: string;
       if (tail.length === 1) { kind = "report"; store = storeFromReportName(file.name); }
@@ -1358,8 +1378,10 @@ function BulkFolderUploadCard({
     });
     setPlanned(next);
     setDone(0); setFailed(0);
+    if (masters) toast.info(`${masters} master indemnity file(s) skipped — the individual indemnities are used instead`);
     if (!next.length) toast.error("No dated folders found in that selection");
   };
+
 
   /**
  * Files on the same date whose folder / report names are the same store written
@@ -1452,7 +1474,9 @@ function BulkFolderUploadCard({
     if (!list || list.length === 0) return;
     const anchor = planned.find((p) => keyOf(p) === key);
     if (!anchor) return;
-    const extra: PlannedFile[] = Array.from(list).map((file, i) => ({
+    const usable = Array.from(list).filter((f) => !isMasterIndemnity(f.name));
+    const blocked = list.length - usable.length;
+    const extra: PlannedFile[] = usable.map((file, i) => ({
       id: `${key}-${kind}-${Date.now()}-${i}`,
       file,
       kind,
@@ -1460,9 +1484,11 @@ function BulkFolderUploadCard({
       store: anchor.store,
       submissionId: anchor.submissionId,
     }));
-    setPlanned((prev) => [...prev, ...extra]);
-    toast.success(`${extra.length} ${kind === "report" ? "report" : "indemnity"} file(s) added`);
+    if (extra.length) setPlanned((prev) => [...prev, ...extra]);
+    if (blocked) toast.info(`${blocked} master indemnity file(s) skipped — use the individual indemnities`);
+    if (extra.length) toast.success(`${extra.length} ${kind === "report" ? "report" : "indemnity"} file(s) added`);
   };
+
 
   /** Moves every file on one line onto another line (e.g. a "New Folder" of
    *  indemnities onto the report batch it belongs to). */
@@ -1498,8 +1524,13 @@ function BulkFolderUploadCard({
 
   /** Attaches one file to one archive order (skipping exact duplicates) and mirrors it to OneDrive. */
   const attachFileTo = async (sub: ArchiveSubmission, p: PlannedFile) => {
+    if (isMasterIndemnity(p.file.name)) {
+      addLog(`Skipped "${p.file.name}" — master indemnity files are never attached`);
+      return;
+    }
     const clientName = clients.find((c) => c.id === sub.client_id)?.client_name ?? "Unassigned";
     const contentType = p.file.type || "application/octet-stream";
+
 
     if (p.kind === "report") {
       // Already attached with the same file name — leave it alone.
@@ -1687,7 +1718,9 @@ function BulkFolderUploadCard({
       <p className="text-sm text-muted-foreground">
         Choose a month folder (or a single date folder) exactly as you save it. Reports saved beside the
         date folder are treated as the batch report; anything inside a store sub-folder is treated as an
-        indemnity for that store. Data sheets are ignored. Check the matches below, fix any that are
+        indemnity for that store. Data sheets and "Master Indemnity" files are ignored — the individual
+        indemnities in the store folders are used instead. Check the matches below, fix any that are
+
         wrong, then upload.
       </p>
 
