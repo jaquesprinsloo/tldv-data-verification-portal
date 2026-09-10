@@ -1138,7 +1138,36 @@ function BulkFolderUploadCard({
     return () => window.removeEventListener("beforeunload", warn);
   }, [running]);
 
-  const candCache = useRef<ArchiveCandidateRow[] | null>(null);
+  /** Batches saved for later, because their names were not found in the archive. */
+  const [unresolved, setUnresolved] = useState<UnresolvedBatch[]>(loadUnresolved);
+  useEffect(() => { saveUnresolved(unresolved); }, [unresolved]);
+
+  /** Writes one batch onto the revisit list (replacing an earlier note for it). */
+  const rememberUnresolved = (key: string, date: string, store: string, reason: string) => {
+    const files = planned.filter((x) => keyOf(x) === key).map((x) => x.file.name);
+    setUnresolved((prev) => [
+      { key, date, store, reason, files, savedAt: new Date().toISOString() },
+      ...prev.filter((u) => u.key !== key),
+    ]);
+  };
+
+  const downloadUnresolved = () => {
+    const rows = [
+      ["Date", "Folder / store", "Reason", "Files", "Saved at"],
+      ...unresolved.map((u) => [u.date, u.store, u.reason, u.files.join(" | "), u.savedAt]),
+    ];
+    const csv = rows
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `archive-batches-to-revisit-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+
 
   /** All archive candidates, loaded once and cached (paged past the 1000 limit). */
   const loadArchiveCandidates = async (): Promise<ArchiveCandidateRow[]> => {
