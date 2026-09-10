@@ -1052,6 +1052,37 @@ const bulkSession: {
   running: false, done: 0, failed: 0,
 };
 
+/**
+ * Batches whose people could not be found in the archive are written down here
+ * (kept in the browser, so they survive a reload) and stay on a "to revisit"
+ * list until they are dealt with.
+ */
+type UnresolvedBatch = {
+  key: string;
+  date: string;
+  store: string;
+  reason: string;
+  files: string[];
+  savedAt: string;
+};
+
+const UNRESOLVED_LS_KEY = "tldv.archive.unresolvedBatches";
+
+const loadUnresolved = (): UnresolvedBatch[] => {
+  try {
+    const raw = localStorage.getItem(UNRESOLVED_LS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? (arr as UnresolvedBatch[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveUnresolved = (list: UnresolvedBatch[]) => {
+  try { localStorage.setItem(UNRESOLVED_LS_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+};
+
+
 function BulkFolderUploadCard({
   submissions, clients, onChanged, addLog,
 }: {
