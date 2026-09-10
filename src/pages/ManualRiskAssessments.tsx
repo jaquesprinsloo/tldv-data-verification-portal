@@ -35,6 +35,8 @@ import { MrClientDashboardTab } from "@/components/manual-risk/MrClientDashboard
 import { IndemnityViewerDialog, type IndemnityFileRef } from "@/components/manual-risk/IndemnityViewerDialog";
 import { ArchiveImportTab } from "@/components/manual-risk/ArchiveImportTab";
 import DuplicateClientsDialog from "@/components/manual-risk/DuplicateClientsDialog";
+import ComplianceTab from "@/components/manual-risk/ComplianceTab";
+
 
 import { BookUser } from "lucide-react";
 
