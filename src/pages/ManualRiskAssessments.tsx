@@ -2200,6 +2200,39 @@ function SubmissionDetailsDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Record trail: what happened when, and who did it */}
+        <div className="border rounded-md p-3 mb-3 text-xs bg-muted/20 grid gap-1 sm:grid-cols-2">
+          <div><span className="text-muted-foreground">Submission captured: </span>{new Date(sub.created_at).toLocaleString("en-ZA")}</div>
+          <div>
+            <span className="text-muted-foreground">Sent for screening: </span>
+            {sub.sent_to_supplier_at ? new Date(sub.sent_to_supplier_at).toLocaleString("en-ZA") : "not recorded yet"}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Consent form(s) uploaded: </span>
+            {(sub.indemnity_files ?? []).length
+              ? (sub.indemnity_files ?? []).map((f) =>
+                  `${new Date(f.uploaded_at).toLocaleDateString("en-ZA")}${f.uploaded_by_name ? ` by ${f.uploaded_by_name}` : ""}`,
+                ).join(", ")
+              : "none"}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Provider report(s) uploaded: </span>
+            {(sub.supplier_report_files ?? []).length
+              ? (sub.supplier_report_files ?? []).map((f) =>
+                  `${new Date(f.uploaded_at).toLocaleDateString("en-ZA")}${f.uploaded_by_name ? ` by ${f.uploaded_by_name}` : ""}`,
+                ).join(", ")
+              : "none"}
+          </div>
+          <div>
+            <span className="text-muted-foreground">Report released to client: </span>
+            {sub.sent_at ? new Date(sub.sent_at).toLocaleString("en-ZA") : "not yet"}
+          </div>
+          {sub.compliance_flag && (
+            <div className="text-red-600 font-medium">Flagged for review: {sub.compliance_flag.replace(/_/g, " ")}</div>
+          )}
+        </div>
+
+
         <IndemnitySection
           submissionId={submissionId}
           submission={sub}
