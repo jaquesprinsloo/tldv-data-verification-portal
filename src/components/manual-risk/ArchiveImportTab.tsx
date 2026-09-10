@@ -880,6 +880,11 @@ function BulkFolderUploadCard({
   const [nameMatching, setNameMatching] = useState(false);
   const [matchNote, setMatchNote] = useState<Record<string, string>>({});
   const [suggested, setSuggested] = useState<Record<string, string>>({});
+  /** Other archive orders that also hold people named in this batch's report. */
+  const [alsoOptions, setAlsoOptions] = useState<Record<string, { id: string; count: number }[]>>({});
+  /** Extra orders the user chose to link the same files to. */
+  const [alsoLink, setAlsoLink] = useState<Record<string, string[]>>({});
+
   const candCache = useRef<ArchiveCandidateRow[] | null>(null);
 
   /** All archive candidates, loaded once and cached (paged past the 1000 limit). */
@@ -979,6 +984,19 @@ function BulkFolderUploadCard({
           return `${clientName(s?.client_id ?? null)} (${s?.order_number ?? ""})`;
         };
 
+        // People in this report who sit on OTHER archive orders (the batch was
+        // saved under one account and later moved) — offer to link them too.
+        const recordExtras = (chosen: string) => {
+          const others = ranked.filter(([id, n]) => id !== chosen && n > 0)
+            .map(([id, n]) => ({ id, count: n }));
+          setAlsoOptions((prev) => {
+            const next = { ...prev };
+            if (others.length) next[key] = others; else delete next[key];
+            return next;
+          });
+        };
+
+
         if (!p.submissionId) {
           if (!best) {
             addLog(`No archive order holds the people in "${p.file.name}"`);
@@ -986,6 +1004,8 @@ function BulkFolderUploadCard({
             continue;
           }
           setGroupOrder(key, best[0]);
+          recordExtras(best[0]);
+
           linked += 1;
           setMatchNote((prev) => ({
             ...prev,
@@ -997,7 +1017,9 @@ function BulkFolderUploadCard({
 
         // Already matched by folder/date — verify the names line up.
         const better = best && best[0] !== p.submissionId && best[1] > onCurrent ? best : null;
+        recordExtras(better ? better[0] : p.submissionId);
         if (onCurrent > 0 && !better) {
+
           confirmed += 1;
           setMatchNote((prev) => ({
             ...prev,
@@ -1213,73 +1235,82 @@ function BulkFolderUploadCard({
 
 
 
+  /** Attaches one file to one archive order (skipping exact duplicates). */
+  const attachFileTo = async (sub: ArchiveSubmission, p: PlannedFile) => {
+    if (p.kind === "report") {
+      // Already attached with the same file name — leave it alone.
+      if ((sub as any).archive_report_name === p.file.name && (sub as any).archive_report_path) {
+        addLog(`Skipped "${p.file.name}" — report already on ${sub.order_number}`);
+        return;
+      }
+      const path = `${sub.id}/${p.file.name}`;
+      const { error: upErr } = await sb.storage.from("archive-reports")
+        .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/pdf" });
+      if (upErr) throw upErr;
+      const { error } = await sb.from("manual_risk_submissions")
+        .update({ archive_report_path: path, archive_report_name: p.file.name } as any)
+        .eq("id", sub.id);
+      if (error) throw error;
+      (sub as any).archive_report_path = path;
+      (sub as any).archive_report_name = p.file.name;
+      try {
+        const res = await applyArchiveReportOutcomes(sub.id, p.file, p.file.name);
+        addLog(
+          `Outcomes for ${sub.order_number}: ${res.matched}/${res.records} captured` +
+            (res.unmatched.length ? ` • not matched: ${res.unmatched.join(", ")}` : ""),
+        );
+      } catch (e: any) {
+        addLog(`Outcome extraction failed for ${sub.order_number}: ${e.message}`);
+      }
+      return;
+    }
+
+    const existing: any[] = Array.isArray(sub.indemnity_files) ? sub.indemnity_files : [];
+    const norm = (n: string) => n.trim().toLowerCase();
+    if (existing.some((f) => norm(String(f.name ?? "")) === norm(p.file.name))) {
+      addLog(`Skipped "${p.file.name}" — indemnity already on ${sub.order_number}`);
+      return;
+    }
+    const path = `${sub.id}/${Date.now()}-${p.file.name.replace(/[^\w.\-]+/g, "_")}`;
+    const { error: upErr } = await sb.storage.from("manual-risk-indemnities")
+      .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/octet-stream" });
+    if (upErr) throw upErr;
+    const entry = {
+      name: p.file.name, path, uploaded_at: new Date().toISOString(),
+      size: p.file.size, content_type: p.file.type || null,
+    };
+    (sub as any).indemnity_files = [...existing, entry];
+    const { error } = await sb.from("manual_risk_submissions")
+      .update({ indemnity_files: [...existing, entry] } as any)
+      .eq("id", sub.id);
+    if (error) throw error;
+  };
+
   const runUpload = async () => {
     setRunning(true); setDone(0); setFailed(0);
     let ok = 0, bad = 0;
     for (const p of planned) {
       if (!p.submissionId) { bad++; setFailed(bad); continue; }
-      const sub = submissions.find((s) => s.id === p.submissionId);
-      if (!sub) { bad++; setFailed(bad); continue; }
-      try {
-        if (p.kind === "report") {
-          // Already attached with the same file name — leave it alone.
-          if ((sub as any).archive_report_name === p.file.name && (sub as any).archive_report_path) {
-            addLog(`Skipped "${p.file.name}" — report already on ${sub.order_number}`);
-            ok++; setDone(ok); continue;
-          }
-          const path = `${sub.id}/${p.file.name}`;
-          const { error: upErr } = await sb.storage.from("archive-reports")
-            .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/pdf" });
-          if (upErr) throw upErr;
-          const { error } = await sb.from("manual_risk_submissions")
-            .update({ archive_report_path: path, archive_report_name: p.file.name } as any)
-            .eq("id", sub.id);
-          if (error) throw error;
-          (sub as any).archive_report_path = path;
-          (sub as any).archive_report_name = p.file.name;
-          try {
-            const res = await applyArchiveReportOutcomes(sub.id, p.file, p.file.name);
-            addLog(
-              `Outcomes for ${sub.order_number}: ${res.matched}/${res.records} captured` +
-                (res.unmatched.length ? ` • not matched: ${res.unmatched.join(", ")}` : ""),
-            );
-          } catch (e: any) {
-            addLog(`Outcome extraction failed for ${sub.order_number}: ${e.message}`);
-          }
-        } else {
-          const existing: any[] = Array.isArray(sub.indemnity_files) ? sub.indemnity_files : [];
-          const norm = (n: string) => n.trim().toLowerCase();
-          if (existing.some((f) => norm(String(f.name ?? "")) === norm(p.file.name)
-            || (f.size != null && Number(f.size) === p.file.size && norm(String(f.name ?? "")) === norm(p.file.name)))) {
-            addLog(`Skipped "${p.file.name}" — indemnity already on ${sub.order_number}`);
-            ok++; setDone(ok); continue;
-          }
-          const path = `${sub.id}/${Date.now()}-${p.file.name.replace(/[^\w.\-]+/g, "_")}`;
-
-          const { error: upErr } = await sb.storage.from("manual-risk-indemnities")
-            .upload(path, p.file, { upsert: true, contentType: p.file.type || "application/octet-stream" });
-          if (upErr) throw upErr;
-          const entry = {
-            name: p.file.name, path, uploaded_at: new Date().toISOString(),
-            size: p.file.size, content_type: p.file.type || null,
-          };
-          (sub as any).indemnity_files = [...existing, entry];
-          const { error } = await sb.from("manual_risk_submissions")
-            .update({ indemnity_files: [...existing, entry] } as any)
-            .eq("id", sub.id);
-          if (error) throw error;
+      const targets = Array.from(new Set([p.submissionId, ...(alsoLink[keyOf(p)] ?? [])]));
+      let anyOk = false;
+      for (const targetId of targets) {
+        const sub = submissions.find((s) => s.id === targetId);
+        if (!sub) continue;
+        try {
+          await attachFileTo(sub, p);
+          anyOk = true;
+        } catch (e: any) {
+          addLog(`Failed "${p.file.name}" (${p.date} ${p.store}) → ${sub.order_number}: ${e.message}`);
         }
-        ok++; setDone(ok);
-      } catch (e: any) {
-        bad++; setFailed(bad);
-        addLog(`Failed "${p.file.name}" (${p.date} ${p.store}): ${e.message}`);
       }
+      if (anyOk) { ok++; setDone(ok); } else { bad++; setFailed(bad); }
     }
     addLog(`Bulk upload finished — ${ok} attached, ${bad} skipped/failed`);
     toast.success(`${ok} file(s) attached`);
     setRunning(false);
     onChanged();
   };
+
 
   return (
     <Card className="p-4 space-y-3">
@@ -1388,6 +1419,42 @@ function BulkFolderUploadCard({
                             Use the suggested order
                           </button>
                         )}
+                        {(alsoOptions[key] ?? []).length > 0 && (
+                          <div className="mt-1 rounded-md border border-sky-200 bg-sky-50 p-1.5">
+                            <div className="text-[11px] font-medium text-sky-800">
+                              Same people also sit on {(alsoOptions[key] ?? []).length} other account(s) —
+                              tick to link the same report and indemnities there too:
+                            </div>
+                            {(alsoOptions[key] ?? []).map((o) => {
+                              const s = submissions.find((x) => x.id === o.id);
+                              const on = (alsoLink[key] ?? []).includes(o.id);
+                              return (
+                                <label key={o.id} className="flex items-start gap-1.5 text-[11px] mt-1 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="mt-0.5"
+                                    checked={on}
+                                    disabled={running}
+                                    onChange={(e) => setAlsoLink((prev) => {
+                                      const cur = prev[key] ?? [];
+                                      return {
+                                        ...prev,
+                                        [key]: e.target.checked
+                                          ? [...cur, o.id]
+                                          : cur.filter((x) => x !== o.id),
+                                      };
+                                    })}
+                                  />
+                                  <span>
+                                    {clientName(s?.client_id ?? null)} — {s?.order_number ?? ""}{" "}
+                                    <span className="text-muted-foreground">({o.count} name(s))</span>
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+
                       </TableCell>
                       <TableCell className="text-xs">
                         <div className={missing ? "text-amber-600 font-medium" : "text-muted-foreground"}>
