@@ -1476,8 +1476,9 @@ function BulkFolderUploadCard({
                         {(alsoOptions[key] ?? []).length > 0 && (
                           <div className="mt-1 rounded-md border border-sky-200 bg-sky-50 p-1.5">
                             <div className="text-[11px] font-medium text-sky-800">
-                              Same people also sit on {(alsoOptions[key] ?? []).length} other account(s) —
-                              tick to link the same report and indemnities there too:
+                              Other people in this report sit on {(alsoOptions[key] ?? []).length} other
+                              account(s) — ticked by default so they get the same report and indemnities.
+                              Untick any that should not receive them:
                             </div>
                             {(alsoOptions[key] ?? []).map((o) => {
                               const s = submissions.find((x) => x.id === o.id);
