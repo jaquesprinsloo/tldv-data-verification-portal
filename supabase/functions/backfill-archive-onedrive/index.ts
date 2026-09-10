@@ -155,13 +155,16 @@ Deno.serve(async (req) => {
             update.report_onedrive_web_url = od.webUrl;
             update.report_onedrive_item_id = od.itemId;
             update.report_onedrive_path = od.fullPath;
+            copies += 1;
           }
           if (!sub.report_shared_onedrive_item_id) {
             const od = await push({ ...file, fileName: name, clientName: client, orderNumber: sub.order_number, kind: "report", shared: true });
             update.report_shared_onedrive_web_url = od.webUrl;
             update.report_shared_onedrive_item_id = od.itemId;
             update.report_shared_onedrive_path = od.fullPath;
+            copies += 1;
           }
+
           if (Object.keys(update).length) {
             const { error } = await admin.from("manual_risk_submissions").update(update as any).eq("id", sub.id);
             if (error) throw error;
