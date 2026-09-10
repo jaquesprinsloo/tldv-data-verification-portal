@@ -1144,7 +1144,12 @@ function BulkFolderUploadCard({
                   return (
                     <TableRow key={key}>
                       <TableCell className="whitespace-nowrap">{prettyDate(first.date)}</TableCell>
-                      <TableCell>{first.store || "—"}</TableCell>
+                      <TableCell>
+                        {first.store || "—"}
+                        {matchNote[key] && (
+                          <div className="text-[11px] text-emerald-600 mt-0.5">{matchNote[key]}</div>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {files.filter((f) => f.kind === "report").length} report ·{" "}
                         {files.filter((f) => f.kind === "indemnity").length} indemnity
