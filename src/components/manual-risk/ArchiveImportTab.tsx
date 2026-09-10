@@ -244,8 +244,8 @@ export function ArchiveImportTab({
       if (near.length) similar.push({ store, matches: near });
       else create.push(store);
     }
-    return { stores, exact, similar, create };
-  }, [rows, clients]);
+    return { stores, exact, remembered, similar, create };
+  }, [rows, clients, mappedTo]);
 
   /** Stores that still need a client account created (new + similars mapped to "create new"). */
   const toCreate = useMemo(() => {
