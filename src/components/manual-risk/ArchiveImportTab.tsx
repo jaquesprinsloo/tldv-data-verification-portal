@@ -870,6 +870,7 @@ function BulkFolderUploadCard({
   const [failed, setFailed] = useState(0);
   const [nameMatching, setNameMatching] = useState(false);
   const [matchNote, setMatchNote] = useState<Record<string, string>>({});
+  const [suggested, setSuggested] = useState<Record<string, string>>({});
   const candCache = useRef<ArchiveCandidateRow[] | null>(null);
 
   /** All archive candidates, loaded once and cached (paged past the 1000 limit). */
