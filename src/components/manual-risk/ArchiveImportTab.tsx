@@ -1329,6 +1329,8 @@ function BulkFolderUploadCard({
                   const options = picked && !sameDay.some((s) => s.id === picked.id)
                     ? [picked, ...sameDay]
                     : sameDay;
+                  const missing = missingSide(files);
+
                   return (
                     <TableRow key={key}>
                       <TableCell className="whitespace-nowrap">{prettyDate(first.date)}</TableCell>
