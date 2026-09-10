@@ -214,7 +214,7 @@ export function ArchiveImportTab({
       }
       setRows(out);
       setSkipped(bad);
-      setMappedTo({});
+      setMappedTo(loadSavedMap());
       toast.success(`${out.length} record(s) loaded${bad ? `, ${bad} row(s) skipped` : ""}`);
     } catch (e: any) {
       toast.error("Could not read the file: " + e.message);
