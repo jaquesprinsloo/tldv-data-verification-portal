@@ -27,14 +27,23 @@ type Sub = {
   indemnity_files: any[] | null;
 };
 
-const needsWork = (s: Sub) => {
-  const reportPending =
-    !!s.archive_report_path && (!s.report_onedrive_item_id || !s.report_shared_onedrive_item_id);
-  const indemnityPending = (Array.isArray(s.indemnity_files) ? s.indemnity_files : []).some(
-    (f: any) => f?.path && (!f?.onedrive_item_id || !f?.shared_onedrive_item_id),
-  );
-  return reportPending || indemnityPending;
+/** How many single OneDrive copies this submission still needs (internal + shared). */
+const pendingCopies = (s: Sub) => {
+  let n = 0;
+  if (s.archive_report_path) {
+    if (!s.report_onedrive_item_id) n += 1;
+    if (!s.report_shared_onedrive_item_id) n += 1;
+  }
+  for (const f of Array.isArray(s.indemnity_files) ? s.indemnity_files : []) {
+    if (!f?.path) continue;
+    if (!f?.onedrive_item_id) n += 1;
+    if (!f?.shared_onedrive_item_id) n += 1;
+  }
+  return n;
 };
+
+const needsWork = (s: Sub) => pendingCopies(s) > 0;
+
 
 function toBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -66,7 +75,13 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const batchSize = Math.min(Math.max(Number(body?.batchSize) || 3, 1), 10);
+    // Each copy means loading a whole PDF into memory and re-encoding it, which is
+    // the expensive part. Budget the work per call in single copies (not orders) so
+    // a store with many indemnities can never blow the function's CPU/time limit.
+    const maxCopies = Math.min(Math.max(Number(body?.maxCopies) || 4, 1), 10);
+    const startedAt = Date.now();
+    const TIME_BUDGET_MS = 30_000;
+
     const countOnly = !!body?.countOnly;
 
     // Every archive submission that still carries a document.
@@ -120,14 +135,17 @@ Deno.serve(async (req) => {
     };
 
     const logs: string[] = [];
-    let uploaded = 0, failed = 0, processed = 0;
+    let uploaded = 0, failed = 0, processed = 0, copies = 0;
+    const haveBudget = () => copies < maxCopies && Date.now() - startedAt < TIME_BUDGET_MS;
 
-    for (const sub of pending.slice(0, batchSize)) {
+    for (const sub of pending) {
+      if (!haveBudget()) break;
       processed += 1;
       const client = clientName.get(sub.client_id ?? "") ?? "Unassigned";
 
       // ---- report ----
       if (sub.archive_report_path && (!sub.report_onedrive_item_id || !sub.report_shared_onedrive_item_id)) {
+
         try {
           const file = await download("archive-reports", sub.archive_report_path);
           const name = sub.archive_report_name || sub.archive_report_path.split("/").pop() || "report.pdf";
@@ -137,13 +155,16 @@ Deno.serve(async (req) => {
             update.report_onedrive_web_url = od.webUrl;
             update.report_onedrive_item_id = od.itemId;
             update.report_onedrive_path = od.fullPath;
+            copies += 1;
           }
           if (!sub.report_shared_onedrive_item_id) {
             const od = await push({ ...file, fileName: name, clientName: client, orderNumber: sub.order_number, kind: "report", shared: true });
             update.report_shared_onedrive_web_url = od.webUrl;
             update.report_shared_onedrive_item_id = od.itemId;
             update.report_shared_onedrive_path = od.fullPath;
+            copies += 1;
           }
+
           if (Object.keys(update).length) {
             const { error } = await admin.from("manual_risk_submissions").update(update as any).eq("id", sub.id);
             if (error) throw error;
@@ -160,6 +181,7 @@ Deno.serve(async (req) => {
       const files = Array.isArray(sub.indemnity_files) ? [...sub.indemnity_files] : [];
       let changed = false;
       for (let i = 0; i < files.length; i++) {
+        if (!haveBudget()) break;
         const f = files[i] ?? {};
         if (!f.path || (f.onedrive_item_id && f.shared_onedrive_item_id)) continue;
         try {
@@ -170,12 +192,15 @@ Deno.serve(async (req) => {
             const od = await push({ ...file, contentType: f.content_type || file.contentType, fileName: name, clientName: client, orderNumber: sub.order_number, kind: "indemnity", shared: false });
             next.onedrive_web_url = od.webUrl;
             next.onedrive_item_id = od.itemId;
+            copies += 1;
           }
           if (!f.shared_onedrive_item_id) {
             const od = await push({ ...file, contentType: f.content_type || file.contentType, fileName: name, clientName: client, orderNumber: sub.order_number, kind: "indemnity", shared: true });
             next.shared_onedrive_web_url = od.webUrl;
             next.shared_onedrive_item_id = od.itemId;
+            copies += 1;
           }
+
           files[i] = next;
           changed = true;
           uploaded += 1;
@@ -195,14 +220,25 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Re-read so the caller sees exactly what is still outstanding (an order with
+    // many indemnities can stay in the queue over several calls).
+    const { data: afterRaw } = await admin
+      .from("manual_risk_submissions")
+      .select(
+        "id, order_number, client_id, archive_report_path, archive_report_name, report_onedrive_item_id, report_shared_onedrive_item_id, indemnity_files",
+      )
+      .eq("is_archive", true);
+    const remaining = ((afterRaw ?? []) as Sub[]).filter(needsWork).length;
+
     return json({
       success: true,
       processed,
       uploaded,
       failed,
-      remaining: Math.max(pending.length - processed, 0),
+      remaining,
       logs,
     });
+
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("backfill-archive-onedrive error:", message);
