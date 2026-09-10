@@ -46,7 +46,15 @@ type FlaggedOrder = {
 };
 
 const FLAG_LABEL: Record<string, string> = {
-  status_inconsistent: "Report released but the order still reads as open",
+  status_inconsistent: 'Report already sent, but the order still shows "Open" (still busy)',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  open: "Open (still busy)",
+  in_progress: "In progress",
+  sent: "Report sent",
+  completed: "Completed",
+  invoiced: "Invoiced",
 };
 
 /** Reads every row of a table in pages of 1000 so nothing is silently cut off. */
