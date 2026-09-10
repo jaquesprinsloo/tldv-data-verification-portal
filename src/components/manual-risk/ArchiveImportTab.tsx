@@ -257,11 +257,11 @@ export function ArchiveImportTab({
   const resolveClientId = (store: string): string | null => {
     const hit = clients.find((c) => normName(c.client_name) === normName(store));
     if (hit) return hit.id;
-    const sim = recon.similar.find((s) => s.store === store);
-    if (!sim) return null;
     const chosen = mappedTo[store];
     if (chosen === "__new__") return null;
     if (chosen && clients.some((c) => c.id === chosen)) return chosen;
+    const sim = recon.similar.find((s) => s.store === store);
+    if (!sim) return null;
     return sim.matches[0].client.id; // default: closest match
   };
 
