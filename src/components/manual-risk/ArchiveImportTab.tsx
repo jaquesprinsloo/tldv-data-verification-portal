@@ -1294,17 +1294,27 @@ function BulkFolderUploadCard({
                     <TableRow key={key}>
                       <TableCell className="whitespace-nowrap">{prettyDate(first.date)}</TableCell>
                       <TableCell>
-                        {first.store || "—"}
+                        {groupKeyOf.labelFor.get(key) || first.store || "—"}
                         {matchNote[key] && (
                           <div
                             className={`text-[11px] mt-0.5 ${
-                              /^(Names verified|Matched by names)/.test(matchNote[key])
+                              /^(Names verified|Matched by names|Moved to)/.test(matchNote[key])
                                 ? "text-emerald-600"
                                 : "text-amber-600"
                             }`}
                           >
                             {matchNote[key]}
                           </div>
+                        )}
+                        {suggested[key] && (
+                          <button
+                            type="button"
+                            className="text-[11px] mt-0.5 text-red-600 hover:underline"
+                            disabled={running}
+                            onClick={() => applySuggestion(key)}
+                          >
+                            Use the suggested order
+                          </button>
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
