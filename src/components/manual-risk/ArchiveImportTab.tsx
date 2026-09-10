@@ -1155,6 +1155,54 @@ function BulkFolderUploadCard({
 
   const unmatched = planned.filter((p) => !p.submissionId).length;
 
+  /** Adds files the user picks by hand onto an existing batch line. */
+  const addFilesToGroup = (key: string, kind: "report" | "indemnity", list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    const anchor = planned.find((p) => keyOf(p) === key);
+    if (!anchor) return;
+    const extra: PlannedFile[] = Array.from(list).map((file, i) => ({
+      id: `${key}-${kind}-${Date.now()}-${i}`,
+      file,
+      kind,
+      date: anchor.date,
+      store: anchor.store,
+      submissionId: anchor.submissionId,
+    }));
+    setPlanned((prev) => [...prev, ...extra]);
+    toast.success(`${extra.length} ${kind === "report" ? "report" : "indemnity"} file(s) added`);
+  };
+
+  /** Moves every file on one line onto another line (e.g. a "New Folder" of
+   *  indemnities onto the report batch it belongs to). */
+  const mergeGroupInto = (key: string, targetKey: string) => {
+    const target = planned.find((p) => keyOf(p) === targetKey);
+    if (!target || key === targetKey) return;
+    setPlanned((prev) => prev.map((p) =>
+      keyOf(p) === key
+        ? { ...p, date: target.date, store: target.store, submissionId: target.submissionId }
+        : p));
+    setMatchNote((prev) => ({ ...prev, [targetKey]: `Files joined from another folder` }));
+    toast.success("Folder joined to the chosen batch");
+  };
+
+  const missingSide = (files: PlannedFile[]) => {
+    const r = files.filter((f) => f.kind === "report").length;
+    const i = files.filter((f) => f.kind === "indemnity").length;
+    if (r === 0) return "report" as const;
+    if (i === 0) return "indemnity" as const;
+    return null;
+  };
+
+  /** Batches that hold a report but no indemnities — a stray folder of
+   *  indemnities can be joined onto one of these. */
+  const reportOnlyGroups = useMemo(
+    () => grouped.filter((g) => g.files.some((f) => f.kind === "report")),
+    [grouped],
+  );
+
+
+
+
 
   const runUpload = async () => {
     setRunning(true); setDone(0); setFailed(0);
@@ -1290,6 +1338,8 @@ function BulkFolderUploadCard({
                   const options = picked && !sameDay.some((s) => s.id === picked.id)
                     ? [picked, ...sameDay]
                     : sameDay;
+                  const missing = missingSide(files);
+
                   return (
                     <TableRow key={key}>
                       <TableCell className="whitespace-nowrap">{prettyDate(first.date)}</TableCell>
@@ -1317,10 +1367,51 @@ function BulkFolderUploadCard({
                           </button>
                         )}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {files.filter((f) => f.kind === "report").length} report ·{" "}
-                        {files.filter((f) => f.kind === "indemnity").length} indemnity
+                      <TableCell className="text-xs">
+                        <div className={missing ? "text-amber-600 font-medium" : "text-muted-foreground"}>
+                          {files.filter((f) => f.kind === "report").length} report ·{" "}
+                          {files.filter((f) => f.kind === "indemnity").length} indemnity
+                        </div>
+                        {missing && (
+                          <div className="mt-1 space-y-1">
+                            <div className="flex items-center gap-1 text-amber-600">
+                              <AlertTriangle className="h-3 w-3" />
+                              No {missing === "report" ? "report" : "indemnities"} in this folder
+                            </div>
+                            <label className="inline-flex">
+                              <span className="text-[11px] text-red-600 hover:underline cursor-pointer">
+                                Add {missing === "report" ? "report" : "indemnities"} by hand
+                              </span>
+                              <input
+                                type="file"
+                                multiple={missing === "indemnity"}
+                                className="hidden"
+                                disabled={running}
+                                onChange={(e) => {
+                                  addFilesToGroup(key, missing, e.target.files);
+                                  e.currentTarget.value = "";
+                                }}
+                              />
+                            </label>
+                            {missing === "report" && reportOnlyGroups.length > 0 && (
+                              <select
+                                className="w-full h-7 rounded-md border bg-background px-1 text-[11px]"
+                                value=""
+                                disabled={running}
+                                onChange={(e) => e.target.value && mergeGroupInto(key, e.target.value)}
+                              >
+                                <option value="">— join to a report folder —</option>
+                                {reportOnlyGroups.filter((g) => g.key !== key).map((g) => (
+                                  <option key={g.key} value={g.key}>
+                                    {prettyDate(g.files[0].date)} — {groupKeyOf.labelFor.get(g.key) || g.files[0].store}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
+
                       <TableCell>
                         <select
                           className="w-full h-8 rounded-md border bg-background px-2 text-xs"
