@@ -161,10 +161,18 @@ const pickRaw = (row: Record<string, any>, names: string[]): any => {
 /** Deterministic order number so a re-run never duplicates an archive order. */
 function archiveOrderNumber(store: string, date: string): string {
   const slug = normName(store).split(" ").map((w) => w.slice(0, 3)).join("").slice(0, 18).toUpperCase();
-  return `ARC-${date.replace(/-/g, "")}-${slug || "UNKNOWN"}`;
+  return `ARC-${date ? date.replace(/-/g, "") : "NODATE"}-${slug || "UNKNOWN"}`;
 }
 
-const prettyDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString();
+const prettyDate = (iso: string) =>
+  iso ? new Date(`${iso}T00:00:00`).toLocaleDateString() : "No date";
+
+/** Person key used to tell whether a candidate is already on the system. */
+const personKey = (idNumber: string, surname: string, firstName: string) => {
+  const digits = String(idNumber ?? "").replace(/\D/g, "");
+  if (digits.length >= 6) return `id:${digits}`;
+  return `n:${normName(surname)}|${normName(firstName).split(" ")[0] ?? ""}`;
+};
 
 // ---------- component ----------
 
