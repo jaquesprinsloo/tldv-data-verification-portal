@@ -1,13 +1,45 @@
 // Extracts South African 13-digit ID numbers from a supplier risk assessment PDF.
 // Uses Lovable AI Gateway (Gemini) for OCR-capable extraction so scanned PDFs work.
+// Word (.docx) reports are unzipped and read as text, because the vision endpoint
+// does not accept the Office mime type.
 
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { unzipSync, strFromU8 } from "npm:fflate@0.8.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+/** Plain text out of a .docx (word/document.xml, paragraph breaks preserved). */
+function docxToText(bytes: Uint8Array): string {
+  const files = unzipSync(bytes);
+  const parts = Object.keys(files)
+    .filter((n) => /^word\/(document|header\d*|footer\d*)\.xml$/.test(n))
+    .sort();
+  let out = "";
+  for (const name of parts) {
+    const xml = strFromU8(files[name]);
+    out += xml
+      .replace(/<w:p[ >]/g, "\n<w:p ")
+      .replace(/<w:tab[^>]*>/g, "\t")
+      .replace(/<w:br[^>]*>/g, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"').replace(/&#x?[0-9a-fA-F]+;/g, " ");
+    out += "\n";
+  }
+  return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+const base64ToBytes = (b64: string): Uint8Array => {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+};
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -50,7 +82,43 @@ Deno.serve(async (req) => {
       });
     }
 
-    const dataUrl = `data:${contentType || "application/pdf"};base64,${fileBase64}`;
+    const bytes = base64ToBytes(fileBase64);
+    const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;
+    const ct = String(contentType || "");
+    const looksDocx =
+      /wordprocessingml|officedocument|msword|\.docx$/i.test(ct) ||
+      (isZip && !/^image\//i.test(ct) && ct !== "application/pdf");
+
+    let userContent: unknown;
+    if (looksDocx) {
+      let text = "";
+      try {
+        text = docxToText(bytes);
+      } catch (_e) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "This Word document could not be read. Please save it as a PDF and upload again.",
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (!text || text.replace(/\s/g, "").length < 20) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: "No readable text was found in this Word document. Please save it as a PDF and upload again.",
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      userContent = [{
+        type: "text",
+        text: "Extract every ID Verification record from this supplier vetting report. The report text follows:\n\n" +
+          text.slice(0, 200000),
+      }];
+    } else {
+      const dataUrl = `data:${ct || "application/pdf"};base64,${fileBase64}`;
+      userContent = [
+        { type: "text", text: "Extract every ID Verification record from this supplier vetting report." },
+        { type: "image_url", image_url: { url: dataUrl } },
+      ];
+    }
+
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -68,12 +136,10 @@ Deno.serve(async (req) => {
           },
           {
             role: "user",
-            content: [
-              { type: "text", text: "Extract every ID Verification record from this supplier vetting report." },
-              { type: "image_url", image_url: { url: dataUrl } },
-            ],
+            content: userContent,
           },
         ],
+
       }),
     });
 
