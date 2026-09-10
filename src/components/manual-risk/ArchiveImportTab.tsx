@@ -1171,7 +1171,7 @@ function BulkFolderUploadCard({
               disabled={running || nameMatching}
               onClick={matchByCandidateNames}
             >
-              {nameMatching ? "Reading reports…" : "Match by candidate names in report"}
+              {nameMatching ? "Checking names in reports…" : "Verify names in all reports"}
             </Button>
           </div>
 
