@@ -1017,7 +1017,9 @@ function BulkFolderUploadCard({
 
         // Already matched by folder/date — verify the names line up.
         const better = best && best[0] !== p.submissionId && best[1] > onCurrent ? best : null;
+        recordExtras(better ? better[0] : p.submissionId);
         if (onCurrent > 0 && !better) {
+
           confirmed += 1;
           setMatchNote((prev) => ({
             ...prev,
