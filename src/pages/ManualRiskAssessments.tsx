@@ -2088,11 +2088,12 @@ function SubmissionDetailsDialog({
         toast.warning(`Client-shared OneDrive copy failed: ${(e as Error).message}`);
       }
 
-      // Mark submission as sent so it moves to Accounts tab
+      // Mark submission as sent (moves it to Accounts) and close it off
       await sb
         .from("manual_risk_submissions")
         .update({
           sent_at: new Date().toISOString(),
+          status: "completed",
           report_onedrive_web_url: od.webUrl,
           report_onedrive_item_id: od.itemId,
           report_onedrive_path: od.fullPath,
