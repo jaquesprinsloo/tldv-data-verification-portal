@@ -550,7 +550,9 @@ export default function ManualRiskAssessments() {
         skipEncryption: true,
       });
 
+      void logRecordAccess({ submissionId: sub.id, action: "view_client_report", detail: sub.order_number });
       setPreviewReport({ blob, title: `PreAppliCheck Report — ${sub.order_number}` });
+
     } catch (e: any) {
       toast.error("Failed to preview report: " + e.message);
     } finally {
