@@ -110,22 +110,9 @@ export function MrClientDashboardTab({
     },
   });
 
-  // Live refresh: new submissions, saved results and released reports show up
-  // without the viewer having to reload the page.
-  useEffect(() => {
-    const bump = () => {
-      qc.invalidateQueries({ queryKey: ["mra-client-dash-cands"] });
-      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
-    };
-    const channel = supabase
-      .channel("mra-client-dashboard-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_submissions" }, bump)
-      .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_candidates" }, bump)
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [qc]);
+  // Live refresh is handled once by the Risk Assessments page (throttled), which
+  // already refreshes this view's data. A second listener here only doubled the
+  // reloads during bulk work.
 
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
   // The client view mirrors what they see in Accounts: current checks plus the

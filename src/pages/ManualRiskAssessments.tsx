@@ -474,18 +474,26 @@ export default function ManualRiskAssessments() {
   // every view (including the read-only client views) without a page reload.
   useEffect(() => {
     if (!allowed) return;
+    // Bulk work (archive imports, report audits) touches hundreds of rows and
+    // would otherwise fire one full reload per row, freezing the screen. Live
+    // changes are therefore collected and applied at most once every 3 seconds.
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const bump = () => {
-      qc.invalidateQueries({ queryKey: ["mra-submissions"] });
-      qc.invalidateQueries({ queryKey: ["mra-client-dash-cands"] });
-      qc.invalidateQueries({ queryKey: ["mra-employee-check-records"] });
-      qc.invalidateQueries({ queryKey: ["mra-candidates"] });
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        qc.invalidateQueries({ queryKey: ["mra-submissions"], refetchType: "active" });
+        qc.invalidateQueries({ queryKey: ["mra-client-dash-cands"], refetchType: "active" });
+        qc.invalidateQueries({ queryKey: ["mra-employee-check-records"], refetchType: "active" });
+        qc.invalidateQueries({ queryKey: ["mra-candidates"], refetchType: "active" });
+      }, 3000);
     };
     const channel = supabase
       .channel("mra-page-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_submissions" }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_candidates" }, bump)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { if (timer) clearTimeout(timer); supabase.removeChannel(channel); };
   }, [allowed, qc]);
 
 
