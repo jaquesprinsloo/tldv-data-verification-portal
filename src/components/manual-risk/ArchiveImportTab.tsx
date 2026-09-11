@@ -2559,6 +2559,12 @@ function ReportsFirstUploadCard({
                     : "No submission date on the folder — the date below comes from the linked order"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">{r.note}</p>
+                {r.targets.some((t) => orderById(t.orderId)?.archive_report_path) && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    A report is already on record for one of the linked orders — check it below before approving.
+                  </p>
+                )}
+
                 {r.progress && <p className="text-xs text-red-600 mt-1">{r.progress}</p>}
               </div>
               <div className="flex items-center gap-2">
