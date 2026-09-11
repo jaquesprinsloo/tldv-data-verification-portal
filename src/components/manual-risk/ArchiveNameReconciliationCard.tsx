@@ -3,6 +3,7 @@ import { supabase as sb } from "@/integrations/supabase/client";
 import { useArchiveCandidates } from "@/lib/archiveCandidatesQuery";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { archiveReportFiles } from "@/lib/archiveReportFiles";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
