@@ -52,6 +52,7 @@ const isIdInvalid = (rec: ArchiveSupplierRecord) => {
 
 export interface ApplyArchiveOutcomesResult {
   matched: number;
+  matchedIds: string[];
   unmatched: string[];
   records: number;
 }
@@ -87,6 +88,7 @@ export async function applyArchiveReportOutcomes(
   }>;
 
   let matched = 0;
+  const matchedIds: string[] = [];
   const used = new Set<ArchiveSupplierRecord>();
 
   for (const c of rows) {
@@ -158,14 +160,17 @@ export async function applyArchiveReportOutcomes(
       .from("manual_risk_candidates")
       .update(update as never)
       .eq("id", c.id);
-    if (!uErr) matched++;
+    if (!uErr) {
+      matched++;
+      matchedIds.push(c.id);
+    }
   }
 
   const unmatched = records
     .filter((r) => !used.has(r))
     .map((r) => `${r.first_names ?? ""} ${r.surname ?? ""} (${r.id_prefix ?? "?"})`.trim());
 
-  return { matched, unmatched, records: records.length };
+  return { matched, matchedIds, unmatched, records: records.length };
 }
 
 /** Reads a supplier report PDF and returns the per-candidate records only
