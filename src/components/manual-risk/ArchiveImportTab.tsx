@@ -254,7 +254,154 @@ async function uploadToOneDrive(args: {
   throw new Error((data as any)?.error || "OneDrive upload failed");
 }
 
+/**
+ * Attaches one file (report or indemnity) to one archive order, skipping exact
+ * duplicates, mirroring to both OneDrive folders and — for reports — reading the
+ * ID Verification / Risk Assessment outcomes off the document.
+ */
+async function attachDocumentToOrder(args: {
+  sub: ArchiveSubmission;
+  file: File;
+  kind: "report" | "indemnity";
+  clientName: string;
+  addLog: (s: string) => void;
+}): Promise<void> {
+  const { sub, file, kind, clientName, addLog } = args;
+  if (isMasterIndemnity(file.name)) {
+    addLog(`Skipped "${file.name}" — master indemnity files are never attached`);
+    return;
+  }
+  const contentType = file.type || "application/octet-stream";
+
+  if (kind === "report") {
+    if ((sub as any).archive_report_name === file.name && (sub as any).archive_report_path) {
+      addLog(`Skipped "${file.name}" — report already on ${sub.order_number}`);
+      return;
+    }
+    const path = `${sub.id}/${file.name}`;
+    const { error: upErr } = await sb.storage.from("archive-reports")
+      .upload(path, file, { upsert: true, contentType });
+    if (upErr) throw upErr;
+
+    let report_onedrive_web_url: string | null = null;
+    let report_onedrive_item_id: string | null = null;
+    let report_onedrive_path: string | null = null;
+    let report_shared_onedrive_web_url: string | null = null;
+    let report_shared_onedrive_item_id: string | null = null;
+    let report_shared_onedrive_path: string | null = null;
+
+    try {
+      const base64 = await blobToBase64(file);
+      const od = await uploadToOneDrive({
+        fileName: file.name, base64, contentType, clientName,
+        orderNumber: sub.order_number, kind: "report",
+      });
+      report_onedrive_web_url = od.webUrl;
+      report_onedrive_item_id = od.itemId;
+      report_onedrive_path = od.fullPath;
+    } catch (e: any) {
+      addLog(`OneDrive mirror failed for report ${file.name}: ${e.message}`);
+    }
+    try {
+      const base64 = await blobToBase64(file);
+      const od = await uploadToOneDrive({
+        fileName: file.name, base64, contentType, clientName,
+        orderNumber: sub.order_number, kind: "report", shared: true,
+      });
+      report_shared_onedrive_web_url = od.webUrl;
+      report_shared_onedrive_item_id = od.itemId;
+      report_shared_onedrive_path = od.fullPath;
+    } catch (e: any) {
+      addLog(`Client-shared OneDrive copy failed for report ${file.name}: ${e.message}`);
+    }
+
+    const update: any = {
+      archive_report_path: path,
+      archive_report_name: file.name,
+      report_onedrive_web_url,
+      report_onedrive_item_id,
+      report_onedrive_path,
+      report_shared_onedrive_web_url,
+      report_shared_onedrive_item_id,
+      report_shared_onedrive_path,
+    };
+    const { error } = await sb.from("manual_risk_submissions").update(update).eq("id", sub.id);
+    if (error) throw error;
+    (sub as any).archive_report_path = path;
+    (sub as any).archive_report_name = file.name;
+    (sub as any).report_onedrive_web_url = report_onedrive_web_url;
+    (sub as any).report_onedrive_item_id = report_onedrive_item_id;
+    (sub as any).report_onedrive_path = report_onedrive_path;
+    (sub as any).report_shared_onedrive_web_url = report_shared_onedrive_web_url;
+    (sub as any).report_shared_onedrive_item_id = report_shared_onedrive_item_id;
+    (sub as any).report_shared_onedrive_path = report_shared_onedrive_path;
+
+    try {
+      const res = await applyArchiveReportOutcomes(sub.id, file, file.name);
+      addLog(
+        `Outcomes for ${sub.order_number}: ${res.matched}/${res.records} captured` +
+          (res.unmatched.length ? ` • not matched: ${res.unmatched.join(", ")}` : ""),
+      );
+    } catch (e: any) {
+      addLog(`Outcome extraction failed for ${sub.order_number}: ${e.message}`);
+    }
+    return;
+  }
+
+  const existing: any[] = Array.isArray(sub.indemnity_files) ? sub.indemnity_files : [];
+  const norm = (n: string) => n.trim().toLowerCase();
+  if (existing.some((f) => norm(String(f.name ?? "")) === norm(file.name))) {
+    addLog(`Skipped "${file.name}" — indemnity already on ${sub.order_number}`);
+    return;
+  }
+  const path = `${sub.id}/${Date.now()}-${file.name.replace(/[^\w.\-]+/g, "_")}`;
+  const { error: upErr } = await sb.storage.from("manual-risk-indemnities")
+    .upload(path, file, { upsert: true, contentType });
+  if (upErr) throw upErr;
+
+  let onedrive_web_url: string | null = null;
+  let onedrive_item_id: string | null = null;
+  let shared_onedrive_web_url: string | null = null;
+  let shared_onedrive_item_id: string | null = null;
+
+  try {
+    const base64 = await blobToBase64(file);
+    const od = await uploadToOneDrive({
+      fileName: file.name, base64, contentType, clientName,
+      orderNumber: sub.order_number, kind: "indemnity",
+    });
+    onedrive_web_url = od.webUrl;
+    onedrive_item_id = od.itemId;
+  } catch (e: any) {
+    addLog(`OneDrive mirror failed for indemnity ${file.name}: ${e.message}`);
+  }
+  try {
+    const base64 = await blobToBase64(file);
+    const od = await uploadToOneDrive({
+      fileName: file.name, base64, contentType, clientName,
+      orderNumber: sub.order_number, kind: "indemnity", shared: true,
+    });
+    shared_onedrive_web_url = od.webUrl;
+    shared_onedrive_item_id = od.itemId;
+  } catch (e: any) {
+    addLog(`Client-shared OneDrive copy failed for indemnity ${file.name}: ${e.message}`);
+  }
+
+  const entry = {
+    name: file.name, path, uploaded_at: new Date().toISOString(),
+    size: file.size, content_type: contentType,
+    onedrive_web_url, onedrive_item_id,
+    shared_onedrive_web_url, shared_onedrive_item_id,
+  };
+  (sub as any).indemnity_files = [...existing, entry];
+  const { error } = await sb.from("manual_risk_submissions")
+    .update({ indemnity_files: [...existing, entry] } as any)
+    .eq("id", sub.id);
+  if (error) throw error;
+}
+
 // ---------- component ----------
+
 
 export function ArchiveImportTab({
   clients, userId, onChanged,
