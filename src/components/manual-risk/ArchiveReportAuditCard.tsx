@@ -194,7 +194,9 @@ export function ArchiveReportAuditCard({
       c.report_matched_file = name;
     });
 
-    return { confirmed: matchedIds.length, missing: notFound.length, records: records.length };
+    // People, not stamps: the same person named twice on one report is one person.
+    return { confirmed: stampSet.size, missing: notFound.length, records: records.length, ids: stampSet };
+
   };
 
   const run = async (onlyPending: boolean) => {
