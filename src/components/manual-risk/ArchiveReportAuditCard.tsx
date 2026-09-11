@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { ClipboardCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase as sb } from "@/integrations/supabase/client";
-import { extractArchiveReportRecords, normPersonName } from "@/lib/archiveReportOutcomes";
+import { extractArchiveReportRecords, matchArchivePerson, normPersonName } from "@/lib/archiveReportOutcomes";
 import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/archiveNameReconciliation";
 import { fetchArchiveCandidates } from "@/lib/archiveCandidatesQuery";
 
@@ -133,19 +133,6 @@ export function ArchiveReportAuditCard({
     const matchedIds: string[] = [];
     const notFound: typeof records = [];
 
-    const score = (r: (typeof records)[number], c: Cand) => {
-      const rs = normPersonName(r.surname);
-      const rf = normPersonName(r.first_names);
-      const prefix = String(r.id_prefix ?? "").replace(/\D/g, "").slice(0, 6);
-      const cs = normPersonName(c.surname);
-      const cf = normPersonName(c.first_name);
-      const cp = String(c.id_number ?? "").replace(/\D/g, "").slice(0, 6);
-      const surnameHit = !!rs && !!cs && rs === cs;
-      const firstHit = !!rf && !!cf && (rf === cf || rf.startsWith(cf) || cf.startsWith(rf));
-      const prefixHit = prefix.length === 6 && prefix === cp;
-      return { hits: [surnameHit, firstHit, prefixHit].filter(Boolean).length, prefixHit };
-    };
-
     const ownOrder = all.filter((c) => c.submission_id === sub.id);
 
     for (const r of records) {
@@ -156,14 +143,14 @@ export function ArchiveReportAuditCard({
       // The person is looked for on this order first. Only when nobody on this
       // order fits do we look wider, and then only on a single, unambiguous fit
       // — otherwise namesakes on other orders were all being ticked off.
-      const onOwn = ownOrder.filter((c) => score(r, c).hits >= 2);
+      const onOwn = ownOrder.filter((c) => matchArchivePerson(r, c).matches);
       if (onOwn.length) {
         onOwn.forEach((c) => matchedIds.push(c.id));
         continue;
       }
       const wider = all.filter((c) => {
-        const s = score(r, c);
-        return s.hits >= 2 && (s.prefixHit || s.hits === 3);
+        const match = matchArchivePerson(r, c);
+        return match.matches && (match.prefixHit || match.strong);
       });
       if (wider.length === 1) { matchedIds.push(wider[0].id); continue; }
       if (wider.length > 1) continue; // ambiguous — leave for manual review

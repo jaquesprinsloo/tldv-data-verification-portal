@@ -39,6 +39,43 @@ const blobToBase64 = (blob: Blob): Promise<string> =>
 const norm = (s: unknown) =>
   String(s ?? "").toLowerCase().replace(/[^a-z]/g, "");
 
+const nameTokens = (...values: unknown[]) =>
+  values
+    .flatMap((value) => String(value ?? "").toLowerCase().split(/[^a-z]+/))
+    .map((value) => value.trim())
+    .filter((value) => value.length >= 3);
+
+/**
+ * Historical spreadsheets sometimes put a person's first name in the surname
+ * column (and vice versa). Keep the normal field-by-field match, but also allow
+ * a shared name token across either field when the masked ID prefix agrees.
+ */
+export function matchArchivePerson(
+  report: Pick<ArchiveSupplierRecord, "first_names" | "surname" | "id_prefix">,
+  candidate: { first_name: string | null; surname: string | null; id_number: string | null },
+) {
+  const rs = norm(report.surname);
+  const rf = norm(report.first_names);
+  const cs = norm(candidate.surname);
+  const cf = norm(candidate.first_name);
+  const reportPrefix = String(report.id_prefix ?? "").replace(/\D/g, "").slice(0, 6);
+  const candidatePrefix = String(candidate.id_number ?? "").replace(/\D/g, "").slice(0, 6);
+  const surnameHit = !!rs && !!cs && rs === cs;
+  const firstHit = !!rf && !!cf && (rf === cf || rf.startsWith(cf) || cf.startsWith(rf));
+  const prefixHit = reportPrefix.length === 6 && reportPrefix === candidatePrefix;
+  const reportNames = new Set(nameTokens(report.first_names, report.surname));
+  const sharedNameTokens = nameTokens(candidate.first_name, candidate.surname)
+    .filter((token) => reportNames.has(token));
+  const crossFieldHit = sharedNameTokens.length > 0;
+  const directHits = [surnameHit, firstHit, prefixHit].filter(Boolean).length;
+
+  return {
+    matches: directHits >= 2 || (prefixHit && crossFieldHit),
+    strong: directHits === 3 || (prefixHit && sharedNameTokens.length >= 2),
+    prefixHit,
+  };
+}
+
 /** True when the supplier ID verification block reads as NOT confirmed. */
 const isIdInvalid = (rec: ArchiveSupplierRecord) => {
   const status = String(rec.status ?? "");
@@ -94,24 +131,9 @@ export async function applyArchiveReportOutcomes(
   for (const c of rows) {
     const digits = String(c.id_number ?? "").replace(/\D/g, "");
     const prefix = digits.slice(0, 6);
-    const cs = norm(c.surname);
-    const cf = norm(c.first_name);
-    // A report record is the same person only when at least TWO of surname,
-    // first name and the first 6 ID digits agree.
-    const score = (r: ArchiveSupplierRecord) => {
-      const rs = norm(r.surname);
-      const rf = norm(r.first_names);
-      const rp = String(r.id_prefix ?? "").replace(/\D/g, "").slice(0, 6);
-      const surnameHit = !!rs && !!cs && rs === cs;
-      const firstHit = !!rf && !!cf && (rf === cf || rf.startsWith(cf) || cf.startsWith(rf));
-      const prefixHit = rp.length === 6 && rp === prefix;
-      return [surnameHit, firstHit, prefixHit].filter(Boolean).length;
-    };
     let rec: ArchiveSupplierRecord | undefined;
-    let bestScore = 1;
     for (const r of records) {
-      const s = score(r);
-      if (s > bestScore) { bestScore = s; rec = r; }
+      if (matchArchivePerson(r, c).matches) { rec = r; break; }
     }
     if (!rec && fullIds.includes(digits)) {
       rec = { id_prefix: prefix, status: "Confirmed" } as ArchiveSupplierRecord;
