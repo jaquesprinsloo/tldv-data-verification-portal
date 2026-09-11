@@ -31,6 +31,7 @@ type Cand = {
   surname: string | null;
   submission_id: string;
   report_matched_at: string | null;
+  report_matched_file: string | null;
 };
 
 async function fetchAllArchiveCandidates(): Promise<Cand[]> {
@@ -40,7 +41,7 @@ async function fetchAllArchiveCandidates(): Promise<Cand[]> {
   while (true) {
     const { data, error } = await sb
       .from("manual_risk_candidates")
-      .select("id, id_number, first_name, surname, submission_id, report_matched_at, manual_risk_submissions!inner(is_archive)")
+      .select("id, id_number, first_name, surname, submission_id, report_matched_at, report_matched_file, manual_risk_submissions!inner(is_archive)")
       .eq("manual_risk_submissions.is_archive", true)
       .range(from, from + 999);
     if (error) throw error;
@@ -183,7 +184,11 @@ export function ArchiveReportAuditCard({
 
     // Keep the in-memory list in step so the counters move as the audit runs.
     const stampSet = new Set(matchedIds);
-    all.forEach((c) => { if (stampSet.has(c.id)) c.report_matched_at = new Date().toISOString(); });
+    all.forEach((c) => {
+      if (!stampSet.has(c.id)) return;
+      c.report_matched_at = new Date().toISOString();
+      c.report_matched_file = name;
+    });
 
     return { confirmed: matchedIds.length, missing: notFound.length, records: records.length };
   };
