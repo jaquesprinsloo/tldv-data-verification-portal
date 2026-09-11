@@ -2624,7 +2624,7 @@ function ReportsFirstUploadCard({
                       <div className="rounded border border-amber-400 bg-amber-50 p-2 space-y-1.5 text-xs">
                         <p className="flex items-center gap-1 font-medium text-amber-800">
                           <AlertTriangle className="h-3.5 w-3.5" />
-                          This order already has documents on record — click to look at them, and delete any that are wrong before you approve
+                          This order already has documents on record — they will stay attached unless you delete them. Click to review, and delete any that are wrong before you approve.
                         </p>
                         {sub.archive_report_path && (
                           <div className="flex flex-wrap items-center gap-2">
