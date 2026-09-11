@@ -21,6 +21,7 @@ import { ArchiveNameReconciliationCard } from "@/components/manual-risk/ArchiveN
 import { ArchiveReportAuditCard } from "@/components/manual-risk/ArchiveReportAuditCard";
 import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/archiveNameReconciliation";
 import { ARCHIVE_CANDIDATES_KEY, useArchiveCandidates } from "@/lib/archiveCandidatesQuery";
+import { archiveReportFiles, archiveReportNameSet, hasArchiveReport } from "@/lib/archiveReportFiles";
 
 
 /**
@@ -102,6 +103,13 @@ type ArchiveSubmission = {
   archive_batch_label: string | null;
   archive_report_path: string | null;
   archive_report_name: string | null;
+  archive_report_files?: {
+    path: string;
+    name: string;
+    uploaded_at?: string | null;
+    onedrive_item_id?: string | null;
+    shared_onedrive_item_id?: string | null;
+  }[] | null;
   report_onedrive_web_url?: string | null;
   report_onedrive_item_id?: string | null;
   report_onedrive_path?: string | null;
@@ -313,7 +321,8 @@ async function attachDocumentToOrder(args: {
   const contentType = file.type || "application/octet-stream";
 
   if (kind === "report") {
-    if ((sub as any).archive_report_name === file.name && (sub as any).archive_report_path) {
+    const onRecord = archiveReportFiles(sub);
+    if (onRecord.some((f) => f.name.trim().toLowerCase() === file.name.trim().toLowerCase())) {
       addLog(`Skipped "${file.name}" — report already on ${sub.order_number}`);
       return;
     }
@@ -354,26 +363,44 @@ async function attachDocumentToOrder(args: {
       addLog(`Client-shared OneDrive copy failed for report ${file.name}: ${e.message}`);
     }
 
-    const update: any = {
-      archive_report_path: path,
-      archive_report_name: file.name,
-      report_onedrive_web_url,
-      report_onedrive_item_id,
-      report_onedrive_path,
-      report_shared_onedrive_web_url,
-      report_shared_onedrive_item_id,
-      report_shared_onedrive_path,
-    };
+    // An order may carry several reports (a batch report plus reports issued
+    // separately for individual people), so the new file is added to the list
+    // instead of replacing what is already there.
+    const nextFiles = [
+      ...onRecord,
+      {
+        path,
+        name: file.name,
+        uploaded_at: new Date().toISOString(),
+        onedrive_item_id: report_onedrive_item_id,
+        shared_onedrive_item_id: report_shared_onedrive_item_id,
+      },
+    ];
+    const isFirst = onRecord.length === 0;
+    const update: any = { archive_report_files: nextFiles };
+    if (isFirst) {
+      update.archive_report_path = path;
+      update.archive_report_name = file.name;
+      update.report_onedrive_web_url = report_onedrive_web_url;
+      update.report_onedrive_item_id = report_onedrive_item_id;
+      update.report_onedrive_path = report_onedrive_path;
+      update.report_shared_onedrive_web_url = report_shared_onedrive_web_url;
+      update.report_shared_onedrive_item_id = report_shared_onedrive_item_id;
+      update.report_shared_onedrive_path = report_shared_onedrive_path;
+    }
     const { error } = await sb.from("manual_risk_submissions").update(update).eq("id", sub.id);
     if (error) throw error;
-    (sub as any).archive_report_path = path;
-    (sub as any).archive_report_name = file.name;
-    (sub as any).report_onedrive_web_url = report_onedrive_web_url;
-    (sub as any).report_onedrive_item_id = report_onedrive_item_id;
-    (sub as any).report_onedrive_path = report_onedrive_path;
-    (sub as any).report_shared_onedrive_web_url = report_shared_onedrive_web_url;
-    (sub as any).report_shared_onedrive_item_id = report_shared_onedrive_item_id;
-    (sub as any).report_shared_onedrive_path = report_shared_onedrive_path;
+    (sub as any).archive_report_files = nextFiles;
+    if (isFirst) {
+      (sub as any).archive_report_path = path;
+      (sub as any).archive_report_name = file.name;
+      (sub as any).report_onedrive_web_url = report_onedrive_web_url;
+      (sub as any).report_onedrive_item_id = report_onedrive_item_id;
+      (sub as any).report_onedrive_path = report_onedrive_path;
+      (sub as any).report_shared_onedrive_web_url = report_shared_onedrive_web_url;
+      (sub as any).report_shared_onedrive_item_id = report_shared_onedrive_item_id;
+      (sub as any).report_shared_onedrive_path = report_shared_onedrive_path;
+    }
 
     try {
       const res = await applyArchiveReportOutcomes(sub.id, file, file.name);
@@ -481,7 +508,7 @@ export function ArchiveImportTab({
         .from("manual_risk_submissions")
         .select(`
           id, order_number, client_id, created_at, archive_batch_label,
-          archive_report_path, archive_report_name,
+          archive_report_path, archive_report_name, archive_report_files,
           report_onedrive_web_url, report_onedrive_item_id, report_onedrive_path,
           report_shared_onedrive_web_url, report_shared_onedrive_item_id, report_shared_onedrive_path,
           indemnity_files
