@@ -1382,6 +1382,7 @@ export type Database = {
       manual_risk_submissions: {
         Row: {
           archive_batch_label: string | null
+          archive_report_files: Json
           archive_report_name: string | null
           archive_report_path: string | null
           client_id: string | null
@@ -1416,6 +1417,7 @@ export type Database = {
         }
         Insert: {
           archive_batch_label?: string | null
+          archive_report_files?: Json
           archive_report_name?: string | null
           archive_report_path?: string | null
           client_id?: string | null
@@ -1450,6 +1452,7 @@ export type Database = {
         }
         Update: {
           archive_batch_label?: string | null
+          archive_report_files?: Json
           archive_report_name?: string | null
           archive_report_path?: string | null
           client_id?: string | null
