@@ -101,8 +101,23 @@ export function ArchiveReportAuditCard({
     [withReports, auditedOrderIds],
   );
 
+  /**
+   * Orders that have a report on record but still have someone on them who has
+   * never been confirmed by that report — the ones shown under "checks
+   * requiring document review". Historical rows with the first name and
+   * surname swapped land here, and the matcher now tolerates that swap when
+   * the ID prefix agrees, so re-reading just these orders fixes them.
+   */
+  const reviewOrders = useMemo(() => {
+    const waitingByOrder = new Set(
+      (cands ?? []).filter((c) => !c.report_matched_at).map((c) => c.submission_id),
+    );
+    return withReports.filter((s) => waitingByOrder.has(s.id));
+  }, [cands, withReports]);
+
   const confirmedPeople = (cands ?? []).filter((c) => c.report_matched_at).length;
   const waitingPeople = (cands ?? []).length - confirmedPeople;
+
 
   const auditOne = async (sub: AuditSubmission, all: Cand[]) => {
     const { data: signed, error: sErr } = await sb.storage
