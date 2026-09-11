@@ -15,7 +15,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Upload, FileSpreadsheet, FolderOpen, CheckCircle2, AlertTriangle, FileText, Eye, Trash2 } from "lucide-react";
-import { applyArchiveReportOutcomes, extractArchiveReportRecords, normPersonName } from "@/lib/archiveReportOutcomes";
+import { applyArchiveReportOutcomes, extractArchiveReportRecords, matchArchivePerson, normPersonName } from "@/lib/archiveReportOutcomes";
 import { ArchiveOneDriveBackfillCard } from "@/components/manual-risk/ArchiveOneDriveBackfillCard";
 import { ArchiveNameReconciliationCard } from "@/components/manual-risk/ArchiveNameReconciliationCard";
 import { ArchiveReportAuditCard } from "@/components/manual-risk/ArchiveReportAuditCard";
@@ -1788,22 +1788,12 @@ function BulkFolderUploadCard({
         let onCurrent = 0;
         let strongTotal = 0;
         for (const r of records) {
-          const rs = normPersonName(r.surname);
-          const rf = normPersonName(r.first_names);
-          const prefix = String(r.id_prefix ?? "").replace(/\D/g, "").slice(0, 6);
           const hitOrders = new Set<string>();
           let strong = false;
           for (const c of cands) {
-            const cs = normPersonName(c.surname);
-            const cf = normPersonName(c.first_name);
-            const cPrefix = String(c.id_number ?? "").replace(/\D/g, "").slice(0, 6);
-            const surnameHit = !!rs && !!cs && rs === cs;
-            const firstHit =
-              !!rf && !!cf && (rf === cf || rf.startsWith(cf) || cf.startsWith(rf));
-            const prefixHit = prefix.length === 6 && prefix === cPrefix;
-            const signals = [surnameHit, firstHit, prefixHit].filter(Boolean).length;
-            if (signals < 2) continue;
-            if (surnameHit && firstHit && prefixHit) strong = true;
+            const match = matchArchivePerson(r, c);
+            if (!match.matches) continue;
+            if (match.strong) strong = true;
             hitOrders.add(c.submission_id);
           }
           if (strong) strongTotal += 1;
@@ -2614,19 +2604,10 @@ function ReportsFirstUploadCard({
     const notInArchive: typeof records = [];
 
     for (const r of records) {
-      const rs = normPersonName(r.surname);
-      const rf = normPersonName(r.first_names);
-      const prefix = String(r.id_prefix ?? "").replace(/\D/g, "").slice(0, 6);
       const name = `${r.first_names ?? ""} ${r.surname ?? ""}`.trim() || "(name unreadable)";
       const hitOrders = new Set<string>();
       for (const c of cands) {
-        const cs = normPersonName(c.surname);
-        const cf = normPersonName(c.first_name);
-        const cPrefix = String(c.id_number ?? "").replace(/\D/g, "").slice(0, 6);
-        const surnameHit = !!rs && !!cs && rs === cs;
-        const firstHit = !!rf && !!cf && (rf === cf || rf.startsWith(cf) || cf.startsWith(rf));
-        const prefixHit = prefix.length === 6 && prefix === cPrefix;
-        if ([surnameHit, firstHit, prefixHit].filter(Boolean).length < 2) continue;
+        if (!matchArchivePerson(r, c).matches) continue;
         hitOrders.add(c.submission_id);
         if (c.id) matchedCandidateIds.push(c.id);
       }
