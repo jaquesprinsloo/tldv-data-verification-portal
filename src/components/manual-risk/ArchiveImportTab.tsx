@@ -2509,6 +2509,7 @@ function ReportsFirstUploadCard({
         the matching indemnities under each order and click Approve — the upload runs on its own while you
         carry on finding the next lot. If the order already has the right indemnities on record, you do not
         need to add them again; Approve will attach the report and leave the existing documents in place.
+        Once a report is successfully approved it disappears from this list.
       </p>
 
       <div
