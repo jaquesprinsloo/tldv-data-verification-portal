@@ -18,6 +18,7 @@ import { Upload, FileSpreadsheet, FolderOpen, CheckCircle2, AlertTriangle, FileT
 import { applyArchiveReportOutcomes, extractArchiveReportRecords, normPersonName } from "@/lib/archiveReportOutcomes";
 import { ArchiveOneDriveBackfillCard } from "@/components/manual-risk/ArchiveOneDriveBackfillCard";
 import { ArchiveNameReconciliationCard } from "@/components/manual-risk/ArchiveNameReconciliationCard";
+import { ArchiveReportAuditCard } from "@/components/manual-risk/ArchiveReportAuditCard";
 import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/archiveNameReconciliation";
 
 
