@@ -145,7 +145,23 @@ Deno.serve(async (req) => {
 
     if (!aiRes.ok) {
       const errTxt = await aiRes.text();
-      throw new Error(`AI gateway ${aiRes.status}: ${errTxt.slice(0, 500)}`);
+      console.error(`extract-supplier-report-ids AI gateway ${aiRes.status}: ${errTxt.slice(0, 500)}`);
+      let friendly: string;
+      if (aiRes.status === 402) {
+        friendly = "The AI reading service is out of credits. Please top up the workspace AI credits, then upload the report again.";
+      } else if (aiRes.status === 403) {
+        friendly = "The AI reading service is blocked by the workspace AI credit limit. Please raise or reset the AI limit, then upload the report again.";
+      } else if (aiRes.status === 429) {
+        friendly = "The AI reading service is busy right now. Please wait a minute and upload the report again.";
+      } else if (aiRes.status >= 500) {
+        friendly = "The AI reading service is temporarily unavailable. Please try again in a few minutes.";
+      } else {
+        friendly = "The report could not be read by the AI service. Please check the file and try again, or capture the results manually.";
+      }
+      return new Response(
+        JSON.stringify({ success: false, error: friendly, status: aiRes.status, retryable: aiRes.status === 429 || aiRes.status >= 500 }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
     const aiJson = await aiRes.json();
     const raw: string = aiJson?.choices?.[0]?.message?.content ?? "";
