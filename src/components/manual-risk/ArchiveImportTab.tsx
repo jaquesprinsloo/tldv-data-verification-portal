@@ -14,12 +14,13 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Upload, FileSpreadsheet, FolderOpen, CheckCircle2, AlertTriangle, FileText } from "lucide-react";
+import { Upload, FileSpreadsheet, FolderOpen, CheckCircle2, AlertTriangle, FileText, Eye, Trash2 } from "lucide-react";
 import { applyArchiveReportOutcomes, extractArchiveReportRecords, normPersonName } from "@/lib/archiveReportOutcomes";
 import { ArchiveOneDriveBackfillCard } from "@/components/manual-risk/ArchiveOneDriveBackfillCard";
 import { ArchiveNameReconciliationCard } from "@/components/manual-risk/ArchiveNameReconciliationCard";
 import { ArchiveReportAuditCard } from "@/components/manual-risk/ArchiveReportAuditCard";
 import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/archiveNameReconciliation";
+import { ARCHIVE_CANDIDATES_KEY, useArchiveCandidates } from "@/lib/archiveCandidatesQuery";
 
 
 /**
@@ -110,6 +111,7 @@ type ArchiveSubmission = {
   indemnity_files: {
     name: string;
     path: string;
+    uploaded_at?: string | null;
     onedrive_web_url?: string | null;
     onedrive_item_id?: string | null;
     shared_onedrive_web_url?: string | null;
@@ -375,6 +377,7 @@ async function attachDocumentToOrder(args: {
 
     try {
       const res = await applyArchiveReportOutcomes(sub.id, file, file.name);
+      await markCandidatesReportMatched(res.matchedIds, file.name);
       addLog(
         `Outcomes for ${sub.order_number}: ${res.matched}/${res.records} captured` +
           (res.unmatched.length ? ` • not matched: ${res.unmatched.join(", ")}` : ""),
@@ -913,6 +916,13 @@ export function ArchiveImportTab({
         addLog={addLog}
       />
 
+      <ArchiveAffectedChecksCard
+        submissions={archiveSubs}
+        clients={clients}
+        onChanged={() => { refetchArchive(); onChanged(); }}
+        addLog={addLog}
+      />
+
       <ArchiveNameReconciliationCard
         submissions={archiveSubs}
         clients={clients}
@@ -956,6 +966,315 @@ export function ArchiveImportTab({
         </Card>
       )}
     </div>
+  );
+}
+
+/** Orders containing archive people who have not been confirmed by the report
+ * currently attached to their own order. This is the working list for finding
+ * wrong report/order links and replacing the affected documents in place. */
+function ArchiveAffectedChecksCard({
+  submissions, clients, onChanged, addLog,
+}: {
+  submissions: ArchiveSubmission[];
+  clients: Client[];
+  onChanged: () => void;
+  addLog: (s: string) => void;
+}) {
+  const qc = useQueryClient();
+  const { data: candidates = [], isLoading, refetch } = useArchiveCandidates();
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [search, setSearch] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+
+  const clientName = (id: string | null) =>
+    id ? clients.find((c) => c.id === id)?.client_name ?? "—" : "—";
+  const normFile = (value: string | null | undefined) => String(value ?? "").trim().toLowerCase();
+
+  const affected = useMemo(() => {
+    const byOrder = new Map<string, typeof candidates>();
+    candidates.forEach((candidate) => {
+      byOrder.set(candidate.submission_id, [...(byOrder.get(candidate.submission_id) ?? []), candidate]);
+    });
+    const q = search.trim().toLowerCase();
+    return submissions
+      .map((submission) => {
+        const currentReport = normFile(submission.archive_report_name);
+        const people = (byOrder.get(submission.id) ?? []).filter((candidate) =>
+          !currentReport || normFile(candidate.report_matched_file) !== currentReport,
+        );
+        return { submission, people };
+      })
+      .filter(({ submission, people }) => {
+        if (!people.length) return false;
+        if (!q) return true;
+        const names = people.map((p) => `${p.first_name ?? ""} ${p.surname ?? ""} ${p.id_number ?? ""}`).join(" ");
+        return `${submission.order_number} ${submission.archive_batch_label ?? ""} ${clientName(submission.client_id)} ${names}`
+          .toLowerCase().includes(q);
+      })
+      .sort((a, b) => a.submission.created_at.localeCompare(b.submission.created_at));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidates, submissions, clients, search]);
+
+  const refresh = async () => {
+    await qc.invalidateQueries({ queryKey: ARCHIVE_CANDIDATES_KEY });
+    await refetch();
+    onChanged();
+  };
+
+  const openStored = async (bucket: string, path: string) => {
+    const { data, error } = await sb.storage.from(bucket).createSignedUrl(path, 300);
+    if (error || !data?.signedUrl) {
+      toast.error(error?.message ?? "Could not open the file");
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const deleteOneDriveCopy = async (itemId: string | null | undefined) => {
+    if (!itemId) return;
+    try {
+      const { data, error } = await sb.functions.invoke("upload-manual-risk-to-onedrive", {
+        body: { action: "delete", itemId },
+      });
+      if (error) throw error;
+      if ((data as any)?.success === false) throw new Error((data as any)?.error || "OneDrive delete failed");
+    } catch (error: any) {
+      addLog(`OneDrive copy could not be deleted: ${error.message}`);
+    }
+  };
+
+  const deleteReport = async (sub: ArchiveSubmission) => {
+    if (!sub.archive_report_path) return;
+    if (!window.confirm(`Delete "${sub.archive_report_name ?? "the report"}" from ${sub.order_number}?`)) return;
+    setBusy(`report-${sub.id}`);
+    const oldName = sub.archive_report_name;
+    try {
+      const { error: storageError } = await sb.storage.from("archive-reports").remove([sub.archive_report_path]);
+      if (storageError) throw storageError;
+      await Promise.all([
+        deleteOneDriveCopy(sub.report_onedrive_item_id),
+        deleteOneDriveCopy(sub.report_shared_onedrive_item_id),
+      ]);
+      const { error } = await sb.from("manual_risk_submissions").update({
+        archive_report_path: null,
+        archive_report_name: null,
+        report_onedrive_web_url: null,
+        report_onedrive_item_id: null,
+        report_onedrive_path: null,
+        report_shared_onedrive_web_url: null,
+        report_shared_onedrive_item_id: null,
+        report_shared_onedrive_path: null,
+      }).eq("id", sub.id);
+      if (error) throw error;
+      if (oldName) {
+        await sb.from("manual_risk_candidates").update({
+          report_matched_at: null,
+          report_matched_file: null,
+        } as never).eq("submission_id", sub.id).eq("report_matched_file", oldName);
+      }
+      addLog(`Deleted report "${oldName ?? "report"}" from ${sub.order_number}`);
+      toast.success("Incorrect report removed");
+      await refresh();
+    } catch (error: any) {
+      toast.error(error.message ?? "Could not delete the report");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const deleteIndemnity = async (sub: ArchiveSubmission, file: NonNullable<ArchiveSubmission["indemnity_files"]>[number]) => {
+    if (!window.confirm(`Delete "${file.name}" from ${sub.order_number}?`)) return;
+    setBusy(`indemnity-${file.path}`);
+    try {
+      const { error: storageError } = await sb.storage.from("manual-risk-indemnities").remove([file.path]);
+      if (storageError) throw storageError;
+      await Promise.all([
+        deleteOneDriveCopy(file.onedrive_item_id),
+        deleteOneDriveCopy(file.shared_onedrive_item_id),
+      ]);
+      const next = (sub.indemnity_files ?? []).filter((item) => item.path !== file.path);
+      const { error } = await sb.from("manual_risk_submissions").update({ indemnity_files: next as any }).eq("id", sub.id);
+      if (error) throw error;
+      addLog(`Deleted indemnity "${file.name}" from ${sub.order_number}`);
+      toast.success("Incorrect indemnity removed");
+      await refresh();
+    } catch (error: any) {
+      toast.error(error.message ?? "Could not delete the indemnity");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const uploadFiles = async (sub: ArchiveSubmission, kind: "report" | "indemnity", files: File[]) => {
+    const usable = files.filter((file) => !isMasterIndemnity(file.name));
+    if (!usable.length) {
+      toast.info("No files were added; master indemnity files are excluded");
+      return;
+    }
+    if (kind === "report" && sub.archive_report_path) {
+      toast.error("Delete the incorrect report before uploading its replacement");
+      return;
+    }
+    setBusy(`${kind}-${sub.id}`);
+    try {
+      const selected = kind === "report" ? usable.slice(0, 1) : usable;
+      for (const file of selected) {
+        await attachDocumentToOrder({ sub, file, kind, clientName: clientName(sub.client_id), addLog });
+      }
+      toast.success(kind === "report" ? "Replacement report uploaded and checked" : `${selected.length} indemnity file(s) uploaded`);
+      await refresh();
+    } catch (error: any) {
+      toast.error(error.message ?? "Upload failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Card className="p-4 space-y-4">
+      <div>
+        <h3 className="font-semibold flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-600" /> Checks requiring document review
+        </h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          These orders contain people who have not been confirmed on the Risk Assessment currently attached to their order.
+          Open the existing documents, remove anything incorrect, and upload the correct files on the same row.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-[240px] max-w-md flex-1">
+          <Label className="text-xs">Find a check</Label>
+          <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Candidate, ID, account or order number" className="h-9" />
+        </div>
+        <Badge variant="outline" className="text-amber-700 border-amber-300">
+          {affected.length} order(s) require review
+        </Badge>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading checks…</p>
+      ) : affected.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No affected checks match this search.</p>
+      ) : (
+        <div className="space-y-2 max-h-[720px] overflow-y-auto pr-1">
+          {affected.map(({ submission: sub, people }) => {
+            const open = !!expanded[sub.id];
+            const noReport = !sub.archive_report_path;
+            return (
+              <div key={sub.id} className="rounded-md border border-amber-300 overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-amber-50/60">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm">{clientName(sub.client_id)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(sub.created_at).toLocaleDateString()} • {sub.order_number} • {people.length} candidate(s)
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className={noReport ? "text-red-700 border-red-300" : "text-amber-700 border-amber-300"}>
+                      {noReport ? "No report uploaded" : "Report does not confirm everyone"}
+                    </Badge>
+                    <Button variant="outline" size="sm" onClick={() => setExpanded((state) => ({ ...state, [sub.id]: !open }))}>
+                      {open ? "Hide" : "Inspect"}
+                    </Button>
+                  </div>
+                </div>
+
+                {open && (
+                  <div className="p-3 space-y-4">
+                    <div>
+                      <p className="text-xs font-medium mb-1">Candidates still waiting for confirmation</p>
+                      <div className="flex flex-wrap gap-1">
+                        {people.map((person) => (
+                          <span key={person.id} className="rounded border px-2 py-1 text-xs">
+                            {[person.first_name, person.surname].filter(Boolean).join(" ") || "Unnamed candidate"}
+                            {person.id_number ? ` • ${person.id_number}` : ""}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      <div className="rounded-md border p-3 space-y-2">
+                        <p className="text-xs font-medium">Risk Assessment</p>
+                        {sub.archive_report_path ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => openStored("archive-reports", sub.archive_report_path ?? "")}>
+                              <Eye className="h-4 w-4 mr-1" /> View {sub.archive_report_name || "report"}
+                            </Button>
+                            <Button variant="destructive" size="sm" disabled={busy === `report-${sub.id}`} onClick={() => deleteReport(sub)}>
+                              <Trash2 className="h-4 w-4 mr-1" /> {busy === `report-${sub.id}` ? "Removing…" : "Remove"}
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-red-700">No Risk Assessment is attached.</p>
+                        )}
+                        <label
+                          onDragEnter={(event) => { event.preventDefault(); setDragOver(`report-${sub.id}`); }}
+                          onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDragOver(`report-${sub.id}`); }}
+                          onDragLeave={() => setDragOver(null)}
+                          onDrop={(event) => {
+                            event.preventDefault(); setDragOver(null);
+                            void filesFromDrop(event.dataTransfer).then((files) => uploadFiles(sub, "report", files));
+                          }}
+                          className={`block rounded border border-dashed p-3 text-center text-xs cursor-pointer ${dragOver === `report-${sub.id}` ? "border-red-600 bg-red-50" : "border-muted-foreground/30"}`}
+                        >
+                          Drop the correct Risk Assessment here or choose a file
+                          <input type="file" accept=".pdf,.doc,.docx" className="hidden" disabled={!!sub.archive_report_path || busy !== null} onChange={(event) => {
+                            const files = Array.from(event.target.files ?? []);
+                            if (files.length) void uploadFiles(sub, "report", files);
+                            event.currentTarget.value = "";
+                          }} />
+                        </label>
+                        {sub.archive_report_path && <p className="text-[11px] text-muted-foreground">Remove the current report before adding its replacement.</p>}
+                      </div>
+
+                      <div className="rounded-md border p-3 space-y-2">
+                        <p className="text-xs font-medium">Indemnities ({(sub.indemnity_files ?? []).length})</p>
+                        {(sub.indemnity_files ?? []).length === 0 ? (
+                          <p className="text-xs text-red-700">No indemnities are attached.</p>
+                        ) : (
+                          <div className="space-y-1">
+                            {(sub.indemnity_files ?? []).map((file) => (
+                              <div key={file.path} className="flex items-center justify-between gap-2 text-xs">
+                                <Button variant="link" size="sm" className="h-auto min-w-0 justify-start p-0 text-left" onClick={() => openStored("manual-risk-indemnities", file.path)}>
+                                  <Eye className="h-3.5 w-3.5 mr-1 shrink-0" /><span className="truncate">{file.name}</span>
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" disabled={busy === `indemnity-${file.path}`} onClick={() => deleteIndemnity(sub, file)} aria-label={`Remove ${file.name}`}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <label
+                          onDragEnter={(event) => { event.preventDefault(); setDragOver(`indemnity-${sub.id}`); }}
+                          onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDragOver(`indemnity-${sub.id}`); }}
+                          onDragLeave={() => setDragOver(null)}
+                          onDrop={(event) => {
+                            event.preventDefault(); setDragOver(null);
+                            void filesFromDrop(event.dataTransfer).then((files) => uploadFiles(sub, "indemnity", files));
+                          }}
+                          className={`block rounded border border-dashed p-3 text-center text-xs cursor-pointer ${dragOver === `indemnity-${sub.id}` ? "border-red-600 bg-red-50" : "border-muted-foreground/30"}`}
+                        >
+                          Drop the correct indemnities here or choose files
+                          <input type="file" multiple className="hidden" disabled={busy !== null} onChange={(event) => {
+                            const files = Array.from(event.target.files ?? []);
+                            if (files.length) void uploadFiles(sub, "indemnity", files);
+                            event.currentTarget.value = "";
+                          }} />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 }
 
