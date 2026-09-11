@@ -34,6 +34,40 @@ import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/a
  * the working submission queue, invoicing and profitability.
  */
 
+/** Collect dropped files, walking into folders when the browser allows it. */
+async function filesFromDrop(dt: DataTransfer): Promise<File[]> {
+  const items = dt.items ? Array.from(dt.items) : [];
+  const entries = items
+    .map((it) => (typeof (it as any).webkitGetAsEntry === "function" ? (it as any).webkitGetAsEntry() : null))
+    .filter(Boolean);
+
+  if (entries.length === 0) return Array.from(dt.files || []);
+
+  const out: File[] = [];
+  const readDir = (dirReader: any): Promise<any[]> =>
+    new Promise((res) => dirReader.readEntries((e: any[]) => res(e || []), () => res([])));
+
+  const walk = async (entry: any): Promise<void> => {
+    if (!entry) return;
+    if (entry.isFile) {
+      const file: File | null = await new Promise((res) => entry.file((f: File) => res(f), () => res(null)));
+      if (file) out.push(file);
+      return;
+    }
+    if (entry.isDirectory) {
+      const reader = entry.createReader();
+      let batch = await readDir(reader);
+      while (batch.length > 0) {
+        for (const child of batch) await walk(child);
+        batch = await readDir(reader);
+      }
+    }
+  };
+
+  for (const e of entries) await walk(e);
+  return out.length > 0 ? out : Array.from(dt.files || []);
+}
+
 const ARCHIVE_CONTACT = "Ntombi";
 const ARCHIVE_EMAIL = "hradmin1@cashcrusaders.co.za";
 const ARCHIVE_CC = "admin@tldv.co.za";
