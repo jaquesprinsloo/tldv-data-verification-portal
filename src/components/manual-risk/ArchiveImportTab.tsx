@@ -2586,10 +2586,14 @@ function ReportsFirstUploadCard({
         Once a report is successfully approved it disappears from this list.
       </p>
 
-      <div
-        onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
-        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "copy"; setDragOver(true); }}
-        onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+                    <div
+                      onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "copy"; }}
+                      onDrop={(e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        filesFromDrop(e.dataTransfer).then((files) => addIndemnities(r.id, t.orderId, files));
+                      }}
+                      className="rounded border border-dashed p-2 text-xs text-center text-muted-foreground"
         onDrop={(e) => {
           e.preventDefault(); e.stopPropagation(); setDragOver(false);
           filesFromDrop(e.dataTransfer).then((files) => addReports(files));
