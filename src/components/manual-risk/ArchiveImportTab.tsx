@@ -2386,15 +2386,19 @@ function ReportsFirstUploadCard({
           }
         }
       }
-      write((l) =>
-        l.map((r) =>
-          r.id === rep.id
-            ? { ...r, state: bad && !ok ? "failed" : "done", progress: `${ok} file(s) uploaded${bad ? `, ${bad} failed` : ""}` }
-            : r,
-        ),
-      );
-      if (bad && !ok) toast.error(`${rep.file.name} — nothing could be uploaded`);
-      else toast.success(`${rep.file.name} — ${ok} file(s) uploaded${bad ? `, ${bad} failed` : ""}`);
+      if (bad && !ok) {
+        write((l) =>
+          l.map((r) =>
+            r.id === rep.id
+              ? { ...r, state: "failed", progress: `${ok} file(s) uploaded, ${bad} failed` }
+              : r,
+          ),
+        );
+        toast.error(`${rep.file.name} — nothing could be uploaded`);
+      } else {
+        write((l) => l.filter((r) => r.id !== rep.id));
+        toast.success(`${rep.file.name} — ${ok} file(s) uploaded${bad ? `, ${bad} failed` : ""}`);
+      }
       onChanged();
     })();
   };
