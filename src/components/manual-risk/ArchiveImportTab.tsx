@@ -2613,6 +2613,64 @@ function ReportsFirstUploadCard({
                       )}
                     </div>
 
+                    {sub && (sub.archive_report_path || (sub.indemnity_files ?? []).length > 0) && (
+                      <div className="rounded border border-amber-400 bg-amber-50 p-2 space-y-1.5 text-xs">
+                        <p className="flex items-center gap-1 font-medium text-amber-800">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          This order already has documents on record — click to look at them, and delete any that are wrong before you approve
+                        </p>
+                        {sub.archive_report_path && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-muted-foreground">Report:</span>
+                            <button
+                              className="text-red-700 underline break-all text-left"
+                              onClick={() => openStored("archive-reports", sub.archive_report_path!)}
+                            >
+                              {sub.archive_report_name || "View report"}
+                            </button>
+                            <Button
+                              variant="ghost" size="sm" className="h-6 px-2 text-xs text-red-700"
+                              disabled={busyFile === `rep-${sub.id}`}
+                              onClick={() => deleteExistingReport(sub)}
+                            >
+                              {busyFile === `rep-${sub.id}` ? "Deleting…" : "Delete"}
+                            </Button>
+                          </div>
+                        )}
+                        {(sub.indemnity_files ?? []).length > 0 && (
+                          <div className="space-y-1">
+                            <span className="text-muted-foreground">
+                              Indemnities on record ({(sub.indemnity_files ?? []).length}):
+                            </span>
+                            {(sub.indemnity_files ?? []).map((f) => (
+                              <div key={f.path} className="flex flex-wrap items-center gap-2">
+                                <button
+                                  className="text-red-700 underline break-all text-left"
+                                  onClick={() => openStored("manual-risk-indemnities", f.path)}
+                                >
+                                  {f.name}
+                                </button>
+                                <Button
+                                  variant="ghost" size="sm" className="h-6 px-2 text-xs text-red-700"
+                                  disabled={busyFile === `ind-${f.path}`}
+                                  onClick={() => deleteExistingIndemnity(sub, f)}
+                                >
+                                  {busyFile === `ind-${f.path}` ? "Deleting…" : "Delete"}
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {sub.archive_report_path && (
+                          <p className="text-amber-800">
+                            A new report is only taken on once the one above is deleted.
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+
+
                     <div
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => { e.preventDefault(); addIndemnities(r.id, t.orderId, e.dataTransfer.files); }}
