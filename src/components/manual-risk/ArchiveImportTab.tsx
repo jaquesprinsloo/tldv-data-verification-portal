@@ -869,12 +869,20 @@ export function ArchiveImportTab({
         </>
       )}
 
+      <ReportsFirstUploadCard
+        submissions={archiveSubs}
+        clients={clients}
+        onChanged={() => { refetchArchive(); onChanged(); }}
+        addLog={addLog}
+      />
+
       <BulkFolderUploadCard
         submissions={archiveSubs}
         clients={clients}
         onChanged={() => { refetchArchive(); onChanged(); }}
         addLog={addLog}
       />
+
 
       <ArchiveDocumentsCard
         submissions={archiveSubs}
