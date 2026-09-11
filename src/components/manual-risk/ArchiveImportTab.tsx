@@ -2112,4 +2112,501 @@ function BulkFolderUploadCard({
   );
 }
 
+/* ------------------------------------------------------------------------- *
+ * Reports first: drop a batch of risk assessment reports, read the names off
+ * each one, see which order it belongs to and on which date it was submitted,
+ * then drop the matching indemnities per order and approve. Approving uploads
+ * in the background so the next report can be prepared while it runs.
+ * ------------------------------------------------------------------------- */
+
+type RfIndemnity = { id: string; file: File };
+
+type RfTarget = {
+  orderId: string;
+  matched: number;
+  names: string[];
+  indemnities: RfIndemnity[];
+};
+
+type RfReport = {
+  id: string;
+  file: File;
+  folderDate: string | null;
+  state: "reading" | "ready" | "unmatched" | "uploading" | "done" | "failed";
+  note: string;
+  people: { name: string; found: boolean }[];
+  targets: RfTarget[];
+  progress: string;
+};
+
+/** Kept outside the component so switching tabs never loses a run in progress. */
+const reportsFirstSession: { reports: RfReport[] } = { reports: [] };
+
+let rfCandidateCache: ArchiveCandidateRow[] | null = null;
+
+async function fetchArchiveCandidates(submissionIds: string[]): Promise<ArchiveCandidateRow[]> {
+  if (rfCandidateCache) return rfCandidateCache;
+  const out: ArchiveCandidateRow[] = [];
+  for (let i = 0; i < submissionIds.length; i += 100) {
+    const slice = submissionIds.slice(i, i + 100);
+    let from = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await sb
+        .from("manual_risk_candidates")
+        .select("id_number, first_name, surname, submission_id")
+        .in("submission_id", slice)
+        .range(from, from + 999);
+      if (error) throw error;
+      const rows = (data ?? []) as unknown as ArchiveCandidateRow[];
+      out.push(...rows);
+      if (rows.length < 1000) break;
+      from += 1000;
+    }
+  }
+  rfCandidateCache = out;
+  return out;
+}
+
+function ReportsFirstUploadCard({
+  submissions, clients, onChanged, addLog,
+}: {
+  submissions: ArchiveSubmission[];
+  clients: Client[];
+  onChanged: () => void;
+  addLog: (s: string) => void;
+}) {
+  const [reports, setReports] = useState<RfReport[]>(reportsFirstSession.reports);
+  const [reading, setReading] = useState(false);
+  const [orderSearch, setOrderSearch] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const reportInput = useRef<HTMLInputElement>(null);
+
+  const write = (updater: (list: RfReport[]) => RfReport[]) => {
+    setReports((prev) => {
+      const next = updater(prev);
+      reportsFirstSession.reports = next;
+      return next;
+    });
+  };
+
+  const clientName = (id: string | null) => (id ? clients.find((c) => c.id === id)?.client_name ?? "—" : "—");
+  const orderById = (id: string) => submissions.find((s) => s.id === id);
+  const orderLabel = (id: string) => {
+    const s = orderById(id);
+    if (!s) return "Unknown order";
+    return `${clientName(s.client_id)} — ${new Date(s.created_at).toLocaleDateString()} (${s.order_number})`;
+  };
+
+  const orderOptions = useMemo(() => {
+    const q = orderSearch.trim().toLowerCase();
+    const sorted = [...submissions].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const filtered = q
+      ? sorted.filter((s) =>
+          `${s.order_number} ${s.archive_batch_label ?? ""} ${clientName(s.client_id)} ${new Date(s.created_at).toLocaleDateString()}`
+            .toLowerCase().includes(q))
+      : sorted;
+    return filtered.slice(0, 150);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submissions, orderSearch, clients]);
+
+  /** Reads the people out of one report and works out which order(s) hold them. */
+  const readReport = async (rep: RfReport) => {
+    const cands = await fetchArchiveCandidates(submissions.map((s) => s.id));
+
+    let records: Awaited<ReturnType<typeof extractArchiveReportRecords>> = [];
+    let readErr = "";
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        records = await extractArchiveReportRecords(rep.file);
+        readErr = "";
+        if (records.length) break;
+      } catch (e: any) {
+        readErr = e?.message ?? "unknown error";
+        await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));
+      }
+    }
+
+    if (readErr || !records.length) {
+      const note = readErr
+        ? `The report could not be read (${readErr}) — pick the order by hand`
+        : "No names could be read out of this report — pick the order by hand";
+      addLog(`"${rep.file.name}": ${note}`);
+      write((list) => list.map((r) => (r.id === rep.id ? { ...r, state: "unmatched", note, people: [] } : r)));
+      return;
+    }
+
+    const tally = new Map<string, number>();
+    const namesByOrder = new Map<string, string[]>();
+    const people: { name: string; found: boolean }[] = [];
+
+    for (const r of records) {
+      const rs = normPersonName(r.surname);
+      const rf = normPersonName(r.first_names);
+      const prefix = String(r.id_prefix ?? "").replace(/\D/g, "").slice(0, 6);
+      const name = `${r.first_names ?? ""} ${r.surname ?? ""}`.trim() || "(name unreadable)";
+      const hitOrders = new Set<string>();
+      for (const c of cands) {
+        const cs = normPersonName(c.surname);
+        const cf = normPersonName(c.first_name);
+        const cPrefix = String(c.id_number ?? "").replace(/\D/g, "").slice(0, 6);
+        const surnameHit = !!rs && !!cs && rs === cs;
+        const firstHit = !!rf && !!cf && (rf === cf || rf.startsWith(cf) || cf.startsWith(rf));
+        const prefixHit = prefix.length === 6 && prefix === cPrefix;
+        if ([surnameHit, firstHit, prefixHit].filter(Boolean).length < 2) continue;
+        hitOrders.add(c.submission_id);
+      }
+      for (const id of hitOrders) {
+        tally.set(id, (tally.get(id) ?? 0) + 1);
+        namesByOrder.set(id, [...(namesByOrder.get(id) ?? []), name]);
+      }
+      people.push({ name, found: hitOrders.size > 0 });
+    }
+
+    const ranked = Array.from(tally.entries()).sort((a, b) => b[1] - a[1]);
+    if (!ranked.length) {
+      const note = `${records.length} name(s) read, but none of them are on an archive order — pick the order by hand`;
+      addLog(`"${rep.file.name}": ${note}`);
+      write((list) => list.map((r) => (r.id === rep.id ? { ...r, state: "unmatched", note, people } : r)));
+      return;
+    }
+
+    // Every order that holds people from this report becomes a target, so a
+    // report whose people were split across accounts gets its own drop zone per
+    // account for the indemnities.
+    const targets: RfTarget[] = ranked.map(([orderId, matched]) => ({
+      orderId,
+      matched,
+      names: namesByOrder.get(orderId) ?? [],
+      indemnities: [],
+    }));
+    const missing = people.filter((p) => !p.found).length;
+    const note =
+      `${records.length} name(s) read • linked to ${targets.length} order(s)` +
+      (missing ? ` • ${missing} name(s) not found in the archive` : "");
+    addLog(`"${rep.file.name}": ${note} — ${targets.map((t) => orderLabel(t.orderId)).join(" | ")}`);
+    write((list) => list.map((r) => (r.id === rep.id ? { ...r, state: "ready", note, people, targets } : r)));
+  };
+
+  const addReports = async (list: FileList | File[] | null) => {
+    if (!list) return;
+    const files = Array.from(list as any as File[]);
+    if (!files.length) return;
+
+    const fresh: RfReport[] = [];
+    let skipped = 0;
+    for (const file of files) {
+      if (isMasterIndemnity(file.name)) { skipped += 1; continue; }
+      const rel = (file as any).webkitRelativePath || "";
+      let folderDate: string | null = null;
+      for (const part of String(rel).split("/").filter(Boolean)) {
+        const d = dateFromFolder(part);
+        if (d) folderDate = d;
+      }
+      fresh.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`,
+        file, folderDate, state: "reading", note: "Reading the names off this report…",
+        people: [], targets: [], progress: "",
+      });
+    }
+    if (skipped) toast.info(`${skipped} master indemnity file(s) skipped`);
+    if (!fresh.length) return;
+
+    write((prev) => [...fresh, ...prev]);
+    setReading(true);
+    for (const rep of fresh) {
+      try {
+        await readReport(rep);
+      } catch (e: any) {
+        write((l) => l.map((r) => (r.id === rep.id ? { ...r, state: "unmatched", note: e.message ?? "Reading failed" } : r)));
+      }
+    }
+    setReading(false);
+  };
+
+  const setTargets = (reportId: string, fn: (t: RfTarget[]) => RfTarget[]) =>
+    write((list) => list.map((r) => (r.id === reportId ? { ...r, targets: fn(r.targets) } : r)));
+
+  const addTarget = (reportId: string, orderId: string) =>
+    setTargets(reportId, (t) =>
+      t.some((x) => x.orderId === orderId) ? t : [...t, { orderId, matched: 0, names: [], indemnities: [] }]);
+
+  const addIndemnities = (reportId: string, orderId: string, list: FileList | File[] | null) => {
+    if (!list) return;
+    const files = Array.from(list as any as File[]);
+    let blocked = 0;
+    setTargets(reportId, (t) =>
+      t.map((x) => {
+        if (x.orderId !== orderId) return x;
+        const have = new Set(x.indemnities.map((i) => i.file.name.toLowerCase()));
+        const add: RfIndemnity[] = [];
+        for (const f of files) {
+          if (isMasterIndemnity(f.name)) { blocked += 1; continue; }
+          if (have.has(f.name.toLowerCase())) continue;
+          have.add(f.name.toLowerCase());
+          add.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2)}-${f.name}`, file: f });
+        }
+        return { ...x, indemnities: [...x.indemnities, ...add] };
+      }),
+    );
+    if (blocked) toast.info(`${blocked} master indemnity file(s) skipped — use the individual indemnities`);
+  };
+
+  /** Uploads one report and its indemnities in the background. */
+  const approve = (rep: RfReport) => {
+    const targets = rep.targets;
+    if (!targets.length) { toast.error("Link this report to an order first"); return; }
+
+    write((l) => l.map((r) => (r.id === rep.id ? { ...r, state: "uploading", progress: "Starting…" } : r)));
+    const setProgress = (p: string) =>
+      write((l) => l.map((r) => (r.id === rep.id ? { ...r, progress: p } : r)));
+
+    void (async () => {
+      let ok = 0, bad = 0;
+      for (const t of targets) {
+        const sub = submissions.find((s) => s.id === t.orderId);
+        if (!sub) { bad += 1; continue; }
+        const cn = clientName(sub.client_id);
+        try {
+          setProgress(`Report → ${sub.order_number}`);
+          await attachDocumentToOrder({ sub, file: rep.file, kind: "report", clientName: cn, addLog });
+          ok += 1;
+        } catch (e: any) {
+          bad += 1;
+          addLog(`Report "${rep.file.name}" failed on ${sub.order_number}: ${e.message}`);
+        }
+        for (let i = 0; i < t.indemnities.length; i++) {
+          setProgress(`Indemnity ${i + 1}/${t.indemnities.length} → ${sub.order_number}`);
+          try {
+            await attachDocumentToOrder({ sub, file: t.indemnities[i].file, kind: "indemnity", clientName: cn, addLog });
+            ok += 1;
+          } catch (e: any) {
+            bad += 1;
+            addLog(`Indemnity "${t.indemnities[i].file.name}" failed on ${sub.order_number}: ${e.message}`);
+          }
+        }
+      }
+      write((l) =>
+        l.map((r) =>
+          r.id === rep.id
+            ? { ...r, state: bad && !ok ? "failed" : "done", progress: `${ok} file(s) uploaded${bad ? `, ${bad} failed` : ""}` }
+            : r,
+        ),
+      );
+      if (bad && !ok) toast.error(`${rep.file.name} — nothing could be uploaded`);
+      else toast.success(`${rep.file.name} — ${ok} file(s) uploaded${bad ? `, ${bad} failed` : ""}`);
+      onChanged();
+    })();
+  };
+
+  const remove = (reportId: string) => write((l) => l.filter((r) => r.id !== reportId));
+  const clearDone = () => write((l) => l.filter((r) => r.state !== "done"));
+
+  const stateBadge = (r: RfReport) => {
+    switch (r.state) {
+      case "reading": return <Badge variant="outline" className="text-[10px]">Reading names…</Badge>;
+      case "ready": return <Badge className="bg-emerald-600 text-[10px]">Linked</Badge>;
+      case "unmatched": return <Badge className="bg-amber-500 text-[10px]">Needs an order</Badge>;
+      case "uploading": return <Badge variant="outline" className="text-[10px]">Uploading…</Badge>;
+      case "done": return <Badge className="bg-emerald-600 text-[10px]">Uploaded</Badge>;
+      default: return <Badge variant="destructive" className="text-[10px]">Failed</Badge>;
+    }
+  };
+
+  return (
+    <Card className="p-4 space-y-4">
+      <h3 className="font-semibold flex items-center gap-2">
+        <FileText className="h-4 w-4 text-red-600" /> Reports first — read the names, then add the indemnities
+      </h3>
+      <p className="text-sm text-muted-foreground">
+        Drop a batch of risk assessment reports here. Each report is read, the people on it are matched to
+        their archive order, and you see the submission date so you know which folder it came from. Then drop
+        the matching indemnities under each order and click Approve — the upload runs on its own while you
+        carry on finding the next lot.
+      </p>
+
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); addReports(e.dataTransfer.files); }}
+        onClick={() => reportInput.current?.click()}
+        className={`rounded-md border-2 border-dashed p-6 text-center cursor-pointer transition ${
+          dragOver ? "border-red-600 bg-red-50" : "border-muted-foreground/30"
+        }`}
+      >
+        <Upload className="h-5 w-5 mx-auto mb-2 text-red-600" />
+        <p className="text-sm font-medium">Drop the reports here</p>
+        <p className="text-xs text-muted-foreground">or click to choose them {reading ? "• still reading the last lot…" : ""}</p>
+        <input
+          ref={reportInput}
+          type="file"
+          multiple
+          accept=".pdf,.doc,.docx"
+          className="hidden"
+          onChange={(e) => { addReports(e.target.files); e.currentTarget.value = ""; }}
+        />
+      </div>
+
+      {reports.length > 0 && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">{reports.length} report(s) on the list</p>
+          <Button variant="outline" size="sm" onClick={clearDone}>Clear finished</Button>
+        </div>
+      )}
+
+      {reports.length > 0 && (
+        <div>
+          <Label className="text-xs">Find an order (used by the "link to another order" pickers below)</Label>
+          <Input
+            value={orderSearch}
+            onChange={(e) => setOrderSearch(e.target.value)}
+            placeholder="Store, date or order number"
+            className="h-8 max-w-sm"
+          />
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {reports.map((r) => (
+          <div key={r.id} className="rounded-md border p-3 space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-medium text-sm break-all">{r.file.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {r.folderDate
+                    ? `Submission date from the folder: ${new Date(r.folderDate).toLocaleDateString()}`
+                    : "No submission date on the folder — the date below comes from the linked order"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{r.note}</p>
+                {r.progress && <p className="text-xs text-red-600 mt-1">{r.progress}</p>}
+              </div>
+              <div className="flex items-center gap-2">
+                {stateBadge(r)}
+                {r.state !== "uploading" && (
+                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => remove(r.id)}>Remove</Button>
+                )}
+              </div>
+            </div>
+
+            {r.people.length > 0 && (
+              <div className="text-xs">
+                <p className="font-medium mb-1">Names on this report</p>
+                <div className="flex flex-wrap gap-1">
+                  {r.people.map((p, i) => (
+                    <span
+                      key={i}
+                      className={`rounded px-1.5 py-0.5 border ${
+                        p.found ? "border-emerald-600 text-emerald-700" : "border-amber-500 text-amber-700"
+                      }`}
+                    >
+                      {p.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {r.targets.map((t) => {
+                const sub = orderById(t.orderId);
+                return (
+                  <div key={t.orderId} className="rounded-md bg-muted/40 p-2 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-xs">
+                        <p className="font-medium">{orderLabel(t.orderId)}</p>
+                        <p className="text-muted-foreground">
+                          Submission date {sub ? new Date(sub.created_at).toLocaleDateString() : "—"}
+                          {t.matched ? ` • ${t.matched} of the names on this report belong here` : " • added by hand"}
+                        </p>
+                        {t.names.length > 0 && (
+                          <p className="text-muted-foreground">{t.names.join(", ")}</p>
+                        )}
+                      </div>
+                      {r.state !== "uploading" && r.state !== "done" && (
+                        <Button
+                          variant="ghost" size="sm" className="text-xs"
+                          onClick={() => setTargets(r.id, (list) => list.filter((x) => x.orderId !== t.orderId))}
+                        >
+                          Unlink
+                        </Button>
+                      )}
+                    </div>
+
+                    <div
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => { e.preventDefault(); addIndemnities(r.id, t.orderId, e.dataTransfer.files); }}
+                      className="rounded border border-dashed p-2 text-xs text-center text-muted-foreground"
+                    >
+                      Drop the indemnities for this order here, or{" "}
+                      <label className="text-red-600 cursor-pointer hover:underline">
+                        choose files
+                        <input
+                          type="file" multiple className="hidden"
+                          onChange={(e) => { addIndemnities(r.id, t.orderId, e.target.files); e.currentTarget.value = ""; }}
+                        />
+                      </label>
+                      {t.indemnities.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1 justify-center">
+                          {t.indemnities.map((i) => (
+                            <span key={i.id} className="rounded border bg-background px-1.5 py-0.5">
+                              {i.file.name}
+                              {r.state !== "uploading" && r.state !== "done" && (
+                                <button
+                                  className="ml-1 text-red-600"
+                                  onClick={() =>
+                                    setTargets(r.id, (list) =>
+                                      list.map((x) =>
+                                        x.orderId === t.orderId
+                                          ? { ...x, indemnities: x.indemnities.filter((y) => y.id !== i.id) }
+                                          : x,
+                                      ))
+                                  }
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {r.state !== "uploading" && r.state !== "done" && (
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-full sm:w-80">
+                  <Select value="" onValueChange={(v) => addTarget(r.id, v)}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Link to another order…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {orderOptions.map((s) => (
+                        <SelectItem key={s.id} value={s.id} className="text-xs">
+                          {clientName(s.client_id)} — {new Date(s.created_at).toLocaleDateString()} ({s.order_number})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700"
+                  disabled={r.state === "reading" || r.targets.length === 0}
+                  onClick={() => approve(r)}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-1" /> Approve &amp; upload
+                </Button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export default ArchiveImportTab;
+
