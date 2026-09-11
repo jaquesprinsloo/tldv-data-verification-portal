@@ -87,43 +87,21 @@ export function ArchiveNameReconciliationCard({
   });
 
   // ---- archive people not yet confirmed by any report ----
-  const archiveIds = useMemo(() => submissions.map((s) => s.id), [submissions]);
+  // One shared read of the archive people, grouped per order in the browser,
+  // instead of dozens of separate database requests.
+  const { data: archiveCands = [], refetch: refetchOutstanding } = useArchiveCandidates();
 
-  const { data: outstanding = [], refetch: refetchOutstanding } = useQuery<
-    { submission_id: string; names: string[] }[]
-  >({
-    queryKey: ["mra-archive-unlinked-candidates", archiveIds.length],
-    enabled: archiveIds.length > 0,
-    queryFn: async () => {
-      const byOrder = new Map<string, string[]>();
-      for (let i = 0; i < archiveIds.length; i += 100) {
-        const slice = archiveIds.slice(i, i + 100);
-        let from = 0;
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          const { data, error } = await sb
-            .from("manual_risk_candidates")
-            .select("first_name, surname, id_number, submission_id")
-            .in("submission_id", slice)
-            .is("report_matched_at", null)
-            .range(from, from + 999);
-          if (error) throw error;
-          const rows = (data ?? []) as unknown as {
-            first_name: string | null; surname: string | null; id_number: string | null; submission_id: string;
-          }[];
-          for (const r of rows) {
-            const label = `${r.first_name ?? ""} ${r.surname ?? ""}`.trim() || "(no name)";
-            byOrder.set(r.submission_id, [...(byOrder.get(r.submission_id) ?? []), `${label} — ${r.id_number ?? "?"}`]);
-          }
-          if (rows.length < 1000) break;
-          from += 1000;
-        }
-      }
-      return Array.from(byOrder.entries())
-        .map(([submission_id, names]) => ({ submission_id, names }))
-        .sort((a, b) => b.names.length - a.names.length);
-    },
-  });
+  const outstanding = useMemo(() => {
+    const byOrder = new Map<string, string[]>();
+    for (const r of archiveCands) {
+      if (r.report_matched_at) continue;
+      const label = `${r.first_name ?? ""} ${r.surname ?? ""}`.trim() || "(no name)";
+      byOrder.set(r.submission_id, [...(byOrder.get(r.submission_id) ?? []), `${label} — ${r.id_number ?? "?"}`]);
+    }
+    return Array.from(byOrder.entries())
+      .map(([submission_id, names]) => ({ submission_id, names }))
+      .sort((a, b) => b.names.length - a.names.length);
+  }, [archiveCands]);
 
   const outstandingTotal = outstanding.reduce((n, o) => n + o.names.length, 0);
 
