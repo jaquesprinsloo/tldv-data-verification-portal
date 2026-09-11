@@ -1348,7 +1348,7 @@ function BulkFolderUploadCard({
       while (true) {
         const { data, error } = await sb
           .from("manual_risk_candidates")
-          .select("id_number, first_name, surname, submission_id")
+          .select("id, id_number, first_name, surname, submission_id")
           .in("submission_id", slice)
           .range(from, from + 999);
         if (error) throw error;
@@ -2155,7 +2155,7 @@ async function fetchArchiveCandidates(submissionIds: string[]): Promise<ArchiveC
     while (true) {
       const { data, error } = await sb
         .from("manual_risk_candidates")
-        .select("id_number, first_name, surname, submission_id")
+        .select("id, id_number, first_name, surname, submission_id")
         .in("submission_id", slice)
         .range(from, from + 999);
       if (error) throw error;
