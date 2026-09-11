@@ -871,11 +871,19 @@ export function ArchiveImportTab({
         </>
       )}
 
+      <ArchiveReportAuditCard
+        submissions={archiveSubs}
+        clients={clients}
+        onChanged={() => { refetchArchive(); onChanged(); }}
+        addLog={addLog}
+      />
+
       <ArchiveNameReconciliationCard
         submissions={archiveSubs}
         clients={clients}
         onChanged={() => { refetchArchive(); onChanged(); }}
       />
+
 
       <ReportsFirstUploadCard
         submissions={archiveSubs}
