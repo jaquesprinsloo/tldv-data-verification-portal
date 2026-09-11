@@ -1182,6 +1182,7 @@ function storeFromReportName(fileName: string): string {
 }
 
 type ArchiveCandidateRow = {
+  id?: string;
   id_number: string | null;
   first_name: string | null;
   surname: string | null;
