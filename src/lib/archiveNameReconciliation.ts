@@ -70,18 +70,9 @@ export async function recordUnmatchedReportNames(
     linked_submission_id: e.linkedSubmissionId ?? null,
     raw: (e.raw ?? null) as never,
   }));
-  // Same person on the same report is only ever written once.
-  await sb
-    .from("manual_risk_report_unmatched_names")
-    .upsert(rows as never, { ignoreDuplicates: true, onConflict: "full_name" })
-    .then(
-      () => undefined,
-      async () => {
-        // The unique guard is a lowercase expression index, so a plain insert
-        // may bounce — fall back to inserting them one by one and ignore clashes.
-        for (const r of rows) {
-          await sb.from("manual_risk_report_unmatched_names").insert(r as never);
-        }
-      },
-    );
+  // Same person on the same report is only ever written once — the database
+  // guards that, so a repeat simply bounces and is ignored.
+  for (const r of rows) {
+    await sb.from("manual_risk_report_unmatched_names").insert(r as never);
+  }
 }
