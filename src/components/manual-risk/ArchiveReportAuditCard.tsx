@@ -201,8 +201,8 @@ export function ArchiveReportAuditCard({
 
   };
 
-  const run = async (onlyPending: boolean) => {
-    const list = onlyPending ? pending : withReports;
+  const run = async (scope: "review" | "pending" | "all") => {
+    const list = scope === "review" ? reviewOrders : scope === "pending" ? pending : withReports;
     if (!list.length) { toast.info("Nothing to audit"); return; }
     stop.current = false;
     setRunning(true);
