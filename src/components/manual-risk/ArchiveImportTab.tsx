@@ -2402,6 +2402,87 @@ function ReportsFirstUploadCard({
   const remove = (reportId: string) => write((l) => l.filter((r) => r.id !== reportId));
   const clearDone = () => write((l) => l.filter((r) => r.state !== "done"));
 
+  // ---- files already filed against an order ----
+  const [busyFile, setBusyFile] = useState<string | null>(null);
+
+  const odDelete = async (itemId: string | null | undefined) => {
+    if (!itemId) return;
+    try {
+      const { data, error } = await sb.functions.invoke("upload-manual-risk-to-onedrive", {
+        body: { action: "delete", itemId },
+      });
+      if (error) throw error;
+      if ((data as any)?.success === false) throw new Error((data as any)?.error || "OneDrive delete failed");
+    } catch (e: any) {
+      addLog(`OneDrive copy could not be deleted: ${e.message}`);
+    }
+  };
+
+  const openStored = async (bucket: string, path: string) => {
+    const { data, error } = await sb.storage.from(bucket).createSignedUrl(path, 300);
+    if (error || !data) { toast.error(error?.message ?? "Could not open the file"); return; }
+    window.open(data.signedUrl, "_blank");
+  };
+
+  const deleteExistingReport = async (sub: ArchiveSubmission) => {
+    if (!sub.archive_report_path) return;
+    if (!confirm(`Delete the report "${sub.archive_report_name}" from ${sub.order_number}? You can then upload the correct one.`)) return;
+    setBusyFile(`rep-${sub.id}`);
+    try {
+      await sb.storage.from("archive-reports").remove([sub.archive_report_path]);
+      await odDelete(sub.report_onedrive_item_id);
+      await odDelete(sub.report_shared_onedrive_item_id);
+      const { error } = await sb.from("manual_risk_submissions").update({
+        archive_report_path: null,
+        archive_report_name: null,
+        report_onedrive_web_url: null,
+        report_onedrive_item_id: null,
+        report_onedrive_path: null,
+        report_shared_onedrive_web_url: null,
+        report_shared_onedrive_item_id: null,
+        report_shared_onedrive_path: null,
+      }).eq("id", sub.id);
+      if (error) throw error;
+      (sub as any).archive_report_path = null;
+      (sub as any).archive_report_name = null;
+      (sub as any).report_onedrive_item_id = null;
+      (sub as any).report_shared_onedrive_item_id = null;
+      addLog(`Deleted the report on ${sub.order_number}`);
+      toast.success("Report deleted — upload the correct one and approve");
+      onChanged();
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not delete the report");
+    } finally {
+      setBusyFile(null);
+    }
+  };
+
+  const deleteExistingIndemnity = async (
+    sub: ArchiveSubmission,
+    f: { name: string; path: string; onedrive_item_id?: string | null; shared_onedrive_item_id?: string | null },
+  ) => {
+    if (!confirm(`Delete the indemnity "${f.name}" from ${sub.order_number}?`)) return;
+    setBusyFile(`ind-${f.path}`);
+    try {
+      await sb.storage.from("manual-risk-indemnities").remove([f.path]);
+      await odDelete(f.onedrive_item_id);
+      await odDelete(f.shared_onedrive_item_id);
+      const next = (sub.indemnity_files ?? []).filter((x) => x.path !== f.path);
+      const { error } = await sb.from("manual_risk_submissions")
+        .update({ indemnity_files: next as any }).eq("id", sub.id);
+      if (error) throw error;
+      (sub as any).indemnity_files = next;
+      addLog(`Deleted indemnity "${f.name}" on ${sub.order_number}`);
+      toast.success("Indemnity deleted");
+      onChanged();
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not delete the indemnity");
+    } finally {
+      setBusyFile(null);
+    }
+  };
+
+
   const stateBadge = (r: RfReport) => {
     switch (r.state) {
       case "reading": return <Badge variant="outline" className="text-[10px]">Reading names…</Badge>;
