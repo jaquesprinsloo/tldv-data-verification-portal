@@ -89,12 +89,26 @@ export function ArchiveReportAuditCard({
     [submissions],
   );
 
-  /** An order counts as audited once at least one of its people carries a stamp. */
+  /**
+   * An order only counts as audited once its OWN report file has been read.
+   * A stamp left by another order's report (the same person can appear on
+   * several orders) must not make this order look done, or its report would
+   * never be opened.
+   */
   const auditedOrderIds = useMemo(() => {
+    const byOrderFile = new Map<string, string>();
+    withReports.forEach((s) => {
+      if (s.archive_report_name) byOrderFile.set(s.id, s.archive_report_name.trim().toLowerCase());
+    });
     const set = new Set<string>();
-    (cands ?? []).forEach((c) => { if (c.report_matched_at) set.add(c.submission_id); });
+    (cands ?? []).forEach((c) => {
+      if (!c.report_matched_at || !c.report_matched_file) return;
+      const own = byOrderFile.get(c.submission_id);
+      if (own && own === c.report_matched_file.trim().toLowerCase()) set.add(c.submission_id);
+    });
     return set;
-  }, [cands]);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [cands, withReports]);
 
   const pending = useMemo(
     () => withReports.filter((s) => !auditedOrderIds.has(s.id)),
