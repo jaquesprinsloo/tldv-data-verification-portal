@@ -133,24 +133,43 @@ export function ArchiveReportAuditCard({
     const matchedIds: string[] = [];
     const notFound: typeof records = [];
 
-    for (const r of records) {
+    const score = (r: (typeof records)[number], c: Cand) => {
       const rs = normPersonName(r.surname);
       const rf = normPersonName(r.first_names);
       const prefix = String(r.id_prefix ?? "").replace(/\D/g, "").slice(0, 6);
-      let hit = false;
-      for (const c of all) {
-        const cs = normPersonName(c.surname);
-        const cf = normPersonName(c.first_name);
-        const cp = String(c.id_number ?? "").replace(/\D/g, "").slice(0, 6);
-        const surnameHit = !!rs && !!cs && rs === cs;
-        const firstHit = !!rf && !!cf && (rf === cf || rf.startsWith(cf) || cf.startsWith(rf));
-        const prefixHit = prefix.length === 6 && prefix === cp;
-        if ([surnameHit, firstHit, prefixHit].filter(Boolean).length < 2) continue;
-        hit = true;
-        matchedIds.push(c.id);
+      const cs = normPersonName(c.surname);
+      const cf = normPersonName(c.first_name);
+      const cp = String(c.id_number ?? "").replace(/\D/g, "").slice(0, 6);
+      const surnameHit = !!rs && !!cs && rs === cs;
+      const firstHit = !!rf && !!cf && (rf === cf || rf.startsWith(cf) || cf.startsWith(rf));
+      const prefixHit = prefix.length === 6 && prefix === cp;
+      return { hits: [surnameHit, firstHit, prefixHit].filter(Boolean).length, prefixHit };
+    };
+
+    const ownOrder = all.filter((c) => c.submission_id === sub.id);
+
+    for (const r of records) {
+      // A record with no readable name is not a missing person — it is an
+      // unreadable line and must not be counted either way.
+      if (!normPersonName(r.surname) && !normPersonName(r.first_names)) continue;
+
+      // The person is looked for on this order first. Only when nobody on this
+      // order fits do we look wider, and then only on a single, unambiguous fit
+      // — otherwise namesakes on other orders were all being ticked off.
+      const onOwn = ownOrder.filter((c) => score(r, c).hits >= 2);
+      if (onOwn.length) {
+        onOwn.forEach((c) => matchedIds.push(c.id));
+        continue;
       }
-      if (!hit) notFound.push(r);
+      const wider = all.filter((c) => {
+        const s = score(r, c);
+        return s.hits >= 2 && (s.prefixHit || s.hits === 3);
+      });
+      if (wider.length === 1) { matchedIds.push(wider[0].id); continue; }
+      if (wider.length > 1) continue; // ambiguous — leave for manual review
+      notFound.push(r);
     }
+
 
     await markCandidatesReportMatched(matchedIds, name);
     await recordUnmatchedReportNames(
@@ -175,7 +194,9 @@ export function ArchiveReportAuditCard({
       c.report_matched_file = name;
     });
 
-    return { confirmed: matchedIds.length, missing: notFound.length, records: records.length };
+    // People, not stamps: the same person named twice on one report is one person.
+    return { confirmed: stampSet.size, missing: notFound.length, records: records.length, ids: stampSet };
+
   };
 
   const run = async (onlyPending: boolean) => {
@@ -185,7 +206,8 @@ export function ArchiveReportAuditCard({
     setRunning(true);
     setResult(null);
     const all = cands ? [...cands] : await fetchAllArchiveCandidates();
-    let read = 0, failed = 0, confirmed = 0, missing = 0;
+    let read = 0, failed = 0, missing = 0;
+    const confirmedIds = new Set<string>();
 
     for (let i = 0; i < list.length; i++) {
       if (stop.current) { addLog("Audit stopped."); break; }
@@ -193,7 +215,8 @@ export function ArchiveReportAuditCard({
       setProgress({ done: i, total: list.length, label: `${clientName(sub.client_id)} — ${sub.order_number}` });
       try {
         const r = await auditOne(sub, all);
-        read += 1; confirmed += r.confirmed; missing += r.missing;
+        read += 1; missing += r.missing;
+        r.ids.forEach((id) => confirmedIds.add(id));
         addLog(`Audit ${sub.order_number}: ${r.records} name(s) read • ${r.confirmed} confirmed • ${r.missing} not in the archive`);
       } catch (e: any) {
         failed += 1;
@@ -204,7 +227,8 @@ export function ArchiveReportAuditCard({
 
     setProgress(null);
     setRunning(false);
-    setResult({ read, failed, confirmed, missing });
+    setResult({ read, failed, confirmed: confirmedIds.size, missing });
+
     await load();
     onChanged();
     toast.success(`Audit finished — ${read} report(s) read, ${missing} name(s) not in the archive`);
