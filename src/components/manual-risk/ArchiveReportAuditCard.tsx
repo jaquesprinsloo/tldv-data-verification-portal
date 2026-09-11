@@ -256,14 +256,18 @@ export function ArchiveReportAuditCard({
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Button className="bg-red-600 hover:bg-red-700" disabled={running || !pending.length} onClick={() => void run(true)}>
-          {running ? "Auditing…" : `Audit ${pending.length} outstanding report(s)`}
+        <Button className="bg-red-600 hover:bg-red-700" disabled={running || !reviewOrders.length} onClick={() => void run("review")}>
+          {running ? "Auditing…" : `Audit ${reviewOrders.length} order(s) needing review`}
         </Button>
-        <Button variant="outline" disabled={running || !withReports.length} onClick={() => void run(false)}>
+        <Button variant="outline" disabled={running || !pending.length} onClick={() => void run("pending")}>
+          Audit {pending.length} outstanding report(s)
+        </Button>
+        <Button variant="outline" disabled={running || !withReports.length} onClick={() => void run("all")}>
           Re-audit all {withReports.length}
         </Button>
         {running && <Button variant="outline" onClick={() => { stop.current = true; }}>Stop</Button>}
       </div>
+
     </Card>
   );
 }
