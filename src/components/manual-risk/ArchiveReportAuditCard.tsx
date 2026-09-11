@@ -206,7 +206,8 @@ export function ArchiveReportAuditCard({
     setRunning(true);
     setResult(null);
     const all = cands ? [...cands] : await fetchAllArchiveCandidates();
-    let read = 0, failed = 0, confirmed = 0, missing = 0;
+    let read = 0, failed = 0, missing = 0;
+    const confirmedIds = new Set<string>();
 
     for (let i = 0; i < list.length; i++) {
       if (stop.current) { addLog("Audit stopped."); break; }
@@ -214,7 +215,8 @@ export function ArchiveReportAuditCard({
       setProgress({ done: i, total: list.length, label: `${clientName(sub.client_id)} — ${sub.order_number}` });
       try {
         const r = await auditOne(sub, all);
-        read += 1; confirmed += r.confirmed; missing += r.missing;
+        read += 1; missing += r.missing;
+        r.ids.forEach((id) => confirmedIds.add(id));
         addLog(`Audit ${sub.order_number}: ${r.records} name(s) read • ${r.confirmed} confirmed • ${r.missing} not in the archive`);
       } catch (e: any) {
         failed += 1;
@@ -225,7 +227,8 @@ export function ArchiveReportAuditCard({
 
     setProgress(null);
     setRunning(false);
-    setResult({ read, failed, confirmed, missing });
+    setResult({ read, failed, confirmed: confirmedIds.size, missing });
+
     await load();
     onChanged();
     toast.success(`Audit finished — ${read} report(s) read, ${missing} name(s) not in the archive`);
