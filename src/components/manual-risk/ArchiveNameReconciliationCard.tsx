@@ -416,6 +416,11 @@ export function ArchiveNameReconciliationCard({
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => { setInvestigating(null); setFound(null); }}>Close</Button>
             {investigating && (
+              <Button variant="outline" onClick={() => openReport(investigating)}>
+                View report
+              </Button>
+            )}
+            {investigating && (
               <Button
                 className="bg-red-600 hover:bg-red-700"
                 onClick={() => { const r = investigating; setInvestigating(null); setFound(null); openAdd(r); }}
