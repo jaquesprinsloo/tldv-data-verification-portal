@@ -831,6 +831,8 @@ export type Database = {
           pdp_result: string | null
           qualification_notes: string | null
           qualification_result: string | null
+          report_matched_at: string | null
+          report_matched_file: string | null
           risk_assessment_notes: string | null
           risk_assessment_result: string | null
           sort_order: number
@@ -864,6 +866,8 @@ export type Database = {
           pdp_result?: string | null
           qualification_notes?: string | null
           qualification_result?: string | null
+          report_matched_at?: string | null
+          report_matched_file?: string | null
           risk_assessment_notes?: string | null
           risk_assessment_result?: string | null
           sort_order?: number
@@ -897,6 +901,8 @@ export type Database = {
           pdp_result?: string | null
           qualification_notes?: string | null
           qualification_result?: string | null
+          report_matched_at?: string | null
+          report_matched_file?: string | null
           risk_assessment_notes?: string | null
           risk_assessment_result?: string | null
           sort_order?: number
@@ -1093,6 +1099,81 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      manual_risk_report_unmatched_names: {
+        Row: {
+          created_at: string
+          first_names: string | null
+          full_name: string
+          id: string
+          id_prefix: string | null
+          linked_submission_id: string | null
+          notes: string | null
+          raw: Json | null
+          report_date: string | null
+          report_file_name: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_by_name: string | null
+          resolved_candidate_id: string | null
+          status: string
+          store_label: string | null
+          surname: string | null
+        }
+        Insert: {
+          created_at?: string
+          first_names?: string | null
+          full_name: string
+          id?: string
+          id_prefix?: string | null
+          linked_submission_id?: string | null
+          notes?: string | null
+          raw?: Json | null
+          report_date?: string | null
+          report_file_name: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_by_name?: string | null
+          resolved_candidate_id?: string | null
+          status?: string
+          store_label?: string | null
+          surname?: string | null
+        }
+        Update: {
+          created_at?: string
+          first_names?: string | null
+          full_name?: string
+          id?: string
+          id_prefix?: string | null
+          linked_submission_id?: string | null
+          notes?: string | null
+          raw?: Json | null
+          report_date?: string | null
+          report_file_name?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_by_name?: string | null
+          resolved_candidate_id?: string | null
+          status?: string
+          store_label?: string | null
+          surname?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_risk_report_unmatched_names_linked_submission_id_fkey"
+            columns: ["linked_submission_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_risk_report_unmatched_names_resolved_candidate_id_fkey"
+            columns: ["resolved_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_candidates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       manual_risk_sanctions_entries: {
         Row: {
