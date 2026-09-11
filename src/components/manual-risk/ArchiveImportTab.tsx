@@ -2386,21 +2386,24 @@ function ReportsFirstUploadCard({
           }
         }
       }
-      write((l) =>
-        l.map((r) =>
-          r.id === rep.id
-            ? { ...r, state: bad && !ok ? "failed" : "done", progress: `${ok} file(s) uploaded${bad ? `, ${bad} failed` : ""}` }
-            : r,
-        ),
-      );
-      if (bad && !ok) toast.error(`${rep.file.name} — nothing could be uploaded`);
-      else toast.success(`${rep.file.name} — ${ok} file(s) uploaded${bad ? `, ${bad} failed` : ""}`);
+      if (bad && !ok) {
+        write((l) =>
+          l.map((r) =>
+            r.id === rep.id
+              ? { ...r, state: "failed", progress: `${ok} file(s) uploaded, ${bad} failed` }
+              : r,
+          ),
+        );
+        toast.error(`${rep.file.name} — nothing could be uploaded`);
+      } else {
+        write((l) => l.filter((r) => r.id !== rep.id));
+        toast.success(`${rep.file.name} — ${ok} file(s) uploaded${bad ? `, ${bad} failed` : ""}`);
+      }
       onChanged();
     })();
   };
 
   const remove = (reportId: string) => write((l) => l.filter((r) => r.id !== reportId));
-  const clearDone = () => write((l) => l.filter((r) => r.state !== "done"));
 
   // ---- files already filed against an order ----
   const [busyFile, setBusyFile] = useState<string | null>(null);
@@ -2505,6 +2508,7 @@ function ReportsFirstUploadCard({
         the matching indemnities under each order and click Approve — the upload runs on its own while you
         carry on finding the next lot. If the order already has the right indemnities on record, you do not
         need to add them again; Approve will attach the report and leave the existing documents in place.
+        Once a report is successfully approved it disappears from this list.
       </p>
 
       <div
@@ -2530,10 +2534,7 @@ function ReportsFirstUploadCard({
       </div>
 
       {reports.length > 0 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">{reports.length} report(s) on the list</p>
-          <Button variant="outline" size="sm" onClick={clearDone}>Clear finished</Button>
-        </div>
+        <p className="text-xs text-muted-foreground">{reports.length} report(s) on the list</p>
       )}
 
       {reports.length > 0 && (
