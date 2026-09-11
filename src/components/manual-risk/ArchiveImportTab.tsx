@@ -1338,12 +1338,12 @@ function ArchiveDocumentsCard({
 
   /** An order is finished once it has its report and at least one indemnity. */
   const isComplete = (s: ArchiveSubmission) =>
-    !!s.archive_report_path && (s.indemnity_files ?? []).length > 0;
+    hasArchiveReport(s) && (s.indemnity_files ?? []).length > 0;
 
   const counts = useMemo(() => {
     let noReport = 0, noIndemnity = 0, neither = 0, complete = 0;
     for (const s of submissions) {
-      const hasR = !!s.archive_report_path;
+      const hasR = hasArchiveReport(s);
       const hasI = (s.indemnity_files ?? []).length > 0;
       if (hasR && hasI) complete += 1;
       else {
@@ -1372,40 +1372,17 @@ function ArchiveDocumentsCard({
       toast.info("Master indemnity files are not attached — upload the individual indemnities instead");
       return;
     }
-    if (sub.archive_report_path && sub.archive_report_name === file.name) {
+    if (archiveReportNameSet(sub).has(file.name.trim().toLowerCase())) {
       toast.info("That report is already attached to this order");
       return;
     }
 
     setBusy(sub.id);
     try {
-      const path = `${sub.id}/${file.name}`;
-
-      const { error: upErr } = await sb.storage
-        .from("archive-reports")
-        .upload(path, file, { upsert: true, contentType: file.type || "application/pdf" });
-      if (upErr) throw upErr;
-      const { error } = await sb.from("manual_risk_submissions")
-        .update({ archive_report_path: path, archive_report_name: file.name } as any)
-        .eq("id", sub.id);
-      if (error) throw error;
-      addLog(`Report attached to ${sub.order_number}: ${file.name}`);
-      toast.success("Report attached — reading outcomes…");
-
-      // Read the ID Verification / Risk Assessment outcomes off the original
-      // report and apply the same rules the live reports use.
-      try {
-        const res = await applyArchiveReportOutcomes(sub.id, file, file.name);
-        addLog(
-          `Outcomes for ${sub.order_number}: ${res.matched} candidate(s) populated from ${res.records} report record(s)` +
-            (res.unmatched.length ? ` • not matched: ${res.unmatched.join(", ")}` : ""),
-        );
-        if (res.matched) toast.success(`${res.matched} candidate outcome(s) captured from the report`);
-        else toast.warning("No candidate on this order matched the report — outcomes were not filled in");
-      } catch (e: any) {
-        addLog(`Outcome extraction failed for ${sub.order_number}: ${e.message}`);
-        toast.warning("Report attached, but outcomes could not be read: " + e.message);
-      }
+      await attachDocumentToOrder({
+        sub, file, kind: "report", clientName: clientName(sub.client_id), addLog,
+      });
+      toast.success("Report attached and read");
       onChanged();
     } catch (e: any) {
       toast.error("Report upload failed: " + e.message);
@@ -1531,8 +1508,8 @@ function ArchiveDocumentsCard({
                 <TableCell>{clientName(s.client_id)}</TableCell>
                 <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
                 <TableCell>
-                  {s.archive_report_path
-                    ? <Badge className="bg-emerald-600 text-[10px]">Attached</Badge>
+                  {hasArchiveReport(s)
+                    ? <Badge className="bg-emerald-600 text-[10px]">{archiveReportFiles(s).length} attached</Badge>
                     : <Badge variant="outline" className="text-[10px]">Missing</Badge>}
                 </TableCell>
                 <TableCell>{(s.indemnity_files ?? []).length}</TableCell>
@@ -2846,29 +2823,35 @@ function ReportsFirstUploadCard({
     window.open(data.signedUrl, "_blank");
   };
 
-  const deleteExistingReport = async (sub: ArchiveSubmission) => {
-    if (!sub.archive_report_path) return;
-    if (!confirm(`Delete the report "${sub.archive_report_name}" from ${sub.order_number}? You can then upload the correct one.`)) return;
-    setBusyFile(`rep-${sub.id}`);
+  const deleteExistingReport = async (
+    sub: ArchiveSubmission,
+    target: { path: string; name: string; onedrive_item_id?: string | null; shared_onedrive_item_id?: string | null },
+  ) => {
+    if (!confirm(`Delete the report "${target.name}" from ${sub.order_number}? You can then upload the correct one.`)) return;
+    setBusyFile(`rep-${target.path}`);
     try {
-      await sb.storage.from("archive-reports").remove([sub.archive_report_path]);
-      await odDelete(sub.report_onedrive_item_id);
-      await odDelete(sub.report_shared_onedrive_item_id);
+      await sb.storage.from("archive-reports").remove([target.path]);
+      await odDelete(target.onedrive_item_id);
+      await odDelete(target.shared_onedrive_item_id);
+      const remaining = archiveReportFiles(sub).filter((f) => f.path !== target.path);
+      const primary = remaining[0] ?? null;
       const { error } = await sb.from("manual_risk_submissions").update({
-        archive_report_path: null,
-        archive_report_name: null,
+        archive_report_files: remaining as any,
+        archive_report_path: primary?.path ?? null,
+        archive_report_name: primary?.name ?? null,
         report_onedrive_web_url: null,
-        report_onedrive_item_id: null,
+        report_onedrive_item_id: primary?.onedrive_item_id ?? null,
         report_onedrive_path: null,
         report_shared_onedrive_web_url: null,
-        report_shared_onedrive_item_id: null,
+        report_shared_onedrive_item_id: primary?.shared_onedrive_item_id ?? null,
         report_shared_onedrive_path: null,
-      }).eq("id", sub.id);
+      } as any).eq("id", sub.id);
       if (error) throw error;
-      (sub as any).archive_report_path = null;
-      (sub as any).archive_report_name = null;
-      (sub as any).report_onedrive_item_id = null;
-      (sub as any).report_shared_onedrive_item_id = null;
+      (sub as any).archive_report_files = remaining;
+      (sub as any).archive_report_path = primary?.path ?? null;
+      (sub as any).archive_report_name = primary?.name ?? null;
+      (sub as any).report_onedrive_item_id = primary?.onedrive_item_id ?? null;
+      (sub as any).report_shared_onedrive_item_id = primary?.shared_onedrive_item_id ?? null;
       addLog(`Deleted the report on ${sub.order_number}`);
       toast.success("Report deleted — upload the correct one and approve");
       onChanged();
@@ -2984,7 +2967,7 @@ function ReportsFirstUploadCard({
                     : "No submission date on the folder — the date below comes from the linked order"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">{r.note}</p>
-                {r.targets.some((t) => orderById(t.orderId)?.archive_report_path) && (
+                {r.targets.some((t) => hasArchiveReport(orderById(t.orderId))) && (
                   <p className="text-xs text-amber-700 mt-1">
                     A report is already on record for one of the linked orders — check it below before approving.
                   </p>
@@ -3044,30 +3027,30 @@ function ReportsFirstUploadCard({
                       )}
                     </div>
 
-                    {sub && (sub.archive_report_path || (sub.indemnity_files ?? []).length > 0) && (
+                    {sub && (hasArchiveReport(sub) || (sub.indemnity_files ?? []).length > 0) && (
                       <div className="rounded border border-amber-400 bg-amber-50 p-2 space-y-1.5 text-xs">
                         <p className="flex items-center gap-1 font-medium text-amber-800">
                           <AlertTriangle className="h-3.5 w-3.5" />
                           This order already has documents on record — they will stay attached unless you delete them. Click to review, and delete any that are wrong before you approve.
                         </p>
-                        {sub.archive_report_path && (
-                          <div className="flex flex-wrap items-center gap-2">
+                        {archiveReportFiles(sub).map((reportFile) => (
+                          <div key={reportFile.path} className="flex flex-wrap items-center gap-2">
                             <span className="text-muted-foreground">Report:</span>
                             <button
                               className="text-red-700 underline break-all text-left"
-                              onClick={() => openStored("archive-reports", sub.archive_report_path!)}
+                              onClick={() => openStored("archive-reports", reportFile.path)}
                             >
-                              {sub.archive_report_name || "View report"}
+                              {reportFile.name}
                             </button>
                             <Button
                               variant="ghost" size="sm" className="h-6 px-2 text-xs text-red-700"
-                              disabled={busyFile === `rep-${sub.id}`}
-                              onClick={() => deleteExistingReport(sub)}
+                              disabled={busyFile === `rep-${reportFile.path}`}
+                              onClick={() => deleteExistingReport(sub, reportFile)}
                             >
-                              {busyFile === `rep-${sub.id}` ? "Deleting…" : "Delete"}
+                              {busyFile === `rep-${reportFile.path}` ? "Deleting…" : "Delete"}
                             </Button>
                           </div>
-                        )}
+                        ))}
                         {(sub.indemnity_files ?? []).length > 0 && (
                           <div className="space-y-1">
                             <span className="text-muted-foreground">
@@ -3092,9 +3075,9 @@ function ReportsFirstUploadCard({
                             ))}
                           </div>
                         )}
-                        {sub.archive_report_path && (
+                        {hasArchiveReport(sub) && (
                           <p className="text-amber-800">
-                            A new report is only taken on once the one above is deleted.
+                            A new report is added alongside the one(s) above — delete only what is wrong.
                           </p>
                         )}
                       </div>
