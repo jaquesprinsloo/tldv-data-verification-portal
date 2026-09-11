@@ -2759,8 +2759,12 @@ function ReportsFirstUploadCard({
 
 
                     <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => { e.preventDefault(); addIndemnities(r.id, t.orderId, e.dataTransfer.files); }}
+                      onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "copy"; }}
+                      onDrop={(e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        filesFromDrop(e.dataTransfer).then((files) => addIndemnities(r.id, t.orderId, files));
+                      }}
                       className="rounded border border-dashed p-2 text-xs text-center text-muted-foreground"
                     >
                       Drop the indemnities for this order here, or{" "}
