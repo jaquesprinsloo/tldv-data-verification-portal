@@ -2240,6 +2240,8 @@ function ReportsFirstUploadCard({
     const tally = new Map<string, number>();
     const namesByOrder = new Map<string, string[]>();
     const people: { name: string; found: boolean }[] = [];
+    const matchedCandidateIds: string[] = [];
+    const notInArchive: typeof records = [];
 
     for (const r of records) {
       const rs = normPersonName(r.surname);
@@ -2256,15 +2258,36 @@ function ReportsFirstUploadCard({
         const prefixHit = prefix.length === 6 && prefix === cPrefix;
         if ([surnameHit, firstHit, prefixHit].filter(Boolean).length < 2) continue;
         hitOrders.add(c.submission_id);
+        if (c.id) matchedCandidateIds.push(c.id);
       }
       for (const id of hitOrders) {
         tally.set(id, (tally.get(id) ?? 0) + 1);
         namesByOrder.set(id, [...(namesByOrder.get(id) ?? []), name]);
       }
       people.push({ name, found: hitOrders.size > 0 });
+      if (!hitOrders.size) notInArchive.push(r);
     }
 
     const ranked = Array.from(tally.entries()).sort((a, b) => b[1] - a[1]);
+
+    // Everyone this report confirmed drops off the "waiting for a report" list,
+    // and everyone it names who is nowhere in the archive is written down for
+    // investigation.
+    void markCandidatesReportMatched(matchedCandidateIds, rep.file.name);
+    void recordUnmatchedReportNames(
+      notInArchive.map((r) => ({
+        fullName: `${r.first_names ?? ""} ${r.surname ?? ""}`.trim() || "(name unreadable)",
+        firstNames: r.first_names ?? null,
+        surname: r.surname ?? null,
+        idPrefix: String(r.id_prefix ?? "").replace(/\D/g, "").slice(0, 6) || null,
+        reportFileName: rep.file.name,
+        reportDate: rep.folderDate,
+        storeLabel: storeFromReportName(rep.file.name) || null,
+        linkedSubmissionId: ranked[0]?.[0] ?? null,
+        raw: r,
+      })),
+    );
+
     if (!ranked.length) {
       const note = `${records.length} name(s) read, but none of them are on an archive order — pick the order by hand`;
       addLog(`"${rep.file.name}": ${note}`);
