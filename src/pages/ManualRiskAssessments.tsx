@@ -493,7 +493,7 @@ export default function ManualRiskAssessments() {
       .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_submissions" }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_candidates" }, bump)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { if (timer) clearTimeout(timer); supabase.removeChannel(channel); };
   }, [allowed, qc]);
 
 
