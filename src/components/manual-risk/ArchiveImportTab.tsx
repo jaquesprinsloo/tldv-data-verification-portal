@@ -2404,7 +2404,6 @@ function ReportsFirstUploadCard({
   };
 
   const remove = (reportId: string) => write((l) => l.filter((r) => r.id !== reportId));
-  const clearDone = () => write((l) => l.filter((r) => r.state !== "done"));
 
   // ---- files already filed against an order ----
   const [busyFile, setBusyFile] = useState<string | null>(null);
