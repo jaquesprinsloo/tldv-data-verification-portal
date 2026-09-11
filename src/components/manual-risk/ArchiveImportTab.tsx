@@ -17,6 +17,8 @@ import {
 import { Upload, FileSpreadsheet, FolderOpen, CheckCircle2, AlertTriangle, FileText } from "lucide-react";
 import { applyArchiveReportOutcomes, extractArchiveReportRecords, normPersonName } from "@/lib/archiveReportOutcomes";
 import { ArchiveOneDriveBackfillCard } from "@/components/manual-risk/ArchiveOneDriveBackfillCard";
+import { ArchiveNameReconciliationCard } from "@/components/manual-risk/ArchiveNameReconciliationCard";
+import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/archiveNameReconciliation";
 
 
 /**
@@ -868,6 +870,12 @@ export function ArchiveImportTab({
           </Card>
         </>
       )}
+
+      <ArchiveNameReconciliationCard
+        submissions={archiveSubs}
+        clients={clients}
+        onChanged={() => { refetchArchive(); onChanged(); }}
+      />
 
       <ReportsFirstUploadCard
         submissions={archiveSubs}
