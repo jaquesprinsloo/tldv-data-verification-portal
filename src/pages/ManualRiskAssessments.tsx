@@ -457,16 +457,34 @@ export default function ManualRiskAssessments() {
     })();
   }, [navigate]);
 
+  // Only the fields the screens actually use are read — asking for every column
+  // made this the slowest request in the app and it was being cancelled by the
+  // database under load.
+  const SUBMISSION_COLS =
+    "id, order_number, client_id, submission_type, status, notes, created_at, requested_checks, " +
+    "sent_at, sent_to_supplier_at, compliance_flag, invoiced_at, invoice_number, invoice_file_path, " +
+    "indemnity_files, report_onedrive_web_url, report_onedrive_item_id, report_onedrive_path, " +
+    "report_shared_onedrive_web_url, report_shared_onedrive_item_id, report_shared_onedrive_path, " +
+    "supplier_report_files, recipients, is_archive, archive_batch_label, archive_report_path, archive_report_name";
+
   const { data: submissions = [] } = useQuery({
     queryKey: ["mra-submissions"],
     enabled: !!allowed,
+    staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await sb
-        .from("manual_risk_submissions")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as Submission[];
+      const all: Submission[] = [];
+      for (let from = 0; ; from += 500) {
+        const { data, error } = await sb
+          .from("manual_risk_submissions")
+          .select(SUBMISSION_COLS)
+          .order("created_at", { ascending: false })
+          .range(from, from + 499);
+        if (error) throw error;
+        const rows = (data ?? []) as unknown as Submission[];
+        all.push(...rows);
+        if (rows.length < 500) break;
+      }
+      return all;
     },
   });
 
