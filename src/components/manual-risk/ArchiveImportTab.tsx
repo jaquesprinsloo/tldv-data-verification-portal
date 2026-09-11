@@ -2587,9 +2587,13 @@ function ReportsFirstUploadCard({
       </p>
 
       <div
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); addReports(e.dataTransfer.files); }}
+        onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
+        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "copy"; setDragOver(true); }}
+        onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+        onDrop={(e) => {
+          e.preventDefault(); e.stopPropagation(); setDragOver(false);
+          filesFromDrop(e.dataTransfer).then((files) => addReports(files));
+        }}
         onClick={() => reportInput.current?.click()}
         className={`rounded-md border-2 border-dashed p-6 text-center cursor-pointer transition ${
           dragOver ? "border-red-600 bg-red-50" : "border-muted-foreground/30"
