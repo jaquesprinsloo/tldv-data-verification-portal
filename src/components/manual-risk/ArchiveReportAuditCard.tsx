@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { supabase as sb } from "@/integrations/supabase/client";
 import { extractArchiveReportRecords, normPersonName } from "@/lib/archiveReportOutcomes";
 import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/archiveNameReconciliation";
+import { fetchArchiveCandidates } from "@/lib/archiveCandidatesQuery";
 
 type AuditSubmission = {
   id: string;
@@ -34,24 +35,8 @@ type Cand = {
   report_matched_file: string | null;
 };
 
-async function fetchAllArchiveCandidates(): Promise<Cand[]> {
-  const out: Cand[] = [];
-  let from = 0;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { data, error } = await sb
-      .from("manual_risk_candidates")
-      .select("id, id_number, first_name, surname, submission_id, report_matched_at, report_matched_file, manual_risk_submissions!inner(is_archive)")
-      .eq("manual_risk_submissions.is_archive", true)
-      .range(from, from + 999);
-    if (error) throw error;
-    const rows = (data ?? []) as unknown as Cand[];
-    out.push(...rows);
-    if (rows.length < 1000) break;
-    from += 1000;
-  }
-  return out;
-}
+const fetchAllArchiveCandidates = (): Promise<Cand[]> =>
+  fetchArchiveCandidates() as unknown as Promise<Cand[]>;
 
 export function ArchiveReportAuditCard({
   submissions, clients, onChanged, addLog,
