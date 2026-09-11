@@ -34,6 +34,40 @@ import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/a
  * the working submission queue, invoicing and profitability.
  */
 
+/** Collect dropped files, walking into folders when the browser allows it. */
+async function filesFromDrop(dt: DataTransfer): Promise<File[]> {
+  const items = dt.items ? Array.from(dt.items) : [];
+  const entries = items
+    .map((it) => (typeof (it as any).webkitGetAsEntry === "function" ? (it as any).webkitGetAsEntry() : null))
+    .filter(Boolean);
+
+  if (entries.length === 0) return Array.from(dt.files || []);
+
+  const out: File[] = [];
+  const readDir = (dirReader: any): Promise<any[]> =>
+    new Promise((res) => dirReader.readEntries((e: any[]) => res(e || []), () => res([])));
+
+  const walk = async (entry: any): Promise<void> => {
+    if (!entry) return;
+    if (entry.isFile) {
+      const file: File | null = await new Promise((res) => entry.file((f: File) => res(f), () => res(null)));
+      if (file) out.push(file);
+      return;
+    }
+    if (entry.isDirectory) {
+      const reader = entry.createReader();
+      let batch = await readDir(reader);
+      while (batch.length > 0) {
+        for (const child of batch) await walk(child);
+        batch = await readDir(reader);
+      }
+    }
+  };
+
+  for (const e of entries) await walk(e);
+  return out.length > 0 ? out : Array.from(dt.files || []);
+}
+
 const ARCHIVE_CONTACT = "Ntombi";
 const ARCHIVE_EMAIL = "hradmin1@cashcrusaders.co.za";
 const ARCHIVE_CC = "admin@tldv.co.za";
@@ -2553,9 +2587,13 @@ function ReportsFirstUploadCard({
       </p>
 
       <div
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); addReports(e.dataTransfer.files); }}
+        onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
+        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "copy"; setDragOver(true); }}
+        onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+        onDrop={(e) => {
+          e.preventDefault(); e.stopPropagation(); setDragOver(false);
+          filesFromDrop(e.dataTransfer).then((files) => addReports(files));
+        }}
         onClick={() => reportInput.current?.click()}
         className={`rounded-md border-2 border-dashed p-6 text-center cursor-pointer transition ${
           dragOver ? "border-red-600 bg-red-50" : "border-muted-foreground/30"
@@ -2721,8 +2759,12 @@ function ReportsFirstUploadCard({
 
 
                     <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => { e.preventDefault(); addIndemnities(r.id, t.orderId, e.dataTransfer.files); }}
+                      onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = "copy"; }}
+                      onDrop={(e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        filesFromDrop(e.dataTransfer).then((files) => addIndemnities(r.id, t.orderId, files));
+                      }}
                       className="rounded border border-dashed p-2 text-xs text-center text-muted-foreground"
                     >
                       Drop the indemnities for this order here, or{" "}
