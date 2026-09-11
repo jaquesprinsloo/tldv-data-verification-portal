@@ -253,6 +253,7 @@ export function ArchiveReportAuditCard({
         <Badge variant="outline" className="text-amber-600 border-amber-300">{pending.length} still to audit</Badge>
         <Badge variant="outline" className="text-green-700 border-green-300">{confirmedPeople} people confirmed by a report</Badge>
         <Badge variant="outline" className="text-amber-700 border-amber-300">{waitingPeople} people still waiting for a report</Badge>
+        <Badge variant="outline" className="text-amber-700 border-amber-300">{reviewOrders.length} order(s) needing review</Badge>
         <Badge variant="outline" className="text-red-600 border-red-300">{unmatchedTotal} name(s) on a report but not in the archive</Badge>
       </div>
 
