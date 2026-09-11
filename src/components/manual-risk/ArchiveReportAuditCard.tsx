@@ -15,6 +15,7 @@ import { supabase as sb } from "@/integrations/supabase/client";
 import { extractArchiveReportRecords, matchArchivePerson, normPersonName } from "@/lib/archiveReportOutcomes";
 import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/archiveNameReconciliation";
 import { fetchArchiveCandidates } from "@/lib/archiveCandidatesQuery";
+import { archiveReportFiles, archiveReportNameSet, hasArchiveReport } from "@/lib/archiveReportFiles";
 
 type AuditSubmission = {
   id: string;
@@ -23,6 +24,7 @@ type AuditSubmission = {
   created_at: string;
   archive_report_path: string | null;
   archive_report_name: string | null;
+  archive_report_files?: { path: string; name: string }[] | null;
 };
 
 type Cand = {
@@ -71,7 +73,7 @@ export function ArchiveReportAuditCard({
   useEffect(() => { void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const withReports = useMemo(
-    () => submissions.filter((s) => !!s.archive_report_path),
+    () => submissions.filter((s) => hasArchiveReport(s)),
     [submissions],
   );
 
@@ -82,15 +84,13 @@ export function ArchiveReportAuditCard({
    * never be opened.
    */
   const auditedOrderIds = useMemo(() => {
-    const byOrderFile = new Map<string, string>();
-    withReports.forEach((s) => {
-      if (s.archive_report_name) byOrderFile.set(s.id, s.archive_report_name.trim().toLowerCase());
-    });
+    const byOrderFiles = new Map<string, Set<string>>();
+    withReports.forEach((s) => byOrderFiles.set(s.id, archiveReportNameSet(s)));
     const set = new Set<string>();
     (cands ?? []).forEach((c) => {
       if (!c.report_matched_at || !c.report_matched_file) return;
-      const own = byOrderFile.get(c.submission_id);
-      if (own && own === c.report_matched_file.trim().toLowerCase()) set.add(c.submission_id);
+      const own = byOrderFiles.get(c.submission_id);
+      if (own?.has(c.report_matched_file.trim().toLowerCase())) set.add(c.submission_id);
     });
     return set;
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
@@ -119,15 +119,16 @@ export function ArchiveReportAuditCard({
   const waitingPeople = (cands ?? []).length - confirmedPeople;
 
 
-  const auditOne = async (sub: AuditSubmission, all: Cand[]) => {
+  /** Reads one report file on an order and stamps the people it names. */
+  const auditFile = async (sub: AuditSubmission, reportFile: { path: string; name: string }, all: Cand[]) => {
     const { data: signed, error: sErr } = await sb.storage
       .from("archive-reports")
-      .createSignedUrl(sub.archive_report_path!, 300);
+      .createSignedUrl(reportFile.path, 300);
     if (sErr || !signed?.signedUrl) throw new Error(sErr?.message || "report could not be opened");
     const res = await fetch(signed.signedUrl);
     if (!res.ok) throw new Error(`report download failed (${res.status})`);
     const blob = await res.blob();
-    const name = sub.archive_report_name || "report.pdf";
+    const name = reportFile.name || "report.pdf";
     const file = new File([blob], name, { type: blob.type || "application/pdf" });
 
     let records: Awaited<ReturnType<typeof extractArchiveReportRecords>> = [];
@@ -199,6 +200,30 @@ export function ArchiveReportAuditCard({
     // People, not stamps: the same person named twice on one report is one person.
     return { confirmed: stampSet.size, missing: notFound.length, records: records.length, ids: stampSet };
 
+  };
+
+  /**
+   * An order can hold several reports — the batch report plus reports issued
+   * separately for individual people. Every one of them is read.
+   */
+  const auditOne = async (sub: AuditSubmission, all: Cand[]) => {
+    const files = archiveReportFiles(sub);
+    let records = 0, missing = 0;
+    const ids = new Set<string>();
+    const failures: string[] = [];
+    for (const f of files) {
+      try {
+        const r = await auditFile(sub, f, all);
+        records += r.records;
+        missing += r.missing;
+        r.ids.forEach((id) => ids.add(id));
+      } catch (e: any) {
+        failures.push(`${f.name}: ${e.message}`);
+      }
+    }
+    if (failures.length === files.length) throw new Error(failures.join(" • "));
+    if (failures.length) addLog(`Some reports on ${sub.order_number} could not be read — ${failures.join(" • ")}`);
+    return { confirmed: ids.size, missing, records, ids };
   };
 
   const run = async (scope: "review" | "pending" | "all") => {

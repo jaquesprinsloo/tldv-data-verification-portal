@@ -21,6 +21,7 @@ import { ArchiveNameReconciliationCard } from "@/components/manual-risk/ArchiveN
 import { ArchiveReportAuditCard } from "@/components/manual-risk/ArchiveReportAuditCard";
 import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/archiveNameReconciliation";
 import { ARCHIVE_CANDIDATES_KEY, useArchiveCandidates } from "@/lib/archiveCandidatesQuery";
+import { archiveReportFiles, archiveReportNameSet, hasArchiveReport } from "@/lib/archiveReportFiles";
 
 
 /**
@@ -102,6 +103,13 @@ type ArchiveSubmission = {
   archive_batch_label: string | null;
   archive_report_path: string | null;
   archive_report_name: string | null;
+  archive_report_files?: {
+    path: string;
+    name: string;
+    uploaded_at?: string | null;
+    onedrive_item_id?: string | null;
+    shared_onedrive_item_id?: string | null;
+  }[] | null;
   report_onedrive_web_url?: string | null;
   report_onedrive_item_id?: string | null;
   report_onedrive_path?: string | null;
@@ -313,7 +321,8 @@ async function attachDocumentToOrder(args: {
   const contentType = file.type || "application/octet-stream";
 
   if (kind === "report") {
-    if ((sub as any).archive_report_name === file.name && (sub as any).archive_report_path) {
+    const onRecord = archiveReportFiles(sub);
+    if (onRecord.some((f) => f.name.trim().toLowerCase() === file.name.trim().toLowerCase())) {
       addLog(`Skipped "${file.name}" — report already on ${sub.order_number}`);
       return;
     }
@@ -354,26 +363,44 @@ async function attachDocumentToOrder(args: {
       addLog(`Client-shared OneDrive copy failed for report ${file.name}: ${e.message}`);
     }
 
-    const update: any = {
-      archive_report_path: path,
-      archive_report_name: file.name,
-      report_onedrive_web_url,
-      report_onedrive_item_id,
-      report_onedrive_path,
-      report_shared_onedrive_web_url,
-      report_shared_onedrive_item_id,
-      report_shared_onedrive_path,
-    };
+    // An order may carry several reports (a batch report plus reports issued
+    // separately for individual people), so the new file is added to the list
+    // instead of replacing what is already there.
+    const nextFiles = [
+      ...onRecord,
+      {
+        path,
+        name: file.name,
+        uploaded_at: new Date().toISOString(),
+        onedrive_item_id: report_onedrive_item_id,
+        shared_onedrive_item_id: report_shared_onedrive_item_id,
+      },
+    ];
+    const isFirst = onRecord.length === 0;
+    const update: any = { archive_report_files: nextFiles };
+    if (isFirst) {
+      update.archive_report_path = path;
+      update.archive_report_name = file.name;
+      update.report_onedrive_web_url = report_onedrive_web_url;
+      update.report_onedrive_item_id = report_onedrive_item_id;
+      update.report_onedrive_path = report_onedrive_path;
+      update.report_shared_onedrive_web_url = report_shared_onedrive_web_url;
+      update.report_shared_onedrive_item_id = report_shared_onedrive_item_id;
+      update.report_shared_onedrive_path = report_shared_onedrive_path;
+    }
     const { error } = await sb.from("manual_risk_submissions").update(update).eq("id", sub.id);
     if (error) throw error;
-    (sub as any).archive_report_path = path;
-    (sub as any).archive_report_name = file.name;
-    (sub as any).report_onedrive_web_url = report_onedrive_web_url;
-    (sub as any).report_onedrive_item_id = report_onedrive_item_id;
-    (sub as any).report_onedrive_path = report_onedrive_path;
-    (sub as any).report_shared_onedrive_web_url = report_shared_onedrive_web_url;
-    (sub as any).report_shared_onedrive_item_id = report_shared_onedrive_item_id;
-    (sub as any).report_shared_onedrive_path = report_shared_onedrive_path;
+    (sub as any).archive_report_files = nextFiles;
+    if (isFirst) {
+      (sub as any).archive_report_path = path;
+      (sub as any).archive_report_name = file.name;
+      (sub as any).report_onedrive_web_url = report_onedrive_web_url;
+      (sub as any).report_onedrive_item_id = report_onedrive_item_id;
+      (sub as any).report_onedrive_path = report_onedrive_path;
+      (sub as any).report_shared_onedrive_web_url = report_shared_onedrive_web_url;
+      (sub as any).report_shared_onedrive_item_id = report_shared_onedrive_item_id;
+      (sub as any).report_shared_onedrive_path = report_shared_onedrive_path;
+    }
 
     try {
       const res = await applyArchiveReportOutcomes(sub.id, file, file.name);
@@ -481,7 +508,7 @@ export function ArchiveImportTab({
         .from("manual_risk_submissions")
         .select(`
           id, order_number, client_id, created_at, archive_batch_label,
-          archive_report_path, archive_report_name,
+          archive_report_path, archive_report_name, archive_report_files,
           report_onedrive_web_url, report_onedrive_item_id, report_onedrive_path,
           report_shared_onedrive_web_url, report_shared_onedrive_item_id, report_shared_onedrive_path,
           indemnity_files
@@ -999,9 +1026,11 @@ function ArchiveAffectedChecksCard({
     const q = search.trim().toLowerCase();
     return submissions
       .map((submission) => {
-        const currentReport = normFile(submission.archive_report_name);
+        // An order can hold several reports; a person counts as confirmed when
+        // any report on their own order names them.
+        const reportNames = archiveReportNameSet(submission);
         const people = (byOrder.get(submission.id) ?? []).filter((candidate) =>
-          !currentReport || normFile(candidate.report_matched_file) !== currentReport,
+          reportNames.size === 0 || !reportNames.has(normFile(candidate.report_matched_file)),
         );
         return { submission, people };
       })
@@ -1044,29 +1073,34 @@ function ArchiveAffectedChecksCard({
     }
   };
 
-  const deleteReport = async (sub: ArchiveSubmission) => {
-    if (!sub.archive_report_path) return;
-    if (!window.confirm(`Delete "${sub.archive_report_name ?? "the report"}" from ${sub.order_number}?`)) return;
-    setBusy(`report-${sub.id}`);
-    const oldName = sub.archive_report_name;
+  const deleteReport = async (sub: ArchiveSubmission, target: { path: string; name: string; onedrive_item_id?: string | null; shared_onedrive_item_id?: string | null }) => {
+    if (!window.confirm(`Delete "${target.name}" from ${sub.order_number}?`)) return;
+    setBusy(`report-${target.path}`);
+    const oldName = target.name;
     try {
-      const { error: storageError } = await sb.storage.from("archive-reports").remove([sub.archive_report_path]);
+      const { error: storageError } = await sb.storage.from("archive-reports").remove([target.path]);
       if (storageError) throw storageError;
       await Promise.all([
-        deleteOneDriveCopy(sub.report_onedrive_item_id),
-        deleteOneDriveCopy(sub.report_shared_onedrive_item_id),
+        deleteOneDriveCopy(target.onedrive_item_id),
+        deleteOneDriveCopy(target.shared_onedrive_item_id),
       ]);
+      const remaining = archiveReportFiles(sub).filter((f) => f.path !== target.path);
+      const primary = remaining[0] ?? null;
       const { error } = await sb.from("manual_risk_submissions").update({
-        archive_report_path: null,
-        archive_report_name: null,
+        archive_report_files: remaining as any,
+        archive_report_path: primary?.path ?? null,
+        archive_report_name: primary?.name ?? null,
         report_onedrive_web_url: null,
-        report_onedrive_item_id: null,
+        report_onedrive_item_id: primary?.onedrive_item_id ?? null,
         report_onedrive_path: null,
         report_shared_onedrive_web_url: null,
-        report_shared_onedrive_item_id: null,
+        report_shared_onedrive_item_id: primary?.shared_onedrive_item_id ?? null,
         report_shared_onedrive_path: null,
-      }).eq("id", sub.id);
+      } as any).eq("id", sub.id);
       if (error) throw error;
+      (sub as any).archive_report_files = remaining;
+      (sub as any).archive_report_path = primary?.path ?? null;
+      (sub as any).archive_report_name = primary?.name ?? null;
       if (oldName) {
         await sb.from("manual_risk_candidates").update({
           report_matched_at: null,
@@ -1112,17 +1146,15 @@ function ArchiveAffectedChecksCard({
       toast.info("No files were added; master indemnity files are excluded");
       return;
     }
-    if (kind === "report" && sub.archive_report_path) {
-      toast.error("Delete the incorrect report before uploading its replacement");
-      return;
-    }
     setBusy(`${kind}-${sub.id}`);
     try {
-      const selected = kind === "report" ? usable.slice(0, 1) : usable;
+      const selected = usable;
       for (const file of selected) {
         await attachDocumentToOrder({ sub, file, kind, clientName: clientName(sub.client_id), addLog });
       }
-      toast.success(kind === "report" ? "Replacement report uploaded and checked" : `${selected.length} indemnity file(s) uploaded`);
+      toast.success(kind === "report"
+        ? `${selected.length} Risk Assessment(s) uploaded and checked`
+        : `${selected.length} indemnity file(s) uploaded`);
       await refresh();
     } catch (error: any) {
       toast.error(error.message ?? "Upload failed");
@@ -1161,7 +1193,8 @@ function ArchiveAffectedChecksCard({
         <div className="space-y-2 max-h-[720px] overflow-y-auto pr-1">
           {affected.map(({ submission: sub, people }) => {
             const open = !!expanded[sub.id];
-            const noReport = !sub.archive_report_path;
+            const reportFiles = archiveReportFiles(sub);
+            const noReport = reportFiles.length === 0;
             return (
               <div key={sub.id} className="rounded-md border border-amber-300 overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-amber-50/60">
@@ -1197,15 +1230,23 @@ function ArchiveAffectedChecksCard({
 
                     <div className="grid gap-3 lg:grid-cols-2">
                       <div className="rounded-md border p-3 space-y-2">
-                        <p className="text-xs font-medium">Risk Assessment</p>
-                        {sub.archive_report_path ? (
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={() => openStored("archive-reports", sub.archive_report_path ?? "")}>
-                              <Eye className="h-4 w-4 mr-1" /> View {sub.archive_report_name || "report"}
-                            </Button>
-                            <Button variant="destructive" size="sm" disabled={busy === `report-${sub.id}`} onClick={() => deleteReport(sub)}>
-                              <Trash2 className="h-4 w-4 mr-1" /> {busy === `report-${sub.id}` ? "Removing…" : "Remove"}
-                            </Button>
+                        <p className="text-xs font-medium">Risk Assessments ({reportFiles.length})</p>
+                        {reportFiles.length ? (
+                          <div className="space-y-1">
+                            {reportFiles.map((reportFile) => (
+                              <div key={reportFile.path} className="flex flex-wrap items-center justify-between gap-2 rounded border px-2 py-1">
+                                <button
+                                  type="button"
+                                  className="text-xs underline text-left truncate max-w-[220px]"
+                                  onClick={() => openStored("archive-reports", reportFile.path)}
+                                >
+                                  <Eye className="h-3.5 w-3.5 mr-1 inline" />{reportFile.name}
+                                </button>
+                                <Button variant="destructive" size="sm" disabled={busy === `report-${reportFile.path}`} onClick={() => deleteReport(sub, reportFile)}>
+                                  <Trash2 className="h-4 w-4 mr-1" /> {busy === `report-${reportFile.path}` ? "Removing…" : "Remove"}
+                                </Button>
+                              </div>
+                            ))}
                           </div>
                         ) : (
                           <p className="text-xs text-red-700">No Risk Assessment is attached.</p>
@@ -1220,14 +1261,17 @@ function ArchiveAffectedChecksCard({
                           }}
                           className={`block rounded border border-dashed p-3 text-center text-xs cursor-pointer ${dragOver === `report-${sub.id}` ? "border-red-600 bg-red-50" : "border-muted-foreground/30"}`}
                         >
-                          Drop the correct Risk Assessment here or choose a file
-                          <input type="file" accept=".pdf,.doc,.docx" className="hidden" disabled={!!sub.archive_report_path || busy !== null} onChange={(event) => {
+                          Drop the Risk Assessment(s) here or choose files
+                          <input type="file" multiple accept=".pdf,.doc,.docx" className="hidden" disabled={busy !== null} onChange={(event) => {
                             const files = Array.from(event.target.files ?? []);
                             if (files.length) void uploadFiles(sub, "report", files);
                             event.currentTarget.value = "";
                           }} />
                         </label>
-                        {sub.archive_report_path && <p className="text-[11px] text-muted-foreground">Remove the current report before adding its replacement.</p>}
+                        <p className="text-[11px] text-muted-foreground">
+                          More than one report can sit on an order — add the extra report for anyone who was
+                          assessed separately, and remove only the reports that are wrong.
+                        </p>
                       </div>
 
                       <div className="rounded-md border p-3 space-y-2">
@@ -1294,12 +1338,12 @@ function ArchiveDocumentsCard({
 
   /** An order is finished once it has its report and at least one indemnity. */
   const isComplete = (s: ArchiveSubmission) =>
-    !!s.archive_report_path && (s.indemnity_files ?? []).length > 0;
+    hasArchiveReport(s) && (s.indemnity_files ?? []).length > 0;
 
   const counts = useMemo(() => {
     let noReport = 0, noIndemnity = 0, neither = 0, complete = 0;
     for (const s of submissions) {
-      const hasR = !!s.archive_report_path;
+      const hasR = hasArchiveReport(s);
       const hasI = (s.indemnity_files ?? []).length > 0;
       if (hasR && hasI) complete += 1;
       else {
@@ -1328,40 +1372,17 @@ function ArchiveDocumentsCard({
       toast.info("Master indemnity files are not attached — upload the individual indemnities instead");
       return;
     }
-    if (sub.archive_report_path && sub.archive_report_name === file.name) {
+    if (archiveReportNameSet(sub).has(file.name.trim().toLowerCase())) {
       toast.info("That report is already attached to this order");
       return;
     }
 
     setBusy(sub.id);
     try {
-      const path = `${sub.id}/${file.name}`;
-
-      const { error: upErr } = await sb.storage
-        .from("archive-reports")
-        .upload(path, file, { upsert: true, contentType: file.type || "application/pdf" });
-      if (upErr) throw upErr;
-      const { error } = await sb.from("manual_risk_submissions")
-        .update({ archive_report_path: path, archive_report_name: file.name } as any)
-        .eq("id", sub.id);
-      if (error) throw error;
-      addLog(`Report attached to ${sub.order_number}: ${file.name}`);
-      toast.success("Report attached — reading outcomes…");
-
-      // Read the ID Verification / Risk Assessment outcomes off the original
-      // report and apply the same rules the live reports use.
-      try {
-        const res = await applyArchiveReportOutcomes(sub.id, file, file.name);
-        addLog(
-          `Outcomes for ${sub.order_number}: ${res.matched} candidate(s) populated from ${res.records} report record(s)` +
-            (res.unmatched.length ? ` • not matched: ${res.unmatched.join(", ")}` : ""),
-        );
-        if (res.matched) toast.success(`${res.matched} candidate outcome(s) captured from the report`);
-        else toast.warning("No candidate on this order matched the report — outcomes were not filled in");
-      } catch (e: any) {
-        addLog(`Outcome extraction failed for ${sub.order_number}: ${e.message}`);
-        toast.warning("Report attached, but outcomes could not be read: " + e.message);
-      }
+      await attachDocumentToOrder({
+        sub, file, kind: "report", clientName: clientName(sub.client_id), addLog,
+      });
+      toast.success("Report attached and read");
       onChanged();
     } catch (e: any) {
       toast.error("Report upload failed: " + e.message);
@@ -1487,8 +1508,8 @@ function ArchiveDocumentsCard({
                 <TableCell>{clientName(s.client_id)}</TableCell>
                 <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
                 <TableCell>
-                  {s.archive_report_path
-                    ? <Badge className="bg-emerald-600 text-[10px]">Attached</Badge>
+                  {hasArchiveReport(s)
+                    ? <Badge className="bg-emerald-600 text-[10px]">{archiveReportFiles(s).length} attached</Badge>
                     : <Badge variant="outline" className="text-[10px]">Missing</Badge>}
                 </TableCell>
                 <TableCell>{(s.indemnity_files ?? []).length}</TableCell>
@@ -2802,29 +2823,35 @@ function ReportsFirstUploadCard({
     window.open(data.signedUrl, "_blank");
   };
 
-  const deleteExistingReport = async (sub: ArchiveSubmission) => {
-    if (!sub.archive_report_path) return;
-    if (!confirm(`Delete the report "${sub.archive_report_name}" from ${sub.order_number}? You can then upload the correct one.`)) return;
-    setBusyFile(`rep-${sub.id}`);
+  const deleteExistingReport = async (
+    sub: ArchiveSubmission,
+    target: { path: string; name: string; onedrive_item_id?: string | null; shared_onedrive_item_id?: string | null },
+  ) => {
+    if (!confirm(`Delete the report "${target.name}" from ${sub.order_number}? You can then upload the correct one.`)) return;
+    setBusyFile(`rep-${target.path}`);
     try {
-      await sb.storage.from("archive-reports").remove([sub.archive_report_path]);
-      await odDelete(sub.report_onedrive_item_id);
-      await odDelete(sub.report_shared_onedrive_item_id);
+      await sb.storage.from("archive-reports").remove([target.path]);
+      await odDelete(target.onedrive_item_id);
+      await odDelete(target.shared_onedrive_item_id);
+      const remaining = archiveReportFiles(sub).filter((f) => f.path !== target.path);
+      const primary = remaining[0] ?? null;
       const { error } = await sb.from("manual_risk_submissions").update({
-        archive_report_path: null,
-        archive_report_name: null,
+        archive_report_files: remaining as any,
+        archive_report_path: primary?.path ?? null,
+        archive_report_name: primary?.name ?? null,
         report_onedrive_web_url: null,
-        report_onedrive_item_id: null,
+        report_onedrive_item_id: primary?.onedrive_item_id ?? null,
         report_onedrive_path: null,
         report_shared_onedrive_web_url: null,
-        report_shared_onedrive_item_id: null,
+        report_shared_onedrive_item_id: primary?.shared_onedrive_item_id ?? null,
         report_shared_onedrive_path: null,
-      }).eq("id", sub.id);
+      } as any).eq("id", sub.id);
       if (error) throw error;
-      (sub as any).archive_report_path = null;
-      (sub as any).archive_report_name = null;
-      (sub as any).report_onedrive_item_id = null;
-      (sub as any).report_shared_onedrive_item_id = null;
+      (sub as any).archive_report_files = remaining;
+      (sub as any).archive_report_path = primary?.path ?? null;
+      (sub as any).archive_report_name = primary?.name ?? null;
+      (sub as any).report_onedrive_item_id = primary?.onedrive_item_id ?? null;
+      (sub as any).report_shared_onedrive_item_id = primary?.shared_onedrive_item_id ?? null;
       addLog(`Deleted the report on ${sub.order_number}`);
       toast.success("Report deleted — upload the correct one and approve");
       onChanged();
@@ -2940,7 +2967,7 @@ function ReportsFirstUploadCard({
                     : "No submission date on the folder — the date below comes from the linked order"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">{r.note}</p>
-                {r.targets.some((t) => orderById(t.orderId)?.archive_report_path) && (
+                {r.targets.some((t) => hasArchiveReport(orderById(t.orderId))) && (
                   <p className="text-xs text-amber-700 mt-1">
                     A report is already on record for one of the linked orders — check it below before approving.
                   </p>
@@ -3000,30 +3027,30 @@ function ReportsFirstUploadCard({
                       )}
                     </div>
 
-                    {sub && (sub.archive_report_path || (sub.indemnity_files ?? []).length > 0) && (
+                    {sub && (hasArchiveReport(sub) || (sub.indemnity_files ?? []).length > 0) && (
                       <div className="rounded border border-amber-400 bg-amber-50 p-2 space-y-1.5 text-xs">
                         <p className="flex items-center gap-1 font-medium text-amber-800">
                           <AlertTriangle className="h-3.5 w-3.5" />
                           This order already has documents on record — they will stay attached unless you delete them. Click to review, and delete any that are wrong before you approve.
                         </p>
-                        {sub.archive_report_path && (
-                          <div className="flex flex-wrap items-center gap-2">
+                        {archiveReportFiles(sub).map((reportFile) => (
+                          <div key={reportFile.path} className="flex flex-wrap items-center gap-2">
                             <span className="text-muted-foreground">Report:</span>
                             <button
                               className="text-red-700 underline break-all text-left"
-                              onClick={() => openStored("archive-reports", sub.archive_report_path!)}
+                              onClick={() => openStored("archive-reports", reportFile.path)}
                             >
-                              {sub.archive_report_name || "View report"}
+                              {reportFile.name}
                             </button>
                             <Button
                               variant="ghost" size="sm" className="h-6 px-2 text-xs text-red-700"
-                              disabled={busyFile === `rep-${sub.id}`}
-                              onClick={() => deleteExistingReport(sub)}
+                              disabled={busyFile === `rep-${reportFile.path}`}
+                              onClick={() => deleteExistingReport(sub, reportFile)}
                             >
-                              {busyFile === `rep-${sub.id}` ? "Deleting…" : "Delete"}
+                              {busyFile === `rep-${reportFile.path}` ? "Deleting…" : "Delete"}
                             </Button>
                           </div>
-                        )}
+                        ))}
                         {(sub.indemnity_files ?? []).length > 0 && (
                           <div className="space-y-1">
                             <span className="text-muted-foreground">
@@ -3048,9 +3075,9 @@ function ReportsFirstUploadCard({
                             ))}
                           </div>
                         )}
-                        {sub.archive_report_path && (
+                        {hasArchiveReport(sub) && (
                           <p className="text-amber-800">
-                            A new report is only taken on once the one above is deleted.
+                            A new report is added alongside the one(s) above — delete only what is wrong.
                           </p>
                         )}
                       </div>

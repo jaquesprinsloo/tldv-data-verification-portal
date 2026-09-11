@@ -3,6 +3,7 @@ import { supabase as sb } from "@/integrations/supabase/client";
 import { useArchiveCandidates } from "@/lib/archiveCandidatesQuery";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { archiveReportFiles } from "@/lib/archiveReportFiles";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,22 +111,25 @@ export function ArchiveNameReconciliationCard({
   const openReport = async (row: UnmatchedReportName) => {
     try {
       // Prefer the order the report was linked to; otherwise find the order
-      // carrying this exact report file name.
+      // carrying this exact report file name. An order can hold several
+      // reports, so the whole list is searched for the file wanted.
       let q = sb
         .from("manual_risk_submissions")
-        .select("archive_report_path")
-        .not("archive_report_path", "is", null);
+        .select("archive_report_path, archive_report_name, archive_report_files");
       if (row.linked_submission_id) q = q.eq("id", row.linked_submission_id);
       else q = q.eq("archive_report_name", row.report_file_name);
       const { data, error } = await q.limit(1).maybeSingle();
       if (error) throw error;
-      const path = (data as any)?.archive_report_path as string | undefined;
+      const files = archiveReportFiles(data as any);
+      const wanted = String(row.report_file_name ?? "").trim().toLowerCase();
+      const path = (files.find((f) => f.name.trim().toLowerCase() === wanted) ?? files[0])?.path;
       if (!path) {
         // Fall back to a name search when the linked order had no report path.
         if (row.linked_submission_id) return openReport({ ...row, linked_submission_id: null });
         toast.error("The report file could not be found on record");
         return;
       }
+
       const { data: signed, error: sErr } = await sb.storage.from("archive-reports").createSignedUrl(path, 300);
       if (sErr || !signed) throw sErr ?? new Error("Could not open the report");
       window.open(signed.signedUrl, "_blank");
