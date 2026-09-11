@@ -101,8 +101,23 @@ export function ArchiveReportAuditCard({
     [withReports, auditedOrderIds],
   );
 
+  /**
+   * Orders that have a report on record but still have someone on them who has
+   * never been confirmed by that report — the ones shown under "checks
+   * requiring document review". Historical rows with the first name and
+   * surname swapped land here, and the matcher now tolerates that swap when
+   * the ID prefix agrees, so re-reading just these orders fixes them.
+   */
+  const reviewOrders = useMemo(() => {
+    const waitingByOrder = new Set(
+      (cands ?? []).filter((c) => !c.report_matched_at).map((c) => c.submission_id),
+    );
+    return withReports.filter((s) => waitingByOrder.has(s.id));
+  }, [cands, withReports]);
+
   const confirmedPeople = (cands ?? []).filter((c) => c.report_matched_at).length;
   const waitingPeople = (cands ?? []).length - confirmedPeople;
+
 
   const auditOne = async (sub: AuditSubmission, all: Cand[]) => {
     const { data: signed, error: sErr } = await sb.storage
@@ -186,8 +201,8 @@ export function ArchiveReportAuditCard({
 
   };
 
-  const run = async (onlyPending: boolean) => {
-    const list = onlyPending ? pending : withReports;
+  const run = async (scope: "review" | "pending" | "all") => {
+    const list = scope === "review" ? reviewOrders : scope === "pending" ? pending : withReports;
     if (!list.length) { toast.info("Nothing to audit"); return; }
     stop.current = false;
     setRunning(true);
@@ -238,6 +253,7 @@ export function ArchiveReportAuditCard({
         <Badge variant="outline" className="text-amber-600 border-amber-300">{pending.length} still to audit</Badge>
         <Badge variant="outline" className="text-green-700 border-green-300">{confirmedPeople} people confirmed by a report</Badge>
         <Badge variant="outline" className="text-amber-700 border-amber-300">{waitingPeople} people still waiting for a report</Badge>
+        <Badge variant="outline" className="text-amber-700 border-amber-300">{reviewOrders.length} order(s) needing review</Badge>
         <Badge variant="outline" className="text-red-600 border-red-300">{unmatchedTotal} name(s) on a report but not in the archive</Badge>
       </div>
 
@@ -256,14 +272,18 @@ export function ArchiveReportAuditCard({
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Button className="bg-red-600 hover:bg-red-700" disabled={running || !pending.length} onClick={() => void run(true)}>
-          {running ? "Auditing…" : `Audit ${pending.length} outstanding report(s)`}
+        <Button className="bg-red-600 hover:bg-red-700" disabled={running || !reviewOrders.length} onClick={() => void run("review")}>
+          {running ? "Auditing…" : `Audit ${reviewOrders.length} order(s) needing review`}
         </Button>
-        <Button variant="outline" disabled={running || !withReports.length} onClick={() => void run(false)}>
+        <Button variant="outline" disabled={running || !pending.length} onClick={() => void run("pending")}>
+          Audit {pending.length} outstanding report(s)
+        </Button>
+        <Button variant="outline" disabled={running || !withReports.length} onClick={() => void run("all")}>
           Re-audit all {withReports.length}
         </Button>
         {running && <Button variant="outline" onClick={() => { stop.current = true; }}>Stop</Button>}
       </div>
+
     </Card>
   );
 }
