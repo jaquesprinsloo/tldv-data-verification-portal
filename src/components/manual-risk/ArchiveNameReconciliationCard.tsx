@@ -106,11 +106,41 @@ export function ArchiveNameReconciliationCard({
 
   const outstandingTotal = outstanding.reduce((n, o) => n + o.names.length, 0);
 
+  /** Opens the original report this name was read from, in a new window. */
+  const openReport = async (row: UnmatchedReportName) => {
+    try {
+      // Prefer the order the report was linked to; otherwise find the order
+      // carrying this exact report file name.
+      let q = sb
+        .from("manual_risk_submissions")
+        .select("archive_report_path")
+        .not("archive_report_path", "is", null);
+      if (row.linked_submission_id) q = q.eq("id", row.linked_submission_id);
+      else q = q.eq("archive_report_name", row.report_file_name);
+      const { data, error } = await q.limit(1).maybeSingle();
+      if (error) throw error;
+      const path = (data as any)?.archive_report_path as string | undefined;
+      if (!path) {
+        // Fall back to a name search when the linked order had no report path.
+        if (row.linked_submission_id) return openReport({ ...row, linked_submission_id: null });
+        toast.error("The report file could not be found on record");
+        return;
+      }
+      const { data: signed, error: sErr } = await sb.storage.from("archive-reports").createSignedUrl(path, 300);
+      if (sErr || !signed) throw sErr ?? new Error("Could not open the report");
+      window.open(signed.signedUrl, "_blank");
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not open the report");
+    }
+  };
+
   /** Everything on record for this person, archive or live. */
   const investigate = async (row: UnmatchedReportName) => {
     setInvestigating(row);
     setFound(null);
     setSearching(true);
+    // Open the report the name was read from alongside the search.
+    openReport(row);
     try {
       const hits = new Map<string, FoundRecord>();
       const collect = async (q: any) => {
@@ -385,6 +415,11 @@ export function ArchiveNameReconciliationCard({
           )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => { setInvestigating(null); setFound(null); }}>Close</Button>
+            {investigating && (
+              <Button variant="outline" onClick={() => openReport(investigating)}>
+                View report
+              </Button>
+            )}
             {investigating && (
               <Button
                 className="bg-red-600 hover:bg-red-700"
