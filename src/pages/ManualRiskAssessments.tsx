@@ -3064,16 +3064,7 @@ function renderIdStatus(r: AccountRow) {
   );
 }
 
-  if (!r.idResult || r.idResult === "pending") {
-    return <Badge variant="outline" className="text-[10px]">Pending</Badge>;
-  }
-  if (r.idResult === "valid") {
-    return <Badge className="bg-emerald-600 text-[10px]">Valid</Badge>;
-  }
-  return (
-    <Badge className="bg-red-600 text-[10px]">{resultLabel("id_verification", r.idResult)}</Badge>
-  );
-}
+
 
 function renderRiskStatus(r: AccountRow) {
   if (r.riskFlags.length > 0) {
