@@ -325,8 +325,12 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     if (k === "risk_assessment" && result === "invalid") {
       return "Risk Assessment invalid — the ID number could not be verified, so the risk assessment cannot be relied upon.";
     }
+    if (k === "id_verification" && !result) {
+      return "No ID Verification was conducted with this assessment; the Risk Assessment outcome stands on its own.";
+    }
     return null;
   };
+
   const withNotes = realCandidates.filter((c) =>
     checks.some((k) => autoNoteFor(k, c.results?.[k])),
   );
