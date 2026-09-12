@@ -126,6 +126,15 @@ export function ArchivePassportsCard({
           placeholder="Search name, surname, number, account or order"
           className="max-w-sm"
         />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void refetch()}
+          disabled={isLoading}
+        >
+          {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          Refresh
+        </Button>
       </div>
 
       {isLoading ? (
