@@ -108,6 +108,73 @@ export function ArchiveNameReconciliationCard({
 
   const outstandingTotal = outstanding.reduce((n, o) => n + o.names.length, 0);
 
+  // ---- people on this list who are in fact already in the archive ----
+  // The imported spreadsheet often spells a name differently to the report, so
+  // the name alone never found them. Here every open name is compared against
+  // the whole archive using the same rules the report reader uses, and anything
+  // that lines up (date of birth in the ID plus a recognisable name) is offered
+  // for confirmation, one by one or all at once.
+  const alreadyInArchive = useMemo(() => {
+    if (!pending.length || !archiveCands.length) return [] as {
+      row: UnmatchedReportName;
+      cand: (typeof archiveCands)[number];
+    }[];
+    const out: { row: UnmatchedReportName; cand: (typeof archiveCands)[number] }[] = [];
+    for (const row of pending) {
+      let best: { cand: (typeof archiveCands)[number]; score: number } | null = null;
+      for (const cand of archiveCands) {
+        const m = matchArchivePerson(
+          { first_names: row.first_names, surname: row.surname, id_prefix: row.id_prefix } as never,
+          { first_name: cand.first_name, surname: cand.surname, id_number: cand.id_number },
+        );
+        if (!m.matches) continue;
+        if (!best || m.score > best.score) best = { cand, score: m.score };
+      }
+      if (best) out.push({ row, cand: best.cand });
+    }
+    return out;
+  }, [pending, archiveCands]);
+
+  const [confirming, setConfirming] = useState(false);
+
+  const confirmFound = async (
+    items: { row: UnmatchedReportName; cand: (typeof archiveCands)[number] }[],
+  ) => {
+    if (!items.length) return;
+    setConfirming(true);
+    try {
+      for (const { row, cand } of items) {
+        const { error: cErr } = await sb
+          .from("manual_risk_candidates")
+          .update({
+            report_matched_at: new Date().toISOString(),
+            report_matched_file: row.report_file_name,
+          } as never)
+          .eq("id", cand.id);
+        if (cErr) throw cErr;
+        const { error: uErr } = await sb
+          .from("manual_risk_report_unmatched_names")
+          .update({
+            status: "added",
+            resolved_candidate_id: cand.id,
+            resolved_at: new Date().toISOString(),
+            notes: "Already in the archive — matched on ID date of birth and name",
+          } as never)
+          .eq("id", row.id);
+        if (uErr) throw uErr;
+      }
+      toast.success(`${items.length} name(s) confirmed against the archive`);
+      refetchPending();
+      refetchOutstanding();
+      qc.invalidateQueries({ queryKey: ["mra-archive-submissions"] });
+      onChanged();
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not confirm these names");
+    } finally {
+      setConfirming(false);
+    }
+  };
+
   /** Opens the original report this name was read from, in a new window. */
   const openReport = async (row: UnmatchedReportName) => {
     try {
