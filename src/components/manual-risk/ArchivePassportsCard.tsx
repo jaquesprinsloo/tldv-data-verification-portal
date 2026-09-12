@@ -42,9 +42,10 @@ export function ArchivePassportsCard({
   const clientName = (id: string | null) =>
     (id ? clients.find((c) => c.id === id)?.client_name ?? "—" : "—");
 
-  const { data: rows = [], isLoading } = useQuery<Row[]>({
+  const { data: rows = [], isLoading, refetch } = useQuery<Row[]>({
     queryKey: ["mra-no-full-id-candidates"],
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const cands: any[] = [];
       for (let from = 0; ; from += 1000) {
