@@ -41,7 +41,10 @@ type Cand = {
   submission_id: string;
   report_matched_at: string | null;
   report_matched_file: string | null;
+  id_verification_result?: string | null;
+  risk_assessment_result?: string | null;
 };
+
 
 const fetchAllArchiveCandidates = (): Promise<Cand[]> =>
   fetchArchiveCandidates() as unknown as Promise<Cand[]>;
