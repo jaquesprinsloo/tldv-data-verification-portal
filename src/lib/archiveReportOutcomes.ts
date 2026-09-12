@@ -218,39 +218,33 @@ export interface ApplyArchiveOutcomesResult {
   matchedIds: string[];
   unmatched: string[];
   records: number;
+  /** People whose stored ID / Risk Assessment outcome was corrected. */
+  changed: number;
 }
 
+type ArchiveCandidateRow = {
+  id: string;
+  id_number: string | null;
+  first_name: string | null;
+  surname: string | null;
+  id_verification_result?: string | null;
+  risk_assessment_result?: string | null;
+};
+
 /**
- * Extracts the per-candidate outcomes from an archive report PDF and writes them
- * onto the archive order's candidates.
+ * Writes the per-candidate outcomes from an already-extracted supplier report
+ * onto the given archive candidates. Every field of a person's result comes only
+ * from that person's own block on the report — one failing ID never touches
+ * anybody else on the same batch.
  */
-export async function applyArchiveReportOutcomes(
-  submissionId: string,
-  file: File,
+export async function applyArchiveOutcomesFromRecords(
+  records: ArchiveSupplierRecord[],
+  fullIds: string[],
+  rows: ArchiveCandidateRow[],
   reportLabel: string,
 ): Promise<ApplyArchiveOutcomesResult> {
-  const base64 = await blobToBase64(file);
-  const { data, error } = await supabase.functions.invoke("extract-supplier-report-ids", {
-    body: { fileBase64: base64, contentType: file.type || "application/pdf" },
-  });
-  if (error) throw error;
-  if (!(data as any)?.success) throw new Error((data as any)?.error || "Extraction failed");
-
-  const records: ArchiveSupplierRecord[] = Array.isArray((data as any).records)
-    ? ((data as any).records as ArchiveSupplierRecord[])
-    : [];
-  const fullIds: string[] = Array.isArray((data as any).ids) ? ((data as any).ids as string[]) : [];
-
-  const { data: cands } = await supabase
-    .from("manual_risk_candidates")
-    .select("id, id_number, first_name, surname")
-    .eq("submission_id", submissionId);
-
-  const rows = (cands ?? []) as Array<{
-    id: string; id_number: string | null; first_name: string | null; surname: string | null;
-  }>;
-
   let matched = 0;
+  let changed = 0;
   const matchedIds: string[] = [];
   const used = new Set<ArchiveSupplierRecord>();
   const sharedIdFailures = findSharedIdFailures(records);
@@ -317,6 +311,12 @@ export async function applyArchiveReportOutcomes(
       }
     }
 
+    const wasId = c.id_verification_result ?? null;
+    const wasRa = c.risk_assessment_result ?? null;
+    const nowId = (update.id_verification_result as string | null) ?? null;
+    const nowRa = "risk_assessment_result" in update
+      ? (update.risk_assessment_result as string | null) ?? null
+      : wasRa;
 
     const { error: uErr } = await supabase
       .from("manual_risk_candidates")
@@ -325,6 +325,7 @@ export async function applyArchiveReportOutcomes(
     if (!uErr) {
       matched++;
       matchedIds.push(c.id);
+      if (nowId !== wasId || nowRa !== wasRa) changed++;
     }
   }
 
@@ -332,20 +333,67 @@ export async function applyArchiveReportOutcomes(
     .filter((r) => !used.has(r))
     .map((r) => `${r.first_names ?? ""} ${r.surname ?? ""} (${r.id_prefix ?? "?"})`.trim());
 
-  return { matched, matchedIds, unmatched, records: records.length };
+  return { matched, matchedIds, unmatched, records: records.length, changed };
 }
 
-/** Reads a supplier report PDF and returns the per-candidate records only
- *  (names + masked ID prefixes) so a report can be matched to an archive order
- *  by the people it contains, without writing anything. */
-export async function extractArchiveReportRecords(file: File): Promise<ArchiveSupplierRecord[]> {
+/**
+ * Extracts the per-candidate outcomes from an archive report PDF and writes them
+ * onto the archive order's candidates.
+ */
+export async function applyArchiveReportOutcomes(
+  submissionId: string,
+  file: File,
+  reportLabel: string,
+): Promise<ApplyArchiveOutcomesResult> {
   const base64 = await blobToBase64(file);
   const { data, error } = await supabase.functions.invoke("extract-supplier-report-ids", {
     body: { fileBase64: base64, contentType: file.type || "application/pdf" },
   });
   if (error) throw error;
   if (!(data as any)?.success) throw new Error((data as any)?.error || "Extraction failed");
-  return Array.isArray((data as any).records) ? ((data as any).records as ArchiveSupplierRecord[]) : [];
+
+  const records: ArchiveSupplierRecord[] = Array.isArray((data as any).records)
+    ? ((data as any).records as ArchiveSupplierRecord[])
+    : [];
+  const fullIds: string[] = Array.isArray((data as any).ids) ? ((data as any).ids as string[]) : [];
+
+  const { data: cands } = await supabase
+    .from("manual_risk_candidates")
+    .select("id, id_number, first_name, surname, id_verification_result, risk_assessment_result")
+    .eq("submission_id", submissionId);
+
+  return applyArchiveOutcomesFromRecords(
+    records,
+    fullIds,
+    (cands ?? []) as ArchiveCandidateRow[],
+    reportLabel,
+  );
 }
+
+
+/** Reads a supplier report once and returns both the per-candidate records and
+ *  any full 13-digit ID numbers found, without writing anything. */
+export async function extractArchiveReportPayload(
+  file: File,
+): Promise<{ records: ArchiveSupplierRecord[]; ids: string[] }> {
+  const base64 = await blobToBase64(file);
+  const { data, error } = await supabase.functions.invoke("extract-supplier-report-ids", {
+    body: { fileBase64: base64, contentType: file.type || "application/pdf" },
+  });
+  if (error) throw error;
+  if (!(data as any)?.success) throw new Error((data as any)?.error || "Extraction failed");
+  return {
+    records: Array.isArray((data as any).records) ? ((data as any).records as ArchiveSupplierRecord[]) : [],
+    ids: Array.isArray((data as any).ids) ? ((data as any).ids as string[]).map(String) : [],
+  };
+}
+
+/** Reads a supplier report PDF and returns the per-candidate records only
+ *  (names + masked ID prefixes) so a report can be matched to an archive order
+ *  by the people it contains, without writing anything. */
+export async function extractArchiveReportRecords(file: File): Promise<ArchiveSupplierRecord[]> {
+  return (await extractArchiveReportPayload(file)).records;
+}
+
 
 export const normPersonName = norm;

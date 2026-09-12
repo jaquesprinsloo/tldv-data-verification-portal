@@ -11,18 +11,22 @@ import { supabase as sb } from "@/integrations/supabase/client";
 export type ArchiveCandidate = {
   id: string;
   id_number: string | null;
+  passport_number?: string | null;
   first_name: string | null;
   surname: string | null;
   submission_id: string;
   report_matched_at: string | null;
   report_matched_file: string | null;
+  id_verification_result?: string | null;
+  risk_assessment_result?: string | null;
 };
 
 export const ARCHIVE_CANDIDATES_KEY = ["mra-archive-candidates"] as const;
 
 export async function fetchArchiveCandidates(): Promise<ArchiveCandidate[]> {
   const cols =
-    "id, id_number, first_name, surname, submission_id, report_matched_at, report_matched_file, manual_risk_submissions!inner(is_archive)";
+    "id, id_number, passport_number, first_name, surname, submission_id, report_matched_at, report_matched_file, id_verification_result, risk_assessment_result, manual_risk_submissions!inner(is_archive)";
+
   const out: ArchiveCandidate[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await sb

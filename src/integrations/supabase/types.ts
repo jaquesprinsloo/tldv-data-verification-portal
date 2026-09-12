@@ -827,6 +827,7 @@ export type Database = {
           outcome_extracted_by_name: string | null
           outcome_extracted_source: string | null
           override_client_id: string | null
+          passport_number: string | null
           pdp_notes: string | null
           pdp_result: string | null
           qualification_notes: string | null
@@ -862,6 +863,7 @@ export type Database = {
           outcome_extracted_by_name?: string | null
           outcome_extracted_source?: string | null
           override_client_id?: string | null
+          passport_number?: string | null
           pdp_notes?: string | null
           pdp_result?: string | null
           qualification_notes?: string | null
@@ -897,6 +899,7 @@ export type Database = {
           outcome_extracted_by_name?: string | null
           outcome_extracted_source?: string | null
           override_client_id?: string | null
+          passport_number?: string | null
           pdp_notes?: string | null
           pdp_result?: string | null
           qualification_notes?: string | null

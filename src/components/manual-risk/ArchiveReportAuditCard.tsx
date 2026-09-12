@@ -12,7 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { ClipboardCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase as sb } from "@/integrations/supabase/client";
-import { extractArchiveReportRecords, matchArchivePerson, normPersonName } from "@/lib/archiveReportOutcomes";
+import {
+  extractArchiveReportPayload,
+  applyArchiveOutcomesFromRecords,
+  matchArchivePerson,
+  normPersonName,
+} from "@/lib/archiveReportOutcomes";
+
 import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/archiveNameReconciliation";
 import { fetchArchiveCandidates } from "@/lib/archiveCandidatesQuery";
 import { archiveReportFiles, archiveReportNameSet, hasArchiveReport } from "@/lib/archiveReportFiles";
@@ -35,7 +41,10 @@ type Cand = {
   submission_id: string;
   report_matched_at: string | null;
   report_matched_file: string | null;
+  id_verification_result?: string | null;
+  risk_assessment_result?: string | null;
 };
+
 
 const fetchAllArchiveCandidates = (): Promise<Cand[]> =>
   fetchArchiveCandidates() as unknown as Promise<Cand[]>;
@@ -51,7 +60,7 @@ export function ArchiveReportAuditCard({
   const [cands, setCands] = useState<Cand[] | null>(null);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
-  const [result, setResult] = useState<{ read: number; failed: number; confirmed: number; missing: number } | null>(null);
+  const [result, setResult] = useState<{ read: number; failed: number; confirmed: number; missing: number; changed: number } | null>(null);
   const [unmatchedTotal, setUnmatchedTotal] = useState<number>(0);
   const stop = useRef(false);
 
@@ -119,8 +128,17 @@ export function ArchiveReportAuditCard({
   const waitingPeople = (cands ?? []).length - confirmedPeople;
 
 
-  /** Reads one report file on an order and stamps the people it names. */
-  const auditFile = async (sub: AuditSubmission, reportFile: { path: string; name: string }, all: Cand[]) => {
+  /**
+   * Reads one report file on an order, stamps the people it names, and (when
+   * outcome verification is on) rewrites each person's ID Verification and Risk
+   * Assessment result straight from that report — strictly per person.
+   */
+  const auditFile = async (
+    sub: AuditSubmission,
+    reportFile: { path: string; name: string },
+    all: Cand[],
+    verifyOutcomes: boolean,
+  ) => {
     const { data: signed, error: sErr } = await sb.storage
       .from("archive-reports")
       .createSignedUrl(reportFile.path, 300);
@@ -131,11 +149,14 @@ export function ArchiveReportAuditCard({
     const name = reportFile.name || "report.pdf";
     const file = new File([blob], name, { type: blob.type || "application/pdf" });
 
-    let records: Awaited<ReturnType<typeof extractArchiveReportRecords>> = [];
+    let records: Awaited<ReturnType<typeof extractArchiveReportPayload>>["records"] = [];
+    let fullIds: string[] = [];
     let err = "";
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        records = await extractArchiveReportRecords(file);
+        const payload = await extractArchiveReportPayload(file);
+        records = payload.records;
+        fullIds = payload.ids;
         err = "";
         if (records.length) break;
       } catch (e: any) {
@@ -148,6 +169,8 @@ export function ArchiveReportAuditCard({
 
     const matchedIds: string[] = [];
     const notFound: typeof records = [];
+
+
 
     const ownOrder = all.filter((c) => c.submission_id === sub.id);
 
@@ -197,8 +220,17 @@ export function ArchiveReportAuditCard({
       c.report_matched_file = name;
     });
 
+    // Rewrite the two outcomes from this same reading of the report, so what we
+    // hold always says what the supplier report says for that one person.
+    let changed = 0;
+    if (verifyOutcomes) {
+      const targets = all.filter((c) => c.submission_id === sub.id || stampSet.has(c.id));
+      const applied = await applyArchiveOutcomesFromRecords(records, fullIds, targets, name);
+      changed = applied.changed;
+    }
+
     // People, not stamps: the same person named twice on one report is one person.
-    return { confirmed: stampSet.size, missing: notFound.length, records: records.length, ids: stampSet };
+    return { confirmed: stampSet.size, missing: notFound.length, records: records.length, ids: stampSet, changed };
 
   };
 
@@ -206,16 +238,17 @@ export function ArchiveReportAuditCard({
    * An order can hold several reports — the batch report plus reports issued
    * separately for individual people. Every one of them is read.
    */
-  const auditOne = async (sub: AuditSubmission, all: Cand[]) => {
+  const auditOne = async (sub: AuditSubmission, all: Cand[], verifyOutcomes: boolean) => {
     const files = archiveReportFiles(sub);
-    let records = 0, missing = 0;
+    let records = 0, missing = 0, changed = 0;
     const ids = new Set<string>();
     const failures: string[] = [];
     for (const f of files) {
       try {
-        const r = await auditFile(sub, f, all);
+        const r = await auditFile(sub, f, all, verifyOutcomes);
         records += r.records;
         missing += r.missing;
+        changed += r.changed;
         r.ids.forEach((id) => ids.add(id));
       } catch (e: any) {
         failures.push(`${f.name}: ${e.message}`);
@@ -223,17 +256,18 @@ export function ArchiveReportAuditCard({
     }
     if (failures.length === files.length) throw new Error(failures.join(" • "));
     if (failures.length) addLog(`Some reports on ${sub.order_number} could not be read — ${failures.join(" • ")}`);
-    return { confirmed: ids.size, missing, records, ids };
+    return { confirmed: ids.size, missing, records, ids, changed };
   };
 
-  const run = async (scope: "review" | "pending" | "all") => {
+  const run = async (scope: "review" | "pending" | "all" | "verify") => {
     const list = scope === "review" ? reviewOrders : scope === "pending" ? pending : withReports;
     if (!list.length) { toast.info("Nothing to audit"); return; }
+    const verifyOutcomes = scope === "verify";
     stop.current = false;
     setRunning(true);
     setResult(null);
     const all = cands ? [...cands] : await fetchAllArchiveCandidates();
-    let read = 0, failed = 0, missing = 0;
+    let read = 0, failed = 0, missing = 0, changed = 0;
     const confirmedIds = new Set<string>();
 
     for (let i = 0; i < list.length; i++) {
@@ -241,10 +275,13 @@ export function ArchiveReportAuditCard({
       const sub = list[i];
       setProgress({ done: i, total: list.length, label: `${clientName(sub.client_id)} — ${sub.order_number}` });
       try {
-        const r = await auditOne(sub, all);
-        read += 1; missing += r.missing;
+        const r = await auditOne(sub, all, verifyOutcomes);
+        read += 1; missing += r.missing; changed += r.changed;
         r.ids.forEach((id) => confirmedIds.add(id));
-        addLog(`Audit ${sub.order_number}: ${r.records} name(s) read • ${r.confirmed} confirmed • ${r.missing} not in the archive`);
+        addLog(
+          `Audit ${sub.order_number}: ${r.records} name(s) read • ${r.confirmed} confirmed • ${r.missing} not in the archive` +
+          (verifyOutcomes ? ` • ${r.changed} result(s) corrected` : ""),
+        );
       } catch (e: any) {
         failed += 1;
         addLog(`Audit ${sub.order_number} failed: ${e.message}`);
@@ -254,12 +291,16 @@ export function ArchiveReportAuditCard({
 
     setProgress(null);
     setRunning(false);
-    setResult({ read, failed, confirmed: confirmedIds.size, missing });
+    setResult({ read, failed, confirmed: confirmedIds.size, missing, changed });
 
     await load();
     onChanged();
-    toast.success(`Audit finished — ${read} report(s) read, ${missing} name(s) not in the archive`);
+    toast.success(
+      `Audit finished — ${read} report(s) read, ${missing} name(s) not in the archive` +
+      (verifyOutcomes ? `, ${changed} result(s) corrected` : ""),
+    );
   };
+
 
   return (
     <Card className="p-4 space-y-3">
@@ -267,10 +308,13 @@ export function ArchiveReportAuditCard({
         <ClipboardCheck className="h-4 w-4 text-red-600" /> Audit the reports already on record
       </h3>
       <p className="text-sm text-muted-foreground">
-        Re-reads every report already saved against an archive order, ticks off the people it names,
-        and writes down any name on a report that is nowhere in the archive. Nothing is uploaded or
-        changed on the orders themselves.
+        Re-reads every report already saved against an archive order and ticks off the people it names.
+        The first button also re-checks each person's results against their own block on the supplier
+        report: no ID check leaves the ID blank and reports what the assessment says, a failed ID check
+        makes that person's Risk Assessment invalid, and one failed ID never affects anybody else in
+        the same batch. Any name on a report that is nowhere in the archive is written down for review.
       </p>
+
 
       <div className="flex flex-wrap gap-2 text-xs">
         <Badge variant="outline">{withReports.length} order(s) with a report</Badge>
@@ -292,13 +336,17 @@ export function ArchiveReportAuditCard({
       {result && !running && (
         <p className="text-sm">
           {result.read} report(s) read, {result.failed} could not be read, {result.confirmed} people confirmed,{" "}
-          {result.missing} name(s) not found in the archive.
+          {result.missing} name(s) not found in the archive
+          {result.changed ? `, ${result.changed} result(s) corrected` : ""}.
         </p>
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Button className="bg-red-600 hover:bg-red-700" disabled={running || !reviewOrders.length} onClick={() => void run("review")}>
-          {running ? "Auditing…" : `Audit ${reviewOrders.length} order(s) needing review`}
+        <Button className="bg-red-600 hover:bg-red-700" disabled={running || !withReports.length} onClick={() => void run("verify")}>
+          {running ? "Scanning…" : `Re-scan all ${withReports.length} report(s) & verify outcomes`}
+        </Button>
+        <Button variant="outline" disabled={running || !reviewOrders.length} onClick={() => void run("review")}>
+          Audit {reviewOrders.length} order(s) needing review
         </Button>
         <Button variant="outline" disabled={running || !pending.length} onClick={() => void run("pending")}>
           Audit {pending.length} outstanding report(s)
@@ -308,6 +356,7 @@ export function ArchiveReportAuditCard({
         </Button>
         {running && <Button variant="outline" onClick={() => { stop.current = true; }}>Stop</Button>}
       </div>
+
 
     </Card>
   );

@@ -19,6 +19,7 @@ import { applyArchiveReportOutcomes, extractArchiveReportRecords, matchArchivePe
 import { ArchiveOneDriveBackfillCard } from "@/components/manual-risk/ArchiveOneDriveBackfillCard";
 import { ArchiveNameReconciliationCard } from "@/components/manual-risk/ArchiveNameReconciliationCard";
 import { ArchiveReportAuditCard } from "@/components/manual-risk/ArchiveReportAuditCard";
+import { ArchivePassportsCard } from "@/components/manual-risk/ArchivePassportsCard";
 import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/archiveNameReconciliation";
 import { ARCHIVE_CANDIDATES_KEY, useArchiveCandidates } from "@/lib/archiveCandidatesQuery";
 import { archiveReportFiles, archiveReportNameSet, hasArchiveReport } from "@/lib/archiveReportFiles";
@@ -942,6 +943,9 @@ export function ArchiveImportTab({
         onChanged={() => { refetchArchive(); onChanged(); }}
         addLog={addLog}
       />
+
+      <ArchivePassportsCard clients={clients} />
+
 
       <ArchiveAffectedChecksCard
         submissions={archiveSubs}

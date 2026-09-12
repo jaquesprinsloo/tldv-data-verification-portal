@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Upload, FileSpreadsheet, CheckCircle2, XCircle, Download, Loader2 } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle2, XCircle, Download, Loader2, Search } from "lucide-react";
 import { isPlaceholderCandidate } from "@/lib/manualRiskPdf";
 
 const sb = supabase as any;
@@ -54,6 +55,10 @@ export function MrEmployeeCheckTab({
   const [rows, setRows] = useState<Row[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [search, setSearch] = useState("");
+  const [shown, setShown] = useState(100);
+
+
 
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c.client_name])), [clients]);
 
@@ -64,7 +69,7 @@ export function MrEmployeeCheckTab({
       for (let from = 0; ; from += 1000) {
         const { data, error } = await sb
           .from("manual_risk_candidates")
-          .select("id, submission_id, id_number, surname, first_name, override_client_id")
+          .select("id, submission_id, id_number, passport_number, surname, first_name, override_client_id, id_verification_result, risk_assessment_result")
           .range(from, from + 999);
         if (error) throw error;
         all.push(...(data ?? []));
@@ -87,6 +92,7 @@ export function MrEmployeeCheckTab({
     },
   });
 
+
   const byId = useMemo(() => {
     const m = new Map<string, any>();
     for (const r of records) {
@@ -95,6 +101,19 @@ export function MrEmployeeCheckTab({
     }
     return m;
   }, [records]);
+
+  /** Passport / permit numbers, so foreign nationals are found too. */
+  const byDoc = useMemo(() => {
+    const m = new Map<string, any>();
+    for (const r of records) {
+      for (const v of [r.passport_number, r.id_number]) {
+        const k = String(v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (k.length >= 5 && !/^\d{13}$/.test(k) && !m.has(k)) m.set(k, r);
+      }
+    }
+    return m;
+  }, [records]);
+
 
   const byName = useMemo(() => {
     const m = new Map<string, any>();
@@ -122,7 +141,9 @@ export function MrEmployeeCheckTab({
       if (!raw.length) { toast.error("No rows found in that file"); return; }
 
       const out: Row[] = raw.map((r, i) => {
-        const idNumber = normId(pick(r, ["idnumber", "id", "idno", "identitynumber", "sanumber"]));
+        const rawDoc = pick(r, ["idnumber", "id", "idno", "identitynumber", "sanumber", "passport", "passportnumber", "passportno"]);
+        const idNumber = normId(rawDoc);
+        const docKey = String(rawDoc).toUpperCase().replace(/[^A-Z0-9]/g, "");
         const fullName = pick(r, ["fullname", "name", "names", "employee", "employeename"]);
         let firstName = pick(r, ["firstname", "firstnames", "name", "initials", "givenname"]);
         let surname = pick(r, ["surname", "lastname", "familyname"]);
@@ -131,9 +152,10 @@ export function MrEmployeeCheckTab({
           surname = parts[parts.length - 1];
           firstName = parts.slice(0, -1).join(" ");
         }
-        const hit = (idNumber && byId.get(idNumber))
-          || byName.get(normName(surname) + "|" + normName(firstName));
-        const matchedOn: Row["matchedOn"] = !hit ? null : (idNumber && byId.get(idNumber)) ? "id" : "name";
+        const idHit = (idNumber && byId.get(idNumber)) || (docKey && byDoc.get(docKey));
+        const hit = idHit || byName.get(normName(surname) + "|" + normName(firstName));
+        const matchedOn: Row["matchedOn"] = !hit ? null : idHit ? "id" : "name";
+
         const info = hit ? describe(hit) : { account: "—", order: "—", screenedOn: "—" };
         return {
           key: `${i}-${idNumber || surname}`,
@@ -185,13 +207,128 @@ export function MrEmployeeCheckTab({
   const found = rows?.filter((r) => r.matched).length ?? 0;
   const missing = (rows?.length ?? 0) - found;
 
+  /** Everyone on record, newest screening first, filtered by the search box. */
+  const people = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = [...records].sort((a, b) =>
+      String(b.sub?.created_at ?? "").localeCompare(String(a.sub?.created_at ?? "")));
+    if (!q) return list;
+    const qDigits = q.replace(/\D/g, "");
+    return list.filter((r) => {
+      const hay = [r.first_name, r.surname, r.id_number, r.passport_number, r.sub?.order_number,
+        clientById.get(r.override_client_id ?? r.sub?.client_id ?? "")]
+        .map((v) => String(v ?? "").toLowerCase());
+      if (hay.some((v) => v.includes(q))) return true;
+      if (qDigits.length >= 4) {
+        const id = String(r.id_number ?? "").replace(/\D/g, "");
+        if (id.includes(qDigits)) return true;
+      }
+      return false;
+    });
+  }, [records, search, clientById]);
+
+  const downloadPeople = () => {
+    const header = ["First name", "Surname", "ID number", "Passport number", "Account", "Order", "Screened on"];
+    const csv = [header, ...people.map((r) => [
+      r.first_name ?? "", r.surname ?? "", r.id_number ?? "", r.passport_number ?? "",
+      clientById.get(r.override_client_id ?? r.sub?.client_id ?? "") ?? "",
+      r.sub?.order_number ?? "",
+      r.sub?.created_at ? new Date(r.sub.created_at).toLocaleDateString() : "",
+    ])]
+      .map((line) => line.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "screening-records.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-5">
+      <Card className="p-5 border-slate-200/80">
+        <div className="flex items-center gap-2 mb-2">
+          <Search className="h-4 w-4 text-red-600" />
+          <h3 className="font-semibold">Everyone on record</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Search by name, surname, ID number or passport number to see whether someone has a
+          screening on record.
+        </p>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <Input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setShown(100); }}
+            placeholder="Search name, surname, ID number or passport number"
+            className="max-w-md"
+          />
+          <Badge variant="outline">{people.length} of {records.length} person(s)</Badge>
+          <Button variant="outline" onClick={downloadPeople} disabled={!people.length}>
+            <Download className="h-4 w-4 mr-2" />Download list
+          </Button>
+        </div>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading records…
+          </p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>First name</TableHead>
+                    <TableHead>Surname</TableHead>
+                    <TableHead>ID number</TableHead>
+                    <TableHead>Passport number</TableHead>
+                    <TableHead>Account</TableHead>
+                    <TableHead>Order #</TableHead>
+                    <TableHead>Screened on</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {people.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                        Nobody on record matches that search.
+                      </TableCell>
+                    </TableRow>
+                  ) : people.slice(0, shown).map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="text-sm">{r.first_name || "—"}</TableCell>
+                      <TableCell className="text-sm">{r.surname || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.id_number || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.passport_number || "—"}</TableCell>
+                      <TableCell className="text-sm">
+                        {clientById.get(r.override_client_id ?? r.sub?.client_id ?? "") ?? "—"}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{r.sub?.order_number ?? "—"}</TableCell>
+                      <TableCell className="text-sm">
+                        {r.sub?.created_at ? new Date(r.sub.created_at).toLocaleDateString() : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {people.length > shown && (
+              <div className="pt-3">
+                <Button variant="outline" onClick={() => setShown((n) => n + 200)}>
+                  Show more ({people.length - shown} left)
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+
       <Card className="p-5 border-slate-200/80">
         <div className="flex items-center gap-2 mb-2">
           <FileSpreadsheet className="h-4 w-4 text-red-600" />
           <h3 className="font-semibold">Check your employees against our records</h3>
         </div>
+
         <p className="text-sm text-muted-foreground mb-4">
           Upload a list of your staff with their names and ID numbers. Everyone who already has a
           screening on record shows in green, and anyone without a record shows in red.
