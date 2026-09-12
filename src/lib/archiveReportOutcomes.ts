@@ -280,7 +280,8 @@ export async function applyArchiveOutcomesFromRecords(
     // A failing ID block that was copied from another person on the same report
     // must not condemn this candidate; their ID verification is left blank.
     const copiedIdFailure = sharedIdFailures.has(rec);
-    const idState = copiedIdFailure ? "none" : classifyArchiveIdVerification(rec);
+    const passportPerson = isPassportPerson(c);
+    const idState = copiedIdFailure || passportPerson ? "none" : classifyArchiveIdVerification(rec);
     const invalid = idState === "invalid";
     const raText = String(rec.risk_assessment ?? "");
     const raDetail = String(rec.risk_assessment_detail ?? "").trim();
@@ -288,9 +289,11 @@ export async function applyArchiveOutcomesFromRecords(
     const update: Record<string, unknown> = {
       id_verification_result: idState === "none" ? null : idState,
       id_verification_notes: idState === "none"
-        ? copiedIdFailure
-          ? `No ID Verification result could be attributed to this candidate on archive report ${reportLabel} — the failed ID wording on that report belongs to another candidate.`
-          : `No ID Verification was included with this Risk Assessment (archive report ${reportLabel}).`
+        ? passportPerson
+          ? `No ID Verification was done — this candidate was screened on a passport, permit or asylum number (archive report ${reportLabel}).`
+          : copiedIdFailure
+            ? `No ID Verification result could be attributed to this candidate on archive report ${reportLabel} — the failed ID wording on that report belongs to another candidate.`
+            : `No ID Verification was included with this Risk Assessment (archive report ${reportLabel}).`
         : [
             `Auto-populated from archive report ${reportLabel}`,
             rec.status ? `Status: ${rec.status}` : null,
@@ -298,6 +301,7 @@ export async function applyArchiveOutcomesFromRecords(
           ].filter(Boolean).join(" • "),
       id_verification_data: rec as unknown as Record<string, unknown>,
     };
+
 
 
     if (invalid) {
