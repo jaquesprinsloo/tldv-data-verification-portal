@@ -164,6 +164,54 @@ export function classifyArchiveIdVerification(
 /** True when the supplier ID verification block reads as NOT confirmed. */
 const isIdInvalid = (rec: ArchiveSupplierRecord) => classifyArchiveIdVerification(rec) === "invalid";
 
+/** Structural check of a South African ID: 13 digits, real birth date, valid checksum. */
+export function isStructurallyValidSaId(idNumber: unknown): boolean {
+  const s = String(idNumber ?? "").replace(/\D/g, "");
+  if (s.length !== 13) return false;
+  const yy = Number(s.slice(0, 2)), mm = Number(s.slice(2, 4)), dd = Number(s.slice(4, 6));
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return false;
+  const century = yy <= new Date().getFullYear() % 100 ? 2000 : 1900;
+  const d = new Date(century + yy, mm - 1, dd);
+  if (d.getMonth() !== mm - 1 || d.getDate() !== dd) return false;
+  let total = 0;
+  for (let i = 0; i < 13; i++) {
+    let dig = Number(s[12 - i]);
+    if (i % 2 === 1) { dig *= 2; if (dig > 9) dig -= 9; }
+    total += dig;
+  }
+  return total % 10 === 0;
+}
+
+/**
+ * Guards against a reading error where the SAME failing ID-verification wording
+ * is copied onto several people in one report (it belongs to one candidate only).
+ * Returns the set of records whose failing ID block cannot be trusted: the exact
+ * same failure text appears on another person too, and this person's own ID
+ * number is structurally valid.
+ */
+function findSharedIdFailures(
+  records: ArchiveSupplierRecord[],
+): Set<ArchiveSupplierRecord> {
+  const suspect = new Set<ArchiveSupplierRecord>();
+  const groups = new Map<string, ArchiveSupplierRecord[]>();
+  for (const r of records) {
+    if (!isIdInvalid(r)) continue;
+    const key = `${String(r.status ?? "").trim().toLowerCase()}|${String(r.id_verification_detail ?? "").trim().toLowerCase()}`;
+    if (!key.replace(/[|\s]/g, "")) continue;
+    groups.set(key, [...(groups.get(key) ?? []), r]);
+  }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    // Only treat as copied text when at least one person in the group really
+    // does have a broken ID number — that is whose failure it is.
+    const owners = group.filter((r) => !isStructurallyValidSaId(r.id_number));
+    if (owners.length === 0 || owners.length === group.length) continue;
+    for (const r of group) if (isStructurallyValidSaId(r.id_number)) suspect.add(r);
+  }
+  return suspect;
+}
+
+
 
 export interface ApplyArchiveOutcomesResult {
   matched: number;
@@ -205,6 +253,7 @@ export async function applyArchiveReportOutcomes(
   let matched = 0;
   const matchedIds: string[] = [];
   const used = new Set<ArchiveSupplierRecord>();
+  const sharedIdFailures = findSharedIdFailures(records);
 
   for (const c of rows) {
     const digits = String(c.id_number ?? "").replace(/\D/g, "");
@@ -223,7 +272,10 @@ export async function applyArchiveReportOutcomes(
 
     used.add(rec);
 
-    const idState = classifyArchiveIdVerification(rec);
+    // A failing ID block that was copied from another person on the same report
+    // must not condemn this candidate; their ID verification is left blank.
+    const copiedIdFailure = sharedIdFailures.has(rec);
+    const idState = copiedIdFailure ? "none" : classifyArchiveIdVerification(rec);
     const invalid = idState === "invalid";
     const raText = String(rec.risk_assessment ?? "");
     const raDetail = String(rec.risk_assessment_detail ?? "").trim();
@@ -231,7 +283,9 @@ export async function applyArchiveReportOutcomes(
     const update: Record<string, unknown> = {
       id_verification_result: idState === "none" ? null : idState,
       id_verification_notes: idState === "none"
-        ? `No ID Verification was included with this Risk Assessment (archive report ${reportLabel}).`
+        ? copiedIdFailure
+          ? `No ID Verification result could be attributed to this candidate on archive report ${reportLabel} — the failed ID wording on that report belongs to another candidate.`
+          : `No ID Verification was included with this Risk Assessment (archive report ${reportLabel}).`
         : [
             `Auto-populated from archive report ${reportLabel}`,
             rec.status ? `Status: ${rec.status}` : null,
@@ -239,6 +293,7 @@ export async function applyArchiveReportOutcomes(
           ].filter(Boolean).join(" • "),
       id_verification_data: rec as unknown as Record<string, unknown>,
     };
+
 
     if (invalid) {
       // Same rule as the live reports: an ID check that failed means the risk
