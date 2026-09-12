@@ -54,6 +54,10 @@ export function MrEmployeeCheckTab({
   const [rows, setRows] = useState<Row[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [search, setSearch] = useState("");
+  const [shown, setShown] = useState(100);
+
+
 
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c.client_name])), [clients]);
 
