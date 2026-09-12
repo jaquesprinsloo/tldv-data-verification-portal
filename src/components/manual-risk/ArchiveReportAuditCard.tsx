@@ -333,13 +333,17 @@ export function ArchiveReportAuditCard({
       {result && !running && (
         <p className="text-sm">
           {result.read} report(s) read, {result.failed} could not be read, {result.confirmed} people confirmed,{" "}
-          {result.missing} name(s) not found in the archive.
+          {result.missing} name(s) not found in the archive
+          {result.changed ? `, ${result.changed} result(s) corrected` : ""}.
         </p>
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Button className="bg-red-600 hover:bg-red-700" disabled={running || !reviewOrders.length} onClick={() => void run("review")}>
-          {running ? "Auditing…" : `Audit ${reviewOrders.length} order(s) needing review`}
+        <Button className="bg-red-600 hover:bg-red-700" disabled={running || !withReports.length} onClick={() => void run("verify")}>
+          {running ? "Scanning…" : `Re-scan all ${withReports.length} report(s) & verify outcomes`}
+        </Button>
+        <Button variant="outline" disabled={running || !reviewOrders.length} onClick={() => void run("review")}>
+          Audit {reviewOrders.length} order(s) needing review
         </Button>
         <Button variant="outline" disabled={running || !pending.length} onClick={() => void run("pending")}>
           Audit {pending.length} outstanding report(s)
@@ -349,6 +353,7 @@ export function ArchiveReportAuditCard({
         </Button>
         {running && <Button variant="outline" onClick={() => { stop.current = true; }}>Stop</Button>}
       </div>
+
 
     </Card>
   );
