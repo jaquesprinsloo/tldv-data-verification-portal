@@ -371,17 +371,29 @@ export async function applyArchiveReportOutcomes(
 }
 
 
-/** Reads a supplier report PDF and returns the per-candidate records only
- *  (names + masked ID prefixes) so a report can be matched to an archive order
- *  by the people it contains, without writing anything. */
-export async function extractArchiveReportRecords(file: File): Promise<ArchiveSupplierRecord[]> {
+/** Reads a supplier report once and returns both the per-candidate records and
+ *  any full 13-digit ID numbers found, without writing anything. */
+export async function extractArchiveReportPayload(
+  file: File,
+): Promise<{ records: ArchiveSupplierRecord[]; ids: string[] }> {
   const base64 = await blobToBase64(file);
   const { data, error } = await supabase.functions.invoke("extract-supplier-report-ids", {
     body: { fileBase64: base64, contentType: file.type || "application/pdf" },
   });
   if (error) throw error;
   if (!(data as any)?.success) throw new Error((data as any)?.error || "Extraction failed");
-  return Array.isArray((data as any).records) ? ((data as any).records as ArchiveSupplierRecord[]) : [];
+  return {
+    records: Array.isArray((data as any).records) ? ((data as any).records as ArchiveSupplierRecord[]) : [],
+    ids: Array.isArray((data as any).ids) ? ((data as any).ids as string[]).map(String) : [],
+  };
 }
+
+/** Reads a supplier report PDF and returns the per-candidate records only
+ *  (names + masked ID prefixes) so a report can be matched to an archive order
+ *  by the people it contains, without writing anything. */
+export async function extractArchiveReportRecords(file: File): Promise<ArchiveSupplierRecord[]> {
+  return (await extractArchiveReportPayload(file)).records;
+}
+
 
 export const normPersonName = norm;
