@@ -133,16 +133,37 @@ export function matchArchivePerson(
   };
 }
 
-/** True when the supplier ID verification block reads as NOT confirmed. */
-const isIdInvalid = (rec: ArchiveSupplierRecord) => {
-  const status = String(rec.status ?? "");
+/**
+ * Early archive checks often had NO ID verification at all — only a Risk
+ * Assessment. Three outcomes are possible:
+ *   "valid"   — ID confirmed by Home Affairs
+ *   "invalid" — an ID check was done and it failed (no result / deceased /
+ *               not confirmed) → the Risk Assessment cannot be relied upon
+ *   "none"    — no ID verification was included; the ID stays blank and the
+ *               Risk Assessment outcome stands on its own
+ */
+export function classifyArchiveIdVerification(
+  rec: Pick<ArchiveSupplierRecord, "status" | "dead_alive" | "id_verification_detail" | "risk_assessment">,
+): "valid" | "invalid" | "none" {
+  const status = String(rec.status ?? "").trim();
+  const detail = String(rec.id_verification_detail ?? "").trim();
   const dead = String(rec.dead_alive ?? "");
-  if (/decease|\bdead\b/i.test(dead)) return true;
-  const negative =
-    /not\s*confirm|unconfirm|no\s*result|invalid|not\s*found|fail|unable|error|decease/i.test(status);
-  if (negative) return true;
-  return !/confirm|complete|verified|\bvalid\b|match/i.test(status);
-};
+  const blob = `${status} ${detail}`;
+
+  if (/decease|\bdead\b/i.test(dead)) return "invalid";
+  if (/not\s*confirm|unconfirm|no\s*result|invalid|not\s*found|not\s*verified|fail|unable|error|decease/i.test(blob)) {
+    return "invalid";
+  }
+  if (/confirm|verified|\bvalid\b|match|alive/i.test(blob)) return "valid";
+
+  // Nothing but a section heading, the risk-assessment wording, or an empty
+  // block means the ID verification simply was not part of this check.
+  return "none";
+}
+
+/** True when the supplier ID verification block reads as NOT confirmed. */
+const isIdInvalid = (rec: ArchiveSupplierRecord) => classifyArchiveIdVerification(rec) === "invalid";
+
 
 export interface ApplyArchiveOutcomesResult {
   matched: number;
