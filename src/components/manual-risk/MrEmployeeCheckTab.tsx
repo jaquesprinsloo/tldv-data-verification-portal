@@ -64,7 +64,7 @@ export function MrEmployeeCheckTab({
       for (let from = 0; ; from += 1000) {
         const { data, error } = await sb
           .from("manual_risk_candidates")
-          .select("id, submission_id, id_number, surname, first_name, override_client_id")
+          .select("id, submission_id, id_number, passport_number, surname, first_name, override_client_id, id_verification_result, risk_assessment_result")
           .range(from, from + 999);
         if (error) throw error;
         all.push(...(data ?? []));
@@ -86,6 +86,7 @@ export function MrEmployeeCheckTab({
         .map((c) => ({ ...c, sub: subById.get(c.submission_id) }));
     },
   });
+
 
   const byId = useMemo(() => {
     const m = new Map<string, any>();
