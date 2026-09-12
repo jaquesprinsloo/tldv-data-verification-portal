@@ -52,6 +52,34 @@ const nameTokens = (...values: unknown[]) =>
     /** Short fragments and name particles carry no identifying weight. */
     .filter((value) => value.length >= 4 && !COMMON_NAME_PARTS.has(value));
 
+/** Edit distance, capped for speed — used only for one-letter spelling slips. */
+const editDistance = (a: string, b: string) => {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > 1) return 2;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+};
+
+/**
+ * Names on old reports are often a letter out ("Phuti" vs "Phuthi", "Peu" vs
+ * "Pev"). Two names count as the same person's name only when they are the same
+ * word or differ by a single letter, and are long enough to mean something.
+ */
+const nearName = (a: string, b: string) =>
+  !!a && !!b && a.length >= 3 && b.length >= 3 && editDistance(a, b) <= 1;
+
+
 /**
  * Historical spreadsheets sometimes put a person's first name in the surname
  * column (and vice versa). Keep the normal field-by-field match, and allow that
