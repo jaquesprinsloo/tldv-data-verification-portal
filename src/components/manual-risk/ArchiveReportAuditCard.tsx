@@ -128,8 +128,17 @@ export function ArchiveReportAuditCard({
   const waitingPeople = (cands ?? []).length - confirmedPeople;
 
 
-  /** Reads one report file on an order and stamps the people it names. */
-  const auditFile = async (sub: AuditSubmission, reportFile: { path: string; name: string }, all: Cand[]) => {
+  /**
+   * Reads one report file on an order, stamps the people it names, and (when
+   * outcome verification is on) rewrites each person's ID Verification and Risk
+   * Assessment result straight from that report — strictly per person.
+   */
+  const auditFile = async (
+    sub: AuditSubmission,
+    reportFile: { path: string; name: string },
+    all: Cand[],
+    verifyOutcomes: boolean,
+  ) => {
     const { data: signed, error: sErr } = await sb.storage
       .from("archive-reports")
       .createSignedUrl(reportFile.path, 300);
@@ -140,11 +149,14 @@ export function ArchiveReportAuditCard({
     const name = reportFile.name || "report.pdf";
     const file = new File([blob], name, { type: blob.type || "application/pdf" });
 
-    let records: Awaited<ReturnType<typeof extractArchiveReportRecords>> = [];
+    let records: Awaited<ReturnType<typeof extractArchiveReportPayload>>["records"] = [];
+    let fullIds: string[] = [];
     let err = "";
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        records = await extractArchiveReportRecords(file);
+        const payload = await extractArchiveReportPayload(file);
+        records = payload.records;
+        fullIds = payload.ids;
         err = "";
         if (records.length) break;
       } catch (e: any) {
@@ -157,6 +169,8 @@ export function ArchiveReportAuditCard({
 
     const matchedIds: string[] = [];
     const notFound: typeof records = [];
+
+
 
     const ownOrder = all.filter((c) => c.submission_id === sub.id);
 
