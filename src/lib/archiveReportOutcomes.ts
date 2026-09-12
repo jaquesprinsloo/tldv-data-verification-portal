@@ -39,16 +39,26 @@ const blobToBase64 = (blob: Blob): Promise<string> =>
 const norm = (s: unknown) =>
   String(s ?? "").toLowerCase().replace(/[^a-z]/g, "");
 
+/** Name parts that are far too common to identify anybody on their own. */
+const COMMON_NAME_PARTS = new Set([
+  "van", "der", "den", "de", "du", "le", "la", "dos", "das", "bin", "ben",
+  "mr", "mrs", "ms", "miss", "jnr", "jr", "snr", "sr", "the", "and",
+]);
+
 const nameTokens = (...values: unknown[]) =>
   values
     .flatMap((value) => String(value ?? "").toLowerCase().split(/[^a-z]+/))
     .map((value) => value.trim())
-    .filter((value) => value.length >= 3);
+    /** Short fragments and name particles carry no identifying weight. */
+    .filter((value) => value.length >= 4 && !COMMON_NAME_PARTS.has(value));
 
 /**
  * Historical spreadsheets sometimes put a person's first name in the surname
- * column (and vice versa). Keep the normal field-by-field match, but also allow
- * a shared name token across either field when the masked ID prefix agrees.
+ * column (and vice versa). Keep the normal field-by-field match, and allow that
+ * swap only when the masked ID prefix agrees AND the names line up properly:
+ * either a straight swap of the two fields, or two distinctive shared names.
+ * A single shared name word is never enough — a shared birth date plus one
+ * common name would otherwise tick off the wrong person.
  */
 export function matchArchivePerson(
   report: Pick<ArchiveSupplierRecord, "first_names" | "surname" | "id_prefix">,
@@ -66,13 +76,17 @@ export function matchArchivePerson(
   const reportNames = new Set(nameTokens(report.first_names, report.surname));
   const sharedNameTokens = nameTokens(candidate.first_name, candidate.surname)
     .filter((token) => reportNames.has(token));
-  const crossFieldHit = sharedNameTokens.length > 0;
+  /** The two fields are simply the other way round. */
+  const swapHit = (!!rs && !!cf && rs === cf) || (!!rf && !!cs && rf === cs);
+  const crossFieldHit = swapHit || sharedNameTokens.length >= 2;
   const directHits = [surnameHit, firstHit, prefixHit].filter(Boolean).length;
 
   return {
     matches: directHits >= 2 || (prefixHit && crossFieldHit),
-    strong: directHits === 3 || (prefixHit && sharedNameTokens.length >= 2),
+    strong: directHits === 3 || (prefixHit && crossFieldHit),
     prefixHit,
+    /** Higher means a better fit; used to pick the best of several records. */
+    score: directHits * 2 + (swapHit ? 2 : 0) + sharedNameTokens.length,
   };
 }
 
@@ -131,9 +145,12 @@ export async function applyArchiveReportOutcomes(
   for (const c of rows) {
     const digits = String(c.id_number ?? "").replace(/\D/g, "");
     const prefix = digits.slice(0, 6);
+    // The best fit on the report wins, not merely the first passable one.
     let rec: ArchiveSupplierRecord | undefined;
+    let best = -1;
     for (const r of records) {
-      if (matchArchivePerson(r, c).matches) { rec = r; break; }
+      const m = matchArchivePerson(r, c);
+      if (m.matches && m.score > best) { best = m.score; rec = r; }
     }
     if (!rec && fullIds.includes(digits)) {
       rec = { id_prefix: prefix, status: "Confirmed" } as ArchiveSupplierRecord;

@@ -171,8 +171,16 @@ Deno.serve(async (req) => {
     let records: Array<Record<string, unknown>> = [];
     try {
       const parsed = JSON.parse(cleaned);
-      if (Array.isArray(parsed?.ids)) ids = parsed.ids.map((x: unknown) => String(x));
-      if (Array.isArray(parsed?.records)) records = parsed.records as Array<Record<string, unknown>>;
+      if (Array.isArray(parsed?.ids)) {
+        ids = parsed.ids.filter((x: unknown) => x !== null && x !== undefined).map((x: unknown) => String(x));
+      }
+      if (Array.isArray(parsed?.records)) {
+        // The model occasionally emits null or non-object entries in the array.
+        // They are dropped here so one bad line cannot break the whole report.
+        records = (parsed.records as unknown[]).filter(
+          (r): r is Record<string, unknown> => !!r && typeof r === "object" && !Array.isArray(r),
+        );
+      }
     } catch {
       ids = (cleaned.match(/\d{13}/g) ?? []);
     }
@@ -197,8 +205,14 @@ Deno.serve(async (req) => {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("extract-supplier-report-ids error:", message);
-    return new Response(JSON.stringify({ success: false, error: message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "The report could not be read. Please try uploading it again, or capture the results manually.",
+        detail: message,
+        retryable: true,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });
