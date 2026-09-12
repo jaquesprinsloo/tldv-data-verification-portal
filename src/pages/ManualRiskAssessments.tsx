@@ -3002,6 +3002,9 @@ type AccountRow = {
   riskFlags: { key: string; label: string; result: string }[];
   /** Checks that were requested but still have no captured outcome. */
   pendingChecks: number;
+  /** Historical check where no ID verification was ever performed. */
+  idNotDone?: boolean;
+
   /** Mirrored PTVS-discount check shown for invoicing only — not counted here. */
   isMirror?: boolean;
   mirrorFrom?: string;
@@ -3023,24 +3026,34 @@ function resultLabel(checkKey: string, value: string): string {
 }
 
 /** Derives ID validity + risk findings for a candidate row. */
-function summariseCandidateChecks(candidate: any, requestedChecks: string[] | null) {
+function summariseCandidateChecks(candidate: any, requestedChecks: string[] | null, isArchive = false) {
   const active = (requestedChecks?.length ? requestedChecks : ["id_verification", "credit", "criminal"])
     .filter((k) => CHECK_COLUMNS[k]);
   const idResult: string | null = candidate[CHECK_COLUMNS.id_verification.result] ?? null;
   const riskFlags: { key: string; label: string; result: string }[] = [];
   let pendingChecks = 0;
+  let idNotDone = false;
   for (const k of active) {
     const val = candidate[CHECK_COLUMNS[k].result] as string | null;
-    if (!val || val === "pending") { pendingChecks++; continue; }
+    if (!val || val === "pending") {
+      // Early historical checks were done before ID verification existed: a blank
+      // ID outcome there means "not done", not "still waiting".
+      if (k === "id_verification" && isArchive) { idNotDone = true; continue; }
+      pendingChecks++;
+      continue;
+    }
     if ((ADVERSE_RESULTS[k] ?? []).includes(val)) {
       riskFlags.push({ key: k, label: CHECK_META[k]?.short ?? k, result: resultLabel(k, val) });
     }
   }
-  return { idResult, riskFlags, pendingChecks };
+  return { idResult, riskFlags, pendingChecks, idNotDone };
 }
 
 function renderIdStatus(r: AccountRow) {
   if (!r.idResult || r.idResult === "pending") {
+    if (r.idNotDone) {
+      return <Badge variant="outline" className="text-[10px] text-muted-foreground">Not done</Badge>;
+    }
     return <Badge variant="outline" className="text-[10px]">Pending</Badge>;
   }
   if (r.idResult === "valid") {
@@ -3050,6 +3063,8 @@ function renderIdStatus(r: AccountRow) {
     <Badge className="bg-red-600 text-[10px]">{resultLabel("id_verification", r.idResult)}</Badge>
   );
 }
+
+
 
 function renderRiskStatus(r: AccountRow) {
   if (r.riskFlags.length > 0) {
@@ -3824,7 +3839,8 @@ function ClientAccountDialog({
           overrideClientId: (c as any).override_client_id ?? null,
           originalClientId: s.client_id,
           sortOrder: (c as any).sort_order ?? 0,
-          ...summariseCandidateChecks(c, s.requested_checks),
+          ...summariseCandidateChecks(c, s.requested_checks, isArchive),
+
         } as AccountRow;
       })
       .filter((r): r is AccountRow => r !== null)
@@ -3872,7 +3888,7 @@ function ClientAccountDialog({
           overrideClientId: (c as any).override_client_id ?? null,
           originalClientId: s.client_id,
           sortOrder: (c as any).sort_order ?? 0,
-          ...summariseCandidateChecks(c, s.requested_checks),
+          ...summariseCandidateChecks(c, s.requested_checks, !!(s as any).is_archive),
           isMirror: true,
           mirrorFrom: originName,
         } as AccountRow;
