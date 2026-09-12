@@ -1,0 +1,1 @@
+DELETE FROM public.manual_risk_candidates WHERE id IN ('d9dda0fe-77ac-41ff-9c72-266272fad378','956854a3-318f-48f1-aaa3-f9c08ec61a24');
