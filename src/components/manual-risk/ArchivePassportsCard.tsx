@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Globe, Loader2, Save } from "lucide-react";
+import { Globe, Loader2, RefreshCw, Save } from "lucide-react";
 
 const sb = supabase as any;
 
@@ -42,9 +42,10 @@ export function ArchivePassportsCard({
   const clientName = (id: string | null) =>
     (id ? clients.find((c) => c.id === id)?.client_name ?? "—" : "—");
 
-  const { data: rows = [], isLoading } = useQuery<Row[]>({
+  const { data: rows = [], isLoading, refetch } = useQuery<Row[]>({
     queryKey: ["mra-no-full-id-candidates"],
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const cands: any[] = [];
       for (let from = 0; ; from += 1000) {
@@ -125,6 +126,15 @@ export function ArchivePassportsCard({
           placeholder="Search name, surname, number, account or order"
           className="max-w-sm"
         />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void refetch()}
+          disabled={isLoading}
+        >
+          {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          Refresh
+        </Button>
       </div>
 
       {isLoading ? (
