@@ -15,8 +15,9 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Search, UserPlus, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Search, UserPlus, AlertTriangle, CheckCircle2, Wand2 } from "lucide-react";
 import type { UnmatchedReportName } from "@/lib/archiveNameReconciliation";
+import { matchArchivePerson } from "@/lib/archiveReportOutcomes";
 
 type OrderLite = {
   id: string;
