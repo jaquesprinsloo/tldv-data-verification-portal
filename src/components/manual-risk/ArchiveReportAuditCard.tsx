@@ -12,7 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { ClipboardCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase as sb } from "@/integrations/supabase/client";
-import { extractArchiveReportRecords, matchArchivePerson, normPersonName } from "@/lib/archiveReportOutcomes";
+import {
+  extractArchiveReportPayload,
+  applyArchiveOutcomesFromRecords,
+  matchArchivePerson,
+  normPersonName,
+} from "@/lib/archiveReportOutcomes";
+
 import { markCandidatesReportMatched, recordUnmatchedReportNames } from "@/lib/archiveNameReconciliation";
 import { fetchArchiveCandidates } from "@/lib/archiveCandidatesQuery";
 import { archiveReportFiles, archiveReportNameSet, hasArchiveReport } from "@/lib/archiveReportFiles";
