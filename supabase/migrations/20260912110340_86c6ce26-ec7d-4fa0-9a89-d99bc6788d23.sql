@@ -1,0 +1,1 @@
+UPDATE public.manual_risk_candidates SET id_number = 'RC306654', updated_at = now() WHERE first_name ILIKE 'Molefe' AND surname ILIKE 'Sesinyi' AND submission_id IN (SELECT id FROM public.manual_risk_submissions WHERE is_archive = true);
