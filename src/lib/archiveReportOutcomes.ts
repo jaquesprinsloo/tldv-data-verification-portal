@@ -223,23 +223,26 @@ export async function applyArchiveReportOutcomes(
 
     used.add(rec);
 
-    const invalid = isIdInvalid(rec);
+    const idState = classifyArchiveIdVerification(rec);
+    const invalid = idState === "invalid";
     const raText = String(rec.risk_assessment ?? "");
     const raDetail = String(rec.risk_assessment_detail ?? "").trim();
     const idDetail = String(rec.id_verification_detail ?? "").trim();
     const update: Record<string, unknown> = {
-      id_verification_result: invalid ? "invalid" : "valid",
-      id_verification_notes: [
-        `Auto-populated from archive report ${reportLabel}`,
-        rec.status ? `Status: ${rec.status}` : null,
-        idDetail || null,
-      ].filter(Boolean).join(" • "),
+      id_verification_result: idState === "none" ? null : idState,
+      id_verification_notes: idState === "none"
+        ? `No ID Verification was included with this Risk Assessment (archive report ${reportLabel}).`
+        : [
+            `Auto-populated from archive report ${reportLabel}`,
+            rec.status ? `Status: ${rec.status}` : null,
+            idDetail || null,
+          ].filter(Boolean).join(" • "),
       id_verification_data: rec as unknown as Record<string, unknown>,
     };
 
     if (invalid) {
-      // Same rule as the live reports: no valid ID means the risk assessment
-      // cannot be relied upon.
+      // Same rule as the live reports: an ID check that failed means the risk
+      // assessment cannot be relied upon.
       update.risk_assessment_result = "invalid";
       update.risk_assessment_notes = [
         `Risk Assessment invalid — ID verification could not be confirmed${raText ? ` (supplier risk assessment: ${raText})` : ""}.`,
@@ -258,6 +261,7 @@ export async function applyArchiveReportOutcomes(
         ].filter(Boolean).join(" • ");
       }
     }
+
 
     const { error: uErr } = await supabase
       .from("manual_risk_candidates")
