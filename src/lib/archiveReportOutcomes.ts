@@ -145,9 +145,12 @@ export async function applyArchiveReportOutcomes(
   for (const c of rows) {
     const digits = String(c.id_number ?? "").replace(/\D/g, "");
     const prefix = digits.slice(0, 6);
+    // The best fit on the report wins, not merely the first passable one.
     let rec: ArchiveSupplierRecord | undefined;
+    let best = -1;
     for (const r of records) {
-      if (matchArchivePerson(r, c).matches) { rec = r; break; }
+      const m = matchArchivePerson(r, c);
+      if (m.matches && m.score > best) { best = m.score; rec = r; }
     }
     if (!rec && fullIds.includes(digits)) {
       rec = { id_prefix: prefix, status: "Confirmed" } as ArchiveSupplierRecord;
