@@ -52,6 +52,34 @@ const nameTokens = (...values: unknown[]) =>
     /** Short fragments and name particles carry no identifying weight. */
     .filter((value) => value.length >= 4 && !COMMON_NAME_PARTS.has(value));
 
+/** Edit distance, capped for speed — used only for one-letter spelling slips. */
+const editDistance = (a: string, b: string) => {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > 1) return 2;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+};
+
+/**
+ * Names on old reports are often a letter out ("Phuti" vs "Phuthi", "Peu" vs
+ * "Pev"). Two names count as the same person's name only when they are the same
+ * word or differ by a single letter, and are long enough to mean something.
+ */
+const nearName = (a: string, b: string) =>
+  !!a && !!b && a.length >= 3 && b.length >= 3 && editDistance(a, b) <= 1;
+
+
 /**
  * Historical spreadsheets sometimes put a person's first name in the surname
  * column (and vice versa). Keep the normal field-by-field match, and allow that
@@ -73,12 +101,18 @@ export function matchArchivePerson(
   const surnameHit = !!rs && !!cs && rs === cs;
   const firstHit = !!rf && !!cf && (rf === cf || rf.startsWith(cf) || cf.startsWith(rf));
   const prefixHit = reportPrefix.length === 6 && reportPrefix === candidatePrefix;
-  const reportNames = new Set(nameTokens(report.first_names, report.surname));
-  const sharedNameTokens = nameTokens(candidate.first_name, candidate.surname)
-    .filter((token) => reportNames.has(token));
-  /** The two fields are simply the other way round. */
-  const swapHit = (!!rs && !!cf && rs === cf) || (!!rf && !!cs && rf === cs);
-  const crossFieldHit = swapHit || sharedNameTokens.length >= 2;
+  const reportTokens = nameTokens(report.first_names, report.surname);
+  const candidateTokens = nameTokens(candidate.first_name, candidate.surname);
+  /** Same word, or a single-letter spelling slip ("Phuti" / "Phuthi"). */
+  const sharedNameTokens = candidateTokens
+    .filter((token) => reportTokens.some((rt) => nearName(token, rt)));
+  /** The two fields are simply the other way round (a letter out is allowed). */
+  const swapHit = nearName(rs, cf) || nearName(rf, cs);
+  const crossFieldHit = swapHit || sharedNameTokens.length >= 2 ||
+    /** One distinctive name plus an exact date of birth in a swapped field. */
+    (sharedNameTokens.length === 1 && (nearName(rs, cf) || nearName(rf, cs) ||
+      reportTokens.some((rt) => nearName(rt, cf)) || candidateTokens.some((ct) => nearName(ct, rs))));
+
   const directHits = [surnameHit, firstHit, prefixHit].filter(Boolean).length;
 
   return {
