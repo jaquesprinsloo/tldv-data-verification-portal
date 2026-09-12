@@ -97,6 +97,19 @@ export function MrEmployeeCheckTab({
     return m;
   }, [records]);
 
+  /** Passport / permit numbers, so foreign nationals are found too. */
+  const byDoc = useMemo(() => {
+    const m = new Map<string, any>();
+    for (const r of records) {
+      for (const v of [r.passport_number, r.id_number]) {
+        const k = String(v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (k.length >= 5 && !/^\d{13}$/.test(k) && !m.has(k)) m.set(k, r);
+      }
+    }
+    return m;
+  }, [records]);
+
+
   const byName = useMemo(() => {
     const m = new Map<string, any>();
     for (const r of records) {
