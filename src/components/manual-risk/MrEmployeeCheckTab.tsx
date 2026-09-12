@@ -136,7 +136,9 @@ export function MrEmployeeCheckTab({
       if (!raw.length) { toast.error("No rows found in that file"); return; }
 
       const out: Row[] = raw.map((r, i) => {
-        const idNumber = normId(pick(r, ["idnumber", "id", "idno", "identitynumber", "sanumber"]));
+        const rawDoc = pick(r, ["idnumber", "id", "idno", "identitynumber", "sanumber", "passport", "passportnumber", "passportno"]);
+        const idNumber = normId(rawDoc);
+        const docKey = String(rawDoc).toUpperCase().replace(/[^A-Z0-9]/g, "");
         const fullName = pick(r, ["fullname", "name", "names", "employee", "employeename"]);
         let firstName = pick(r, ["firstname", "firstnames", "name", "initials", "givenname"]);
         let surname = pick(r, ["surname", "lastname", "familyname"]);
@@ -145,9 +147,10 @@ export function MrEmployeeCheckTab({
           surname = parts[parts.length - 1];
           firstName = parts.slice(0, -1).join(" ");
         }
-        const hit = (idNumber && byId.get(idNumber))
-          || byName.get(normName(surname) + "|" + normName(firstName));
-        const matchedOn: Row["matchedOn"] = !hit ? null : (idNumber && byId.get(idNumber)) ? "id" : "name";
+        const idHit = (idNumber && byId.get(idNumber)) || (docKey && byDoc.get(docKey));
+        const hit = idHit || byName.get(normName(surname) + "|" + normName(firstName));
+        const matchedOn: Row["matchedOn"] = !hit ? null : idHit ? "id" : "name";
+
         const info = hit ? describe(hit) : { account: "—", order: "—", screenedOn: "—" };
         return {
           key: `${i}-${idNumber || surname}`,
