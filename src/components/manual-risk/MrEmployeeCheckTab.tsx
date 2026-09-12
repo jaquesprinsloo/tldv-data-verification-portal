@@ -206,13 +206,128 @@ export function MrEmployeeCheckTab({
   const found = rows?.filter((r) => r.matched).length ?? 0;
   const missing = (rows?.length ?? 0) - found;
 
+  /** Everyone on record, newest screening first, filtered by the search box. */
+  const people = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = [...records].sort((a, b) =>
+      String(b.sub?.created_at ?? "").localeCompare(String(a.sub?.created_at ?? "")));
+    if (!q) return list;
+    const qDigits = q.replace(/\D/g, "");
+    return list.filter((r) => {
+      const hay = [r.first_name, r.surname, r.id_number, r.passport_number, r.sub?.order_number,
+        clientById.get(r.override_client_id ?? r.sub?.client_id ?? "")]
+        .map((v) => String(v ?? "").toLowerCase());
+      if (hay.some((v) => v.includes(q))) return true;
+      if (qDigits.length >= 4) {
+        const id = String(r.id_number ?? "").replace(/\D/g, "");
+        if (id.includes(qDigits)) return true;
+      }
+      return false;
+    });
+  }, [records, search, clientById]);
+
+  const downloadPeople = () => {
+    const header = ["First name", "Surname", "ID number", "Passport number", "Account", "Order", "Screened on"];
+    const csv = [header, ...people.map((r) => [
+      r.first_name ?? "", r.surname ?? "", r.id_number ?? "", r.passport_number ?? "",
+      clientById.get(r.override_client_id ?? r.sub?.client_id ?? "") ?? "",
+      r.sub?.order_number ?? "",
+      r.sub?.created_at ? new Date(r.sub.created_at).toLocaleDateString() : "",
+    ])]
+      .map((line) => line.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "screening-records.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-5">
+      <Card className="p-5 border-slate-200/80">
+        <div className="flex items-center gap-2 mb-2">
+          <Search className="h-4 w-4 text-red-600" />
+          <h3 className="font-semibold">Everyone on record</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Search by name, surname, ID number or passport number to see whether someone has a
+          screening on record.
+        </p>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <Input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setShown(100); }}
+            placeholder="Search name, surname, ID number or passport number"
+            className="max-w-md"
+          />
+          <Badge variant="outline">{people.length} of {records.length} person(s)</Badge>
+          <Button variant="outline" onClick={downloadPeople} disabled={!people.length}>
+            <Download className="h-4 w-4 mr-2" />Download list
+          </Button>
+        </div>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading records…
+          </p>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>First name</TableHead>
+                    <TableHead>Surname</TableHead>
+                    <TableHead>ID number</TableHead>
+                    <TableHead>Passport number</TableHead>
+                    <TableHead>Account</TableHead>
+                    <TableHead>Order #</TableHead>
+                    <TableHead>Screened on</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {people.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                        Nobody on record matches that search.
+                      </TableCell>
+                    </TableRow>
+                  ) : people.slice(0, shown).map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="text-sm">{r.first_name || "—"}</TableCell>
+                      <TableCell className="text-sm">{r.surname || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.id_number || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{r.passport_number || "—"}</TableCell>
+                      <TableCell className="text-sm">
+                        {clientById.get(r.override_client_id ?? r.sub?.client_id ?? "") ?? "—"}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{r.sub?.order_number ?? "—"}</TableCell>
+                      <TableCell className="text-sm">
+                        {r.sub?.created_at ? new Date(r.sub.created_at).toLocaleDateString() : "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {people.length > shown && (
+              <div className="pt-3">
+                <Button variant="outline" onClick={() => setShown((n) => n + 200)}>
+                  Show more ({people.length - shown} left)
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+
       <Card className="p-5 border-slate-200/80">
         <div className="flex items-center gap-2 mb-2">
           <FileSpreadsheet className="h-4 w-4 text-red-600" />
           <h3 className="font-semibold">Check your employees against our records</h3>
         </div>
+
         <p className="text-sm text-muted-foreground mb-4">
           Upload a list of your staff with their names and ID numbers. Everyone who already has a
           screening on record shows in green, and anyone without a record shows in red.
