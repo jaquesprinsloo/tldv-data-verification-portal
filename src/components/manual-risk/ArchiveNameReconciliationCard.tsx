@@ -377,6 +377,8 @@ export function ArchiveNameReconciliationCard({
           .select("id", { count: "exact", head: true })
           .eq("submission_id", orderId);
 
+        // Keep whatever ID digits we have (even a 6-digit prefix) so the
+        // person can still be found when searching by ID number.
         const digits = String(row.id_prefix ?? "").replace(/\D/g, "");
         const { data, error } = await sb
           .from("manual_risk_candidates")
@@ -384,7 +386,7 @@ export function ArchiveNameReconciliationCard({
             submission_id: orderId,
             first_name: (row.first_names ?? "").trim(),
             surname: (row.surname ?? row.full_name ?? "").trim(),
-            id_number: digits.length === 13 ? digits : "0000000000000",
+            id_number: digits.length >= 6 ? digits : "0000000000000",
             sort_order: (count ?? 0) + 1,
             report_matched_at: new Date().toISOString(),
             report_matched_file: row.report_file_name,
