@@ -601,24 +601,44 @@ export function ArchiveNameReconciliationCard({
             </div>
             <div>
               <Label className="text-xs">Order</Label>
-              <Input
-                className="mb-2"
-                placeholder="Search by account, order number or date"
-                value={orderSearch}
-                onChange={(e) => setOrderSearch(e.target.value)}
-              />
-              <div className="max-h-48 overflow-auto border rounded divide-y">
-                {orderOptions.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setForm((f) => ({ ...f, orderId: s.id }))}
-                    className={`w-full text-left px-2 py-1.5 text-xs hover:bg-muted ${form.orderId === s.id ? "bg-muted font-medium" : ""}`}
+              {/* A name read off a report belongs on the order that report is
+                  attached to, so it is placed there automatically. Only when the
+                  report is not linked to any order (or the user overrides) is an
+                  order picked by hand. */}
+              {adding?.linked_submission_id && !customOrder ? (
+                <div className="flex items-center justify-between gap-2 rounded border bg-muted/40 px-2 py-1.5">
+                  <span className="text-xs font-medium">{orderLabel(adding.linked_submission_id)}</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 text-[11px]"
+                    onClick={() => setCustomOrder(true)}
                   >
-                    {orderLabel(s.id)}
-                  </button>
-                ))}
-              </div>
+                    Change order
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Input
+                    className="mb-2"
+                    placeholder="Search by account, order number or date"
+                    value={orderSearch}
+                    onChange={(e) => setOrderSearch(e.target.value)}
+                  />
+                  <div className="max-h-48 overflow-auto border rounded divide-y">
+                    {orderOptions.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, orderId: s.id }))}
+                        className={`w-full text-left px-2 py-1.5 text-xs hover:bg-muted ${form.orderId === s.id ? "bg-muted font-medium" : ""}`}
+                      >
+                        {orderLabel(s.id)}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
           <div className="flex justify-end gap-2">
