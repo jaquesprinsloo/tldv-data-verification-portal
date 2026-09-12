@@ -1420,6 +1420,53 @@ function ArchiveAffectedChecksCard({
           })}
         </div>
       )}
+
+      {missingIndemnities.length > 0 && (
+        <div className="space-y-2 border-t pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium">Orders still missing indemnities</p>
+            <Badge variant="outline" className="text-red-700 border-red-300">
+              {missingIndemnities.length} order(s)
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            These orders have their Risk Assessment on record — only the consent (indemnity) files are missing.
+            Drop the files onto a row and they upload straight away.
+          </p>
+          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+            {missingIndemnities.map((sub) => (
+              <div key={sub.id} className="rounded-md border border-red-200 overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-red-50/50">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm">{clientName(sub.client_id)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(sub.created_at).toLocaleDateString()} • {sub.order_number} • {archiveReportFiles(sub).length} report(s) attached
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-red-700 border-red-300">No indemnities</Badge>
+                </div>
+                <label
+                  onDragEnter={(event) => { event.preventDefault(); setDragOver(`missing-indemnity-${sub.id}`); }}
+                  onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setDragOver(`missing-indemnity-${sub.id}`); }}
+                  onDragLeave={() => setDragOver(null)}
+                  onDrop={(event) => {
+                    event.preventDefault(); setDragOver(null);
+                    void filesFromDrop(event.dataTransfer).then((files) => uploadFiles(sub, "indemnity", files));
+                  }}
+                  className={`block m-3 rounded border border-dashed p-3 text-center text-xs cursor-pointer ${dragOver === `missing-indemnity-${sub.id}` ? "border-red-600 bg-red-50" : "border-muted-foreground/30"}`}
+                >
+                  {busy === `indemnity-${sub.id}` ? "Uploading…" : "Drop the indemnities here or choose files"}
+                  <input type="file" multiple className="hidden" disabled={busy !== null} onChange={(event) => {
+                    const files = Array.from(event.target.files ?? []);
+                    if (files.length) void uploadFiles(sub, "indemnity", files);
+                    event.currentTarget.value = "";
+                  }} />
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
