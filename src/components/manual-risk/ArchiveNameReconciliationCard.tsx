@@ -346,6 +346,71 @@ export function ArchiveNameReconciliationCard({
         </p>
       </div>
 
+      {/* --- names that turn out to be in the archive after all --- */}
+      {alreadyInArchive.length > 0 && (
+        <div className="space-y-2 rounded border border-emerald-200 bg-emerald-50/60 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-sm font-medium flex items-center gap-2">
+              <Wand2 className="h-4 w-4 text-emerald-600" />
+              Already in the archive
+              <Badge variant="outline" className="ml-1">{alreadyInArchive.length}</Badge>
+            </h4>
+            <Button
+              size="sm"
+              className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700"
+              disabled={confirming}
+              onClick={() => confirmFound(alreadyInArchive)}
+            >
+              {confirming ? "Confirming…" : "Confirm all"}
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            These people were imported from the spreadsheet under a slightly different name, so the report
+            never found them. Confirming links the report to the record already on the order.
+          </p>
+          <div className="max-h-72 overflow-auto border rounded bg-background">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">On the report</TableHead>
+                  <TableHead className="text-xs">In the archive</TableHead>
+                  <TableHead className="text-xs">Order</TableHead>
+                  <TableHead className="text-xs">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {alreadyInArchive.map(({ row, cand }) => (
+                  <TableRow key={row.id} className="text-xs">
+                    <TableCell>
+                      <div className="font-medium">{row.full_name}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {row.id_prefix ?? "—"} • {row.report_file_name}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>{`${cand.first_name ?? ""} ${cand.surname ?? ""}`.trim() || "(no name)"}</div>
+                      <div className="text-[11px] text-muted-foreground">{cand.id_number ?? "—"}</div>
+                    </TableCell>
+                    <TableCell>{orderLabel(cand.submission_id)}</TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px]"
+                        disabled={confirming}
+                        onClick={() => confirmFound([{ row, cand }])}
+                      >
+                        Confirm
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
       {/* --- on reports, not in the archive --- */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
