@@ -497,12 +497,24 @@ export function ArchiveNameReconciliationCard({
 
       {/* --- on reports, not in the archive --- */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h4 className="text-sm font-medium">
             On a report but not in the archive
             <Badge variant="outline" className="ml-2">{pending.length}</Badge>
           </h4>
+          {pending.length > 0 && (
+            <Button
+              size="sm"
+              className="h-7 text-[11px]"
+              disabled={linkingAll}
+              onClick={linkAllToReportOrders}
+            >
+              <UserPlus className="h-3 w-3 mr-1" />
+              {linkingAll ? "Linking…" : "Link all to their report's order"}
+            </Button>
+          )}
         </div>
+
         {pending.length === 0 ? (
           <p className="text-xs text-muted-foreground flex items-center gap-1">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Nothing outstanding.
