@@ -3002,6 +3002,9 @@ type AccountRow = {
   riskFlags: { key: string; label: string; result: string }[];
   /** Checks that were requested but still have no captured outcome. */
   pendingChecks: number;
+  /** Historical check where no ID verification was ever performed. */
+  idNotDone?: boolean;
+
   /** Mirrored PTVS-discount check shown for invoicing only — not counted here. */
   isMirror?: boolean;
   mirrorFrom?: string;
