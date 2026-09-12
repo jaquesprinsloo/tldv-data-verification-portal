@@ -101,12 +101,18 @@ export function matchArchivePerson(
   const surnameHit = !!rs && !!cs && rs === cs;
   const firstHit = !!rf && !!cf && (rf === cf || rf.startsWith(cf) || cf.startsWith(rf));
   const prefixHit = reportPrefix.length === 6 && reportPrefix === candidatePrefix;
-  const reportNames = new Set(nameTokens(report.first_names, report.surname));
-  const sharedNameTokens = nameTokens(candidate.first_name, candidate.surname)
-    .filter((token) => reportNames.has(token));
-  /** The two fields are simply the other way round. */
-  const swapHit = (!!rs && !!cf && rs === cf) || (!!rf && !!cs && rf === cs);
-  const crossFieldHit = swapHit || sharedNameTokens.length >= 2;
+  const reportTokens = nameTokens(report.first_names, report.surname);
+  const candidateTokens = nameTokens(candidate.first_name, candidate.surname);
+  /** Same word, or a single-letter spelling slip ("Phuti" / "Phuthi"). */
+  const sharedNameTokens = candidateTokens
+    .filter((token) => reportTokens.some((rt) => nearName(token, rt)));
+  /** The two fields are simply the other way round (a letter out is allowed). */
+  const swapHit = nearName(rs, cf) || nearName(rf, cs);
+  const crossFieldHit = swapHit || sharedNameTokens.length >= 2 ||
+    /** One distinctive name plus an exact date of birth in a swapped field. */
+    (sharedNameTokens.length === 1 && (nearName(rs, cf) || nearName(rf, cs) ||
+      reportTokens.some((rt) => nearName(rt, cf)) || candidateTokens.some((ct) => nearName(ct, rs))));
+
   const directHits = [surnameHit, firstHit, prefixHit].filter(Boolean).length;
 
   return {
