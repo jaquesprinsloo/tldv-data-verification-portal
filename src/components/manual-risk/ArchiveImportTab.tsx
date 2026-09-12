@@ -1049,6 +1049,20 @@ function ArchiveAffectedChecksCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidates, submissions, clients, search]);
 
+  /** Orders whose report is fine but which still have no indemnity files. */
+  const missingIndemnities = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return submissions
+      .filter((submission) => {
+        if ((submission.indemnity_files ?? []).length > 0) return false;
+        if (!q) return true;
+        return `${submission.order_number} ${submission.archive_batch_label ?? ""} ${clientName(submission.client_id)}`
+          .toLowerCase().includes(q);
+      })
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submissions, clients, search]);
+
   const refresh = async () => {
     await qc.invalidateQueries({ queryKey: ARCHIVE_CANDIDATES_KEY });
     await refetch();
