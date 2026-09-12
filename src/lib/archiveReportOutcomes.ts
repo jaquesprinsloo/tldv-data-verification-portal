@@ -374,7 +374,7 @@ export async function applyArchiveReportOutcomes(
 
   const { data: cands } = await supabase
     .from("manual_risk_candidates")
-    .select("id, id_number, first_name, surname, id_verification_result, risk_assessment_result")
+    .select("id, id_number, passport_number, first_name, surname, id_verification_result, risk_assessment_result")
     .eq("submission_id", submissionId);
 
   return applyArchiveOutcomesFromRecords(
