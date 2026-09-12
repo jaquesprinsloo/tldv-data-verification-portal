@@ -64,6 +64,7 @@ export function ArchiveNameReconciliationCard({
   const [form, setForm] = useState({ orderId: "", firstName: "", surname: "", idNumber: "" });
   const [saving, setSaving] = useState(false);
   const [showOutstanding, setShowOutstanding] = useState(false);
+  const [customOrder, setCustomOrder] = useState(false);
 
   const clientName = (id: string | null) =>
     (id ? clients.find((c) => c.id === id)?.client_name ?? "—" : "—");
@@ -259,6 +260,7 @@ export function ArchiveNameReconciliationCard({
       idNumber: "",
     });
     setOrderSearch("");
+    setCustomOrder(false);
   };
 
   const orderOptions = useMemo(() => {
