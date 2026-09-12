@@ -15,8 +15,9 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Search, UserPlus, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Search, UserPlus, AlertTriangle, CheckCircle2, Wand2 } from "lucide-react";
 import type { UnmatchedReportName } from "@/lib/archiveNameReconciliation";
+import { matchArchivePerson } from "@/lib/archiveReportOutcomes";
 
 type OrderLite = {
   id: string;
@@ -106,6 +107,73 @@ export function ArchiveNameReconciliationCard({
   }, [archiveCands]);
 
   const outstandingTotal = outstanding.reduce((n, o) => n + o.names.length, 0);
+
+  // ---- people on this list who are in fact already in the archive ----
+  // The imported spreadsheet often spells a name differently to the report, so
+  // the name alone never found them. Here every open name is compared against
+  // the whole archive using the same rules the report reader uses, and anything
+  // that lines up (date of birth in the ID plus a recognisable name) is offered
+  // for confirmation, one by one or all at once.
+  const alreadyInArchive = useMemo(() => {
+    if (!pending.length || !archiveCands.length) return [] as {
+      row: UnmatchedReportName;
+      cand: (typeof archiveCands)[number];
+    }[];
+    const out: { row: UnmatchedReportName; cand: (typeof archiveCands)[number] }[] = [];
+    for (const row of pending) {
+      let best: { cand: (typeof archiveCands)[number]; score: number } | null = null;
+      for (const cand of archiveCands) {
+        const m = matchArchivePerson(
+          { first_names: row.first_names, surname: row.surname, id_prefix: row.id_prefix } as never,
+          { first_name: cand.first_name, surname: cand.surname, id_number: cand.id_number },
+        );
+        if (!m.matches) continue;
+        if (!best || m.score > best.score) best = { cand, score: m.score };
+      }
+      if (best) out.push({ row, cand: best.cand });
+    }
+    return out;
+  }, [pending, archiveCands]);
+
+  const [confirming, setConfirming] = useState(false);
+
+  const confirmFound = async (
+    items: { row: UnmatchedReportName; cand: (typeof archiveCands)[number] }[],
+  ) => {
+    if (!items.length) return;
+    setConfirming(true);
+    try {
+      for (const { row, cand } of items) {
+        const { error: cErr } = await sb
+          .from("manual_risk_candidates")
+          .update({
+            report_matched_at: new Date().toISOString(),
+            report_matched_file: row.report_file_name,
+          } as never)
+          .eq("id", cand.id);
+        if (cErr) throw cErr;
+        const { error: uErr } = await sb
+          .from("manual_risk_report_unmatched_names")
+          .update({
+            status: "added",
+            resolved_candidate_id: cand.id,
+            resolved_at: new Date().toISOString(),
+            notes: "Already in the archive — matched on ID date of birth and name",
+          } as never)
+          .eq("id", row.id);
+        if (uErr) throw uErr;
+      }
+      toast.success(`${items.length} name(s) confirmed against the archive`);
+      refetchPending();
+      refetchOutstanding();
+      qc.invalidateQueries({ queryKey: ["mra-archive-submissions"] });
+      onChanged();
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not confirm these names");
+    } finally {
+      setConfirming(false);
+    }
+  };
 
   /** Opens the original report this name was read from, in a new window. */
   const openReport = async (row: UnmatchedReportName) => {
@@ -277,6 +345,71 @@ export function ArchiveNameReconciliationCard({
           A name drops off the second list the moment a report naming that person is read.
         </p>
       </div>
+
+      {/* --- names that turn out to be in the archive after all --- */}
+      {alreadyInArchive.length > 0 && (
+        <div className="space-y-2 rounded border border-emerald-200 bg-emerald-50/60 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-sm font-medium flex items-center gap-2">
+              <Wand2 className="h-4 w-4 text-emerald-600" />
+              Already in the archive
+              <Badge variant="outline" className="ml-1">{alreadyInArchive.length}</Badge>
+            </h4>
+            <Button
+              size="sm"
+              className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700"
+              disabled={confirming}
+              onClick={() => confirmFound(alreadyInArchive)}
+            >
+              {confirming ? "Confirming…" : "Confirm all"}
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            These people were imported from the spreadsheet under a slightly different name, so the report
+            never found them. Confirming links the report to the record already on the order.
+          </p>
+          <div className="max-h-72 overflow-auto border rounded bg-background">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">On the report</TableHead>
+                  <TableHead className="text-xs">In the archive</TableHead>
+                  <TableHead className="text-xs">Order</TableHead>
+                  <TableHead className="text-xs">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {alreadyInArchive.map(({ row, cand }) => (
+                  <TableRow key={row.id} className="text-xs">
+                    <TableCell>
+                      <div className="font-medium">{row.full_name}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {row.id_prefix ?? "—"} • {row.report_file_name}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>{`${cand.first_name ?? ""} ${cand.surname ?? ""}`.trim() || "(no name)"}</div>
+                      <div className="text-[11px] text-muted-foreground">{cand.id_number ?? "—"}</div>
+                    </TableCell>
+                    <TableCell>{orderLabel(cand.submission_id)}</TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[11px]"
+                        disabled={confirming}
+                        onClick={() => confirmFound([{ row, cand }])}
+                      >
+                        Confirm
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
 
       {/* --- on reports, not in the archive --- */}
       <div className="space-y-2">
