@@ -3888,7 +3888,7 @@ function ClientAccountDialog({
           overrideClientId: (c as any).override_client_id ?? null,
           originalClientId: s.client_id,
           sortOrder: (c as any).sort_order ?? 0,
-          ...summariseCandidateChecks(c, s.requested_checks),
+          ...summariseCandidateChecks(c, s.requested_checks, !!(s as any).is_archive),
           isMirror: true,
           mirrorFrom: originName,
         } as AccountRow;
