@@ -60,7 +60,7 @@ export function ArchiveReportAuditCard({
   const [cands, setCands] = useState<Cand[] | null>(null);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number; label: string } | null>(null);
-  const [result, setResult] = useState<{ read: number; failed: number; confirmed: number; missing: number } | null>(null);
+  const [result, setResult] = useState<{ read: number; failed: number; confirmed: number; missing: number; changed: number } | null>(null);
   const [unmatchedTotal, setUnmatchedTotal] = useState<number>(0);
   const stop = useRef(false);
 
