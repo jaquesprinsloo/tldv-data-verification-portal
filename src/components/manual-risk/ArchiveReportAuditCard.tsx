@@ -308,10 +308,13 @@ export function ArchiveReportAuditCard({
         <ClipboardCheck className="h-4 w-4 text-red-600" /> Audit the reports already on record
       </h3>
       <p className="text-sm text-muted-foreground">
-        Re-reads every report already saved against an archive order, ticks off the people it names,
-        and writes down any name on a report that is nowhere in the archive. Nothing is uploaded or
-        changed on the orders themselves.
+        Re-reads every report already saved against an archive order and ticks off the people it names.
+        The first button also re-checks each person's results against their own block on the supplier
+        report: no ID check leaves the ID blank and reports what the assessment says, a failed ID check
+        makes that person's Risk Assessment invalid, and one failed ID never affects anybody else in
+        the same batch. Any name on a report that is nowhere in the archive is written down for review.
       </p>
+
 
       <div className="flex flex-wrap gap-2 text-xs">
         <Badge variant="outline">{withReports.length} order(s) with a report</Badge>
