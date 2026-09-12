@@ -1,0 +1,2 @@
+ALTER TABLE public.manual_risk_candidates ADD COLUMN IF NOT EXISTS passport_number text;
+CREATE INDEX IF NOT EXISTS manual_risk_candidates_passport_idx ON public.manual_risk_candidates (passport_number);
