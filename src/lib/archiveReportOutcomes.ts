@@ -225,11 +225,22 @@ export interface ApplyArchiveOutcomesResult {
 type ArchiveCandidateRow = {
   id: string;
   id_number: string | null;
+  passport_number?: string | null;
   first_name: string | null;
   surname: string | null;
   id_verification_result?: string | null;
   risk_assessment_result?: string | null;
 };
+
+/**
+ * Someone checked on a passport, permit or asylum number never had a South
+ * African ID verification done, so their ID column always stays blank and their
+ * Risk Assessment stands on its own wording.
+ */
+const isPassportPerson = (c: ArchiveCandidateRow) =>
+  Boolean(String(c.passport_number ?? "").trim()) ||
+  String(c.id_number ?? "").replace(/\D/g, "").length !== 13;
+
 
 /**
  * Writes the per-candidate outcomes from an already-extracted supplier report
