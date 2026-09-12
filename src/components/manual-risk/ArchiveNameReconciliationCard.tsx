@@ -335,6 +335,88 @@ export function ArchiveNameReconciliationCard({
     refetchPending();
   };
 
+  /** Finds the order carrying a given report file, when the row has no link. */
+  const orderForReport = async (row: UnmatchedReportName): Promise<string | null> => {
+    if (row.linked_submission_id) return row.linked_submission_id;
+    const wanted = String(row.report_file_name ?? "").trim().toLowerCase();
+    if (!wanted) return null;
+    const { data } = await sb
+      .from("manual_risk_submissions")
+      .select("id, archive_report_name, archive_report_files")
+      .eq("is_archive", true)
+      .limit(2000);
+    for (const s of (data ?? []) as any[]) {
+      const files = archiveReportFiles(s);
+      if (files.some((f) => f.name.trim().toLowerCase() === wanted)) return s.id as string;
+      if (String(s.archive_report_name ?? "").trim().toLowerCase() === wanted) return s.id as string;
+    }
+    return null;
+  };
+
+  const [linkingAll, setLinkingAll] = useState(false);
+
+  /**
+   * Adds every outstanding report name onto the order its own report belongs to,
+   * so each person sits with the others named on the same report.
+   */
+  const linkAllToReportOrders = async () => {
+    const rows = pending.filter((r) => !alreadyInArchive.some((a) => a.row.id === r.id));
+    if (!rows.length) { toast.info("Nothing to link"); return; }
+    setLinkingAll(true);
+    let done = 0; let skipped = 0;
+    try {
+      const orderCache = new Map<string, string | null>();
+      for (const row of rows) {
+        const key = String(row.report_file_name ?? "") + "|" + (row.linked_submission_id ?? "");
+        if (!orderCache.has(key)) orderCache.set(key, await orderForReport(row));
+        const orderId = orderCache.get(key) ?? null;
+        if (!orderId) { skipped++; continue; }
+
+        const { count } = await sb
+          .from("manual_risk_candidates")
+          .select("id", { count: "exact", head: true })
+          .eq("submission_id", orderId);
+
+        const digits = String(row.id_prefix ?? "").replace(/\D/g, "");
+        const { data, error } = await sb
+          .from("manual_risk_candidates")
+          .insert({
+            submission_id: orderId,
+            first_name: (row.first_names ?? "").trim(),
+            surname: (row.surname ?? row.full_name ?? "").trim(),
+            id_number: digits.length === 13 ? digits : "0000000000000",
+            sort_order: (count ?? 0) + 1,
+            report_matched_at: new Date().toISOString(),
+            report_matched_file: row.report_file_name,
+          } as never)
+          .select("id")
+          .single();
+        if (error) { skipped++; continue; }
+
+        await sb
+          .from("manual_risk_report_unmatched_names")
+          .update({
+            status: "added",
+            resolved_candidate_id: (data as any).id,
+            resolved_at: new Date().toISOString(),
+            notes: "Linked to the order carrying this report",
+          } as never)
+          .eq("id", row.id);
+        done++;
+      }
+      toast.success(`${done} name(s) linked to their report's order${skipped ? `, ${skipped} could not be placed` : ""}`);
+      refetchPending();
+      refetchOutstanding();
+      qc.invalidateQueries({ queryKey: ["mra-archive-submissions"] });
+      onChanged();
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not link these names");
+    } finally {
+      setLinkingAll(false);
+    }
+  };
+
+
   return (
     <Card className="p-4 space-y-4">
       <div>
@@ -415,12 +497,24 @@ export function ArchiveNameReconciliationCard({
 
       {/* --- on reports, not in the archive --- */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h4 className="text-sm font-medium">
             On a report but not in the archive
             <Badge variant="outline" className="ml-2">{pending.length}</Badge>
           </h4>
+          {pending.length > 0 && (
+            <Button
+              size="sm"
+              className="h-7 text-[11px]"
+              disabled={linkingAll}
+              onClick={linkAllToReportOrders}
+            >
+              <UserPlus className="h-3 w-3 mr-1" />
+              {linkingAll ? "Linking…" : "Link all to their report's order"}
+            </Button>
+          )}
         </div>
+
         {pending.length === 0 ? (
           <p className="text-xs text-muted-foreground flex items-center gap-1">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Nothing outstanding.
