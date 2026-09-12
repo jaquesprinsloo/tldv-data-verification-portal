@@ -205,8 +205,14 @@ Deno.serve(async (req) => {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("extract-supplier-report-ids error:", message);
-    return new Response(JSON.stringify({ success: false, error: message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "The report could not be read. Please try uploading it again, or capture the results manually.",
+        detail: message,
+        retryable: true,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });
