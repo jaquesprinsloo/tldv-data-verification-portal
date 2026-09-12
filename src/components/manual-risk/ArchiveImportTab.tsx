@@ -1282,6 +1282,16 @@ function ArchiveAffectedChecksCard({
                     <Badge variant="outline" className={noReport ? "text-red-700 border-red-300" : "text-amber-700 border-amber-300"}>
                       {noReport ? "No report uploaded" : "Report does not confirm everyone"}
                     </Badge>
+                    {!noReport && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={busy === `reread-${sub.id}`}
+                        onClick={() => rereadReports(sub)}
+                      >
+                        {busy === `reread-${sub.id}` ? "Re-reading…" : "Re-read report"}
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => setExpanded((state) => ({ ...state, [sub.id]: !open }))}>
                       {open ? "Hide" : "Inspect"}
                     </Button>
