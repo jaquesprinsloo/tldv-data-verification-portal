@@ -1060,6 +1060,80 @@ function ArchiveAffectedChecksCard({
     window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   };
 
+  /**
+   * Re-reads the report(s) already attached to an order with the current
+   * matching rules. Used from "Checks requiring document review" so a fix to
+   * the matcher/extractor can be tried before replacing any documents.
+   */
+  const rereadReports = async (sub: ArchiveSubmission) => {
+    const files = archiveReportFiles(sub);
+    if (!files.length) {
+      toast.info("No Risk Assessment is attached to this order yet");
+      return;
+    }
+    setBusy(`reread-${sub.id}`);
+    try {
+      const { data: orderCands, error: cErr } = await sb
+        .from("manual_risk_candidates")
+        .select("id, id_number, first_name, surname, submission_id")
+        .eq("submission_id", sub.id);
+      if (cErr) throw cErr;
+      const cands = (orderCands ?? []) as any[];
+
+      const matched = new Set<string>();
+      const failures: string[] = [];
+      for (const reportFile of files) {
+        try {
+          const { data: signed, error: sErr } = await sb.storage
+            .from("archive-reports")
+            .createSignedUrl(reportFile.path, 300);
+          if (sErr || !signed?.signedUrl) throw new Error(sErr?.message || "report could not be opened");
+          const res = await fetch(signed.signedUrl);
+          if (!res.ok) throw new Error(`download failed (${res.status})`);
+          const blob = await res.blob();
+          const file = new File([blob], reportFile.name || "report.pdf", { type: blob.type || "application/pdf" });
+
+          let records: Awaited<ReturnType<typeof extractArchiveReportRecords>> = [];
+          let err = "";
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              records = await extractArchiveReportRecords(file);
+              err = "";
+              if (records.length) break;
+            } catch (e: any) {
+              err = e?.message ?? "unknown error";
+              await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));
+            }
+          }
+          if (err) throw new Error(err);
+          if (!records.length) throw new Error("no names could be read");
+
+          for (const record of records) {
+            if (!normPersonName(record.surname) && !normPersonName(record.first_names)) continue;
+            cands
+              .filter((c) => matchArchivePerson(record, c).matches)
+              .forEach((c) => matched.add(c.id));
+          }
+          if (matched.size) await markCandidatesReportMatched([...matched], reportFile.name);
+        } catch (e: any) {
+          failures.push(`${reportFile.name}: ${e.message}`);
+        }
+      }
+
+      if (failures.length === files.length) throw new Error(failures.join(" • "));
+      if (failures.length) addLog(`Re-read partly failed on ${sub.order_number} — ${failures.join(" • ")}`);
+      addLog(`Re-read ${files.length} report(s) on ${sub.order_number}: ${matched.size} candidate(s) confirmed`);
+      toast.success(matched.size
+        ? `${matched.size} candidate(s) confirmed on ${sub.order_number}`
+        : `Report re-read, but no candidates could be confirmed on ${sub.order_number}`);
+      await refresh();
+    } catch (error: any) {
+      toast.error(error.message ?? "Could not re-read the report");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const deleteOneDriveCopy = async (itemId: string | null | undefined) => {
     if (!itemId) return;
     try {
