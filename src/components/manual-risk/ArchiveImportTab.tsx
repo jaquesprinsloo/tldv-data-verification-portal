@@ -943,6 +943,9 @@ export function ArchiveImportTab({
         addLog={addLog}
       />
 
+      <ArchivePassportsCard clients={clients} />
+
+
       <ArchiveAffectedChecksCard
         submissions={archiveSubs}
         clients={clients}
