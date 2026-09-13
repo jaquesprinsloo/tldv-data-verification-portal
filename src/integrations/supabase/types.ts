@@ -841,6 +841,12 @@ export type Database = {
           superseded_by_candidate_id: string | null
           superseded_note: string | null
           surname: string
+          tfs_list_id: string | null
+          tfs_list_version: string | null
+          tfs_match_basis: string | null
+          tfs_notes: string | null
+          tfs_result: string | null
+          tfs_screened_at: string | null
           updated_at: string
         }
         Insert: {
@@ -879,6 +885,12 @@ export type Database = {
           superseded_by_candidate_id?: string | null
           superseded_note?: string | null
           surname: string
+          tfs_list_id?: string | null
+          tfs_list_version?: string | null
+          tfs_match_basis?: string | null
+          tfs_notes?: string | null
+          tfs_result?: string | null
+          tfs_screened_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -917,6 +929,12 @@ export type Database = {
           superseded_by_candidate_id?: string | null
           superseded_note?: string | null
           surname?: string
+          tfs_list_id?: string | null
+          tfs_list_version?: string | null
+          tfs_match_basis?: string | null
+          tfs_notes?: string | null
+          tfs_result?: string | null
+          tfs_screened_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -946,6 +964,13 @@ export type Database = {
             columns: ["superseded_by_candidate_id"]
             isOneToOne: false
             referencedRelation: "manual_risk_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_risk_candidates_tfs_list_id_fkey"
+            columns: ["tfs_list_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_sanctions_lists"
             referencedColumns: ["id"]
           },
         ]
@@ -1301,14 +1326,17 @@ export type Database = {
           entry_id: string | null
           id: string
           list_id: string
+          list_version: string | null
           match_reason: string | null
           matched_name: string | null
+          matched_via: string | null
           review_notes: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           reviewed_by_name: string | null
           score: number | null
           status: string
+          submission_id: string | null
         }
         Insert: {
           candidate_id?: string | null
@@ -1318,14 +1346,17 @@ export type Database = {
           entry_id?: string | null
           id?: string
           list_id: string
+          list_version?: string | null
           match_reason?: string | null
           matched_name?: string | null
+          matched_via?: string | null
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewed_by_name?: string | null
           score?: number | null
           status?: string
+          submission_id?: string | null
         }
         Update: {
           candidate_id?: string | null
@@ -1335,14 +1366,17 @@ export type Database = {
           entry_id?: string | null
           id?: string
           list_id?: string
+          list_version?: string | null
           match_reason?: string | null
           matched_name?: string | null
+          matched_via?: string | null
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           reviewed_by_name?: string | null
           score?: number | null
           status?: string
+          submission_id?: string | null
         }
         Relationships: [
           {
@@ -1364,6 +1398,13 @@ export type Database = {
             columns: ["list_id"]
             isOneToOne: false
             referencedRelation: "manual_risk_sanctions_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_risk_sanctions_matches_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_submissions"
             referencedColumns: ["id"]
           },
         ]
