@@ -186,10 +186,15 @@ export function MrClientDashboardTab({
         perCheck.set(k, entry);
       }
       if (candPending > 0) { pendingChecks += 1; pendingList.push(row); } else completedCands += 1;
-      if (candFlag) { flagged += 1; flaggedList.push(row); }
+      // A failed check that was redone and came back clear no longer counts as a
+      // live flag, but the record itself stays searchable everywhere else.
+      const superseded = !!(c as any).superseded_by_candidate_id;
+      if (superseded) supersededCount += 1;
+      if (candFlag && !superseded) { flagged += 1; flaggedList.push(row); }
       const idv = c[CHECK_COLUMNS.id_verification.result] as string | null;
-      if (idv && ["invalid", "deceased"].includes(idv)) { idInvalid += 1; idInvalidList.push(row); }
+      if (idv && ["invalid", "deceased"].includes(idv) && !superseded) { idInvalid += 1; idInvalidList.push(row); }
     }
+
 
     const accountBars = Array.from(perAccount.entries())
       .map(([name, count]) => ({ name, count }))
