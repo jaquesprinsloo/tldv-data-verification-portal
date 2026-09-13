@@ -3114,15 +3114,10 @@ async function buildSentReportBlob(
   if (candErr) throw candErr;
   if (!sub) throw new Error("Submission not found");
 
-  // Historical archive submissions have the original report stored as a file:
-  // show that exact document instead of regenerating one.
-  if ((sub as any).is_archive && (sub as any).archive_report_path) {
-    const { data: file, error: dlErr } = await sb.storage
-      .from("archive-reports")
-      .download((sub as any).archive_report_path);
-    if (dlErr || !file) throw dlErr ?? new Error("Archived report unavailable");
-    return { blob: file, orderNumber: sub.order_number };
-  }
+  // Historical archive submissions keep their original supplier report(s):
+  // send that exact document instead of regenerating one.
+  const originalArchive = await fetchArchiveOriginalReport(sub);
+  if (originalArchive) return { blob: originalArchive, orderNumber: sub.order_number };
 
 
   const client = sub.client_id ? clients.find((c) => c.id === sub.client_id) : undefined;
