@@ -227,6 +227,14 @@ export function MrClientDashboardTab({
       if (subErr) throw subErr;
       if (candErr) throw candErr;
 
+      // Historical orders show their original supplier report as received.
+      const original = await fetchArchiveOriginalReport(sub);
+      if (original) {
+        setReportPreview({ blob: original, title: `Report — ${sub.order_number}` });
+        return;
+      }
+
+
       let client: any = null;
       if (sub.client_id) {
         const { data } = await sb.from("manual_risk_clients").select("*").eq("id", sub.client_id).maybeSingle();
