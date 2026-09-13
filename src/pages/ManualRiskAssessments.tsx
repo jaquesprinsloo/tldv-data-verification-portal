@@ -2049,6 +2049,9 @@ function SubmissionDetailsDialog({
   };
 
   const buildPdfBlob = async () => {
+    // Archive orders always use the original supplier report.
+    const original = await fetchArchiveOriginalReport(sub);
+    if (original) return original;
     const { data: settings } = await sb.from("manual_risk_settings").select("terms_and_conditions").limit(1).maybeSingle();
     const pdfCandidates: ManualRiskCandidatePdf[] = local.map((c) => {
       const results: Record<string, string | null> = {};
