@@ -334,9 +334,14 @@ export function MrClientDashboardTab({
         <Kpi label="Still in progress" value={stats.pendingChecks} icon={<Clock className="h-5 w-5" />} tone="amber"
           sub="Awaiting verification feedback" onClick={() => setListView("pending")} />
         <Kpi label="Risk identified" value={stats.flagged} icon={<AlertTriangle className="h-5 w-5" />} tone="rose"
-          sub="Candidates with an adverse finding" onClick={() => setListView("flagged")} />
+          sub={stats.supersededCount
+            ? `Adverse finding — excludes ${stats.supersededCount} redone & cleared`
+            : "Candidates with an adverse finding"} onClick={() => setListView("flagged")} />
         <Kpi label="ID not valid" value={stats.idInvalid} icon={<ShieldCheck className="h-5 w-5" />} tone="slate"
-          sub="Invalid or deceased on Home Affairs" onClick={() => setListView("idInvalid")} />
+          sub={stats.supersededCount
+            ? `Invalid or deceased — excludes ${stats.supersededCount} redone & cleared`
+            : "Invalid or deceased on Home Affairs"} onClick={() => setListView("idInvalid")} />
+
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
