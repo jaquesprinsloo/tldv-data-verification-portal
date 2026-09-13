@@ -90,6 +90,15 @@ export const CHECK_META: Record<string, { label: string; short: string; options:
       { v: "pending", l: "Pending" },
     ],
   },
+  tfs: {
+    label: "TFS Check (UN Sanctions Screening)", short: "TFS",
+    options: [
+      { v: "not_listed", l: "Not Listed" },
+      { v: "possible_match", l: "Possible Match — under review" },
+      { v: "listed", l: "Listed (confirmed)" },
+      { v: "pending", l: "Pending" },
+    ],
+  },
 };
 
 // DB column mapping per check key
@@ -101,6 +110,7 @@ export const CHECK_COLUMNS: Record<string, { result: string; notes: string }> = 
   pdp: { result: "pdp_result", notes: "pdp_notes" },
   qualification: { result: "qualification_result", notes: "qualification_notes" },
   criminal: { result: "criminal_result", notes: "criminal_notes" },
+  tfs: { result: "tfs_result", notes: "tfs_notes" },
 };
 
 export function isPlaceholderCandidate(c: { id_number?: string; surname?: string; first_name?: string }): boolean {

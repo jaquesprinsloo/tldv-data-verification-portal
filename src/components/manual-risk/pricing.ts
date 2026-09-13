@@ -18,6 +18,7 @@ export const CHECK_PRICE_KEYS = [
   "drivers_license",
   "pdp",
   "qualification",
+  "tfs",
 ];
 
 export const DISCOUNT_KEYS = ["discount_tldv_internal", "discount_ptvs"];
