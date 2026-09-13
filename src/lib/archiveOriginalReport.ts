@@ -41,7 +41,7 @@ export async function fetchArchiveOriginalReport(sub: any): Promise<Blob | null>
       pages.forEach((pg) => merged.addPage(pg));
     }
     const bytes = await merged.save();
-    return new Blob([bytes], { type: "application/pdf" });
+    return new Blob([new Uint8Array(bytes).slice().buffer], { type: "application/pdf" });
   } catch {
     return pdfs[0].blob;
   }
