@@ -263,6 +263,10 @@ export function MrClientDashboardTab({
             results,
             notes,
             id_verification_data: c.id_verification_data ?? null,
+            passport_number: c.passport_number ?? null,
+            tfs_screened_at: c.tfs_screened_at ?? null,
+            tfs_list_version: c.tfs_list_version ?? null,
+            tfs_match_basis: c.tfs_match_basis ?? null,
           };
         });
 

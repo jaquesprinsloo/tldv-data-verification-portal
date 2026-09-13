@@ -597,6 +597,10 @@ export default function ManualRiskAssessments() {
           results,
           notes,
           id_verification_data: c.id_verification_data ?? null,
+          passport_number: c.passport_number ?? null,
+          tfs_screened_at: c.tfs_screened_at ?? null,
+          tfs_list_version: c.tfs_list_version ?? null,
+          tfs_match_basis: c.tfs_match_basis ?? null,
         };
       });
 
@@ -2068,6 +2072,10 @@ function SubmissionDetailsDialog({
         results,
         notes,
         id_verification_data: (c as any).id_verification_data ?? null,
+        passport_number: (c as any).passport_number ?? null,
+        tfs_screened_at: (c as any).tfs_screened_at ?? null,
+        tfs_list_version: (c as any).tfs_list_version ?? null,
+        tfs_match_basis: (c as any).tfs_match_basis ?? null,
       };
     });
     return await generateManualRiskPdf({
@@ -3143,6 +3151,10 @@ async function buildSentReportBlob(
         results,
         notes,
         id_verification_data: c.id_verification_data ?? null,
+        passport_number: c.passport_number ?? null,
+        tfs_screened_at: c.tfs_screened_at ?? null,
+        tfs_list_version: c.tfs_list_version ?? null,
+        tfs_match_basis: c.tfs_match_basis ?? null,
       };
     });
 
