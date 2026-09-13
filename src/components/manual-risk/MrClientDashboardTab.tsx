@@ -16,6 +16,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import { CHECK_COLUMNS, CHECK_META, isPlaceholderCandidate, generateManualRiskPdf, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
+import { fetchArchiveOriginalReport } from "@/lib/archiveOriginalReport";
 import { PdfPreview } from "@/pages/ManualRiskAssessments";
 import { toast } from "sonner";
 import {
@@ -226,6 +227,14 @@ export function MrClientDashboardTab({
       ]);
       if (subErr) throw subErr;
       if (candErr) throw candErr;
+
+      // Historical orders show their original supplier report as received.
+      const original = await fetchArchiveOriginalReport(sub);
+      if (original) {
+        setReportPreview({ blob: original, title: `Report — ${sub.order_number}` });
+        return;
+      }
+
 
       let client: any = null;
       if (sub.client_id) {

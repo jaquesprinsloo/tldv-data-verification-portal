@@ -25,6 +25,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, isPlaceholderCandidate, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
+import { fetchArchiveOriginalReport } from "@/lib/archiveOriginalReport";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RecipientPicker, ClientAddressBookDialog, type MrRecipient } from "@/components/manual-risk/AddressBook";
 import { AddressBookTab } from "@/components/manual-risk/AddressBookTab";
@@ -465,7 +466,7 @@ export default function ManualRiskAssessments() {
     "sent_at, sent_to_supplier_at, compliance_flag, invoiced_at, invoice_number, invoice_file_path, " +
     "indemnity_files, report_onedrive_web_url, report_onedrive_item_id, report_onedrive_path, " +
     "report_shared_onedrive_web_url, report_shared_onedrive_item_id, report_shared_onedrive_path, " +
-    "supplier_report_files, recipients, is_archive, archive_batch_label, archive_report_path, archive_report_name";
+    "supplier_report_files, recipients, is_archive, archive_batch_label, archive_report_path, archive_report_name, archive_report_files";
 
   const { data: submissions = [] } = useQuery({
     queryKey: ["mra-submissions"],
@@ -555,6 +556,16 @@ export default function ManualRiskAssessments() {
     try {
       const sub = submissions.find((s) => s.id === submissionId);
       if (!sub) throw new Error("Submission not found");
+
+      // Historical orders keep their original supplier report — the
+      // PreAppliCheck template only applies from 01 July 2026.
+      const original = await fetchArchiveOriginalReport(sub);
+      if (original) {
+        void logRecordAccess({ submissionId: sub.id, action: "view_client_report", detail: sub.order_number });
+        setPreviewReport({ blob: original, title: `Report — ${sub.order_number}` });
+        return;
+      }
+
 
       const [{ data: cands }, { data: settings }] = await Promise.all([
         sb.from("manual_risk_candidates")
@@ -2039,6 +2050,9 @@ function SubmissionDetailsDialog({
   };
 
   const buildPdfBlob = async () => {
+    // Archive orders always use the original supplier report.
+    const original = await fetchArchiveOriginalReport(sub);
+    if (original) return original;
     const { data: settings } = await sb.from("manual_risk_settings").select("terms_and_conditions").limit(1).maybeSingle();
     const pdfCandidates: ManualRiskCandidatePdf[] = local.map((c) => {
       const results: Record<string, string | null> = {};
@@ -3101,15 +3115,10 @@ async function buildSentReportBlob(
   if (candErr) throw candErr;
   if (!sub) throw new Error("Submission not found");
 
-  // Historical archive submissions have the original report stored as a file:
-  // show that exact document instead of regenerating one.
-  if ((sub as any).is_archive && (sub as any).archive_report_path) {
-    const { data: file, error: dlErr } = await sb.storage
-      .from("archive-reports")
-      .download((sub as any).archive_report_path);
-    if (dlErr || !file) throw dlErr ?? new Error("Archived report unavailable");
-    return { blob: file, orderNumber: sub.order_number };
-  }
+  // Historical archive submissions keep their original supplier report(s):
+  // send that exact document instead of regenerating one.
+  const originalArchive = await fetchArchiveOriginalReport(sub);
+  if (originalArchive) return { blob: originalArchive, orderNumber: sub.order_number };
 
 
   const client = sub.client_id ? clients.find((c) => c.id === sub.client_id) : undefined;
