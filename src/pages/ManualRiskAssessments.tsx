@@ -2436,6 +2436,35 @@ function SubmissionDetailsDialog({
             <ClipboardList className="h-4 w-4 mr-2" />
             Edit Check Selection
           </Button>
+          {activeChecks.includes("tfs") && (
+            <Button
+              variant="outline"
+              disabled={tfsRunning}
+              title="Compare every candidate on this order against the latest sanctions list again"
+              onClick={async () => {
+                setTfsRunning(true);
+                try {
+                  const res = await runTfsScreening(submissionId);
+                  if (!res.listUsed) {
+                    toast.error("No sanctions list has been uploaded under Compliance yet.");
+                  } else if (res.hits) {
+                    toast.warning(`${res.hits} candidate(s) returned a possible match — review them under Compliance.`, { duration: 10000 });
+                  } else {
+                    toast.success(`All ${res.screened} candidate(s) not listed.`);
+                  }
+                  refetch();
+                  qc.invalidateQueries({ queryKey: ["mr-sanctions-matches"] });
+                } catch (e) {
+                  toast.error((e as Error).message);
+                } finally {
+                  setTfsRunning(false);
+                }
+              }}
+            >
+              <ShieldAlert className="h-4 w-4 mr-2" />
+              {tfsRunning ? "Screening…" : "Re-run TFS screening"}
+            </Button>
+          )}
           {sub.status === "completed" && (
             <Button
               variant="outline"
