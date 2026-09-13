@@ -207,7 +207,7 @@ export function MrClientDashboardTab({
       "In progress": v.pending,
     }));
 
-    return { total, pendingChecks, completedCands, flagged, idInvalid, accountBars, checkBars, accounts: perAccount.size, pendingList, flaggedList, idInvalidList };
+    return { total, pendingChecks, completedCands, flagged, idInvalid, supersededCount, accountBars, checkBars, accounts: perAccount.size, pendingList, flaggedList, idInvalidList };
   }, [candidates, subById, rangedSubIds, clientById]);
 
   const [listView, setListView] = useState<null | "pending" | "flagged" | "idInvalid">(null);
