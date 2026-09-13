@@ -531,6 +531,23 @@ export default function ManualRiskAssessments() {
     },
   });
 
+  // Possible sanctions (TFS) matches still awaiting review — drives the Compliance tab badge
+  const { data: tfsPending = 0 } = useQuery({
+    queryKey: ["mr-tfs-pending"],
+    enabled: !!allowed,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { count, error } = await sb
+        .from("manual_risk_sanctions_matches")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+
+
   const clientById = useMemo(() => {
     const m = new Map<string, Client>();
     for (const c of clients) m.set(c.id, c);
