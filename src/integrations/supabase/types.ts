@@ -838,6 +838,8 @@ export type Database = {
           risk_assessment_result: string | null
           sort_order: number
           submission_id: string
+          superseded_by_candidate_id: string | null
+          superseded_note: string | null
           surname: string
           updated_at: string
         }
@@ -874,6 +876,8 @@ export type Database = {
           risk_assessment_result?: string | null
           sort_order?: number
           submission_id: string
+          superseded_by_candidate_id?: string | null
+          superseded_note?: string | null
           surname: string
           updated_at?: string
         }
@@ -910,6 +914,8 @@ export type Database = {
           risk_assessment_result?: string | null
           sort_order?: number
           submission_id?: string
+          superseded_by_candidate_id?: string | null
+          superseded_note?: string | null
           surname?: string
           updated_at?: string
         }
@@ -933,6 +939,13 @@ export type Database = {
             columns: ["submission_id"]
             isOneToOne: false
             referencedRelation: "manual_risk_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_risk_candidates_superseded_by_candidate_id_fkey"
+            columns: ["superseded_by_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_candidates"
             referencedColumns: ["id"]
           },
         ]

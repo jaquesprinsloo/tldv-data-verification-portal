@@ -139,7 +139,7 @@ export function MrClientDashboardTab({
   type CandRow = { id: string; name: string; surname: string; idNumber: string; account: string; order: string; subId: string; released: boolean };
 
   const stats = useMemo(() => {
-    let total = 0, pendingChecks = 0, completedCands = 0, flagged = 0, idInvalid = 0;
+    let total = 0, pendingChecks = 0, completedCands = 0, flagged = 0, idInvalid = 0, supersededCount = 0;
     const perAccount = new Map<string, number>();
     const perCheck = new Map<string, { done: number; pending: number }>();
     const pendingList: CandRow[] = [];
@@ -186,10 +186,15 @@ export function MrClientDashboardTab({
         perCheck.set(k, entry);
       }
       if (candPending > 0) { pendingChecks += 1; pendingList.push(row); } else completedCands += 1;
-      if (candFlag) { flagged += 1; flaggedList.push(row); }
+      // A failed check that was redone and came back clear no longer counts as a
+      // live flag, but the record itself stays searchable everywhere else.
+      const superseded = !!(c as any).superseded_by_candidate_id;
+      if (superseded) supersededCount += 1;
+      if (candFlag && !superseded) { flagged += 1; flaggedList.push(row); }
       const idv = c[CHECK_COLUMNS.id_verification.result] as string | null;
-      if (idv && ["invalid", "deceased"].includes(idv)) { idInvalid += 1; idInvalidList.push(row); }
+      if (idv && ["invalid", "deceased"].includes(idv) && !superseded) { idInvalid += 1; idInvalidList.push(row); }
     }
+
 
     const accountBars = Array.from(perAccount.entries())
       .map(([name, count]) => ({ name, count }))
@@ -202,7 +207,7 @@ export function MrClientDashboardTab({
       "In progress": v.pending,
     }));
 
-    return { total, pendingChecks, completedCands, flagged, idInvalid, accountBars, checkBars, accounts: perAccount.size, pendingList, flaggedList, idInvalidList };
+    return { total, pendingChecks, completedCands, flagged, idInvalid, supersededCount, accountBars, checkBars, accounts: perAccount.size, pendingList, flaggedList, idInvalidList };
   }, [candidates, subById, rangedSubIds, clientById]);
 
   const [listView, setListView] = useState<null | "pending" | "flagged" | "idInvalid">(null);
@@ -329,9 +334,14 @@ export function MrClientDashboardTab({
         <Kpi label="Still in progress" value={stats.pendingChecks} icon={<Clock className="h-5 w-5" />} tone="amber"
           sub="Awaiting verification feedback" onClick={() => setListView("pending")} />
         <Kpi label="Risk identified" value={stats.flagged} icon={<AlertTriangle className="h-5 w-5" />} tone="rose"
-          sub="Candidates with an adverse finding" onClick={() => setListView("flagged")} />
+          sub={stats.supersededCount
+            ? `Adverse finding — excludes ${stats.supersededCount} redone & cleared`
+            : "Candidates with an adverse finding"} onClick={() => setListView("flagged")} />
         <Kpi label="ID not valid" value={stats.idInvalid} icon={<ShieldCheck className="h-5 w-5" />} tone="slate"
-          sub="Invalid or deceased on Home Affairs" onClick={() => setListView("idInvalid")} />
+          sub={stats.supersededCount
+            ? `Invalid or deceased — excludes ${stats.supersededCount} redone & cleared`
+            : "Invalid or deceased on Home Affairs"} onClick={() => setListView("idInvalid")} />
+
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
