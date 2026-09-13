@@ -139,7 +139,7 @@ export function MrClientDashboardTab({
   type CandRow = { id: string; name: string; surname: string; idNumber: string; account: string; order: string; subId: string; released: boolean };
 
   const stats = useMemo(() => {
-    let total = 0, pendingChecks = 0, completedCands = 0, flagged = 0, idInvalid = 0;
+    let total = 0, pendingChecks = 0, completedCands = 0, flagged = 0, idInvalid = 0, supersededCount = 0;
     const perAccount = new Map<string, number>();
     const perCheck = new Map<string, { done: number; pending: number }>();
     const pendingList: CandRow[] = [];
