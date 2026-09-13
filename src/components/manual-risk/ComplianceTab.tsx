@@ -37,7 +37,7 @@ type SanctionsMatch = {
   candidate_name: string | null; candidate_id_number: string | null;
   matched_name: string | null; match_reason: string | null; score: number | null;
   status: string; reviewed_by_name: string | null; reviewed_at: string | null;
-  created_at: string;
+  created_at: string; list_version?: string | null; matched_via?: string | null;
 };
 
 type FlaggedOrder = {
@@ -454,9 +454,11 @@ export default function ComplianceTab({ userId, userName, onViewSubmission }: { 
               <TableHeader>
                 <TableRow>
                   <TableHead>Candidate</TableHead>
-                  <TableHead>ID number</TableHead>
+                  <TableHead>ID / passport</TableHead>
                   <TableHead>Listed name</TableHead>
                   <TableHead>Why it matched</TableHead>
+                  <TableHead>Details used</TableHead>
+                  <TableHead>List version</TableHead>
                   <TableHead>Outcome</TableHead>
                   <TableHead />
                 </TableRow>
@@ -468,6 +470,8 @@ export default function ComplianceTab({ userId, userName, onViewSubmission }: { 
                     <TableCell className="text-xs">{m.candidate_id_number ?? "—"}</TableCell>
                     <TableCell className="text-xs">{m.matched_name ?? "—"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{m.match_reason ?? "—"}</TableCell>
+                    <TableCell className="text-xs">{m.matched_via ?? "—"}</TableCell>
+                    <TableCell className="text-xs">{m.list_version ?? "—"}</TableCell>
                     <TableCell className="text-xs">
                       {m.status === "pending" ? (
                         <Badge variant="destructive">Awaiting review</Badge>
