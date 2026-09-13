@@ -395,7 +395,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
-    doc.text("Terrorist Financing Sanctions (TFS) Screening", margin, cursorY);
+    doc.text("Targeted Financial Sanctions (TFS) Screening", margin, cursorY);
     doc.setDrawColor(220, 38, 38);
     doc.line(margin, cursorY + 3, margin + 250, cursorY + 3);
     cursorY += 16;
