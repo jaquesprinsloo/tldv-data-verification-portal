@@ -37,6 +37,7 @@ import { IndemnityViewerDialog, type IndemnityFileRef } from "@/components/manua
 import { ArchiveImportTab } from "@/components/manual-risk/ArchiveImportTab";
 import DuplicateClientsDialog from "@/components/manual-risk/DuplicateClientsDialog";
 import ComplianceTab from "@/components/manual-risk/ComplianceTab";
+import { runTfsScreening } from "@/lib/tfsScreening";
 
 
 import { BookUser, FileSpreadsheet } from "lucide-react";
@@ -397,6 +398,7 @@ const AVAILABLE_CHECKS: { key: string; label: string }[] = [
   { key: "drivers_license", label: "Driver's License Verification" },
   { key: "pdp", label: "PDP Verification" },
   { key: "qualification", label: "Qualification Verification" },
+  { key: "tfs", label: "TFS Check (UN Sanctions Screening)" },
 ];
 
 // ---------- page ----------
@@ -597,6 +599,10 @@ export default function ManualRiskAssessments() {
           results,
           notes,
           id_verification_data: c.id_verification_data ?? null,
+          passport_number: c.passport_number ?? null,
+          tfs_screened_at: c.tfs_screened_at ?? null,
+          tfs_list_version: c.tfs_list_version ?? null,
+          tfs_match_basis: c.tfs_match_basis ?? null,
         };
       });
 
@@ -1553,6 +1559,22 @@ function NewSubmissionDialog({
       const { error: candErr } = await sb.from("manual_risk_candidates").insert(rows);
       if (candErr) throw candErr;
 
+      // TFS: screen straight away against the current UN sanctions list
+      if (selectedChecks.includes("tfs")) {
+        try {
+          const res = await runTfsScreening(sub.id);
+          if (!res.listUsed) {
+            toast.error("TFS screening could not run — upload the latest sanctions list under Compliance, then re-run it on the order.");
+          } else if (res.hits) {
+            toast.warning(`TFS screening: ${res.hits} candidate(s) returned a possible match — review them under Compliance.`, { duration: 10000 });
+          } else {
+            toast.success(`TFS screening complete — all ${res.screened} candidate(s) not listed.`);
+          }
+        } catch (e) {
+          toast.error(`TFS screening failed: ${(e as Error).message}`);
+        }
+      }
+
       // Upload indemnity files (storage + OneDrive) and persist metadata
       if (indemnityFiles.length) {
         const resolvedClientName =
@@ -1986,6 +2008,7 @@ function SubmissionDetailsDialog({
   const [downloading, setDownloading] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [editChecksOpen, setEditChecksOpen] = useState(false);
+  const [tfsRunning, setTfsRunning] = useState(false);
   const [pendingChecks, setPendingChecks] = useState<string[]>([]);
   const [savingChecks, setSavingChecks] = useState(false);
 
@@ -2068,6 +2091,10 @@ function SubmissionDetailsDialog({
         results,
         notes,
         id_verification_data: (c as any).id_verification_data ?? null,
+        passport_number: (c as any).passport_number ?? null,
+        tfs_screened_at: (c as any).tfs_screened_at ?? null,
+        tfs_list_version: (c as any).tfs_list_version ?? null,
+        tfs_match_basis: (c as any).tfs_match_basis ?? null,
       };
     });
     return await generateManualRiskPdf({
@@ -2232,6 +2259,22 @@ function SubmissionDetailsDialog({
         .eq("id", submissionId);
       if (error) throw error;
 
+      // Newly added TFS check: screen the candidates now
+      if (pendingChecks.includes("tfs") && !activeChecks.includes("tfs")) {
+        try {
+          const res = await runTfsScreening(submissionId);
+          if (!res.listUsed) {
+            toast.error("TFS screening could not run — upload the latest sanctions list under Compliance first.");
+          } else if (res.hits) {
+            toast.warning(`TFS screening: ${res.hits} candidate(s) returned a possible match — review them under Compliance.`, { duration: 10000 });
+          } else {
+            toast.success(`TFS screening complete — all ${res.screened} candidate(s) not listed.`);
+          }
+        } catch (e) {
+          toast.error(`TFS screening failed: ${(e as Error).message}`);
+        }
+      }
+
       toast.success("Check selection updated");
       setEditChecksOpen(false);
       refetch();
@@ -2393,6 +2436,35 @@ function SubmissionDetailsDialog({
             <ClipboardList className="h-4 w-4 mr-2" />
             Edit Check Selection
           </Button>
+          {activeChecks.includes("tfs") && (
+            <Button
+              variant="outline"
+              disabled={tfsRunning}
+              title="Compare every candidate on this order against the latest sanctions list again"
+              onClick={async () => {
+                setTfsRunning(true);
+                try {
+                  const res = await runTfsScreening(submissionId);
+                  if (!res.listUsed) {
+                    toast.error("No sanctions list has been uploaded under Compliance yet.");
+                  } else if (res.hits) {
+                    toast.warning(`${res.hits} candidate(s) returned a possible match — review them under Compliance.`, { duration: 10000 });
+                  } else {
+                    toast.success(`All ${res.screened} candidate(s) not listed.`);
+                  }
+                  refetch();
+                  qc.invalidateQueries({ queryKey: ["mr-sanctions-matches"] });
+                } catch (e) {
+                  toast.error((e as Error).message);
+                } finally {
+                  setTfsRunning(false);
+                }
+              }}
+            >
+              <ShieldAlert className="h-4 w-4 mr-2" />
+              {tfsRunning ? "Screening…" : "Re-run TFS screening"}
+            </Button>
+          )}
           {sub.status === "completed" && (
             <Button
               variant="outline"
@@ -3143,6 +3215,10 @@ async function buildSentReportBlob(
         results,
         notes,
         id_verification_data: c.id_verification_data ?? null,
+        passport_number: c.passport_number ?? null,
+        tfs_screened_at: c.tfs_screened_at ?? null,
+        tfs_list_version: c.tfs_list_version ?? null,
+        tfs_match_basis: c.tfs_match_basis ?? null,
       };
     });
 

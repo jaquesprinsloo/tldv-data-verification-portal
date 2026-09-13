@@ -8,6 +8,11 @@ export interface ManualRiskCandidatePdf {
   first_name: string;
   results?: Record<string, string | null | undefined>;
   notes?: Record<string, string | null | undefined>;
+  passport_number?: string | null;
+  /** TFS (sanctions) screening audit trail. */
+  tfs_screened_at?: string | null;
+  tfs_list_version?: string | null;
+  tfs_match_basis?: string | null;
   id_verification_data?: {
     id_number?: string | null;
     id_prefix?: string | null;
@@ -90,6 +95,15 @@ export const CHECK_META: Record<string, { label: string; short: string; options:
       { v: "pending", l: "Pending" },
     ],
   },
+  tfs: {
+    label: "TFS Check (UN Sanctions Screening)", short: "TFS",
+    options: [
+      { v: "not_listed", l: "Not Listed" },
+      { v: "possible_match", l: "Possible Match — under review" },
+      { v: "listed", l: "Listed (confirmed)" },
+      { v: "pending", l: "Pending" },
+    ],
+  },
 };
 
 // DB column mapping per check key
@@ -101,6 +115,7 @@ export const CHECK_COLUMNS: Record<string, { result: string; notes: string }> = 
   pdp: { result: "pdp_result", notes: "pdp_notes" },
   qualification: { result: "qualification_result", notes: "qualification_notes" },
   criminal: { result: "criminal_result", notes: "criminal_notes" },
+  tfs: { result: "tfs_result", notes: "tfs_notes" },
 };
 
 export function isPlaceholderCandidate(c: { id_number?: string; surname?: string; first_name?: string }): boolean {
@@ -137,6 +152,9 @@ const RESULT_LABELS: Record<string, string> = {
   not_verified: "Not Verified",
   no_risk: "No Risk Identified",
   risk_identified: "Risk Identified",
+  not_listed: "Not Listed",
+  possible_match: "Possible Match — under review",
+  listed: "Listed",
 };
 
 const RESULT_COLORS: Record<string, [number, number, number]> = {
@@ -145,6 +163,9 @@ const RESULT_COLORS: Record<string, [number, number, number]> = {
   low: [22, 163, 74],
   verified: [22, 163, 74],
   no_risk: [22, 163, 74],
+  not_listed: [22, 163, 74],
+  possible_match: [202, 138, 4],
+  listed: [185, 28, 28],
   medium: [202, 138, 4],
   expired: [202, 138, 4],
   high: [234, 88, 12],
@@ -365,6 +386,71 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
       doc.text(wrapped, margin + 8, cursorY);
       cursorY += wrapped.length * 12 + 8;
     }
+  }
+
+  // ---------- TFS (sanctions) screening section ----------
+  if (checks.includes("tfs")) {
+    cursorY += 24;
+    if (cursorY > pageHeight - 160) { doc.addPage(); cursorY = margin; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text("Terrorist Financing Sanctions (TFS) Screening", margin, cursorY);
+    doc.setDrawColor(220, 38, 38);
+    doc.line(margin, cursorY + 3, margin + 250, cursorY + 3);
+    cursorY += 16;
+
+    const versions = Array.from(
+      new Set(realCandidates.map((c) => (c.tfs_list_version ?? "").trim()).filter(Boolean)),
+    );
+    const screenedDates = realCandidates
+      .map((c) => c.tfs_screened_at)
+      .filter(Boolean)
+      .map((d) => new Date(d as string));
+    const latest = screenedDates.length
+      ? new Date(Math.max(...screenedDates.map((d) => d.getTime())))
+      : null;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(70, 70, 70);
+    const intro = [
+      `List compared against: Consolidated United Nations Security Council Sanctions List${versions.length ? ` — version ${versions.join(", ")}` : ""}.`,
+      latest
+        ? `Screening performed on: ${latest.toLocaleDateString("en-ZA", { year: "numeric", month: "long", day: "numeric" })}.`
+        : "Screening date: not recorded.",
+      "Each candidate is compared on their full name and surname (including listed aliases) together with their ID number and, where applicable, their passport or permit number.",
+    ];
+    const introLines = doc.splitTextToSize(intro.join(" "), pageWidth - margin * 2);
+    doc.text(introLines, margin, cursorY);
+    cursorY += introLines.length * 11 + 8;
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [["Candidate", "Details compared", "Outcome", "Screened"]],
+      body: realCandidates.map((c) => [
+        `${c.surname}, ${c.first_name}`,
+        c.tfs_match_basis ||
+          `Full name and surname${c.id_number ? ` + ID number ${c.id_number}` : ""}${c.passport_number ? ` + passport ${c.passport_number}` : ""}`,
+        c.results?.tfs === "not_listed"
+          ? "Not listed on the UN Consolidated Sanctions List"
+          : label(c.results?.tfs),
+        c.tfs_screened_at ? new Date(c.tfs_screened_at).toLocaleDateString("en-ZA") : "—",
+      ]),
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 5, textColor: [30, 30, 30] },
+      headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: "bold" },
+      columnStyles: { 2: { cellWidth: 150 }, 3: { cellWidth: 60, halign: "center" } },
+      margin: { left: margin, right: margin, bottom: 90 },
+      didParseCell: (data) => {
+        if (data.section !== "body" || data.column.index !== 2) return;
+        const res = realCandidates[data.row.index]?.results?.tfs;
+        const color = res ? RESULT_COLORS[res] : undefined;
+        if (color) { data.cell.styles.textColor = color; data.cell.styles.fontStyle = "bold"; }
+      },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    cursorY = ((doc as any).lastAutoTable?.finalY ?? cursorY) + 6;
   }
 
 
