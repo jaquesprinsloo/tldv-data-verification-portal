@@ -397,6 +397,7 @@ const AVAILABLE_CHECKS: { key: string; label: string }[] = [
   { key: "drivers_license", label: "Driver's License Verification" },
   { key: "pdp", label: "PDP Verification" },
   { key: "qualification", label: "Qualification Verification" },
+  { key: "tfs", label: "TFS Check (UN Sanctions Screening)" },
 ];
 
 // ---------- page ----------
@@ -1556,6 +1557,22 @@ function NewSubmissionDialog({
       }));
       const { error: candErr } = await sb.from("manual_risk_candidates").insert(rows);
       if (candErr) throw candErr;
+
+      // TFS: screen straight away against the current UN sanctions list
+      if (selectedChecks.includes("tfs")) {
+        try {
+          const res = await runTfsScreening(sub.id);
+          if (!res.listUsed) {
+            toast.error("TFS screening could not run — upload the latest sanctions list under Compliance, then re-run it on the order.");
+          } else if (res.hits) {
+            toast.warning(`TFS screening: ${res.hits} candidate(s) returned a possible match — review them under Compliance.`, { duration: 10000 });
+          } else {
+            toast.success(`TFS screening complete — all ${res.screened} candidate(s) not listed.`);
+          }
+        } catch (e) {
+          toast.error(`TFS screening failed: ${(e as Error).message}`);
+        }
+      }
 
       // Upload indemnity files (storage + OneDrive) and persist metadata
       if (indemnityFiles.length) {
