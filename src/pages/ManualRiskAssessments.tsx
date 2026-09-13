@@ -813,7 +813,17 @@ export default function ManualRiskAssessments() {
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
             <TabsTrigger value="address-book"><Users className="h-4 w-4 mr-2" />Address Book</TabsTrigger>
             <TabsTrigger value="supplier-recon"><ClipboardList className="h-4 w-4 mr-2" />Supplier Recon</TabsTrigger>
-            <TabsTrigger value="compliance"><ShieldAlert className="h-4 w-4 mr-2" />Compliance</TabsTrigger>
+            <TabsTrigger value="compliance">
+              <ShieldAlert className="h-4 w-4 mr-2" />Compliance
+              {tfsPending > 0 && (
+                <span
+                  className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold"
+                  title={`${tfsPending} possible sanctions match(es) awaiting review`}
+                >
+                  {tfsPending}
+                </span>
+              )}
+            </TabsTrigger>
             {isMasterAdmin && (
               <TabsTrigger value="archive"><FolderOpen className="h-4 w-4 mr-2" />Archive Import</TabsTrigger>
             )}
