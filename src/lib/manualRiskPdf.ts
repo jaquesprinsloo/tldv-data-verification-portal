@@ -8,6 +8,11 @@ export interface ManualRiskCandidatePdf {
   first_name: string;
   results?: Record<string, string | null | undefined>;
   notes?: Record<string, string | null | undefined>;
+  passport_number?: string | null;
+  /** TFS (sanctions) screening audit trail. */
+  tfs_screened_at?: string | null;
+  tfs_list_version?: string | null;
+  tfs_match_basis?: string | null;
   id_verification_data?: {
     id_number?: string | null;
     id_prefix?: string | null;
@@ -147,6 +152,9 @@ const RESULT_LABELS: Record<string, string> = {
   not_verified: "Not Verified",
   no_risk: "No Risk Identified",
   risk_identified: "Risk Identified",
+  not_listed: "Not Listed",
+  possible_match: "Possible Match — under review",
+  listed: "Listed",
 };
 
 const RESULT_COLORS: Record<string, [number, number, number]> = {
