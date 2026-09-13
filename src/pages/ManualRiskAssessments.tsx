@@ -556,6 +556,16 @@ export default function ManualRiskAssessments() {
       const sub = submissions.find((s) => s.id === submissionId);
       if (!sub) throw new Error("Submission not found");
 
+      // Historical orders keep their original supplier report — the
+      // PreAppliCheck template only applies from 01 July 2026.
+      const original = await fetchArchiveOriginalReport(sub);
+      if (original) {
+        void logRecordAccess({ submissionId: sub.id, action: "view_client_report", detail: sub.order_number });
+        setPreviewReport({ blob: original, title: `Report — ${sub.order_number}` });
+        return;
+      }
+
+
       const [{ data: cands }, { data: settings }] = await Promise.all([
         sb.from("manual_risk_candidates")
           .select("*")
