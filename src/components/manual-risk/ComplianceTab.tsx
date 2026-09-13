@@ -283,14 +283,37 @@ export default function ComplianceTab({ userId, userName, onViewSubmission }: { 
   };
 
   const reviewMatch = async (id: string, status: "confirmed" | "dismissed") => {
+    const when = new Date().toISOString();
     const { error } = await sb.from("manual_risk_sanctions_matches").update({
       status,
       reviewed_by: userId || null,
       reviewed_by_name: userName || null,
-      reviewed_at: new Date().toISOString(),
+      reviewed_at: when,
     }).eq("id", id);
     if (error) { toast.error(error.message); return; }
+
+    // Reflect the decision on the candidate's TFS check outcome
+    const m = matches.find((x) => x.id === id);
+    if (m?.candidate_id) {
+      const { data: others } = await sb
+        .from("manual_risk_sanctions_matches")
+        .select("id, status")
+        .eq("candidate_id", m.candidate_id);
+      const rows = ((others ?? []) as any[]).map((r) => (r.id === id ? { ...r, status } : r));
+      const stillPending = rows.some((r) => r.status === "pending");
+      const anyConfirmed = rows.some((r) => r.status === "confirmed");
+      if (!stillPending) {
+        const listNote = m.list_version ? ` (version ${m.list_version})` : "";
+        await sb.from("manual_risk_candidates").update({
+          tfs_result: anyConfirmed ? "listed" : "not_listed",
+          tfs_notes: anyConfirmed
+            ? `Confirmed as listed on the Consolidated United Nations Security Council Sanctions List${listNote} — matched to "${m.matched_name ?? ""}". Reviewed by ${userName || "compliance"} on ${new Date(when).toLocaleDateString("en-ZA")}.`
+            : `Possible match reviewed and dismissed — not listed on the Consolidated United Nations Security Council Sanctions List${listNote}. Reviewed by ${userName || "compliance"} on ${new Date(when).toLocaleDateString("en-ZA")}.`,
+        }).eq("id", m.candidate_id);
+      }
+    }
     qc.invalidateQueries({ queryKey: ["mr-sanctions-matches"] });
+    qc.invalidateQueries({ queryKey: ["mr-tfs-pending"] });
   };
 
   const [openingCand, setOpeningCand] = useState<string | null>(null);
