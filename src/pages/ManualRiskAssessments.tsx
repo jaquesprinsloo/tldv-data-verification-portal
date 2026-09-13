@@ -25,6 +25,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { generateManualRiskPdf, blobToBase64, CHECK_META, CHECK_COLUMNS, isPlaceholderCandidate, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
+import { fetchArchiveOriginalReport } from "@/lib/archiveOriginalReport";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RecipientPicker, ClientAddressBookDialog, type MrRecipient } from "@/components/manual-risk/AddressBook";
 import { AddressBookTab } from "@/components/manual-risk/AddressBookTab";
