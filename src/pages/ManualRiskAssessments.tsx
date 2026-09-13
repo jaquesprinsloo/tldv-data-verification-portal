@@ -2257,6 +2257,22 @@ function SubmissionDetailsDialog({
         .eq("id", submissionId);
       if (error) throw error;
 
+      // Newly added TFS check: screen the candidates now
+      if (pendingChecks.includes("tfs") && !activeChecks.includes("tfs")) {
+        try {
+          const res = await runTfsScreening(submissionId);
+          if (!res.listUsed) {
+            toast.error("TFS screening could not run — upload the latest sanctions list under Compliance first.");
+          } else if (res.hits) {
+            toast.warning(`TFS screening: ${res.hits} candidate(s) returned a possible match — review them under Compliance.`, { duration: 10000 });
+          } else {
+            toast.success(`TFS screening complete — all ${res.screened} candidate(s) not listed.`);
+          }
+        } catch (e) {
+          toast.error(`TFS screening failed: ${(e as Error).message}`);
+        }
+      }
+
       toast.success("Check selection updated");
       setEditChecksOpen(false);
       refetch();
