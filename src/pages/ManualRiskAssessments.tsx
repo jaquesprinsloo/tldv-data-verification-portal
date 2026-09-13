@@ -531,6 +531,23 @@ export default function ManualRiskAssessments() {
     },
   });
 
+  // Possible sanctions (TFS) matches still awaiting review — drives the Compliance tab badge
+  const { data: tfsPending = 0 } = useQuery({
+    queryKey: ["mr-tfs-pending"],
+    enabled: !!allowed,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { count, error } = await sb
+        .from("manual_risk_sanctions_matches")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+
+
   const clientById = useMemo(() => {
     const m = new Map<string, Client>();
     for (const c of clients) m.set(c.id, c);
@@ -813,7 +830,17 @@ export default function ManualRiskAssessments() {
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
             <TabsTrigger value="address-book"><Users className="h-4 w-4 mr-2" />Address Book</TabsTrigger>
             <TabsTrigger value="supplier-recon"><ClipboardList className="h-4 w-4 mr-2" />Supplier Recon</TabsTrigger>
-            <TabsTrigger value="compliance"><ShieldAlert className="h-4 w-4 mr-2" />Compliance</TabsTrigger>
+            <TabsTrigger value="compliance">
+              <ShieldAlert className="h-4 w-4 mr-2" />Compliance
+              {tfsPending > 0 && (
+                <span
+                  className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold"
+                  title={`${tfsPending} possible sanctions match(es) awaiting review`}
+                >
+                  {tfsPending}
+                </span>
+              )}
+            </TabsTrigger>
             {isMasterAdmin && (
               <TabsTrigger value="archive"><FolderOpen className="h-4 w-4 mr-2" />Archive Import</TabsTrigger>
             )}
