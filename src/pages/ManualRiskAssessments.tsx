@@ -37,6 +37,7 @@ import { IndemnityViewerDialog, type IndemnityFileRef } from "@/components/manua
 import { ArchiveImportTab } from "@/components/manual-risk/ArchiveImportTab";
 import DuplicateClientsDialog from "@/components/manual-risk/DuplicateClientsDialog";
 import ComplianceTab from "@/components/manual-risk/ComplianceTab";
+import { runTfsScreening } from "@/lib/tfsScreening";
 
 
 import { BookUser, FileSpreadsheet } from "lucide-react";
