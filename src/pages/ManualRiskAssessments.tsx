@@ -2008,6 +2008,7 @@ function SubmissionDetailsDialog({
   const [downloading, setDownloading] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [editChecksOpen, setEditChecksOpen] = useState(false);
+  const [tfsRunning, setTfsRunning] = useState(false);
   const [pendingChecks, setPendingChecks] = useState<string[]>([]);
   const [savingChecks, setSavingChecks] = useState(false);
 
