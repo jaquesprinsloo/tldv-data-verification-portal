@@ -465,7 +465,7 @@ export default function ManualRiskAssessments() {
     "sent_at, sent_to_supplier_at, compliance_flag, invoiced_at, invoice_number, invoice_file_path, " +
     "indemnity_files, report_onedrive_web_url, report_onedrive_item_id, report_onedrive_path, " +
     "report_shared_onedrive_web_url, report_shared_onedrive_item_id, report_shared_onedrive_path, " +
-    "supplier_report_files, recipients, is_archive, archive_batch_label, archive_report_path, archive_report_name";
+    "supplier_report_files, recipients, is_archive, archive_batch_label, archive_report_path, archive_report_name, archive_report_files";
 
   const { data: submissions = [] } = useQuery({
     queryKey: ["mra-submissions"],
