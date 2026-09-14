@@ -4644,6 +4644,20 @@ function ClientAccountDialog({
                       >
                         <FolderOpen className="h-4 w-4 text-amber-600" />
                       </Button>
+                    ) : null}
+                    {clientFacing && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title={`Download ${downloadWhat === "report" ? "the report" : downloadWhat === "indemnities" ? "the indemnities" : "the report and indemnities"} for this order`}
+                        disabled={!!downloading}
+                        onClick={() => runDownload([r], downloadWhat, `row-${r.candidateId}`)}
+                      >
+                        <Download className={downloading === `row-${r.candidateId}` ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-emerald-700"} />
+                      </Button>
+                    )}
+                    {!clientFacing && mode !== "archive" ? (
+
                     ) : (
                       <>
                         <Button
