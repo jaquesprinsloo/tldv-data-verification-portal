@@ -190,10 +190,13 @@ export function MrClientDashboardTab({
       // A failed check that was redone and came back clear no longer counts as a
       // live flag, but the record itself stays searchable everywhere else.
       const superseded = !!(c as any).superseded_by_candidate_id;
-      if (superseded) supersededCount += 1;
-      if (candFlag && !superseded) { flagged += 1; flaggedList.push(row); }
       const idv = c[CHECK_COLUMNS.id_verification.result] as string | null;
-      if (idv && ["invalid", "deceased"].includes(idv) && !superseded) { idInvalid += 1; idInvalidList.push(row); }
+      const idBad = !!idv && ["invalid", "deceased"].includes(idv);
+      // Only count the ones actually being kept off these two cards.
+      if (superseded && (candFlag || idBad)) supersededCount += 1;
+      if (candFlag && !superseded) { flagged += 1; flaggedList.push(row); }
+      if (idBad && !superseded) { idInvalid += 1; idInvalidList.push(row); }
+
     }
 
 

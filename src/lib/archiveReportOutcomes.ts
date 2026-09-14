@@ -234,12 +234,19 @@ type ArchiveCandidateRow = {
 
 /**
  * Someone checked on a passport, permit or asylum number never had a South
- * African ID verification done, so their ID column always stays blank and their
- * Risk Assessment stands on its own wording.
+ * African ID verification done, so their ID column always stays blank.
+ *
+ * A South African ID that was simply captured short in the archive (a missing
+ * leading zero, or only a birth-date prefix) is NOT a passport person — their
+ * own block on the report still decides their ID outcome.
  */
-const isPassportPerson = (c: ArchiveCandidateRow) =>
-  Boolean(String(c.passport_number ?? "").trim()) ||
-  String(c.id_number ?? "").replace(/\D/g, "").length !== 13;
+const isPassportPerson = (c: ArchiveCandidateRow) => {
+  if (String(c.passport_number ?? "").trim()) return true;
+  const digits = String(c.id_number ?? "").replace(/\D/g, "");
+  // No usable number at all — nothing could have been verified.
+  return digits.length === 0;
+};
+
 
 
 /**
