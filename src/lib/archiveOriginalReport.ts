@@ -11,6 +11,7 @@
 
 import { supabase as sb } from "@/integrations/supabase/client";
 import { archiveReportFiles } from "@/lib/archiveReportFiles";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 /** True when the submission's report should be the stored original document. */
 export function usesOriginalArchiveReport(sub: any): boolean {
