@@ -29,8 +29,7 @@ async function mergeByRedrawing(files: { bytes: Uint8Array; name: string }[]): P
     import("pdfjs-dist"),
     import("@cantoo/pdf-lib"),
   ]);
-  const workerUrl = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
-  (pdfjsLib as any).GlobalWorkerOptions.workerSrc = workerUrl;
+  (pdfjsLib as any).GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
   const out = await PDFDocument.create();
 
