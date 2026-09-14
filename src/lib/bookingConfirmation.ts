@@ -131,11 +131,26 @@ export const buildBookingEmailHtml = (rec: BookingConfirmationRecord, venueLabel
       <li>The Examinee/s need to arrange his/her own transport to and from the facility, it is the examinee&rsquo;s responsibility to ensure that he/she arrives for their allocated time slot.</li>
       <li>Late arrivals (within reason) and no shows will be billed according to the set out late cancelation clause, changes in appointment details need to be communicated two (2) working days prior to the scheduled appointment to ensure that alternative arrangements can be made.</li>
     </ul>
-    <div style="border-top:3px solid #c8102e;margin-top:20px;padding-top:10px;font-size:12px;text-align:center;color:#333;">
-      <p style="margin:2px 0;">${esc(COMPANY_DETAILS.branchAddress)} &middot; ${esc(COMPANY_DETAILS.phone)} &middot; ${esc(COMPANY_DETAILS.email)}</p>
-      <p style="margin:2px 0;font-weight:700;">${esc(COMPANY_DETAILS.name)}</p>
-      <p style="margin:2px 0;">${esc(COMPANY_DETAILS.address)}</p>
-      <p style="margin:2px 0;">${COMPANY_DETAILS.branches.join(" &middot; ")}</p>
+    <div style="border-top:3px solid #c8102e;margin-top:20px;padding-top:12px;font-size:12px;color:#333;">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
+        <tr>
+          <td style="border:1px solid #111;padding:8px;width:50%;vertical-align:top;">
+            <p style="margin:0 0 4px;font-weight:700;color:#c8102e;">Booking Enquiries</p>
+            <p style="margin:0;">${esc(COMPANY_DETAILS.email)}</p>
+            <p style="margin:0;">${esc(COMPANY_DETAILS.phone)}</p>
+          </td>
+          <td style="border:1px solid #111;padding:8px;vertical-align:top;">
+            <p style="margin:0 0 4px;font-weight:700;color:#c8102e;">Vetting Enquiries</p>
+            <p style="margin:0;">${esc(PREAPPLICHECK_DETAILS.email)}</p>
+            <p style="margin:0;">${esc(COMPANY_DETAILS.phone)}</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:2px 0;text-align:center;font-weight:700;">${esc(COMPANY_DETAILS.name)}</p>
+      <p style="margin:2px 0;text-align:center;">Registered address: ${esc(COMPANY_DETAILS.address)}</p>
+      <p style="margin:6px 0 2px;text-align:center;font-weight:700;">International accredited examiners available in:</p>
+      <p style="margin:2px 0;text-align:center;">${COMPANY_DETAILS.branches.join(" &middot; ")}</p>
+      <p style="margin:8px 0 0;text-align:center;"><strong>PreAppliCheck</strong> — a division of True Lie Detectors & Vetting &middot; ${esc(PREAPPLICHECK_DETAILS.email)}</p>
     </div>
   </div>`;
 };
