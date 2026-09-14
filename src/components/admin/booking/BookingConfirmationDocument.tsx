@@ -25,7 +25,7 @@ const BookingConfirmationDocument = forwardRef<HTMLDivElement, Props>(
   ({ record, venueLabel }, ref) => (
     <div ref={ref} className="bg-white text-black p-8 font-serif text-[13px] leading-relaxed">
       <div className="flex justify-center mb-4">
-        <img src={tldvLogo} alt="True Lie Detectors & Vetting" className="h-20 object-contain" />
+        <img src={tldvLogo.url} alt="True Lie Detectors & Vetting" className="h-20 object-contain" />
       </div>
 
       <h1 className="text-center text-2xl font-bold mb-5">Booking Confirmation</h1>
