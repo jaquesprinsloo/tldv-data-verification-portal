@@ -11,7 +11,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Upload, FileSpreadsheet, CheckCircle2, XCircle, Download, Loader2, Search } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { isPlaceholderCandidate } from "@/lib/manualRiskPdf";
+import {
+  downloadOrderDocuments, type DownloadWhat, type OrderDocsTarget,
+} from "@/lib/clientDocumentDownload";
 
 const sb = supabase as any;
 
@@ -25,6 +32,10 @@ type Row = {
   account: string;
   order: string;
   screenedOn: string;
+  /** The order the match belongs to, so its documents can be downloaded. */
+  subId: string | null;
+  released: boolean;
+  indemnities: { path: string; name?: string }[];
 };
 
 const normId = (v: any) => {
@@ -79,7 +90,7 @@ export function MrEmployeeCheckTab({
       for (let from = 0; ; from += 1000) {
         const { data, error } = await sb
           .from("manual_risk_submissions")
-          .select("id, order_number, client_id, created_at")
+          .select("id, order_number, client_id, created_at, sent_at, indemnity_files")
           .range(from, from + 999);
         if (error) throw error;
         subs.push(...(data ?? []));
@@ -128,6 +139,11 @@ export function MrEmployeeCheckTab({
     account: clientById.get(r.override_client_id ?? r.sub?.client_id ?? "") ?? "—",
     order: r.sub?.order_number ?? "—",
     screenedOn: r.sub?.created_at ? new Date(r.sub.created_at).toLocaleDateString() : "—",
+    subId: r.sub?.id ?? null,
+    released: !!r.sub?.sent_at,
+    indemnities: (Array.isArray(r.sub?.indemnity_files) ? r.sub.indemnity_files : [])
+      .map((f: any) => ({ path: String(f?.path ?? ""), name: f?.name }))
+      .filter((f: any) => f.path),
   });
 
   const handleFile = async (file: File) => {
@@ -156,7 +172,9 @@ export function MrEmployeeCheckTab({
         const hit = idHit || byName.get(normName(surname) + "|" + normName(firstName));
         const matchedOn: Row["matchedOn"] = !hit ? null : idHit ? "id" : "name";
 
-        const info = hit ? describe(hit) : { account: "—", order: "—", screenedOn: "—" };
+        const info = hit
+          ? describe(hit)
+          : { account: "—", order: "—", screenedOn: "—", subId: null, released: false, indemnities: [] };
         return {
           key: `${i}-${idNumber || surname}`,
           firstName, surname, idNumber,
@@ -203,6 +221,56 @@ export function MrEmployeeCheckTab({
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  /** Shared download of released documents for a set of orders. */
+  const [what, setWhat] = useState<DownloadWhat>("both");
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [pickedRows, setPickedRows] = useState<Set<string>>(new Set());
+  const [pickedPeople, setPickedPeople] = useState<Set<string>>(new Set());
+
+  const runDownload = async (targets: OrderDocsTarget[], key: string, zipName: string) => {
+    const seen = new Set<string>();
+    const unique = targets.filter((t) => {
+      if (!t.submissionId || seen.has(t.submissionId)) return false;
+      seen.add(t.submissionId);
+      return true;
+    });
+    if (!unique.length) { toast.error("No released documents for that selection"); return; }
+    setBusyKey(key);
+    try {
+      const { files, missing } = await downloadOrderDocuments(unique, what, { zipName });
+      if (!files) toast.error("None of these documents are available to download yet");
+      else toast.success(`${files} document(s) downloaded`);
+      if (missing.length) {
+        toast.warning(
+          `Not available: ${missing.slice(0, 5).join("; ")}${missing.length > 5 ? ` and ${missing.length - 5} more` : ""}`,
+        );
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? String(e));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const WhatPicker = () => (
+    <Select value={what} onValueChange={(v) => setWhat(v as DownloadWhat)}>
+      <SelectTrigger className="h-9 w-48"><SelectValue /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value="report">Report only</SelectItem>
+        <SelectItem value="indemnities">Indemnities only</SelectItem>
+        <SelectItem value="both">Report and indemnities</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
+  const personTarget = (r: any): OrderDocsTarget => ({
+    submissionId: r.sub?.id ?? "",
+    orderNumber: r.sub?.order_number ?? "order",
+    indemnities: (Array.isArray(r.sub?.indemnity_files) ? r.sub.indemnity_files : [])
+      .map((f: any) => ({ path: String(f?.path ?? ""), name: f?.name }))
+      .filter((f: any) => f.path),
+  });
 
   const found = rows?.filter((r) => r.matched).length ?? 0;
   const missing = (rows?.length ?? 0) - found;
