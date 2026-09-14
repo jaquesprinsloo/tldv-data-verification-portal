@@ -658,6 +658,39 @@ export type Database = {
           },
         ]
       }
+      client_facing_audit_log: {
+        Row: {
+          created_at: string
+          detail: string | null
+          event_type: string
+          id: string
+          metadata: Json
+          user_email: string | null
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json
+          user_email?: string | null
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json
+          user_email?: string | null
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       examiners: {
         Row: {
           created_at: string
