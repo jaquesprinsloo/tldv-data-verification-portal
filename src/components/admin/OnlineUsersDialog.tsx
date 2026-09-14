@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { PRESENCE_CHANNEL, PresenceMeta } from "@/components/shared/PresenceTracker";
+import { PresenceMeta, getPresenceSnapshot, subscribePresence } from "@/components/shared/PresenceTracker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -48,39 +47,13 @@ interface Props {
 }
 
 export const useOnlineUsers = (enabled: boolean) => {
-  const [users, setUsers] = useState<PresenceMeta[]>([]);
+  const [users, setUsers] = useState<PresenceMeta[]>(getPresenceSnapshot());
 
   useEffect(() => {
     if (!enabled) return;
-    const channel = supabase.channel(PRESENCE_CHANNEL, {
-      config: { presence: { key: `viewer-${Math.random().toString(36).slice(2)}` } },
-    });
-
-    const sync = () => {
-      const state = channel.presenceState<PresenceMeta>();
-      const list: PresenceMeta[] = [];
-      Object.values(state).forEach((entries) => {
-        const entry = (entries as unknown as PresenceMeta[])[0];
-        if (entry && entry.user_id) list.push(entry);
-      });
-      // Deduplicate by user (same person may have several tabs/devices open)
-      const byUser = new Map<string, PresenceMeta>();
-      list.forEach((u) => {
-        const existing = byUser.get(u.user_id);
-        if (!existing || new Date(u.online_at) < new Date(existing.online_at)) byUser.set(u.user_id, u);
-      });
-      setUsers([...byUser.values()].sort((a, b) => a.name.localeCompare(b.name)));
-    };
-
-    channel
-      .on("presence", { event: "sync" }, sync)
-      .on("presence", { event: "join" }, sync)
-      .on("presence", { event: "leave" }, sync)
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Read from the single app-wide presence channel (PresenceTracker). Opening a
+    // second channel on the same topic returns empty presence state.
+    return subscribePresence(setUsers);
   }, [enabled]);
 
   return users;

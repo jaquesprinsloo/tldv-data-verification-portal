@@ -14,6 +14,30 @@ export interface PresenceMeta {
 }
 
 /**
+ * Module-level store of everyone currently online. There is exactly ONE
+ * presence channel per browser tab (opening a second channel on the same topic
+ * inside the same Supabase client makes presence state unreliable, which is why
+ * viewers read from this store instead of subscribing themselves).
+ */
+let onlineList: PresenceMeta[] = [];
+const listeners = new Set<(users: PresenceMeta[]) => void>();
+
+const publish = (users: PresenceMeta[]) => {
+  onlineList = users;
+  listeners.forEach((fn) => fn(users));
+};
+
+export const getPresenceSnapshot = () => onlineList;
+
+export const subscribePresence = (fn: (users: PresenceMeta[]) => void) => {
+  listeners.add(fn);
+  fn(onlineList);
+  return () => {
+    listeners.delete(fn);
+  };
+};
+
+/**
  * Tracks the signed-in user on a shared Realtime presence channel so a master
  * admin can see who is currently online (and which portal page they are on).
  * Mounted once globally so presence survives navigation between portals.
@@ -33,6 +57,7 @@ const PresenceTracker = () => {
         channelRef.current = null;
         metaRef.current = null;
       }
+      publish([]);
     };
 
     const join = async () => {
@@ -66,11 +91,32 @@ const PresenceTracker = () => {
       });
       channelRef.current = channel;
 
-      channel.subscribe(async (status) => {
-        if (status === "SUBSCRIBED" && metaRef.current) {
-          await channel.track(metaRef.current);
-        }
-      });
+      const sync = () => {
+        const state = channel.presenceState<PresenceMeta>();
+        const byUser = new Map<string, PresenceMeta>();
+        Object.values(state).forEach((entries) => {
+          (entries as unknown as PresenceMeta[]).forEach((entry) => {
+            if (!entry?.user_id) return;
+            const existing = byUser.get(entry.user_id);
+            // Keep the earliest sign-in time when the same person has several tabs
+            if (!existing || new Date(entry.online_at) < new Date(existing.online_at)) {
+              byUser.set(entry.user_id, entry);
+            }
+          });
+        });
+        publish([...byUser.values()].sort((a, b) => a.name.localeCompare(b.name)));
+      };
+
+      channel
+        .on("presence", { event: "sync" }, sync)
+        .on("presence", { event: "join" }, sync)
+        .on("presence", { event: "leave" }, sync)
+        .subscribe(async (status) => {
+          if (status === "SUBSCRIBED" && metaRef.current) {
+            await channel.track(metaRef.current);
+            sync();
+          }
+        });
     };
 
     join();
