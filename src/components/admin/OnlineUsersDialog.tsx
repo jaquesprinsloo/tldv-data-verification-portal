@@ -44,6 +44,7 @@ const sinceLabel = (iso: string) => {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  users: PresenceMeta[];
 }
 
 export const useOnlineUsers = (enabled: boolean) => {
@@ -85,9 +86,7 @@ export const useOnlineUsers = (enabled: boolean) => {
   return users;
 };
 
-const OnlineUsersDialog = ({ open, onOpenChange }: Props) => {
-  const users = useOnlineUsers(open);
-
+const OnlineUsersDialog = ({ open, onOpenChange, users }: Props) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg bg-black border-2 border-red-600 text-white">
