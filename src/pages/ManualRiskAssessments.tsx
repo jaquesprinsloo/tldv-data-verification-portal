@@ -4656,9 +4656,8 @@ function ClientAccountDialog({
                         <Download className={downloading === `row-${r.candidateId}` ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-emerald-700"} />
                       </Button>
                     )}
-                    {!clientFacing && mode !== "archive" ? (
+                    {!clientFacing && mode !== "archive" && (
 
-                    ) : (
                       <>
                         <Button
                           variant="ghost"
