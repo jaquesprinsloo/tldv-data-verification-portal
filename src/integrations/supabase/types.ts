@@ -118,6 +118,122 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_confirmations: {
+        Row: {
+          appointment_id: string | null
+          attention_email: string | null
+          attention_name: string
+          booking_reference: string
+          candidate_quantity: number
+          company_name: string
+          created_at: string
+          created_by: string | null
+          examiner_emails: string[]
+          examiners: string[]
+          id: string
+          location_label: string | null
+          polygraph_types: string[]
+          scheduled_date: string
+          scheduled_time: string
+          sent_at: string | null
+          sent_to: string[]
+          service_required: string
+          special_notes: string | null
+          status: string
+          updated_at: string
+          venue_id: string | null
+          vetting_types: string[]
+        }
+        Insert: {
+          appointment_id?: string | null
+          attention_email?: string | null
+          attention_name: string
+          booking_reference: string
+          candidate_quantity?: number
+          company_name: string
+          created_at?: string
+          created_by?: string | null
+          examiner_emails?: string[]
+          examiners?: string[]
+          id?: string
+          location_label?: string | null
+          polygraph_types?: string[]
+          scheduled_date: string
+          scheduled_time: string
+          sent_at?: string | null
+          sent_to?: string[]
+          service_required: string
+          special_notes?: string | null
+          status?: string
+          updated_at?: string
+          venue_id?: string | null
+          vetting_types?: string[]
+        }
+        Update: {
+          appointment_id?: string | null
+          attention_email?: string | null
+          attention_name?: string
+          booking_reference?: string
+          candidate_quantity?: number
+          company_name?: string
+          created_at?: string
+          created_by?: string | null
+          examiner_emails?: string[]
+          examiners?: string[]
+          id?: string
+          location_label?: string | null
+          polygraph_types?: string[]
+          scheduled_date?: string
+          scheduled_time?: string
+          sent_at?: string | null
+          sent_to?: string[]
+          service_required?: string
+          special_notes?: string | null
+          status?: string
+          updated_at?: string
+          venue_id?: string | null
+          vetting_types?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_confirmations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "polygraph_venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_list_options: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          label: string
+          list_type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          list_type: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          list_type?: string
+        }
+        Relationships: []
+      }
       candex_ai_usage: {
         Row: {
           application_id: string | null
