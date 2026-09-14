@@ -9,9 +9,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProfileDetailsDialog } from "./ProfileDetailsDialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, XCircle, Loader2, Send, Eye } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Send, Eye, ScrollText } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { startImpersonation } from "@/hooks/useImpersonation";
+import { ClientAuditTrailDialog } from "./ClientAuditTrailDialog";
 
 interface Profile {
   id: string;
@@ -28,6 +29,8 @@ export const ProfileManagement = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<"admin" | "master_admin" | "examiner" | "client_facing">("admin");
+  // Activity trail of a single profile (sign ins, searches, downloads).
+  const [trailFor, setTrailFor] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
@@ -464,6 +467,23 @@ export const ProfileManagement = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                onClick={(e) => { e.stopPropagation(); setTrailFor(profile); }}
+                                className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-red-600/20"
+                              >
+                                <ScrollText className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>View activity trail (sign ins, searches, downloads)</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={(e) => handleResendCredentials(e, profile)}
                                 disabled={resendingId === profile.id}
                                 className="h-8 w-8 p-0 text-gray-400 hover:text-white hover:bg-red-600/20"
@@ -511,6 +531,13 @@ export const ProfileManagement = () => {
           </Card>
         </div>
       </div>
+
+      <ClientAuditTrailDialog
+        userId={trailFor?.id ?? null}
+        userLabel={trailFor ? (trailFor.full_name || trailFor.email) : ""}
+        open={!!trailFor}
+        onOpenChange={(v) => { if (!v) setTrailFor(null); }}
+      />
 
       <ProfileDetailsDialog
         profile={selectedProfile}
