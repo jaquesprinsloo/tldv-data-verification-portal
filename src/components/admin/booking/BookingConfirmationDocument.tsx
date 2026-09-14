@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import tldvLogo from "@/assets/tldv-logo-primary.png";
+import tldvLogo from "@/assets/tldv-logo-booking.jpg.asset.json";
 import {
   BookingConfirmationRecord,
   COMPANY_DETAILS,
