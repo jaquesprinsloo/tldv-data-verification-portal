@@ -5,6 +5,9 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AdminHeader from "@/components/admin/AdminHeader";
 import AppointmentsSchedule from "@/components/admin/AppointmentsSchedule";
+import AppointmentsCalendar from "@/components/admin/AppointmentsCalendar";
+import BookingConfirmationsTab from "@/components/admin/booking/BookingConfirmationsTab";
+import BookingListsManager from "@/components/admin/booking/BookingListsManager";
 import VenueManagement from "@/components/admin/VenueManagement";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User } from "@supabase/supabase-js";
@@ -74,22 +77,32 @@ const PolygraphVetting = () => {
           Back to Dashboard
         </Button>
 
-        {isMasterAdmin ? (
-          <Tabs defaultValue="schedule" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2 max-w-md">
-              <TabsTrigger value="schedule">Schedule</TabsTrigger>
-              <TabsTrigger value="venues">Pre-Approved Venues</TabsTrigger>
-            </TabsList>
-            <TabsContent value="schedule">
-              <AppointmentsSchedule isMasterAdmin={isMasterAdmin} />
-            </TabsContent>
+        <Tabs defaultValue="schedule" className="space-y-6">
+          <TabsList className="flex w-full flex-wrap h-auto justify-start">
+            <TabsTrigger value="schedule">Schedule</TabsTrigger>
+            <TabsTrigger value="confirmations">Booking Confirmations</TabsTrigger>
+            <TabsTrigger value="requests">Requests</TabsTrigger>
+            <TabsTrigger value="lists">Booking Lists</TabsTrigger>
+            {isMasterAdmin && <TabsTrigger value="venues">Pre-Approved Venues</TabsTrigger>}
+          </TabsList>
+          <TabsContent value="schedule">
+            <AppointmentsCalendar />
+          </TabsContent>
+          <TabsContent value="confirmations">
+            <BookingConfirmationsTab isMasterAdmin={isMasterAdmin} />
+          </TabsContent>
+          <TabsContent value="requests">
+            <AppointmentsSchedule isMasterAdmin={isMasterAdmin} />
+          </TabsContent>
+          <TabsContent value="lists">
+            <BookingListsManager />
+          </TabsContent>
+          {isMasterAdmin && (
             <TabsContent value="venues">
               <VenueManagement />
             </TabsContent>
-          </Tabs>
-        ) : (
-          <AppointmentsSchedule isMasterAdmin={isMasterAdmin} />
-        )}
+          )}
+        </Tabs>
       </main>
     </div>
   );
