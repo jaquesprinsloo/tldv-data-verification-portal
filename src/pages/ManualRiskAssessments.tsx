@@ -38,6 +38,10 @@ import { ArchiveImportTab } from "@/components/manual-risk/ArchiveImportTab";
 import DuplicateClientsDialog from "@/components/manual-risk/DuplicateClientsDialog";
 import ComplianceTab from "@/components/manual-risk/ComplianceTab";
 import { runTfsScreening } from "@/lib/tfsScreening";
+import {
+  downloadOrderDocuments, type DownloadWhat, type OrderDocsTarget,
+} from "@/lib/clientDocumentDownload";
+
 
 
 import { BookUser, FileSpreadsheet } from "lucide-react";
@@ -3893,7 +3897,7 @@ function ClientAccountDialog({
   const isPtvsAccount = !clientFacing && !!ptvsClient && groupKey === ptvsClient.id;
   // Client-facing profiles see a reduced table: no discount or invoice columns,
   // no selection checkbox and no administrative actions.
-  const colCount = clientFacing ? 8 : mode === "live" ? 11 : 10;
+  const colCount = clientFacing ? 9 : mode === "live" ? 11 : 10;
   const [indemnityFor, setIndemnityFor] = useState<{ orderNumber: string; files: IndemnityFileRef[] } | null>(null);
   const sentSubIdsAll = useMemo(() => submissions.map((s) => s.id), [submissions]);
   const { data: mirrorCandidates = [] } = useQuery<Candidate[]>({
@@ -4051,6 +4055,50 @@ function ClientAccountDialog({
     () => Array.from(new Set(rows.filter((r) => selected.has(r.candidateId)).map((r) => r.submissionId))),
     [rows, selected],
   );
+
+  // Client-facing profiles may download the released report and the signed
+  // indemnities — on their own, or together, for a selection or the whole account.
+  const [downloadWhat, setDownloadWhat] = useState<DownloadWhat>("both");
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const targetsFor = (source: AccountRow[]): OrderDocsTarget[] => {
+    const seen = new Set<string>();
+    const out: OrderDocsTarget[] = [];
+    for (const r of source) {
+      if (seen.has(r.submissionId)) continue;
+      seen.add(r.submissionId);
+      out.push({
+        submissionId: r.submissionId,
+        orderNumber: r.orderNumber,
+        indemnities: (((subById.get(r.submissionId) as any)?.indemnity_files ?? []) as IndemnityFile[])
+          .map((f) => ({ path: f.path, name: f.name })),
+      });
+    }
+    return out;
+  };
+
+  const runDownload = async (source: AccountRow[], what: DownloadWhat, busyKey: string) => {
+    const targets = targetsFor(source);
+    if (!targets.length) { toast.error("Nothing to download"); return; }
+    setDownloading(busyKey);
+    try {
+      const { files, missing } = await downloadOrderDocuments(targets, what, {
+        zipName: `${clientName} - screening documents`,
+      });
+      if (!files) toast.error("None of these documents are available to download yet");
+      else toast.success(`${files} document(s) downloaded`);
+      if (missing.length) {
+        toast.warning(
+          `Not available: ${missing.slice(0, 5).join("; ")}${missing.length > 5 ? ` and ${missing.length - 5} more` : ""}`,
+        );
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setDownloading(null);
+    }
+  };
+
 
   const exportExcel = () => {
     const source = rows.filter((r) => selected.size === 0 || selected.has(r.candidateId));
@@ -4440,13 +4488,48 @@ function ClientAccountDialog({
               </Button>
             </>
           )}
+          {clientFacing && (
+            <>
+              <div>
+                <Label className="text-xs">Download</Label>
+                <Select value={downloadWhat} onValueChange={(v) => setDownloadWhat(v as DownloadWhat)}>
+                  <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="report">Report only</SelectItem>
+                    <SelectItem value="indemnities">Indemnities only</SelectItem>
+                    <SelectItem value="both">Report and indemnities</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                variant="outline"
+                disabled={!selected.size || !!downloading}
+                onClick={() => runDownload(rows.filter((r) => selected.has(r.candidateId)), downloadWhat, "selected")}
+                title="Download the documents for the selected people"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {downloading === "selected" ? "Preparing…" : `Download selected (${selected.size})`}
+              </Button>
+              <Button
+                className="bg-red-600 hover:bg-red-700"
+                disabled={!rows.length || !!downloading}
+                onClick={() => runDownload(rows, downloadWhat, "all")}
+                title="Download the documents for every check shown"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {downloading === "all" ? "Preparing…" : "Download all shown"}
+              </Button>
+            </>
+          )}
+
         </div>
 
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                {!clientFacing && mode === "live" && (
+                {(clientFacing || mode === "live") && (
+
                   <TableHead className="w-10">
                     <Checkbox
                       checked={rows.length > 0 && selected.size === rows.length}
@@ -4480,7 +4563,8 @@ function ClientAccountDialog({
                   id={`cand-row-${r.candidateId}`}
                   className={highlightCandidateId === r.candidateId ? "bg-amber-100 ring-1 ring-amber-400" : undefined}
                 >
-                  {!clientFacing && mode === "live" && (
+                  {(clientFacing || mode === "live") && (
+
                     <TableCell>
                       <Checkbox
                         checked={selected.has(r.candidateId)}
@@ -4560,7 +4644,20 @@ function ClientAccountDialog({
                       >
                         <FolderOpen className="h-4 w-4 text-amber-600" />
                       </Button>
-                    ) : (
+                    ) : null}
+                    {clientFacing && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title={`Download ${downloadWhat === "report" ? "the report" : downloadWhat === "indemnities" ? "the indemnities" : "the report and indemnities"} for this order`}
+                        disabled={!!downloading}
+                        onClick={() => runDownload([r], downloadWhat, `row-${r.candidateId}`)}
+                      >
+                        <Download className={downloading === `row-${r.candidateId}` ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-emerald-700"} />
+                      </Button>
+                    )}
+                    {!clientFacing && mode !== "archive" && (
+
                       <>
                         <Button
                           variant="ghost"
