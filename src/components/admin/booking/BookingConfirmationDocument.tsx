@@ -1,8 +1,10 @@
 import { forwardRef } from "react";
 import tldvLogo from "@/assets/tldv-logo-booking.jpg.asset.json";
+import preapplicheckLogo from "@/assets/preapplicheck-logo-mark.png";
 import {
   BookingConfirmationRecord,
   COMPANY_DETAILS,
+  PREAPPLICHECK_DETAILS,
   formatScheduleLabel,
   formatTimeLabel,
   listOrNA,
@@ -74,29 +76,53 @@ const BookingConfirmationDocument = forwardRef<HTMLDivElement, Props>(
         </li>
       </ul>
 
-      <div className="border-t-[3px] border-[#c8102e] pt-3 text-center text-[11px]">
-        <div className="flex justify-center gap-6 mb-2 text-[#c8102e]">
-          <MapPin className="h-3.5 w-3.5" />
-          <Phone className="h-3.5 w-3.5" />
-          <Mail className="h-3.5 w-3.5" />
+      <div className="border-t-[3px] border-[#c8102e] pt-4 text-[11px]">
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="border border-black p-3">
+            <p className="font-bold text-[#c8102e] mb-1 flex items-center gap-1.5">
+              <Mail className="h-3 w-3" /> Booking Enquiries
+            </p>
+            <p>{COMPANY_DETAILS.email}</p>
+            <p className="flex items-center gap-1 mt-0.5">
+              <Phone className="h-3 w-3" /> {COMPANY_DETAILS.phone}
+            </p>
+          </div>
+          <div className="border border-black p-3">
+            <p className="font-bold text-[#c8102e] mb-1 flex items-center gap-1.5">
+              <Mail className="h-3 w-3" /> Vetting Enquiries
+            </p>
+            <p>{PREAPPLICHECK_DETAILS.email}</p>
+            <p className="flex items-center gap-1 mt-0.5">
+              <Phone className="h-3 w-3" /> {COMPANY_DETAILS.phone}
+            </p>
+          </div>
         </div>
-        <table className="w-full border border-black border-collapse mb-2">
-          <tbody>
-            <tr>
-              <td className="border border-black px-2 py-1 font-bold">{COMPANY_DETAILS.branchAddress}</td>
-              <td className="border border-black px-2 py-1 font-bold">{COMPANY_DETAILS.phone}</td>
-              <td className="border border-black px-2 py-1 font-bold">{COMPANY_DETAILS.email}</td>
-            </tr>
-          </tbody>
-        </table>
-        <p className="font-semibold">{COMPANY_DETAILS.name}</p>
-        <p>{COMPANY_DETAILS.address}</p>
-        <div className="grid grid-cols-3 gap-1 mt-2">
-          {COMPANY_DETAILS.branches.map((b) => (
-            <span key={b} className="flex items-center justify-center gap-1">
-              <MapPin className="h-3 w-3 text-[#c8102e]" /> {b}
-            </span>
-          ))}
+
+        <div className="text-center mb-3">
+          <p className="font-bold">{COMPANY_DETAILS.name}</p>
+          <p>Registered address: {COMPANY_DETAILS.address}</p>
+        </div>
+
+        <div className="text-center mb-3">
+          <p className="font-bold mb-1">International accredited examiners available in:</p>
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+            {COMPANY_DETAILS.branches.map((b) => (
+              <span key={b} className="flex items-center gap-1">
+                <MapPin className="h-3 w-3 text-[#c8102e]" /> {b}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-t border-black pt-2 flex items-center justify-center gap-2">
+          <img
+            src={preapplicheckLogo}
+            alt="PreAppliCheck"
+            className="h-8 w-auto object-contain"
+          />
+          <p className="font-semibold">
+            PreAppliCheck — a division of True Lie Detectors & Vetting
+          </p>
         </div>
       </div>
     </div>
