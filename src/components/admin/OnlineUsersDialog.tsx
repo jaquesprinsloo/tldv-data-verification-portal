@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { PRESENCE_CHANNEL, PresenceMeta } from "@/components/shared/PresenceTracker";
+import { PresenceMeta, getPresenceSnapshot, subscribePresence } from "@/components/shared/PresenceTracker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
