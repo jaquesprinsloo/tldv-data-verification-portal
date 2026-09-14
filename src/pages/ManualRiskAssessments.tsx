@@ -41,6 +41,7 @@ import { runTfsScreening } from "@/lib/tfsScreening";
 import {
   downloadOrderDocuments, type DownloadWhat, type OrderDocsTarget,
 } from "@/lib/clientDocumentDownload";
+import { logClientEvent, makeSearchLogger } from "@/lib/clientAudit";
 
 
 
@@ -3291,6 +3292,8 @@ function AccountsTab({
   const [openMode, setOpenMode] = useState<"live" | "archive">("live");
   const [highlightCandidateId, setHighlightCandidateId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  // Client-facing profiles keep an audit trail of what was searched.
+  const logSearch = useRef(makeSearchLogger("candidates in Accounts")).current;
   const trimmedQuery = searchQuery.trim();
   const searchActive = trimmedQuery.length >= 2;
   const [filterRegular, setFilterRegular] = useState(false);
@@ -3653,7 +3656,10 @@ function AccountsTab({
           id="account-search"
           placeholder="Type name, surname, or ID number…"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            if (clientFacing) logSearch(e.target.value);
+          }}
           className="mt-1"
         />
         {searchActive && (
@@ -4087,6 +4093,19 @@ function ClientAccountDialog({
       });
       if (!files) toast.error("None of these documents are available to download yet");
       else toast.success(`${files} document(s) downloaded`);
+      if (clientFacing && files) {
+        void logClientEvent(
+          "download",
+          `Downloaded ${what === "report" ? "report(s)" : what === "indemnities" ? "indemnities" : "report(s) and indemnities"} for ${targets.length} order(s) on ${clientName}`,
+          {
+            account: clientName,
+            what,
+            orders: targets.map((t) => t.orderNumber),
+            people: source.map((r) => `${r.firstName ?? ""} ${r.surname ?? ""}`.trim()).filter(Boolean),
+            files,
+          },
+        );
+      }
       if (missing.length) {
         toast.warning(
           `Not available: ${missing.slice(0, 5).join("; ")}${missing.length > 5 ? ` and ${missing.length - 5} more` : ""}`,
