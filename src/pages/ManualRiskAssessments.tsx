@@ -3897,7 +3897,7 @@ function ClientAccountDialog({
   const isPtvsAccount = !clientFacing && !!ptvsClient && groupKey === ptvsClient.id;
   // Client-facing profiles see a reduced table: no discount or invoice columns,
   // no selection checkbox and no administrative actions.
-  const colCount = clientFacing ? 8 : mode === "live" ? 11 : 10;
+  const colCount = clientFacing ? 9 : mode === "live" ? 11 : 10;
   const [indemnityFor, setIndemnityFor] = useState<{ orderNumber: string; files: IndemnityFileRef[] } | null>(null);
   const sentSubIdsAll = useMemo(() => submissions.map((s) => s.id), [submissions]);
   const { data: mirrorCandidates = [] } = useQuery<Candidate[]>({
@@ -4488,13 +4488,48 @@ function ClientAccountDialog({
               </Button>
             </>
           )}
+          {clientFacing && (
+            <>
+              <div>
+                <Label className="text-xs">Download</Label>
+                <Select value={downloadWhat} onValueChange={(v) => setDownloadWhat(v as DownloadWhat)}>
+                  <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="report">Report only</SelectItem>
+                    <SelectItem value="indemnities">Indemnities only</SelectItem>
+                    <SelectItem value="both">Report and indemnities</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                variant="outline"
+                disabled={!selected.size || !!downloading}
+                onClick={() => runDownload(rows.filter((r) => selected.has(r.candidateId)), downloadWhat, "selected")}
+                title="Download the documents for the selected people"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {downloading === "selected" ? "Preparing…" : `Download selected (${selected.size})`}
+              </Button>
+              <Button
+                className="bg-red-600 hover:bg-red-700"
+                disabled={!rows.length || !!downloading}
+                onClick={() => runDownload(rows, downloadWhat, "all")}
+                title="Download the documents for every check shown"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {downloading === "all" ? "Preparing…" : "Download all shown"}
+              </Button>
+            </>
+          )}
+
         </div>
 
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                {!clientFacing && mode === "live" && (
+                {(clientFacing || mode === "live") && (
+
                   <TableHead className="w-10">
                     <Checkbox
                       checked={rows.length > 0 && selected.size === rows.length}
@@ -4528,7 +4563,8 @@ function ClientAccountDialog({
                   id={`cand-row-${r.candidateId}`}
                   className={highlightCandidateId === r.candidateId ? "bg-amber-100 ring-1 ring-amber-400" : undefined}
                 >
-                  {!clientFacing && mode === "live" && (
+                  {(clientFacing || mode === "live") && (
+
                     <TableCell>
                       <Checkbox
                         checked={selected.has(r.candidateId)}
