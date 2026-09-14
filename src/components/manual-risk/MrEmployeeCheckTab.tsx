@@ -19,6 +19,7 @@ import { isPlaceholderCandidate } from "@/lib/manualRiskPdf";
 import {
   downloadOrderDocuments, type DownloadWhat, type OrderDocsTarget,
 } from "@/lib/clientDocumentDownload";
+import { logClientEvent, makeSearchLogger } from "@/lib/clientAudit";
 
 const sb = supabase as any;
 
@@ -70,6 +71,9 @@ export function MrEmployeeCheckTab({
   const [shown, setShown] = useState(100);
 
 
+
+  // Searches and downloads on this screen are written to the profile's audit trail.
+  const logSearch = useRef(makeSearchLogger("people on record in Employee Check")).current;
 
   const clientById = useMemo(() => new Map(clients.map((c) => [c.id, c.client_name])), [clients]);
 
@@ -186,6 +190,9 @@ export function MrEmployeeCheckTab({
 
       setRows(out);
       const found = out.filter((r) => r.matched).length;
+      void logClientEvent("search", `Checked an employee list (${file.name}) against the screening records`, {
+        where: "employee-check-upload", file: file.name, checked: out.length, onRecord: found,
+      });
       toast.success(`${found} of ${out.length} employee(s) have a screening record`);
     } catch (e: any) {
       toast.error("Could not read that file: " + (e?.message ?? String(e)));
@@ -241,6 +248,13 @@ export function MrEmployeeCheckTab({
       const { files, missing } = await downloadOrderDocuments(unique, what, { zipName });
       if (!files) toast.error("None of these documents are available to download yet");
       else toast.success(`${files} document(s) downloaded`);
+      if (files) {
+        void logClientEvent(
+          "download",
+          `Downloaded ${what === "report" ? "report(s)" : what === "indemnities" ? "indemnities" : "report(s) and indemnities"} for ${unique.length} order(s) from Employee Check`,
+          { where: "employee-check", what, orders: unique.map((t) => t.orderNumber), files },
+        );
+      }
       if (missing.length) {
         toast.warning(
           `Not available: ${missing.slice(0, 5).join("; ")}${missing.length > 5 ? ` and ${missing.length - 5} more` : ""}`,
@@ -327,7 +341,7 @@ export function MrEmployeeCheckTab({
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <Input
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setShown(100); }}
+            onChange={(e) => { setSearch(e.target.value); setShown(100); logSearch(e.target.value); }}
             placeholder="Search name, surname, ID number or passport number"
             className="max-w-md"
           />
