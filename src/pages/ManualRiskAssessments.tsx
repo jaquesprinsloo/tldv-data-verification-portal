@@ -38,6 +38,10 @@ import { ArchiveImportTab } from "@/components/manual-risk/ArchiveImportTab";
 import DuplicateClientsDialog from "@/components/manual-risk/DuplicateClientsDialog";
 import ComplianceTab from "@/components/manual-risk/ComplianceTab";
 import { runTfsScreening } from "@/lib/tfsScreening";
+import {
+  downloadOrderDocuments, type DownloadWhat, type OrderDocsTarget,
+} from "@/lib/clientDocumentDownload";
+
 
 
 import { BookUser, FileSpreadsheet } from "lucide-react";
@@ -4051,6 +4055,50 @@ function ClientAccountDialog({
     () => Array.from(new Set(rows.filter((r) => selected.has(r.candidateId)).map((r) => r.submissionId))),
     [rows, selected],
   );
+
+  // Client-facing profiles may download the released report and the signed
+  // indemnities — on their own, or together, for a selection or the whole account.
+  const [downloadWhat, setDownloadWhat] = useState<DownloadWhat>("both");
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const targetsFor = (source: AccountRow[]): OrderDocsTarget[] => {
+    const seen = new Set<string>();
+    const out: OrderDocsTarget[] = [];
+    for (const r of source) {
+      if (seen.has(r.submissionId)) continue;
+      seen.add(r.submissionId);
+      out.push({
+        submissionId: r.submissionId,
+        orderNumber: r.orderNumber,
+        indemnities: (((subById.get(r.submissionId) as any)?.indemnity_files ?? []) as IndemnityFile[])
+          .map((f) => ({ path: f.path, name: f.name })),
+      });
+    }
+    return out;
+  };
+
+  const runDownload = async (source: AccountRow[], what: DownloadWhat, busyKey: string) => {
+    const targets = targetsFor(source);
+    if (!targets.length) { toast.error("Nothing to download"); return; }
+    setDownloading(busyKey);
+    try {
+      const { files, missing } = await downloadOrderDocuments(targets, what, {
+        zipName: `${clientName} - screening documents`,
+      });
+      if (!files) toast.error("None of these documents are available to download yet");
+      else toast.success(`${files} document(s) downloaded`);
+      if (missing.length) {
+        toast.warning(
+          `Not available: ${missing.slice(0, 5).join("; ")}${missing.length > 5 ? ` and ${missing.length - 5} more` : ""}`,
+        );
+      }
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setDownloading(null);
+    }
+  };
+
 
   const exportExcel = () => {
     const source = rows.filter((r) => selected.size === 0 || selected.has(r.candidateId));
