@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { logClientLogin } from "@/lib/clientAudit";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +60,10 @@ const AdminLogin = () => {
 
     const isAdmin = roles.includes("admin") || roles.includes("master_admin");
     const isExaminer = roles.includes("examiner");
+    // Client-facing profiles keep an audit trail of every sign in.
+    if (roles.includes("client_facing") && !roles.includes("master_admin")) {
+      await logClientLogin(userId);
+    }
     if (isExaminer && !isAdmin && !roles.includes("client_facing")) {
       navigate("/examiner");
     } else {

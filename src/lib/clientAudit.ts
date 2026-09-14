@@ -38,6 +38,32 @@ async function whoAmI() {
   return cached;
 }
 
+/** True when the signed-in profile is a client-facing (view only) profile. */
+let cfFlag: { id: string; value: boolean } | null = null;
+export async function isClientFacingUser(): Promise<boolean> {
+  const me = await whoAmI();
+  if (!me) return false;
+  if (cfFlag?.id === me.id) return cfFlag.value;
+  try {
+    const { data } = await sb.from("user_roles").select("role").eq("user_id", me.id);
+    const roles = (data ?? []).map((r: any) => String(r.role));
+    const value = roles.includes("client_facing") && !roles.includes("master_admin");
+    cfFlag = { id: me.id, value };
+    return value;
+  } catch {
+    return false;
+  }
+}
+
+/** Writes the event only for client-facing profiles (used for sign out). */
+export async function logIfClientFacing(
+  event: ClientAuditEvent,
+  detail?: string,
+  metadata: Meta = {},
+) {
+  if (await isClientFacingUser()) await logClientEvent(event, detail, metadata);
+}
+
 export async function logClientEvent(
   event: ClientAuditEvent,
   detail?: string,

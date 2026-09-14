@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { logIfClientFacing } from "@/lib/clientAudit";
 import { Card } from "@/components/ui/card";
 import { FileText, Users, ClipboardCheck, Lock, FileCheck, GripVertical, ShieldCheck, Bug, ClipboardList } from "lucide-react";
 import { PermissionKey } from "@/hooks/usePermissions";
@@ -292,6 +293,7 @@ const AdminPortalDashboard = () => {
     sessionStorage.removeItem('user_display_name');
     
     setTimeout(async () => {
+      await logIfClientFacing("logout", "Signed out of the portal");
       await supabase.auth.signOut();
       navigate("/admin/login");
     }, 2000);
