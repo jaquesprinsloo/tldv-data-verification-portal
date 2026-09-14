@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { logIfClientFacing } from "@/lib/clientAudit";
 
 const ACTIVITY_EVENTS: (keyof DocumentEventMap)[] = [
   "mousemove",
@@ -22,6 +23,7 @@ export const useIdleLogout = (enabled: boolean, minutes = 10) => {
 
     const logout = async () => {
       try {
+        await logIfClientFacing("logout", "Signed out automatically after inactivity");
         await supabase.auth.signOut();
       } finally {
         window.location.href = "/admin/login?timeout=1";

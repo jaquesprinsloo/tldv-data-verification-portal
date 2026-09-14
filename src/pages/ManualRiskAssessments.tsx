@@ -41,6 +41,7 @@ import { runTfsScreening } from "@/lib/tfsScreening";
 import {
   downloadOrderDocuments, type DownloadWhat, type OrderDocsTarget,
 } from "@/lib/clientDocumentDownload";
+import { logClientEvent, makeSearchLogger } from "@/lib/clientAudit";
 
 
 
@@ -728,8 +729,8 @@ export default function ManualRiskAssessments() {
             <Badge variant="outline" className="border-slate-300 text-slate-600">View only</Badge>
           </div>
           <p className="text-sm text-muted-foreground mb-6">
-            Screening overview, account search and released reports. Documents open in the app only —
-            downloading, printing and sharing are disabled.
+            Screening overview, account search, released reports and indemnities. Every sign in,
+            search and download on this profile is recorded for audit purposes.
           </p>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -3291,6 +3292,8 @@ function AccountsTab({
   const [openMode, setOpenMode] = useState<"live" | "archive">("live");
   const [highlightCandidateId, setHighlightCandidateId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  // Client-facing profiles keep an audit trail of what was searched.
+  const logSearch = useRef(makeSearchLogger("candidates in Accounts")).current;
   const trimmedQuery = searchQuery.trim();
   const searchActive = trimmedQuery.length >= 2;
   const [filterRegular, setFilterRegular] = useState(false);
@@ -3653,7 +3656,10 @@ function AccountsTab({
           id="account-search"
           placeholder="Type name, surname, or ID number…"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            if (clientFacing) logSearch(e.target.value);
+          }}
           className="mt-1"
         />
         {searchActive && (
@@ -3834,6 +3840,11 @@ function ClientAccountDialog({
     () => submissions.filter((s) => (s.client_id ?? "__unassigned__") === groupKey),
     [submissions, groupKey],
   );
+
+  // Client-facing profiles: record that this account was opened.
+  useEffect(() => {
+    if (clientFacing) void logClientEvent("account_opened", `Opened the ${clientName} account`, { account: clientName });
+  }, [clientFacing, clientName]);
 
   // Date range filter — seeded from the Accounts tab time window.
   const [fromDate, setFromDate] = useState(initialFromDate);
@@ -4087,6 +4098,19 @@ function ClientAccountDialog({
       });
       if (!files) toast.error("None of these documents are available to download yet");
       else toast.success(`${files} document(s) downloaded`);
+      if (clientFacing && files) {
+        void logClientEvent(
+          "download",
+          `Downloaded ${what === "report" ? "report(s)" : what === "indemnities" ? "indemnities" : "report(s) and indemnities"} for ${targets.length} order(s) on ${clientName}`,
+          {
+            account: clientName,
+            what,
+            orders: targets.map((t) => t.orderNumber),
+            people: source.map((r) => `${r.firstName ?? ""} ${r.surname ?? ""}`.trim()).filter(Boolean),
+            files,
+          },
+        );
+      }
       if (missing.length) {
         toast.warning(
           `Not available: ${missing.slice(0, 5).join("; ")}${missing.length > 5 ? ` and ${missing.length - 5} more` : ""}`,
@@ -4627,7 +4651,13 @@ function ClientAccountDialog({
                       size="icon"
                       title="View the report that was sent to the client"
                       disabled={loadingReport === r.submissionId}
-                      onClick={() => viewSentReport(r.submissionId)}
+                      onClick={() => {
+                        if (clientFacing) {
+                          void logClientEvent("view_report", `Viewed the report on order ${r.orderNumber}`,
+                            { account: clientName, order: r.orderNumber, person: `${r.firstName ?? ""} ${r.surname ?? ""}`.trim() });
+                        }
+                        void viewSentReport(r.submissionId);
+                      }}
                     >
                       <FileText className={loadingReport === r.submissionId ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-blue-600"} />
                     </Button>
@@ -4636,11 +4666,17 @@ function ClientAccountDialog({
                         variant="ghost"
                         size="icon"
                         title="View uploaded indemnities"
-                        onClick={() => setIndemnityFor({
-                          orderNumber: r.orderNumber,
-                          files: ((subById.get(r.submissionId)?.indemnity_files ?? []) as IndemnityFile[])
-                            .map((f) => ({ path: f.path, name: f.name })),
-                        })}
+                        onClick={() => {
+                          if (clientFacing) {
+                            void logClientEvent("view_indemnity", `Viewed the indemnities on order ${r.orderNumber}`,
+                              { account: clientName, order: r.orderNumber, person: `${r.firstName ?? ""} ${r.surname ?? ""}`.trim() });
+                          }
+                          setIndemnityFor({
+                            orderNumber: r.orderNumber,
+                            files: ((subById.get(r.submissionId)?.indemnity_files ?? []) as IndemnityFile[])
+                              .map((f) => ({ path: f.path, name: f.name })),
+                          });
+                        }}
                       >
                         <FolderOpen className="h-4 w-4 text-amber-600" />
                       </Button>
@@ -4721,7 +4757,13 @@ function ClientAccountDialog({
                       size="icon"
                       title="View the report that was sent to the client"
                       disabled={loadingReport === r.submissionId}
-                      onClick={() => viewSentReport(r.submissionId)}
+                      onClick={() => {
+                        if (clientFacing) {
+                          void logClientEvent("view_report", `Viewed the report on order ${r.orderNumber}`,
+                            { account: clientName, order: r.orderNumber, person: `${r.firstName ?? ""} ${r.surname ?? ""}`.trim() });
+                        }
+                        void viewSentReport(r.submissionId);
+                      }}
                     >
                       <FileText className={loadingReport === r.submissionId ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-blue-600"} />
                     </Button>
