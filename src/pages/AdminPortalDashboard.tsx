@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { logIfClientFacing } from "@/lib/clientAudit";
 import { Card } from "@/components/ui/card";
-import { FileText, Users, ClipboardCheck, Lock, FileCheck, GripVertical, ShieldCheck, Bug, ClipboardList } from "lucide-react";
+import { FileText, Users, ClipboardCheck, Lock, FileCheck, GripVertical, ShieldCheck, Bug, ClipboardList, Radio } from "lucide-react";
 import { PermissionKey } from "@/hooks/usePermissions";
 import { Badge } from "@/components/ui/badge";
 import DebugDiagnosticsDialog from "@/components/admin/DebugDiagnosticsDialog";
+import OnlineUsersDialog, { useOnlineUsers } from "@/components/admin/OnlineUsersDialog";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
 import preapplicheckLogo from "@/assets/preapplicheck-logo-mark.png";
 import { useQuery } from "@tanstack/react-query";
@@ -46,6 +47,7 @@ const AdminPortalDashboard = () => {
   const [orderedPortals, setOrderedPortals] = useState<PortalCard[]>([]);
   const [portalsInitialized, setPortalsInitialized] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [onlineOpen, setOnlineOpen] = useState(false);
   const [authResolved, setAuthResolved] = useState(false);
 
   // Impersonation: when a real master admin is "viewing as" another admin/master,
@@ -392,6 +394,9 @@ const AdminPortalDashboard = () => {
     }
   };
 
+  // Live list of everyone signed in (master admins only)
+  const onlineUsers = useOnlineUsers(hasFullAccess);
+
   const handleDragEnd = () => {
     setDraggedIndex(null);
     setDragOverIndex(null);
@@ -481,6 +486,21 @@ const AdminPortalDashboard = () => {
       } ${isAnimating ? "opacity-0" : "opacity-100"}`}>
         <div className="container mx-auto px-3 sm:px-4 max-w-6xl relative">
           <div className="absolute top-2 sm:top-0 right-2 sm:right-4 flex gap-2 sm:gap-3">
+            {hasFullAccess && (
+              <button
+                onClick={() => setOnlineOpen(true)}
+                className="relative flex items-center gap-2 px-2 sm:px-3 py-2 sm:py-3 text-sm bg-gray-800/50 border-2 border-gray-700 text-gray-300 rounded-lg hover:bg-gray-700/50 hover:text-white transition-all duration-300"
+                title="See who is currently online"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                </span>
+                <Radio className="w-4 h-4" />
+                <span className="hidden sm:inline">Online</span>
+                <Badge className="bg-green-600 text-white text-xs">{onlineUsers.length}</Badge>
+              </button>
+            )}
             <button
               onClick={() => setDebugOpen(true)}
               className="px-2 sm:px-3 py-2 sm:py-3 text-sm bg-gray-800/50 border-2 border-gray-700 text-gray-400 rounded-lg hover:bg-gray-700/50 hover:text-white transition-all duration-300"
@@ -613,6 +633,8 @@ const AdminPortalDashboard = () => {
           100% { transform: scale(0); opacity: 0; }
         }
       `}</style>
+
+      <OnlineUsersDialog open={onlineOpen} onOpenChange={setOnlineOpen} users={onlineUsers} />
 
       <DebugDiagnosticsDialog open={debugOpen} onOpenChange={setDebugOpen} />
     </div>
