@@ -1,8 +1,10 @@
 import { forwardRef } from "react";
 import tldvLogo from "@/assets/tldv-logo-booking.jpg.asset.json";
+import preapplicheckLogo from "@/assets/preapplicheck-logo-mark.png";
 import {
   BookingConfirmationRecord,
   COMPANY_DETAILS,
+  PREAPPLICHECK_DETAILS,
   formatScheduleLabel,
   formatTimeLabel,
   listOrNA,
