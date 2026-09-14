@@ -32,10 +32,15 @@ export const COMPANY_DETAILS = {
   name: "True Lie Detectors & Vetting (Pty) Ltd",
   address:
     "Office 3, First Floor, Right Side Wing, Refined Park, 11 Inanda Rd, Hillcrest, Durban, 3610",
-  branchAddress: "Shop 3, Makhado Crossing, Songozwi St, Louis Trichardt, 0909",
   phone: "062 859 6678",
   email: "admin@tldv.co.za",
   branches: ["Durban", "Bloemfontein", "Vereeniging", "Pretoria", "Bela-Bela", "Barberton"],
+};
+
+export const PREAPPLICHECK_DETAILS = {
+  name: "PreAppliCheck",
+  email: "info@preapplicheck.co.za",
+  website: "https://preapplicheck.co.za",
 };
 
 /** "09:00" / "09:00:00" -> "09h00" */
