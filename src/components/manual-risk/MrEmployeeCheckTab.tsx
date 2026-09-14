@@ -333,7 +333,30 @@ export function MrEmployeeCheckTab({
           />
           <Badge variant="outline">{people.length} of {records.length} person(s)</Badge>
           <Button variant="outline" onClick={downloadPeople} disabled={!people.length}>
-            <Download className="h-4 w-4 mr-2" />Download list
+            <Download className="h-4 w-4 mr-2" />Download list (CSV)
+          </Button>
+          <WhatPicker />
+          <Button
+            variant="outline"
+            disabled={!pickedPeople.size || !!busyKey}
+            onClick={() => runDownload(
+              people.filter((r) => pickedPeople.has(r.id) && r.sub?.sent_at).map(personTarget),
+              "people-selected", "selected-screening-documents",
+            )}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {busyKey === "people-selected" ? "Preparing…" : `Download selected (${pickedPeople.size})`}
+          </Button>
+          <Button
+            className="bg-red-600 hover:bg-red-700"
+            disabled={!people.length || !!busyKey}
+            onClick={() => runDownload(
+              people.filter((r) => r.sub?.sent_at).map(personTarget),
+              "people-all", "screening-documents",
+            )}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {busyKey === "people-all" ? "Preparing…" : "Download all shown"}
           </Button>
         </div>
         {isLoading ? (
@@ -346,6 +369,14 @@ export function MrEmployeeCheckTab({
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={pickedPeople.size > 0 && people.slice(0, shown).every((r) => pickedPeople.has(r.id))}
+                        onCheckedChange={(v) => setPickedPeople(
+                          v ? new Set(people.slice(0, shown).map((r) => r.id)) : new Set(),
+                        )}
+                      />
+                    </TableHead>
                     <TableHead>First name</TableHead>
                     <TableHead>Surname</TableHead>
                     <TableHead>ID number</TableHead>
@@ -353,17 +384,29 @@ export function MrEmployeeCheckTab({
                     <TableHead>Account</TableHead>
                     <TableHead>Order #</TableHead>
                     <TableHead>Screened on</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {people.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                      <TableCell colSpan={9} className="text-center text-muted-foreground py-6">
                         Nobody on record matches that search.
                       </TableCell>
                     </TableRow>
                   ) : people.slice(0, shown).map((r) => (
                     <TableRow key={r.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={pickedPeople.has(r.id)}
+                          disabled={!r.sub?.sent_at}
+                          onCheckedChange={() => setPickedPeople((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(r.id)) next.delete(r.id); else next.add(r.id);
+                            return next;
+                          })}
+                        />
+                      </TableCell>
                       <TableCell className="text-sm">{r.first_name || "—"}</TableCell>
                       <TableCell className="text-sm">{r.surname || "—"}</TableCell>
                       <TableCell className="font-mono text-xs">{r.id_number || "—"}</TableCell>
@@ -374,6 +417,17 @@ export function MrEmployeeCheckTab({
                       <TableCell className="font-mono text-xs">{r.sub?.order_number ?? "—"}</TableCell>
                       <TableCell className="text-sm">
                         {r.sub?.created_at ? new Date(r.sub.created_at).toLocaleDateString() : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={!r.sub?.sent_at || !!busyKey}
+                          title={r.sub?.sent_at ? "Download this person's documents" : "Not released yet"}
+                          onClick={() => runDownload([personTarget(r)], `person-${r.id}`, `${r.sub?.order_number ?? "order"}-documents`)}
+                        >
+                          <Download className={busyKey === `person-${r.id}` ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-emerald-700"} />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -431,11 +485,45 @@ export function MrEmployeeCheckTab({
             <Badge className="bg-emerald-600 hover:bg-emerald-600">{found} on record</Badge>
             <Badge className="bg-rose-600 hover:bg-rose-600">{missing} not on record</Badge>
             <span className="text-xs text-muted-foreground">{rows.length} employee(s) checked</span>
+            <div className="flex-1" />
+            <WhatPicker />
+            <Button
+              variant="outline"
+              disabled={!pickedRows.size || !!busyKey}
+              onClick={() => runDownload(
+                rows.filter((r) => pickedRows.has(r.key) && r.released && r.subId)
+                  .map((r) => ({ submissionId: r.subId!, orderNumber: r.order, indemnities: r.indemnities })),
+                "rows-selected", "selected-employee-documents",
+              )}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {busyKey === "rows-selected" ? "Preparing…" : `Download selected (${pickedRows.size})`}
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700"
+              disabled={!found || !!busyKey}
+              onClick={() => runDownload(
+                rows.filter((r) => r.matched && r.released && r.subId)
+                  .map((r) => ({ submissionId: r.subId!, orderNumber: r.order, indemnities: r.indemnities })),
+                "rows-all", "employee-documents",
+              )}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {busyKey === "rows-all" ? "Preparing…" : "Download all on record"}
+            </Button>
           </div>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={pickedRows.size > 0 && rows.filter((r) => r.matched && r.released).every((r) => pickedRows.has(r.key))}
+                      onCheckedChange={(v) => setPickedRows(
+                        v ? new Set(rows.filter((r) => r.matched && r.released).map((r) => r.key)) : new Set(),
+                      )}
+                    />
+                  </TableHead>
                   <TableHead>First name</TableHead>
                   <TableHead>Surname</TableHead>
                   <TableHead>ID number</TableHead>
@@ -443,17 +531,29 @@ export function MrEmployeeCheckTab({
                   <TableHead>Account</TableHead>
                   <TableHead>Order #</TableHead>
                   <TableHead>Screened on</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground py-6">
                       No usable rows in that file.
                     </TableCell>
                   </TableRow>
                 ) : rows.map((r) => (
                   <TableRow key={r.key} className={r.matched ? "bg-emerald-50/70" : "bg-rose-50/70"}>
+                    <TableCell>
+                      <Checkbox
+                        checked={pickedRows.has(r.key)}
+                        disabled={!r.matched || !r.released}
+                        onCheckedChange={() => setPickedRows((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(r.key)) next.delete(r.key); else next.add(r.key);
+                          return next;
+                        })}
+                      />
+                    </TableCell>
                     <TableCell className="text-sm">{r.firstName || "—"}</TableCell>
                     <TableCell className="text-sm">{r.surname || "—"}</TableCell>
                     <TableCell className="font-mono text-xs">{r.idNumber || "—"}</TableCell>
@@ -472,6 +572,20 @@ export function MrEmployeeCheckTab({
                     <TableCell className="text-sm">{r.account}</TableCell>
                     <TableCell className="font-mono text-xs">{r.order}</TableCell>
                     <TableCell className="text-sm">{r.screenedOn}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={!r.matched || !r.released || !!busyKey}
+                        title={r.matched && r.released ? "Download this employee's documents" : "No released documents"}
+                        onClick={() => runDownload(
+                          [{ submissionId: r.subId!, orderNumber: r.order, indemnities: r.indemnities }],
+                          `row-${r.key}`, `${r.order}-documents`,
+                        )}
+                      >
+                        <Download className={busyKey === `row-${r.key}` ? "h-4 w-4 animate-pulse" : "h-4 w-4 text-emerald-700"} />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
