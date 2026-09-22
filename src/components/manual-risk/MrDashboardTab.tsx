@@ -23,6 +23,8 @@ export type MrDashboardSubmission = {
   sent_at: string | null;
   requested_checks: string[] | null;
   is_archive?: boolean | null;
+  invoiced_at?: string | null;
+
 };
 
 
@@ -163,7 +165,7 @@ export function MrDashboardTab({
       for (const k of checks) if (k in perCheck) perCheck[k] += 1;
       if (c.is_tldv_internal) internal += 1;
       if (c.is_ptvs_discount) ptvs += 1;
-      if (c.invoice_batch_id) invoiced += 1;
+      if (c.invoice_batch_id || sub?.invoiced_at) invoiced += 1;
     }
     const subs = submissions.filter((s) => rangedSubIds.has(s.id));
     const liveSubs = subs.filter((s) => !s.is_archive);
@@ -319,7 +321,7 @@ export function MrDashboardTab({
 
   const perClient = useMemo(() => {
     const m = new Map<string, { name: string; isRegular: boolean; checks: number; invoiced: number; discounted: number }>();
-    for (const c of scopedAll) {
+    for (const c of scoped) {
 
       const sub = subById.get(c.submission_id);
       const effId = c.override_client_id ?? sub?.client_id ?? "__unassigned__";
@@ -333,11 +335,12 @@ export function MrDashboardTab({
       }
       const g = m.get(effId)!;
       g.checks += 1;
-      if (c.invoice_batch_id) g.invoiced += 1;
+      if (c.invoice_batch_id || sub?.invoiced_at) g.invoiced += 1;
+
       if (c.is_tldv_internal || c.is_ptvs_discount) g.discounted += 1;
     }
     return Array.from(m.values()).sort((a, b) => b.checks - a.checks);
-  }, [scopedAll, subById, clientById]);
+  }, [scoped, subById, clientById]);
 
   const setPreset = (days: number | "month" | "all") => {
     const now = new Date();
