@@ -338,7 +338,7 @@ export function MrDashboardTab({
       if (c.is_tldv_internal || c.is_ptvs_discount) g.discounted += 1;
     }
     return Array.from(m.values()).sort((a, b) => b.checks - a.checks);
-  }, [scopedAll, subById, clientById]);
+  }, [scoped, subById, clientById]);
 
   const setPreset = (days: number | "month" | "all") => {
     const now = new Date();
