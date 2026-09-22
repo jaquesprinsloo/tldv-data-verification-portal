@@ -23,6 +23,8 @@ export type MrDashboardSubmission = {
   sent_at: string | null;
   requested_checks: string[] | null;
   is_archive?: boolean | null;
+  invoiced_at?: string | null;
+
 };
 
 
