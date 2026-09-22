@@ -1,0 +1,44 @@
+# Offline report capture for examiners
+
+Yes, this is possible. The examiner app already installs to the phone/laptop as an app, so it can be extended to keep working with no signal and upload by itself once signal returns.
+
+## What the examiner would experience
+
+1. Before leaving, they open their profile once with signal. The app downloads the day's bookings, candidates and the blank report form onto the device.
+2. On site, with no signal, they open the candidate and complete the report on screen — questions asked one at a time, answers captured as they go, nothing pre-filled from a previous person.
+3. Recordings for that candidate are attached and held on the device.
+4. They press Save. A clear badge shows "Saved on this device — waiting to upload".
+5. When signal returns, the app uploads the report and recordings by itself, one file at a time, and the badge turns to "Uploaded — awaiting Master Admin review". If a file fails it retries; nothing is lost and nothing needs re-typing.
+6. Master Admin sees it in the existing pending review queue, exactly as uploaded reports arrive today.
+
+This also removes the Word-template problem: instead of reusing a document with last person's answers still in it, each report starts blank and is tied to one named candidate, so answers can't carry over.
+
+## What needs building
+
+1. **On-screen report form** — the Word template turned into sections and questions on screen (suitability, exam questions and findings, admissions, notes, overall result), so answers are captured per candidate rather than typed into a reused document.
+2. **Offline storage on the device** — reports, answers and recordings saved locally on the device, surviving the app being closed or the device restarting.
+3. **Offline app shell and data** — the examiner pages, the report form and the day's bookings made available with no signal.
+4. **Upload queue** — a visible list of items waiting to upload, with automatic retry when signal returns, plus a manual "Upload now" button and a per-item status.
+5. **Recordings handling** — large files held on device and uploaded in the background with resume-on-failure, with a warning when device storage is low.
+6. **Generated report document** — once uploaded, the captured answers produce the report in the standard layout, so Master Admin review and client delivery stay unchanged.
+
+## Notes and limits
+
+- Recordings are large. A phone can comfortably hold a day of them, but the examiner must not clear the app's data before uploading — the app will warn while items are still pending.
+- Signing in must happen while online. The session stays valid offline for a period; if it lapses, work stays saved on the device and uploads after the next sign-in.
+- Anything needing the internet during the interview (sanctions screening, ID verification look-ups) cannot run offline; those run once the report reaches the office.
+- Everything uploaded keeps its own timestamps: when it was captured offline and when it was received, so the compliance trail stays intact.
+
+## Technical detail
+
+- PWA: extend `vite.config.ts` workbox config with a navigation fallback and an offline route allowance for `/examiner`; today the SW caches only the app shell and fonts.
+- Local store: IndexedDB (via `idb`) with object stores `draft_reports`, `draft_answers`, `pending_files` (Blob), `sync_queue`; a `useOfflineDrafts` hook plus a sync worker triggered on `online`, on app focus, and on an interval.
+- New tables: `examiner_report_drafts` (server copy of a submitted draft: examiner, appointment, candidate, answers jsonb, captured_at, device_id, sync status) with GRANTs and RLS (examiner sees own; admin/master_admin all). Reuse `pending_polygraph_uploads` for the review queue so Master Admin flow is unchanged.
+- Report template: build the structured form from the Word template's fields, reusing the existing `SuitabilityQuestionnaire`, `ExamQuestionsForm`, `AdmissionAssessment` components where they fit; render the final PDF with the existing generator (`src/utils/polygraphTemplateGenerator.ts`).
+- Uploads: resumable chunked upload to `polygraph-reports` and the OneDrive recording function, idempotent per draft id so retries don't duplicate.
+
+## Suggested build order
+
+Stage 1 — offline report form plus save/queue/upload for the report itself.
+Stage 2 — offline recordings with background upload.
+Stage 3 — generated report document and review-queue polish.
