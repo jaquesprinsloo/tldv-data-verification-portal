@@ -142,6 +142,7 @@ async function uploadOneReport(session: OfflineSession, report: OfflineReport): 
       examiner_notes: report.answers.examinerNotes || null,
       pf_folder_path: pfFolderPath,
       ess_report_path: essPath,
+      recording_paths: recordingPaths,
       is_walk_in: report.isWalkIn,
       status: "uploaded",
       captured_at: report.capturedAt,
