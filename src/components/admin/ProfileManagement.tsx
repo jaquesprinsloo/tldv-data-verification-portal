@@ -62,7 +62,13 @@ export const ProfileManagement = () => {
         return;
       }
 
-      setEmailStatus(data ? "taken" : "available");
+      if (!data) {
+        setEmailStatus("available");
+        return;
+      }
+      // A leftover profile with no role (from a deleted profile) can be reused
+      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.id);
+      setEmailStatus(roles && roles.length > 0 ? "taken" : "available");
     } catch (err) {
       console.error("Email check failed:", err);
       setEmailStatus("idle");

@@ -71,7 +71,7 @@ serve(async (req) => {
     }
 
     // Create the user with the provided password
-    const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    let { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true, // Auto-confirm email
@@ -82,32 +82,57 @@ serve(async (req) => {
 
     if (createError) {
       const msg = createError.message || "Failed to create user";
-      // Important: return 200 so the client can show a friendly message without triggering a FunctionsHttpError overlay
       if (msg.includes("already been registered") || msg.includes("already exists")) {
-        return new Response(
-          JSON.stringify({ success: false, error: "A user with this email address already exists." }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200,
+        // A leftover login with no profile role (e.g. from an older, incomplete deletion)
+        // can be safely reused instead of blocking the email address.
+        const { data: existingProfile } = await supabaseAdmin
+          .from('profiles').select('id').ilike('email', email).maybeSingle();
+        let existingId: string | null = existingProfile?.id ?? null;
+        if (!existingId) {
+          for (let page = 1; page <= 20 && !existingId; page++) {
+            const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 1000 });
+            const hit = list?.users?.find((u: any) => (u.email || '').toLowerCase() === email.toLowerCase());
+            if (hit) existingId = hit.id;
+            if (!list?.users?.length || list.users.length < 1000) break;
           }
-        );
+        }
+        let orphan = false;
+        if (existingId) {
+          const { data: roles } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', existingId);
+          orphan = !roles || roles.length === 0;
+        }
+        if (!existingId || !orphan) {
+          return new Response(
+            JSON.stringify({ success: false, error: "A user with this email address already exists." }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          );
+        }
+        const { data: updated, error: updErr } = await supabaseAdmin.auth.admin.updateUserById(existingId, {
+          password,
+          email_confirm: true,
+          user_metadata: { full_name: `${firstName} ${lastName}` },
+        });
+        if (updErr || !updated?.user) throw updErr || new Error("Failed to reuse existing login");
+        console.log(`Reusing orphaned login for ${email} (${existingId})`);
+        createData = { user: updated.user } as any;
+        createError = null;
+      } else {
+        console.error("User creation error:", createError);
+        throw createError;
       }
-
-      console.error("User creation error:", createError);
-      throw createError;
     }
-    
-    if (!createData.user) {
+
+    if (!createData?.user) {
       throw new Error("Failed to create user");
     }
 
-    console.log(`User created: ${email}, user ID: ${createData.user.id}, role: ${role}`);
+    console.log(`User created: ${email}, user ID: ${createData!.user!.id}, role: ${role}`);
 
     // Assign role directly using service role (we've already verified caller is master admin)
     const { error: roleInsertError } = await supabaseAdmin
       .from('user_roles')
       .insert({
-        user_id: createData.user.id,
+        user_id: createData!.user!.id,
         role: role
       });
 
@@ -119,11 +144,11 @@ serve(async (req) => {
     // Create profile for the new admin
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .insert({
-        id: createData.user.id,
+      .upsert({
+        id: createData!.user!.id,
         email: email,
         full_name: `${firstName} ${lastName}`
-      });
+      }, { onConflict: 'id' });
 
     if (profileError) {
       console.error("Profile creation error:", profileError);
@@ -246,7 +271,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        userId: createData.user.id,
+        userId: createData!.user!.id,
         message: "Profile created. Login credentials have been sent to their email."
       }),
       {
