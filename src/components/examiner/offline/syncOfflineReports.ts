@@ -56,15 +56,31 @@ async function findScreeningLink(report: OfflineReport): Promise<string | null> 
   return match?.id ?? null;
 }
 
-async function uploadFile(reportId: string, kind: "pf" | "ess", file: { name: string; blob: Blob }): Promise<string> {
+async function uploadFile(
+  report: OfflineReport,
+  kind: "pf" | "ess" | "recordings",
+  file: OfflineFileRef
+): Promise<string> {
+  // Already on the server from an earlier (interrupted) attempt — skip.
+  if (file.uploadedPath) return file.uploadedPath;
   const safeName = file.name.replace(/[^\w.\-]/g, "_");
-  const path = `offline-reports/${reportId}/${kind}/${safeName}`;
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file.blob, {
-    upsert: true,
-    contentType: file.blob.type || "application/octet-stream",
-  });
-  if (error) throw new Error(error.message);
-  return path;
+  const path = `offline-reports/${report.id}/${kind}/${safeName}`;
+  let lastErr = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (!navigator.onLine) throw new Error("Connection lost — will resume");
+    const { error } = await supabase.storage.from(BUCKET).upload(path, file.blob, {
+      upsert: true,
+      contentType: file.blob.type || "application/octet-stream",
+    });
+    if (!error) {
+      file.uploadedPath = path;
+      await saveReport(report); // remember progress so a retry resumes here
+      return path;
+    }
+    lastErr = error.message;
+    await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+  }
+  throw new Error(`${file.name}: ${lastErr}`);
 }
 
 async function ensureServerBatch(session: OfflineSession): Promise<string> {
@@ -95,14 +111,16 @@ async function uploadOneReport(session: OfflineSession, report: OfflineReport): 
   report.status = "uploading";
   await saveReport(report);
 
-  // Upload PF folder + ESS report
+  // Upload PF folder + ESS report + recordings (each file resumes independently)
   let pfFolderPath: string | null = null;
   for (const f of report.pfFiles) {
-    const p = await uploadFile(report.id, "pf", f);
+    const p = await uploadFile(report, "pf", f);
     if (!pfFolderPath) pfFolderPath = p.substring(0, p.lastIndexOf("/"));
   }
   let essPath: string | null = null;
-  if (report.essFile) essPath = await uploadFile(report.id, "ess", report.essFile);
+  if (report.essFile) essPath = await uploadFile(report, "ess", report.essFile);
+  const recordingPaths: string[] = [];
+  for (const f of report.recordings ?? []) recordingPaths.push(await uploadFile(report, "recordings", f));
 
   // Auto-link on exact ID + name match
   const [riskCandidateId, applicationId] = await Promise.all([

@@ -4,6 +4,27 @@ export interface OfflineFileRef {
   name: string;
   size: number;
   blob: Blob;
+  /** Set once this file has reached the server, so retries skip it. */
+  uploadedPath?: string;
+  recordedAt?: string;
+}
+
+/** Ask the browser to keep our data, and report free space. */
+export async function getStorageInfo(): Promise<{ usedMb: number; freeMb: number | null; persisted: boolean }> {
+  let persisted = false;
+  try {
+    persisted = (await navigator.storage?.persisted?.()) ?? false;
+    if (!persisted) persisted = (await navigator.storage?.persist?.()) ?? false;
+  } catch { /* ignore */ }
+  try {
+    const est = await navigator.storage?.estimate?.();
+    if (est) {
+      const used = (est.usage ?? 0) / 1048576;
+      const free = est.quota != null ? (est.quota - (est.usage ?? 0)) / 1048576 : null;
+      return { usedMb: used, freeMb: free, persisted };
+    }
+  } catch { /* ignore */ }
+  return { usedMb: 0, freeMb: null, persisted };
 }
 
 export interface OfflineSession {
@@ -69,6 +90,7 @@ export interface OfflineReport {
   answers: OfflineReportAnswers;
   pfFiles: OfflineFileRef[];
   essFile: OfflineFileRef | null;
+  recordings?: OfflineFileRef[];
   status: OfflineReportStatus;
   lastError?: string;
   capturedAt?: string;
