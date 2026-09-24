@@ -11,7 +11,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, MapPin, Users, Eye, LogOut, FileText, Upload, Loader2, ArrowLeft, ShieldCheck, CheckCircle, XCircle, AlertTriangle, Bug } from "lucide-react";
+import { CalendarIcon, MapPin, Users, Eye, LogOut, FileText, Upload, Loader2, ArrowLeft, ShieldCheck, CheckCircle, XCircle, AlertTriangle, Bug, WifiOff } from "lucide-react";
+import OfflineReportsView from "@/components/examiner/offline/OfflineReportsView";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
@@ -568,7 +569,7 @@ const ExaminerPortal = () => {
             </Button>
             <div>
               <h1 className="text-lg font-bold text-white">
-                {activeView === "appointments" ? "Appointments" : "Upload Report"}
+                {activeView === "appointments" ? "Appointments" : activeView === "offline" ? "Offline Reports" : "Upload Report"}
               </h1>
               <p className="text-xs text-gray-400">{user?.email}</p>
             </div>
@@ -580,6 +581,11 @@ const ExaminerPortal = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
+        {/* ====== OFFLINE REPORTS VIEW ====== */}
+        {activeView === "offline" && effectiveUserId && (
+          <OfflineReportsView examinerUserId={effectiveUserId} />
+        )}
+
         {/* ====== APPOINTMENTS VIEW ====== */}
         {activeView === "appointments" && (
           <Card>
