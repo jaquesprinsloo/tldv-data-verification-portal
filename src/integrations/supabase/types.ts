@@ -807,6 +807,158 @@ export type Database = {
         }
         Relationships: []
       }
+      examiner_report_batches: {
+        Row: {
+          appointment_date: string
+          client_name: string
+          created_at: string
+          device_id: string | null
+          examiner_user_id: string
+          id: string
+          mode: string
+          released_at: string | null
+          status: string
+          test_type: string
+          updated_at: string
+          venue_label: string
+        }
+        Insert: {
+          appointment_date: string
+          client_name: string
+          created_at?: string
+          device_id?: string | null
+          examiner_user_id: string
+          id?: string
+          mode?: string
+          released_at?: string | null
+          status?: string
+          test_type: string
+          updated_at?: string
+          venue_label: string
+        }
+        Update: {
+          appointment_date?: string
+          client_name?: string
+          created_at?: string
+          device_id?: string | null
+          examiner_user_id?: string
+          id?: string
+          mode?: string
+          released_at?: string | null
+          status?: string
+          test_type?: string
+          updated_at?: string
+          venue_label?: string
+        }
+        Relationships: []
+      }
+      examiner_report_drafts: {
+        Row: {
+          answers: Json
+          appointment_id: string | null
+          batch_id: string | null
+          candidate_first_name: string
+          candidate_id_number: string | null
+          candidate_surname: string
+          captured_at: string | null
+          created_at: string
+          device_id: string | null
+          ess_report_path: string | null
+          examiner_notes: string | null
+          examiner_user_id: string
+          id: string
+          is_walk_in: boolean
+          linked_application_id: string | null
+          linked_risk_candidate_id: string | null
+          overall_result: string | null
+          pf_folder_path: string | null
+          published_at: string | null
+          status: string
+          test_type: string
+          updated_at: string
+          uploaded_at: string | null
+        }
+        Insert: {
+          answers?: Json
+          appointment_id?: string | null
+          batch_id?: string | null
+          candidate_first_name: string
+          candidate_id_number?: string | null
+          candidate_surname: string
+          captured_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          ess_report_path?: string | null
+          examiner_notes?: string | null
+          examiner_user_id: string
+          id?: string
+          is_walk_in?: boolean
+          linked_application_id?: string | null
+          linked_risk_candidate_id?: string | null
+          overall_result?: string | null
+          pf_folder_path?: string | null
+          published_at?: string | null
+          status?: string
+          test_type: string
+          updated_at?: string
+          uploaded_at?: string | null
+        }
+        Update: {
+          answers?: Json
+          appointment_id?: string | null
+          batch_id?: string | null
+          candidate_first_name?: string
+          candidate_id_number?: string | null
+          candidate_surname?: string
+          captured_at?: string | null
+          created_at?: string
+          device_id?: string | null
+          ess_report_path?: string | null
+          examiner_notes?: string | null
+          examiner_user_id?: string
+          id?: string
+          is_walk_in?: boolean
+          linked_application_id?: string | null
+          linked_risk_candidate_id?: string | null
+          overall_result?: string | null
+          pf_folder_path?: string | null
+          published_at?: string | null
+          status?: string
+          test_type?: string
+          updated_at?: string
+          uploaded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "examiner_report_drafts_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "polygraph_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "examiner_report_drafts_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "examiner_report_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "examiner_report_drafts_linked_application_id_fkey"
+            columns: ["linked_application_id"]
+            isOneToOne: false
+            referencedRelation: "candex_applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "examiner_report_drafts_linked_risk_candidate_id_fkey"
+            columns: ["linked_risk_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_candidates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       examiners: {
         Row: {
           created_at: string
