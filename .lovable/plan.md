@@ -5,11 +5,11 @@ Yes, this is possible. The examiner app already installs to the phone/laptop as 
 ## What the examiner would experience
 
 1. Before leaving, they open their profile once with signal. The app downloads the day's bookings, candidates and the blank report form onto the device.
-2. On site, with no signal, they open the candidate and complete the report on screen — questions asked one at a time, answers captured as they go, nothing pre-filled from a previous person.
+2. On site, with no signal, they open the candidate and complete the report on screen — questions asked one at a time, answers captured as they go, nothing pre-filled from a previous person. If someone turns up unplanned, the examiner taps "Add walk-in candidate", enters the person's name and ID number, and completes the report the same way — the blank report form is on the device, so it works with no signal.
 3. Recordings for that candidate are attached and held on the device.
 4. They press Save. A clear badge shows "Saved on this device — waiting to upload".
 5. When signal returns, the app uploads the report and recordings by itself, one file at a time, and the badge turns to "Uploaded — awaiting Master Admin review". If a file fails it retries; nothing is lost and nothing needs re-typing.
-6. Master Admin sees it in the existing pending review queue, exactly as uploaded reports arrive today.
+6. Master Admin sees it in the existing pending review queue, exactly as uploaded reports arrive today. Walk-in reports arrive flagged "unplanned" for the office to link to the right booking or client, so nothing gets invoiced or delivered to the wrong account.
 
 This also removes the Word-template problem: instead of reusing a document with last person's answers still in it, each report starts blank and is tied to one named candidate, so answers can't carry over.
 
