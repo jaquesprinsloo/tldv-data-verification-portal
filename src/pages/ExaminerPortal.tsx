@@ -23,7 +23,7 @@ import DebugDiagnosticsDialog from "@/components/admin/DebugDiagnosticsDialog";
 import { useBadgeLastSeen } from "@/hooks/useBadgeLastSeen";
 import { useImpersonation } from "@/hooks/useImpersonation";
 
-type ActiveView = "dashboard" | "appointments" | "upload";
+type ActiveView = "dashboard" | "appointments" | "upload" | "offline";
 
 const ExaminerPortal = () => {
   const navigate = useNavigate();
@@ -85,12 +85,14 @@ const ExaminerPortal = () => {
           console.error("Error checking examiner role:", roleError);
         }
 
-        if (!roleData) {
+        if (!roleData && navigator.onLine) {
           toast.error("Access denied. Examiner role required.");
           await supabase.auth.signOut();
           navigate("/admin/login");
           return;
         }
+        // Offline: the role check can't reach the server — trust the existing
+        // session so offline report capture keeps working with no signal.
 
         setUser(currentUser);
 
@@ -431,6 +433,13 @@ const ExaminerPortal = () => {
       title: "Upload Report",
       description: "Upload completed polygraph reports",
       icon: Upload,
+      badge: null,
+    },
+    {
+      key: "offline",
+      title: "Offline Reports",
+      description: "Complete reports on site — works with no signal",
+      icon: WifiOff,
       badge: null,
     },
   ];
