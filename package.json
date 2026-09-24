@@ -52,6 +52,7 @@
     "embla-carousel-react": "^8.6.0",
     "file-saver": "^2.0.5",
     "html2canvas": "^1.4.1",
+    "idb": "^8.0.3",
     "input-otp": "^1.4.2",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
