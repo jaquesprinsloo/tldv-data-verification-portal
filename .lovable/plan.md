@@ -4,7 +4,7 @@ Yes, this is possible. The examiner app already installs to the phone/laptop as 
 
 ## What the examiner would experience
 
-1. Before leaving, they open their profile once with signal. The app downloads the day's bookings, candidates and the blank report form onto the device.
+1. Before leaving, they open their profile once with signal. The app downloads the day's bookings, candidates and the blank report form onto the device. To start work, the examiner chooses **Single submission** (one report) or **Batch** (multiple reports under one sitting). A short setup follows as pop-ups — also working offline: first the **type of test** (Pre Employment, Periodic Screening, or Diagnostic), then the **client name** (chosen from a list that was downloaded, with a free-text option for a new client), the **appointment date**, and **where the appointment is taking place** (chosen from the pre-approved venues, with a free-text option). For a batch, these details are captured once and apply to every report in it.
 2. On site, with no signal, they open the candidate and complete the report on screen — questions asked one at a time, answers captured as they go, nothing pre-filled from a previous person. If someone turns up unplanned, the examiner taps "Add walk-in candidate", enters the person's name and ID number, and completes the report the same way — the blank report form is on the device, so it works with no signal.
 3. Recordings for that candidate are attached and held on the device.
 4. They press Save. A clear badge shows "Saved on this device — waiting to upload".
