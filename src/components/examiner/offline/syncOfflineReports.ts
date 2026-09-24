@@ -6,6 +6,7 @@ import {
   saveReport,
   saveSession,
   type OfflineReport,
+  type OfflineFileRef,
   type OfflineSession,
 } from "@/lib/offlineExaminerDb";
 
