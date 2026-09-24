@@ -1,0 +1,1 @@
+ALTER TABLE public.examiner_report_drafts ADD COLUMN IF NOT EXISTS recording_paths text[] NOT NULL DEFAULT '{}';

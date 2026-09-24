@@ -873,6 +873,7 @@ export type Database = {
           overall_result: string | null
           pf_folder_path: string | null
           published_at: string | null
+          recording_paths: string[]
           status: string
           test_type: string
           updated_at: string
@@ -898,6 +899,7 @@ export type Database = {
           overall_result?: string | null
           pf_folder_path?: string | null
           published_at?: string | null
+          recording_paths?: string[]
           status?: string
           test_type: string
           updated_at?: string
@@ -923,6 +925,7 @@ export type Database = {
           overall_result?: string | null
           pf_folder_path?: string | null
           published_at?: string | null
+          recording_paths?: string[]
           status?: string
           test_type?: string
           updated_at?: string
