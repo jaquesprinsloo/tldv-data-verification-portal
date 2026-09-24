@@ -15,6 +15,7 @@ import {
   listReports,
   listSessions,
   setCachedLists,
+  getStorageInfo,
   type OfflineReport,
   type OfflineSession,
 } from "@/lib/offlineExaminerDb";
@@ -113,6 +114,9 @@ export default function OfflineReportsView({ examinerUserId }: Props) {
     }
   };
 
+  const [storage, setStorage] = useState<{ usedMb: number; freeMb: number | null } | null>(null);
+  useEffect(() => { getStorageInfo().then(setStorage); }, [reportsBySession]);
+
   const pendingCount = Object.values(reportsBySession).flat().filter((r) => r.status !== "uploaded" && r.status !== "draft").length;
 
   return (
@@ -145,6 +149,15 @@ export default function OfflineReportsView({ examinerUserId }: Props) {
           </div>
         </CardHeader>
         <CardContent>
+          {storage && storage.freeMb != null && storage.freeMb < 1024 && (
+            <div className="mb-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span>Device storage is running low (about {Math.round(storage.freeMb)} MB left). Recordings are large — connect to signal and upload before recording more.</span>
+            </div>
+          )}
+          {storage && storage.usedMb > 1 && (
+            <p className="text-xs text-muted-foreground mb-2">Held on this device: {storage.usedMb.toFixed(0)} MB. Uploaded recordings stay until you remove the session.</p>
+          )}
           {progress && <p className="text-xs text-muted-foreground mb-3">{progress}</p>}
           {sessions.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">

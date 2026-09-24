@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Upload, X, FileText, Save, Send } from "lucide-react";
+import { Plus, Trash2, Upload, X, FileText, Save, Send, Mic, Square } from "lucide-react";
 import { toast } from "sonner";
 import {
   TEST_TYPES,
@@ -40,6 +40,55 @@ export default function ReportFormDialog({ open, onOpenChange, session, report, 
   const pfInputRef = useRef<HTMLInputElement>(null);
   const essInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
+  const recInputRef = useRef<HTMLInputElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [recSeconds, setRecSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!recording) return;
+    const t = setInterval(() => setRecSeconds((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, [recording]);
+
+  const addRecordings = (refs: { name: string; size: number; blob: Blob; recordedAt?: string }[]) =>
+    setDraft((d) => {
+      if (!d) return d;
+      const next = { ...d, recordings: [...(d.recordings ?? []), ...refs] };
+      // Save straight to the device so a recording is never lost if the app closes
+      if (next.firstName.trim() || next.surname.trim()) saveReport({ ...next, capturedAt: next.capturedAt || new Date().toISOString() }).catch(() => {});
+      return next;
+    });
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+      rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const type = rec.mimeType || "audio/webm";
+        const blob = new Blob(chunks, { type });
+        const ext = type.includes("mp4") ? "m4a" : type.includes("ogg") ? "ogg" : "webm";
+        const at = new Date();
+        const name = `recording-${at.toISOString().replace(/[:.]/g, "-")}.${ext}`;
+        addRecordings([{ name, size: blob.size, blob, recordedAt: at.toISOString() }]);
+        toast.success("Recording saved on this device");
+      };
+      rec.start(5000);
+      recorderRef.current = rec;
+      setRecSeconds(0);
+      setRecording(true);
+    } catch {
+      toast.error("Microphone not available — allow microphone access, or attach a recording file instead.");
+    }
+  };
+  const stopRecording = () => {
+    recorderRef.current?.stop();
+    recorderRef.current = null;
+    setRecording(false);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -426,6 +475,53 @@ export default function ReportFormDialog({ open, onOpenChange, session, report, 
                 <p className="text-sm flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />{draft.essFile.name}</p>
               ) : (
                 <p className="text-xs text-muted-foreground">Publishing is blocked until the ESS report is attached.</p>
+              )}
+            </div>
+          </section>
+          <section className="space-y-3">
+            <h3 className="font-semibold text-sm">Interview recordings</h3>
+            <div className="border rounded-lg p-3 space-y-2">
+              <div className="flex flex-wrap items-center gap-2 justify-between">
+                <p className="text-xs text-muted-foreground">Kept on this device and uploaded automatically when signal returns.</p>
+                <div className="flex gap-2">
+                  {recording ? (
+                    <Button variant="destructive" size="sm" onClick={stopRecording}>
+                      <Square className="h-4 w-4 mr-1" /> Stop ({Math.floor(recSeconds / 60)}:{String(recSeconds % 60).padStart(2, "0")})
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={startRecording} disabled={!draft.firstName.trim() || !draft.surname.trim()} title="Enter the candidate's name first">
+                      <Mic className="h-4 w-4 mr-1" /> Record
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => recInputRef.current?.click()}>
+                    <Upload className="h-4 w-4 mr-1" /> Attach
+                  </Button>
+                  <input
+                    ref={recInputRef} type="file" multiple className="hidden" accept="audio/*,video/*"
+                    onChange={(e) => {
+                      const fs = Array.from(e.target.files ?? []);
+                      if (fs.length) addRecordings(fs.map((f) => ({ name: f.name, size: f.size, blob: f })));
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+              </div>
+              {(draft.recordings ?? []).length > 0 && (
+                <ul className="space-y-1">
+                  {(draft.recordings ?? []).map((f, i) => (
+                    <li key={i} className="flex items-center justify-between text-sm gap-2">
+                      <span className="truncate flex items-center gap-1.5"><Mic className="h-3.5 w-3.5 shrink-0" />{f.name}</span>
+                      <span className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-muted-foreground">{(f.size / 1048576).toFixed(1)} MB</span>
+                        {f.uploadedPath ? <Badge variant="outline" className="text-xs text-green-600">Uploaded</Badge> : (
+                          <Button variant="ghost" size="sm" onClick={() => setDraft({ ...draft, recordings: (draft.recordings ?? []).filter((_, j) => j !== i) })}>
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           </section>
