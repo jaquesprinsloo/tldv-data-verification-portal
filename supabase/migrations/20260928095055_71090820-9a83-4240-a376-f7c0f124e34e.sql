@@ -1,0 +1,5 @@
+ALTER TABLE public.manual_risk_clients DROP CONSTRAINT manual_risk_clients_created_by_fkey, ADD CONSTRAINT manual_risk_clients_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.manual_risk_submissions DROP CONSTRAINT manual_risk_submissions_created_by_fkey, ADD CONSTRAINT manual_risk_submissions_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.renewal_requests DROP CONSTRAINT renewal_requests_processed_by_fkey, ADD CONSTRAINT renewal_requests_processed_by_fkey FOREIGN KEY (processed_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.polygraph_reports DROP CONSTRAINT polygraph_reports_uploaded_by_fkey, ADD CONSTRAINT polygraph_reports_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.manual_risk_settings DROP CONSTRAINT manual_risk_settings_updated_by_fkey, ADD CONSTRAINT manual_risk_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;

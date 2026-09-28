@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { CalendarIcon, MapPin, Users, Eye, LogOut, FileText, Upload, Loader2, ArrowLeft, ShieldCheck, CheckCircle, XCircle, AlertTriangle, Bug, WifiOff } from "lucide-react";
 import OfflineReportsView from "@/components/examiner/offline/OfflineReportsView";
+import { syncOfflineReports } from "@/components/examiner/offline/syncOfflineReports";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +37,23 @@ const ExaminerPortal = () => {
   const effectiveUserId =
     impersonation?.role === "examiner" ? impersonation.userId : user?.id;
   const [loading, setLoading] = useState(true);
+
+  // Background upload of offline reports from anywhere in the examiner app.
+  useEffect(() => {
+    if (!effectiveUserId || impersonation) return;
+    const run = () => {
+      if (navigator.onLine) syncOfflineReports(effectiveUserId).catch(() => {});
+    };
+    run();
+    window.addEventListener("online", run);
+    window.addEventListener("focus", run);
+    const iv = setInterval(run, 60000);
+    return () => {
+      window.removeEventListener("online", run);
+      window.removeEventListener("focus", run);
+      clearInterval(iv);
+    };
+  }, [effectiveUserId, impersonation]);
   const [userName, setUserName] = useState("");
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [viewCandidatesApt, setViewCandidatesApt] = useState<any>(null);
