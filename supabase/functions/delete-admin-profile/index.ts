@@ -86,6 +86,16 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Delete the auth user FIRST so a failure leaves the profile intact (no half-deleted state)
+    const { error: authFirstError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (authFirstError && !/not found/i.test(authFirstError.message)) {
+      console.error("Error deleting auth user:", authFirstError);
+      return new Response(
+        JSON.stringify({ error: "Failed to delete auth user: " + authFirstError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Delete user roles (this doesn't affect data they uploaded)
     const { error: rolesError } = await supabaseAdmin
       .from("user_roles")
