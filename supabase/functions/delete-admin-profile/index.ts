@@ -140,16 +140,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Delete the auth user
-    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-
-    if (authError) {
-      console.error("Error deleting auth user:", authError);
-      return new Response(
-        JSON.stringify({ error: "Failed to delete auth user: " + authError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
 
     return new Response(
       JSON.stringify({ success: true, message: "Profile deleted successfully" }),
