@@ -144,7 +144,13 @@ export default function ReportFormDialog({ open, onOpenChange, session, report, 
       const now = new Date().toISOString();
       const toSave: OfflineReport = {
         ...draft,
-        status: publish ? (navigator.onLine ? "published_waiting" : "published_waiting") : draft.status === "uploaded" ? draft.status : "draft",
+        status: publish
+          ? "published_waiting"
+          : draft.status === "uploaded"
+            ? draft.status
+            : draft.status === "published_waiting" || draft.status === "error" || draft.status === "uploading"
+              ? "published_waiting"
+              : "draft",
         capturedAt: draft.capturedAt || now,
         publishedAt: publish ? draft.publishedAt || now : draft.publishedAt,
       };
