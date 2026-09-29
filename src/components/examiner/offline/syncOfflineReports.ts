@@ -226,7 +226,8 @@ async function doSyncAll(
       }
     }
   } finally {
-    syncing = false;
+    // Let any open Offline Reports screen refresh once the upload settles.
+    window.dispatchEvent(new CustomEvent("offline-reports-synced"));
   }
   return { uploaded, failed };
 }
