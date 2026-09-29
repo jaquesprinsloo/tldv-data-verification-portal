@@ -86,11 +86,14 @@ export default function OfflineReportsView({ examinerUserId }: Props) {
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
     window.addEventListener("focus", doSync);
+    const onSynced = () => reload();
+    window.addEventListener("offline-reports-synced", onSynced);
     const interval = setInterval(doSync, 60000);
     return () => {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       window.removeEventListener("focus", doSync);
+      window.removeEventListener("offline-reports-synced", onSynced);
       clearInterval(interval);
     };
   }, [reload, doSync]);
