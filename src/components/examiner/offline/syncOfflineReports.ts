@@ -179,15 +179,26 @@ async function maybeReleaseBatch(session: OfflineSession): Promise<void> {
   }
 }
 
-let syncing = false;
+let inFlight: Promise<{ uploaded: number; failed: number }> | null = null;
 
 /** Upload every locally published report. Returns counts. */
-export async function syncOfflineReports(
+export function syncOfflineReports(
   examinerUserId: string,
   onProgress?: (msg: string) => void
 ): Promise<{ uploaded: number; failed: number }> {
-  if (syncing) return { uploaded: 0, failed: 0 };
-  syncing = true;
+  // A sync is already running (e.g. the portal-level background uploader) —
+  // wait for it and share its result so callers still see real counts.
+  if (inFlight) return inFlight;
+  inFlight = doSyncAll(examinerUserId, onProgress).finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+async function doSyncAll(
+  examinerUserId: string,
+  onProgress?: (msg: string) => void
+): Promise<{ uploaded: number; failed: number }> {
   let uploaded = 0;
   let failed = 0;
   try {
@@ -215,7 +226,8 @@ export async function syncOfflineReports(
       }
     }
   } finally {
-    syncing = false;
+    // Let any open Offline Reports screen refresh once the upload settles.
+    window.dispatchEvent(new CustomEvent("offline-reports-synced"));
   }
   return { uploaded, failed };
 }
