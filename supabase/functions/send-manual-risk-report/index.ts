@@ -57,6 +57,13 @@ Deno.serve(async (req) => {
     const toClean = to && to.trim() ? [to.trim()] : [];
     const ccClean: string[] = Array.isArray(cc) ? cc.filter((e) => e && e.trim()).map((e) => e.trim()) : cc && cc.trim() ? [cc.trim()] : [];
 
+    // Always CC Cash Crusaders head office on report releases for any Cash Crusaders account
+    const CASH_CRUSADERS_CC = 'jardelg@cashcrusaders.co.za';
+    if (clientName && clientName.toLowerCase().includes('cash crusaders')
+        && !ccClean.some((e) => e.toLowerCase() === CASH_CRUSADERS_CC)) {
+      ccClean.push(CASH_CRUSADERS_CC);
+    }
+
     if (!toClean.length) {
       return new Response(JSON.stringify({ error: 'Recipient email (to) is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
