@@ -58,6 +58,12 @@ Deno.serve(async (req) => {
     const ccClean: string[] = Array.isArray(cc)
       ? cc.filter((e) => e && e.trim()).map((e) => e.trim())
       : cc && cc.trim() ? [cc.trim()] : [];
+    // Always CC the Cash Crusaders contact on any Cash Crusaders account submission.
+    const CASH_CRUSADERS_CC = 'jardelg@cashcrusaders.co.za';
+    if (clientName && /cash\s*crusaders/i.test(clientName)) {
+      const has = [...toClean, ...ccClean].some((e) => e.toLowerCase() === CASH_CRUSADERS_CC);
+      if (!has) ccClean.push(CASH_CRUSADERS_CC);
+    }
 
     if (!toClean.length) {
       return new Response(JSON.stringify({ error: 'Recipient email (to) is required' }), {
