@@ -177,7 +177,7 @@ const AdminPortalDashboard = () => {
     {
       key: "manual-risk-assessments",
       title: "Risk Assessments",
-      description: "Off-system ID Verification, Credit and Criminal checks with report PDF",
+      description: "Background Verifications which includes ID Verification, Credit and Criminal checks with report PDF",
       icon: ClipboardList,
       path: "/admin/manual-risk-assessments",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
