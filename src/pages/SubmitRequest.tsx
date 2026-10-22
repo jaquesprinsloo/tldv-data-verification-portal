@@ -506,6 +506,7 @@ export default function SubmitRequest() {
               </p>
               <div className="flex flex-wrap justify-center gap-3 pt-2">
                 <Button onClick={resetForAnother}>Submit another request</Button>
+                {canClose && <Button variant="outline" onClick={closeToDashboard}>Close</Button>}
                 <Button variant="outline" onClick={() => setFinished(true)}>No, I'm done</Button>
               </div>
             </CardContent>
