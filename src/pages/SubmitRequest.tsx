@@ -25,6 +25,7 @@ const emptyCandidate = (): CandidateRow => ({
 
 export default function SubmitRequest() {
   const { search } = useLocation();
+  const navigate = useNavigate();
 
   const [stores, setStores] = useState<Store[]>([]);
   const [storeChosen, setStoreChosen] = useState<string>("");
