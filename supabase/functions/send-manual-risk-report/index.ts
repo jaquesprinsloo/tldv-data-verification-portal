@@ -59,7 +59,9 @@ Deno.serve(async (req) => {
 
     // Always CC Cash Crusaders head office on report releases for any Cash Crusaders account
     const CASH_CRUSADERS_CC = 'jardelg@cashcrusaders.co.za';
-    if (clientName && clientName.toLowerCase().includes('cash crusaders')
+    // TEMPORARILY DISABLED for mock testing — set to true to re-enable.
+    const CASH_CRUSADERS_CC_ENABLED = false;
+    if (CASH_CRUSADERS_CC_ENABLED && clientName && clientName.toLowerCase().includes('cash crusaders')
         && !ccClean.some((e) => e.toLowerCase() === CASH_CRUSADERS_CC)) {
       ccClean.push(CASH_CRUSADERS_CC);
     }
