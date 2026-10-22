@@ -342,6 +342,33 @@ export function MrClientDashboardTab({
         </div>
       </Card>
 
+      <Card className="p-4 border-slate-200/80 bg-slate-50/60">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-medium text-sm flex items-center gap-2">
+              <Users className="h-4 w-4 text-red-600" /> Submit a background check
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              A guided page that captures candidate names, ID numbers, gender and dates of birth for you — no more typing out lists.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <a href={`/submit-request${clients[0]?.id ? `?client=${clients[0].id}` : ""}`}>
+              <Button size="sm" className="bg-red-600 hover:bg-red-700">Open submission page</Button>
+            </a>
+            <Button size="sm" variant="outline" onClick={async () => {
+              const link = `${window.location.origin}/submit-request${clients[0]?.id ? `?client=${clients[0].id}` : ""}`;
+              try {
+                await navigator.clipboard.writeText(link);
+                toast.success("Submission link copied — share it with store staff");
+              } catch {
+                toast.error("Could not copy the link");
+              }
+            }}>Copy shareable link</Button>
+          </div>
+        </div>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Kpi label="Candidates screened" value={stats.total} icon={<Users className="h-5 w-5" />} tone="blue"
           sub={`${stats.accounts} account(s)`} />

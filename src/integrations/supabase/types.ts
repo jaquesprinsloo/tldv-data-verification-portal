@@ -1160,9 +1160,11 @@ export type Database = {
           credit_result: string | null
           criminal_notes: string | null
           criminal_result: string | null
+          date_of_birth: string | null
           drivers_license_notes: string | null
           drivers_license_result: string | null
           first_name: string
+          gender: string | null
           id: string
           id_number: string
           id_verification_data: Json | null
@@ -1204,9 +1206,11 @@ export type Database = {
           credit_result?: string | null
           criminal_notes?: string | null
           criminal_result?: string | null
+          date_of_birth?: string | null
           drivers_license_notes?: string | null
           drivers_license_result?: string | null
           first_name: string
+          gender?: string | null
           id?: string
           id_number: string
           id_verification_data?: Json | null
@@ -1248,9 +1252,11 @@ export type Database = {
           credit_result?: string | null
           criminal_notes?: string | null
           criminal_result?: string | null
+          date_of_birth?: string | null
           drivers_license_notes?: string | null
           drivers_license_result?: string | null
           first_name?: string
+          gender?: string | null
           id?: string
           id_number?: string
           id_verification_data?: Json | null
@@ -1397,6 +1403,115 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "manual_risk_contacts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_risk_intake_candidates: {
+        Row: {
+          created_at: string
+          date_of_birth: string | null
+          first_name: string
+          gender: string | null
+          id: string
+          id_number: string
+          intake_id: string
+          sort_order: number
+          surname: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth?: string | null
+          first_name: string
+          gender?: string | null
+          id?: string
+          id_number: string
+          intake_id: string
+          sort_order?: number
+          surname: string
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string | null
+          first_name?: string
+          gender?: string | null
+          id?: string
+          id_number?: string
+          intake_id?: string
+          sort_order?: number
+          surname?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_risk_intake_candidates_intake_id_fkey"
+            columns: ["intake_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_intakes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manual_risk_intakes: {
+        Row: {
+          client_id: string | null
+          consent_confirmed_at: string
+          created_at: string
+          id: string
+          indemnity_files: Json | null
+          notes: string | null
+          order_number: string
+          processed_at: string | null
+          processed_submission_id: string | null
+          source: string
+          status: string
+          submission_type: string
+          submitter_email: string
+          submitter_name: string
+          submitter_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          consent_confirmed_at?: string
+          created_at?: string
+          id?: string
+          indemnity_files?: Json | null
+          notes?: string | null
+          order_number: string
+          processed_at?: string | null
+          processed_submission_id?: string | null
+          source?: string
+          status?: string
+          submission_type?: string
+          submitter_email: string
+          submitter_name: string
+          submitter_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          consent_confirmed_at?: string
+          created_at?: string
+          id?: string
+          indemnity_files?: Json | null
+          notes?: string | null
+          order_number?: string
+          processed_at?: string | null
+          processed_submission_id?: string | null
+          source?: string
+          status?: string
+          submission_type?: string
+          submitter_email?: string
+          submitter_name?: string
+          submitter_phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manual_risk_intakes_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "manual_risk_clients"
