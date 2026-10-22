@@ -962,6 +962,51 @@ export type Database = {
           },
         ]
       }
+      examiner_training_resources: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          is_shared: boolean
+          mime_type: string
+          title: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string
+          file_name: string
+          file_path: string
+          file_size?: number
+          id?: string
+          is_shared?: boolean
+          mime_type?: string
+          title: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          is_shared?: boolean
+          mime_type?: string
+          title?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       examiners: {
         Row: {
           created_at: string
@@ -3152,6 +3197,15 @@ export type Database = {
         Returns: boolean
       }
       is_master_admin: { Args: { _user_id: string }; Returns: boolean }
+      list_active_examiner_profiles: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+        }[]
+      }
       mark_candex_invitation_opened: {
         Args: { _token: string }
         Returns: boolean
