@@ -7,7 +7,7 @@ import * as XLSX from "xlsx";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download, Eye, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo2, RefreshCw } from "lucide-react";
-import { Star, ArrowRightLeft, Percent, FolderOpen, LayoutDashboard, ShieldAlert } from "lucide-react";
+import { Star, ArrowRightLeft, Percent, FolderOpen, LayoutDashboard, ShieldAlert, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,7 @@ import { fetchArchiveOriginalReport } from "@/lib/archiveOriginalReport";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RecipientPicker, ClientAddressBookDialog, type MrRecipient } from "@/components/manual-risk/AddressBook";
 import { AddressBookTab } from "@/components/manual-risk/AddressBookTab";
+import IntakeTab from "@/components/manual-risk/IntakeTab";
 import { MrDashboardTab } from "@/components/manual-risk/MrDashboardTab";
 import SupplierReconTab from "@/components/manual-risk/SupplierReconTab";
 import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk/MrInvoicedTab";
@@ -830,6 +831,9 @@ export default function ManualRiskAssessments() {
           <TabsList>
             <TabsTrigger value="dashboard"><ClipboardList className="h-4 w-4 mr-2" />Dashboard</TabsTrigger>
             <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />Submissions</TabsTrigger>
+            <TabsTrigger value="intake">
+              <Inbox className="h-4 w-4 mr-2" />External Requests
+            </TabsTrigger>
             <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
             <TabsTrigger value="invoiced"><FileText className="h-4 w-4 mr-2" />Invoiced</TabsTrigger>
             <TabsTrigger value="clients"><Users className="h-4 w-4 mr-2" />Clients</TabsTrigger>
@@ -860,6 +864,10 @@ export default function ManualRiskAssessments() {
           <TabsContent value="dashboard" className="mt-4">
             <ClientFolderSyncCard submissions={liveSubmissions} clients={clients} userName={userName} />
             <MrDashboardTab submissions={submissions} clients={clients} />
+          </TabsContent>
+
+          <TabsContent value="intake" className="mt-4">
+            <IntakeTab clients={clients} userId={userId} />
           </TabsContent>
 
           {isMasterAdmin && (

@@ -53,6 +53,7 @@ const ProfileManagement = lazy(() => import("./pages/ProfileManagement"));
 const PendingPolygraphReview = lazy(() => import("./pages/PendingPolygraphReview"));
 const CanDexPreScreening = lazy(() => import("./pages/CanDexPreScreening"));
 const CandexApplication = lazy(() => import("./pages/CandexApplication"));
+const SubmitRequest = lazy(() => import("./pages/SubmitRequest"));
 const ExaminerPortal = lazy(() => import("./pages/ExaminerPortal"));
 const ExaminerManagement = lazy(() => import("./pages/ExaminerManagement"));
 const ManualRiskAssessments = lazy(() => import("./pages/ManualRiskAssessments"));
@@ -69,7 +70,7 @@ const RouteAwareInstallButton = () => {
   // carries an invitation token, and on the 404 page (where a candidate with a
   // broken/stale link could otherwise see admin-app prompts).
   const hasToken = new URLSearchParams(location.search).has("token");
-  const candidatePaths = ["/candex-apply", "/preapplicheck-apply"];
+  const candidatePaths = ["/candex-apply", "/preapplicheck-apply", "/submit-request"];
   if (candidatePaths.includes(location.pathname) || location.pathname === "/privacy-policy" || hasToken) {
     return null;
   }
@@ -102,6 +103,7 @@ const App = () => (
           <Route path="/admin/manual-risk-assessments" element={<ManualRiskAssessments />} />
             <Route path="/preapplicheck-apply" element={<CandexApplication />} />
             <Route path="/candex-apply" element={<CandexApplication />} />
+            <Route path="/submit-request" element={<SubmitRequest />} />
             <Route path="/examiner" element={<ExaminerPortal />} />
             <Route path="/install" element={<Install />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
