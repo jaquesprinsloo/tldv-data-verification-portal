@@ -1,0 +1,1 @@
+CREATE POLICY "MRA indemnities: authenticated intake insert" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'manual-risk-indemnities' AND (storage.foldername(name))[1] = 'intake');
