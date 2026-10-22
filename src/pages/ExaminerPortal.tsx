@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { CalendarIcon, MapPin, Users, Eye, LogOut, FileText, Upload, Loader2, ArrowLeft, ShieldCheck, CheckCircle, XCircle, AlertTriangle, Bug, WifiOff } from "lucide-react";
 import OfflineReportsView from "@/components/examiner/offline/OfflineReportsView";
+import TrainingLibrary from "@/components/examiner/TrainingLibrary";
 import { syncOfflineReports } from "@/components/examiner/offline/syncOfflineReports";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -25,7 +26,7 @@ import DebugDiagnosticsDialog from "@/components/admin/DebugDiagnosticsDialog";
 import { useBadgeLastSeen } from "@/hooks/useBadgeLastSeen";
 import { useImpersonation } from "@/hooks/useImpersonation";
 
-type ActiveView = "dashboard" | "appointments" | "upload" | "offline";
+type ActiveView = "dashboard" | "appointments" | "upload" | "offline" | "training";
 
 const ExaminerPortal = () => {
   const navigate = useNavigate();
@@ -441,6 +442,13 @@ const ExaminerPortal = () => {
   // Portal cards for the examiner dashboard
   const portalCards = [
     {
+      key: "training",
+      title: "Education & Training",
+      description: "Documents, training and interviews",
+      icon: FileText,
+      badge: null,
+    },
+    {
       key: "appointments",
       title: "Appointments",
       description: "View assigned appointments and candidates",
@@ -587,7 +595,7 @@ const ExaminerPortal = () => {
             </Button>
             <div>
               <h1 className="text-lg font-bold text-white">
-                {activeView === "appointments" ? "Appointments" : activeView === "offline" ? "Offline Reports" : "Upload Report"}
+                {activeView === "appointments" ? "Appointments" : activeView === "offline" ? "Offline Reports" : activeView === "training" ? "Education & Training" : "Upload Report"}
               </h1>
               <p className="text-xs text-gray-400">{user?.email}</p>
             </div>
@@ -599,6 +607,7 @@ const ExaminerPortal = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
+        {activeView === "training" && <TrainingLibrary />}
         {/* ====== OFFLINE REPORTS VIEW ====== */}
         {activeView === "offline" && effectiveUserId && (
           <OfflineReportsView examinerUserId={effectiveUserId} />
