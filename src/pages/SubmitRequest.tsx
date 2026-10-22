@@ -219,6 +219,16 @@ export default function SubmitRequest() {
   const stepTitles = ["Store", "Your details", "Candidates", "Done"];
   const chosenStore = useMemo(() => stores.find((s) => s.id === storeChosen), [stores, storeChosen]);
 
+  // Only offer "Close" when the page was opened from within the app (the dashboard
+  // linked here), not from a shared link or typed URL.
+  const canClose = typeof document !== "undefined" && document.referrer.startsWith(window.location.origin);
+  const closeToDashboard = () => {
+    // Works when the page was opened in its own tab/window.
+    window.close();
+    // Fallback for in-app navigation: return to the Risk Assessments dashboard.
+    window.setTimeout(() => navigate("/admin/manual-risk-assessments"), 250);
+  };
+
   if (finished) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4">
@@ -227,6 +237,9 @@ export default function SubmitRequest() {
         <p className="text-muted-foreground text-center max-w-md">
           All requests have been received. You can close this window now — a confirmation email has been sent to you.
         </p>
+        {canClose && (
+          <Button className="mt-8 min-h-[44px]" onClick={closeToDashboard}>Close</Button>
+        )}
       </div>
     );
   }
