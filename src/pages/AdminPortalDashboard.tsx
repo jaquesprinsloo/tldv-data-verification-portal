@@ -143,8 +143,8 @@ const AdminPortalDashboard = () => {
     },
     {
       key: "examiner-management",
-      title: "Examiner Portal",
-      description: "Examiner profiles, education and training",
+      title: "Examiners ",
+      description: "Profiles, Training & Education",
       icon: Users,
       path: "/admin/examiners",
       color: "from-primary/10 to-transparent hover:from-primary/20",
