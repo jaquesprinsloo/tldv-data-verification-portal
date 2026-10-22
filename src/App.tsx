@@ -54,6 +54,7 @@ const PendingPolygraphReview = lazy(() => import("./pages/PendingPolygraphReview
 const CanDexPreScreening = lazy(() => import("./pages/CanDexPreScreening"));
 const CandexApplication = lazy(() => import("./pages/CandexApplication"));
 const ExaminerPortal = lazy(() => import("./pages/ExaminerPortal"));
+const ExaminerManagement = lazy(() => import("./pages/ExaminerManagement"));
 const ManualRiskAssessments = lazy(() => import("./pages/ManualRiskAssessments"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -95,6 +96,7 @@ const App = () => (
           <Route path="/admin/polygraph-vetting" element={<PolygraphVetting />} />
           <Route path="/admin/reports-accounts" element={<ReportsAccounts />} />
           <Route path="/admin/profile-management" element={<ProfileManagement />} />
+          <Route path="/admin/examiners" element={<ExaminerManagement />} />
           <Route path="/admin/pending-polygraph-review" element={<PendingPolygraphReview />} />
           <Route path="/admin/candex-pre-screening" element={<CanDexPreScreening />} />
           <Route path="/admin/manual-risk-assessments" element={<ManualRiskAssessments />} />

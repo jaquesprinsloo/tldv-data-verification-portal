@@ -1,0 +1,3 @@
+- [x] Add master Examiner Portal and active profile list.
+- [x] Add private shared education/training/interview library and examiner access.
+- [x] Verify master upload/view/delete flow and access-rule tests. Examiner-session end-to-end verification unavailable: no examiner login profiles currently exist.

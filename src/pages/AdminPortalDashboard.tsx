@@ -142,6 +142,17 @@ const AdminPortalDashboard = () => {
       requiresMasterAdmin: true
     },
     {
+      key: "examiner-management",
+      title: "Examiner Portal",
+      description: "Examiner profiles, education and training",
+      icon: Users,
+      path: "/admin/examiners",
+      color: "from-primary/10 to-transparent hover:from-primary/20",
+      badge: null,
+      permissionKey: PERMISSION_KEYS.PORTAL_PROFILE_MANAGEMENT,
+      requiresMasterAdmin: true
+    },
+    {
       key: "candex-pre-screening",
       title: "PreAppliCheck",
       description: "Pre-employment screening and applicant checks",

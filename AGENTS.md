@@ -1,0 +1,3 @@
+# Project architecture
+- Examiner education uses a dedicated private resource table and storage bucket; master admins manage materials, while examiner-role sessions read only shared resources, enforced by RLS.
+- Active examiner profile listings use a master-only server function joining current examiner-role profiles to unbanned login accounts; appointment examiner name lists are not login profiles.
