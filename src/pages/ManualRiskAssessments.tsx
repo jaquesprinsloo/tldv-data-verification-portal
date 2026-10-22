@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,7 +15,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList as BaseTabsList, TabsTrigger as BaseTabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
+const TabsList = ({ className, ...p }: React.ComponentProps<typeof BaseTabsList>) => (
+  <BaseTabsList className={cn("h-auto w-full flex flex-wrap justify-start gap-1 rounded-xl border bg-card p-1.5 shadow-sm", className)} {...p} />
+);
+const TabsTrigger = ({ className, ...p }: React.ComponentProps<typeof BaseTabsTrigger>) => (
+  <BaseTabsTrigger className={cn("h-9 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm", className)} {...p} />
+);
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
