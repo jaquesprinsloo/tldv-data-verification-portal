@@ -15,6 +15,13 @@
       "when": 1792697585750,
       "tag": "0001_manual_risk_intake_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792698848564,
+      "tag": "0002_intake_upload_authenticated",
+      "breakpoints": true
     }
   ]
 }
