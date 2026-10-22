@@ -38,7 +38,9 @@ export default function TrainingLibrary({ canManage = false }: { canManage?: boo
   const { data: resources = [], isLoading, error } = useQuery({
     queryKey: ["examiner-training", canManage],
     queryFn: async () => {
-      const { data, error } = await supabase.from("examiner_training_resources").select("*").order("created_at", { ascending: false });
+      let query = supabase.from("examiner_training_resources").select("*").order("created_at", { ascending: false });
+      if (!canManage) query = query.eq("is_shared", true);
+      const { data, error } = await query;
       if (error) throw error;
       return data as Resource[];
     },
