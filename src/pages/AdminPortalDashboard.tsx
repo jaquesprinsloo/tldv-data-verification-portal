@@ -166,7 +166,7 @@ const AdminPortalDashboard = () => {
     {
       key: "pending-polygraph-review",
       title: "Pending Polygraph Review",
-      description: "Review and approve polygraph report uploads",
+      description: "Review and approve polygraph test data",
       icon: FileCheck,
       path: "/admin/pending-polygraph-review",
       color: "from-red-600/10 via-red-500/5 to-transparent hover:from-red-600/20 hover:via-red-500/10",
