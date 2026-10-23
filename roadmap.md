@@ -1,5 +1,6 @@
 - [x] Add master Examiner Portal and active profile list.
 - [x] Move single/batch selection before store selection; verified both paths, back navigation preserving data, store-specific preselection and phone layout without sending requests.
+- [x] Add dashboard return throughout the shared submission page; verified signed-in single/batch display, batch-to-store and return without window closure. Current injected session is master, so customer-session entry remains unverified.
 - [x] Add private shared education/training/interview library and examiner access.
 - [x] Verify master upload/view/delete flow and access-rule tests. Examiner-session end-to-end verification unavailable: no examiner login profiles currently exist.
 - [x] Hide internal/test accounts and add searchable submission account selection.

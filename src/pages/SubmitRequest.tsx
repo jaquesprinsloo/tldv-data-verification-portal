@@ -233,14 +233,10 @@ export default function SubmitRequest() {
   const stepTitles = ["Submission", "Store", "Your details", "Candidates", "Done"];
   const chosenStore = useMemo(() => stores.find((s) => s.id === storeChosen), [stores, storeChosen]);
 
-  // Only offer "Close" when the page was opened from within the app (the dashboard
-  // linked here), not from a shared link or typed URL.
-  const canClose = typeof document !== "undefined" && document.referrer.startsWith(window.location.origin);
+  // Signed-in portal users can always return, even when the installed app omits a referrer.
+  const canClose = canAddAccount || (typeof document !== "undefined" && document.referrer.startsWith(window.location.origin));
   const closeToDashboard = () => {
-    // Works when the page was opened in its own tab/window.
-    window.close();
-    // Fallback for in-app navigation: return to the Risk Assessments dashboard.
-    window.setTimeout(() => navigate("/admin/manual-risk-assessments"), 250);
+    navigate("/admin/manual-risk-assessments");
   };
 
   if (finished) {
@@ -262,6 +258,13 @@ export default function SubmitRequest() {
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
       <header className="border-b bg-white">
+        {canClose && (
+          <div className="max-w-3xl mx-auto px-4 pt-3">
+            <Button variant="outline" className="min-h-11" onClick={closeToDashboard}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Back to dashboard
+            </Button>
+          </div>
+        )}
         <div className="max-w-3xl mx-auto px-4 py-4 flex flex-col items-center gap-2">
           <img src={preApplicheckLogo} alt="PreAppliCheck" className="h-16 sm:h-20" />
           <p className="text-sm text-muted-foreground text-center">Background screening requests — Vetting driven by Intelligence</p>
