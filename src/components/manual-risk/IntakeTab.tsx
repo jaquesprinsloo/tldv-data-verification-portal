@@ -118,12 +118,12 @@ export default function IntakeTab({ clients, userId }: { clients: any[]; userId:
     const updated = [...files];
     for (let i = 0; i < updated.length; i++) {
       const f = updated[i];
-      if (f.onedrive_web_url) continue;
       try {
         const { data: blobData, error: dlErr } = await sb.storage.from(INDEMNITY_BUCKET).download(f.path);
         if (dlErr) throw dlErr;
         const base64 = await blobToBase64Client(blobData);
         for (const shared of [false, true]) {
+          if (shared ? updated[i].shared_onedrive_web_url : updated[i].onedrive_web_url) continue;
           const { data, error } = await supabase.functions.invoke("upload-manual-risk-to-onedrive", {
             body: {
               fileName: f.name, fileBase64: base64,
@@ -134,9 +134,9 @@ export default function IntakeTab({ clients, userId }: { clients: any[]; userId:
           if (error) throw error;
           if ((data as any)?.success) {
             if (shared) {
-              updated[i] = { ...f, shared_onedrive_web_url: (data as any).webUrl ?? null, shared_onedrive_item_id: (data as any).itemId ?? null };
+              updated[i] = { ...updated[i], shared_onedrive_web_url: (data as any).webUrl ?? null, shared_onedrive_item_id: (data as any).itemId ?? null };
             } else {
-              updated[i] = { ...f, onedrive_web_url: (data as any).webUrl ?? null, onedrive_item_id: (data as any).itemId ?? null };
+              updated[i] = { ...updated[i], onedrive_web_url: (data as any).webUrl ?? null, onedrive_item_id: (data as any).itemId ?? null };
             }
           } else {
             throw new Error((data as any)?.error || "OneDrive upload failed");
