@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import { beginSignOut } from "./signOutFlow";
 
 test("sign out clears saved credentials before an unfinished network request", async () => {
-  let storedSession: string | null = "signed-in";
-  let finish: (result: { error: unknown }) => void = () => {};
+  let storedSession = "signed-in";
+  let finish = (_result) => {};
   const pending = beginSignOut({
     clearLocalSession: () => { storedSession = null; },
     revokeSession: () => {
