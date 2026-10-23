@@ -294,7 +294,7 @@ export function MrClientDashboardTab({
 
   const inProgress = useMemo(
     () => rangedSubs
-      .filter((s) => !s.sent_at && s.status !== "completed")
+      .filter((s) => !s.sent_at)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, 12),
     [rangedSubs],
@@ -353,11 +353,11 @@ export function MrClientDashboardTab({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <a href={`/submit-request${clients[0]?.id ? `?client=${clients[0].id}` : ""}`}>
+            <a href="/submit-request">
               <Button size="sm" className="bg-red-600 hover:bg-red-700">Open submission page</Button>
             </a>
             <Button size="sm" variant="outline" onClick={async () => {
-              const link = `${window.location.origin}/submit-request${clients[0]?.id ? `?client=${clients[0].id}` : ""}`;
+              const link = `${window.location.origin}/submit-request`;
               try {
                 await navigator.clipboard.writeText(link);
                 toast.success("Submission link copied — share it with store staff");
