@@ -3271,6 +3271,17 @@ export type Database = {
         Args: { a: string; b: string }
         Returns: boolean
       }
+      create_manual_risk_account: {
+        Args: {
+          _address?: string
+          _cc_emails?: string
+          _client_name: string
+          _contact_person?: string
+          _email?: string
+          _phone?: string
+        }
+        Returns: string
+      }
       get_candex_invitation_by_token: {
         Args: { _token: string }
         Returns: Json
