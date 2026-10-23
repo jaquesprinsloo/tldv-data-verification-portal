@@ -4,4 +4,4 @@
 - [x] Hide internal/test accounts and add searchable submission account selection.
 - [x] Allow client-facing profiles to create accounts using the existing account fields; account creation/readback verified with master session.
 - [x] Check processed request account linkage and pending/released filters; preserve invoiced client history and both OneDrive copy references.
-- [ ] Verify complete processing/release/OneDrive flow under a client-facing login using the approved admin@tldv.co.za test recipient; permanently purge the mock afterward.
+- [x] Verify client-facing submission, master processing/release, internal/shared OneDrive copies, client search/download, and searchable history after invoicing using admin@tldv.co.za. Remove mock intake, submission, candidate, invoice batch, test-specific audit rows, uploaded consent, and both OneDrive folders; delivered test emails remain in the recipient mailbox.
