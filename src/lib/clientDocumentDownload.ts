@@ -110,6 +110,79 @@ export async function fetchIndemnityBlobs(
   return out;
 }
 
+const CHECK_LABELS: Record<string, string> = {
+  id_verification: "ID Verification",
+  credit: "Credit",
+  risk_assessment: "Risk Assessment",
+  drivers_license: "Driver's Licence",
+  pdp: "PDP",
+  qualification: "Qualification",
+  criminal: "Criminal",
+  tfs: "TFS Sanctions",
+};
+
+const fmtDate = (v: any) => (v ? new Date(v).toLocaleDateString("en-ZA") : "");
+
+/** Builds an Excel summary for one order linking its candidates, results and files. */
+export async function buildOrderSummaryWorkbook(
+  submissionId: string,
+  linkedFiles: string[],
+): Promise<Blob> {
+  const XLSX = await import("xlsx");
+  const [{ data: sub }, { data: cands }] = await Promise.all([
+    sb.from("manual_risk_submissions").select("*").eq("id", submissionId).maybeSingle(),
+    sb.from("manual_risk_candidates").select("*").eq("submission_id", submissionId)
+      .order("sort_order", { ascending: true }),
+  ]);
+  if (!sub) throw new Error("Order not found");
+  let clientName = "";
+  if (sub.client_id) {
+    const { data } = await sb.from("manual_risk_clients").select("client_name")
+      .eq("id", sub.client_id).maybeSingle();
+    clientName = data?.client_name ?? "";
+  }
+  const checks = (sub.requested_checks?.length
+    ? sub.requested_checks
+    : ["id_verification", "credit", "criminal"]).filter((k: string) => CHECK_COLUMNS[k]);
+
+  const overview = [
+    ["Background Screening Order Summary"],
+    [],
+    ["Order Number", sub.order_number ?? ""],
+    ["Account", clientName],
+    ["Submission Type", sub.submission_type ?? ""],
+    ["Submitted", fmtDate(sub.submitted_at ?? sub.created_at)],
+    ["Report Released", fmtDate(sub.sent_at ?? sub.released_at)],
+    ["Checks Requested", checks.map((k: string) => CHECK_LABELS[k] ?? k).join(", ")],
+    [],
+    ["Files in this folder"],
+    ...linkedFiles.map((f) => [f]),
+  ];
+
+  const header = ["Order Number", "First Name", "Surname", "ID Number", "Passport Number"];
+  for (const k of checks) header.push(`${CHECK_LABELS[k] ?? k} Result`, `${CHECK_LABELS[k] ?? k} Notes`);
+  const rows = (cands ?? []).filter((c: any) => !isPlaceholderCandidate(c)).map((c: any) => {
+    const r = [sub.order_number ?? "", c.first_name ?? "", c.surname ?? "", String(c.id_number ?? ""), c.passport_number ?? ""];
+    for (const k of checks) r.push(c[CHECK_COLUMNS[k].result] ?? "", c[CHECK_COLUMNS[k].notes] ?? "");
+    return r;
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws1 = XLSX.utils.aoa_to_sheet(overview);
+  ws1["!cols"] = [{ wch: 22 }, { wch: 60 }];
+  XLSX.utils.book_append_sheet(wb, ws1, "Order");
+  const ws2 = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  // Keep ID numbers as text so leading zeros survive.
+  rows.forEach((_: any, i: number) => {
+    const cell = ws2[XLSX.utils.encode_cell({ r: i + 1, c: 3 })];
+    if (cell) { cell.t = "s"; cell.z = "@"; }
+  });
+  ws2["!cols"] = header.map((h) => ({ wch: Math.max(14, h.length + 2) }));
+  XLSX.utils.book_append_sheet(wb, ws2, "Candidates");
+  const out = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+  return new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+
 const saveBlob = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -127,7 +200,8 @@ export type OrderDocsTarget = {
 
 /**
  * Collects the requested documents for the given orders and hands them to the
- * browser: one file downloads directly, anything more becomes a ZIP.
+ * browser: each order folder also gets an Excel summary, so
+ * downloads are packaged as a ZIP.
  */
 export async function downloadOrderDocuments(
   targets: OrderDocsTarget[],
@@ -154,6 +228,17 @@ export async function downloadOrderDocuments(
       blobs.forEach((b, i) =>
         collected.push({ path: `${folder}/Indemnities/${i + 1} - ${b.name}`, blob: b.blob }),
       );
+    }
+    const orderFiles = collected
+      .filter((c) => c.path.startsWith(`${folder}/`))
+      .map((c) => c.path.slice(folder.length + 1));
+    if (orderFiles.length) {
+      try {
+        const xlsx = await buildOrderSummaryWorkbook(t.submissionId, orderFiles);
+        collected.push({ path: `${folder}/Order Summary - ${folder}.xlsx`, blob: xlsx });
+      } catch {
+        missing.push(`${t.orderNumber} — summary spreadsheet`);
+      }
     }
     done += 1;
     opts.onProgress?.(done, targets.length);
