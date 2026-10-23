@@ -4,4 +4,4 @@
 - [x] Hide internal/test accounts and add searchable submission account selection.
 - [x] Allow client-facing profiles to create accounts using the existing account fields; account creation/readback verified with master session.
 - [x] Check processed request account linkage and pending/released filters; preserve invoiced client history and both OneDrive copy references.
-- [ ] Verify complete processing/release/OneDrive flow under a client-facing login; blocked by unavailable client-facing session and no approved test request for email/report release.
+- [ ] Verify complete processing/release/OneDrive flow under a client-facing login using the approved admin@tldv.co.za test recipient; permanently purge the mock afterward.
