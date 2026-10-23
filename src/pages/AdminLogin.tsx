@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff, MailCheck } from "lucide-react";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
+import { SIGN_OUT_PENDING } from "@/lib/portalSignOut";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -52,6 +53,7 @@ const AdminLogin = () => {
       return;
     }
 
+    localStorage.removeItem(SIGN_OUT_PENDING);
     sessionStorage.removeItem("portal_animation_played");
     sessionStorage.removeItem("user_is_master_admin");
     sessionStorage.removeItem("user_display_name");
