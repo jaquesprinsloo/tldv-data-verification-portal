@@ -752,7 +752,7 @@ export default function ManualRiskAssessments() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
               <TabsTrigger value="dashboard"><LayoutDashboard className="h-4 w-4 mr-2" />Dashboard</TabsTrigger>
-              <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />In Progress</TabsTrigger>
+              <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />Pending</TabsTrigger>
               <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
               <TabsTrigger value="employee-check"><FileSpreadsheet className="h-4 w-4 mr-2" />Employee Check</TabsTrigger>
 
