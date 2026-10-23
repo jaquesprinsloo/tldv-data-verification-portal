@@ -158,8 +158,8 @@ export default function SubmitRequest() {
 
   const startSubmission = (chosenMode: "single" | "batch") => {
     setMode(chosenMode);
-    setBatchRows(chosenMode === "single" ? [emptyCandidate()] : [emptyCandidate()]);
-    setStep(3);
+    if (chosenMode !== mode) setBatchRows([emptyCandidate()]);
+    setStep(2);
   };
 
   const submitRequest = async () => {
@@ -211,7 +211,7 @@ export default function SubmitRequest() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setResult({ order_number: data.order_number });
-      setStep(4);
+      setStep(5);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       toast.error((e as Error).message);
@@ -227,10 +227,10 @@ export default function SubmitRequest() {
     setFiles([]);
     setResult(null);
     setLookupDone(false);
-    setStep(2);
+    setStep(1);
   };
 
-  const stepTitles = ["Store", "Your details", "Candidates", "Done"];
+  const stepTitles = ["Submission", "Store", "Your details", "Candidates", "Done"];
   const chosenStore = useMemo(() => stores.find((s) => s.id === storeChosen), [stores, storeChosen]);
 
   // Only offer "Close" when the page was opened from within the app (the dashboard
@@ -282,8 +282,32 @@ export default function SubmitRequest() {
           ))}
         </ol>
 
-        {/* Step 1: store */}
-        {step === 1 && (
+                    {step === 1 && (
+              <Card>
+                <CardContent className="pt-6 space-y-4 text-center">
+                  <h2 className="text-lg font-semibold">How many candidates?</h2>
+                  <p className="text-sm text-muted-foreground">Choose one candidate, or several in one request.</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Button variant="outline" onClick={() => startSubmission("single")}
+                      className="min-h-[104px] h-auto flex-col gap-1 whitespace-normal border-2 px-4 py-4">
+                      <Users className="h-6 w-6 mx-auto mb-1 text-primary" />
+                      <span className="font-medium text-sm">Single submission</span>
+                      <p className="text-xs text-muted-foreground mt-1">One candidate</p>
+                    </Button>
+                    <Button variant="outline" onClick={() => startSubmission("batch")}
+                      className="min-h-[104px] h-auto flex-col gap-1 whitespace-normal border-2 px-4 py-4">
+                      <Users className="h-6 w-6 mx-auto mb-1 text-primary" />
+                      <span className="font-medium text-sm">Batch submission</span>
+                      <p className="text-xs text-muted-foreground mt-1">More than one candidate</p>
+                    </Button>
+                  </div>
+
+                </CardContent>
+              </Card>
+            )}
+
+        {/* Step 2: store */}
+        {step === 2 && (
           <Card>
             <CardContent className="pt-6 space-y-5">
               <div>
@@ -308,7 +332,7 @@ export default function SubmitRequest() {
                   {stores.filter((s) => s.client_name.toLowerCase().includes(accountSearch.trim().toLowerCase())).map((s) => (
                     <Button variant="outline"
                       key={s.id}
-                      onClick={() => { setStoreChosen(s.id); setStep(2); }}
+                      onClick={() => { setStoreChosen(s.id); setStep(3); }}
                       className={`min-h-11 h-auto justify-start whitespace-normal px-4 py-3 text-left ${storeChosen === s.id ? "border-primary bg-accent font-medium" : ""}`}
                     >
                       {s.client_name}
@@ -318,16 +342,20 @@ export default function SubmitRequest() {
                   {stores.length > 0 && !stores.some((s) => s.client_name.toLowerCase().includes(accountSearch.trim().toLowerCase())) && <p className="text-sm text-muted-foreground">No accounts match your search.</p>}
                 </div>
               )}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Button variant="outline" onClick={() => setStep(1)}><ChevronLeft className="h-4 w-4 mr-1" /> Back</Button>
+                {storeChosen && <Button onClick={() => setStep(3)}>Continue <ChevronRight className="h-4 w-4 ml-1" /></Button>}
+              </div>
             </CardContent>
           </Card>
         )}
 
         <AddAccountDialog open={addAccountOpen} onOpenChange={setAddAccountOpen} onCreated={(account) => {
           setStores((list) => [...list, account].sort((a, b) => a.client_name.localeCompare(b.client_name)));
-          setStoreChosen(account.id); setAccountSearch(""); setStep(2);
+          setStoreChosen(account.id); setAccountSearch(""); setStep(3);
         }} />
-        {/* Step 2: submitter */}
-        {step === 2 && (
+        {/* Step 3: submitter */}
+        {step === 3 && (
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div>
@@ -361,8 +389,8 @@ export default function SubmitRequest() {
                 Save my details so I don't have to type them next time
               </label>
               <div className="flex items-center justify-between pt-2">
-                <Button variant="outline" onClick={() => setStep(1)}><ChevronLeft className="h-4 w-4 mr-1" /> Back</Button>
-                <Button disabled={!canContinueStep2} onClick={() => setStep(3)}>
+                <Button variant="outline" onClick={() => setStep(2)}><ChevronLeft className="h-4 w-4 mr-1" /> Back</Button>
+                <Button disabled={!canContinueStep2} onClick={() => setStep(4)}>
                   Continue <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
@@ -370,34 +398,10 @@ export default function SubmitRequest() {
           </Card>
         )}
 
-        {/* Step 3: candidates */}
-        {step === 3 && (
+        {/* Step 4: candidates */}
+        {step === 4 && (
           <div className="space-y-4">
-            {!mode && (
-              <Card>
-                <CardContent className="pt-6 space-y-4 text-center">
-                  <h2 className="text-lg font-semibold">How many candidates?</h2>
-                  <p className="text-sm text-muted-foreground">Choose one candidate, or several in one request.</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <button onClick={() => startSubmission("single")}
-                      className="min-h-[88px] rounded-lg border-2 border-dashed hover:border-red-400 hover:bg-muted/50 px-4 py-4 transition-colors">
-                      <Users className="h-6 w-6 mx-auto mb-1 text-red-600" />
-                      <span className="font-medium text-sm">Single submission</span>
-                      <p className="text-xs text-muted-foreground mt-1">One candidate</p>
-                    </button>
-                    <button onClick={() => startSubmission("batch")}
-                      className="min-h-[88px] rounded-lg border-2 border-dashed hover:border-red-400 hover:bg-muted/50 px-4 py-4 transition-colors">
-                      <Users className="h-6 w-6 mx-auto mb-1 text-red-600" />
-                      <span className="font-medium text-sm">Batch submission</span>
-                      <p className="text-xs text-muted-foreground mt-1">More than one candidate</p>
-                    </button>
-                  </div>
-                  <div className="flex justify-start pt-2">
-                    <Button variant="outline" onClick={() => setStep(2)}><ChevronLeft className="h-4 w-4 mr-1" /> Back</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+
 
             {mode === "single" && singleRow && (
               <CandidateCard
@@ -503,7 +507,7 @@ export default function SubmitRequest() {
                       </span>
                     </label>
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <Button variant="outline" onClick={() => setMode(null)}><ChevronLeft className="h-4 w-4 mr-1" /> Back</Button>
+                      <Button variant="outline" onClick={() => setStep(3)}><ChevronLeft className="h-4 w-4 mr-1" /> Back</Button>
                       <Button className="bg-red-600 hover:bg-red-700 min-h-[44px]" disabled={submitting} onClick={() => void submitRequest()}>
                         {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                         {submitting ? "Submitting…" : "Submit request"}
@@ -516,8 +520,8 @@ export default function SubmitRequest() {
           </div>
         )}
 
-        {/* Step 4: success */}
-        {step === 4 && result && (
+        {/* Step 5: success */}
+        {step === 5 && result && (
           <Card>
             <CardContent className="pt-8 pb-8 text-center space-y-4">
               <CheckCircle2 className="h-14 w-14 mx-auto text-emerald-600" />
