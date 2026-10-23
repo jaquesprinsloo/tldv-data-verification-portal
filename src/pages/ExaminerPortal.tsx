@@ -25,6 +25,7 @@ import tldvLogo from "@/assets/tldv-logo-primary.png";
 import DebugDiagnosticsDialog from "@/components/admin/DebugDiagnosticsDialog";
 import { useBadgeLastSeen } from "@/hooks/useBadgeLastSeen";
 import { useImpersonation } from "@/hooks/useImpersonation";
+import { signOutImmediately } from "@/lib/portalSignOut";
 
 type ActiveView = "dashboard" | "appointments" | "upload" | "offline" | "training";
 
@@ -228,11 +229,11 @@ const ExaminerPortal = () => {
 
   const handleSignOut = async () => {
     setIsExiting(true);
-    sessionStorage.removeItem('examiner_animation_played');
-    setTimeout(async () => {
-      await supabase.auth.signOut();
-      navigate("/admin/login");
-    }, 2000);
+    try {
+      await signOutImmediately();
+    } finally {
+      navigate("/admin/login", { replace: true });
+    }
   };
 
   const upcomingCount = (appointments as any[]).filter((a: any) => ["assigned", "confirmed"].includes(a.status)).length;

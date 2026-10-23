@@ -5,3 +5,5 @@
 - [x] Allow client-facing profiles to create accounts using the existing account fields; account creation/readback verified with master session.
 - [x] Check processed request account linkage and pending/released filters; preserve invoiced client history and both OneDrive copy references.
 - [x] Verify client-facing submission, master processing/release, internal/shared OneDrive copies, client search/download, and searchable history after invoicing using admin@tldv.co.za. Remove mock intake, submission, candidate, invoice batch, test-specific audit rows, uploaded consent, and both OneDrive folders; delivered test emails remain in the recipient mailbox.
+- [x] Make sign-out immediate and verify closing/reopening cannot restore the session.
+- [x] Fit portal cards in smaller desktop app windows and replace stale app-shell caching; worker cache-isolation test passes. Installed-device update confirmation awaits publishing.

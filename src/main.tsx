@@ -1,23 +1,13 @@
 import { createRoot } from "react-dom/client";
-import { registerSW } from "virtual:pwa-register";
+import { cleanupAppWorkers } from "./lib/appWorkerCleanup";
+import { supabase } from "./integrations/supabase/client";
+import { SIGN_OUT_PENDING, signOutImmediately } from "./lib/portalSignOut";
 import App from "./App.tsx";
 import "./index.css";
 
 const STALE_CLIENT_RECOVERY_KEY = "app_stale_client_recovery_at";
 
 const CHUNK_LOAD_ERROR_PATTERN = /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk [\d]+ failed/i;
-
-const unregisterServiceWorkers = async () => {
-  const registrations = await navigator.serviceWorker?.getRegistrations();
-  await Promise.all((registrations ?? []).map((registration) => registration.unregister()));
-};
-
-const clearAppCaches = async () => {
-  if (!("caches" in window)) return;
-
-  const cacheKeys = await caches.keys();
-  await Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey)));
-};
 
 const isChunkLoadError = (value: unknown) => {
   const message =
@@ -40,7 +30,7 @@ const recoverFromStaleClient = async () => {
   }
 
   sessionStorage.setItem(STALE_CLIENT_RECOVERY_KEY, String(Date.now()));
-  await Promise.all([unregisterServiceWorkers(), clearAppCaches()]);
+  await cleanupAppWorkers();
   window.location.replace(`${window.location.origin}/`);
 };
 
@@ -63,43 +53,14 @@ window.addEventListener("unhandledrejection", (event) => {
   }
 });
 
-const isInIframe = (() => {
-  try {
-    return window.self !== window.top;
-  } catch {
-    return true;
-  }
-})();
-
-const isPreviewHost =
-  window.location.hostname.includes("id-preview--") ||
-  window.location.hostname.includes("lovableproject.com");
-
 const isCandidateRoute =
   window.location.pathname === "/candex-apply" ||
   window.location.pathname === "/preapplicheck-apply";
 
 const isPrivacyPolicyRoute = window.location.pathname === "/privacy-policy";
 
-if (isPreviewHost || isInIframe || isCandidateRoute || isPrivacyPolicyRoute) {
-  void unregisterServiceWorkers();
-} else {
-  const updateSW = registerSW({
-    immediate: true,
-    onNeedRefresh() {
-      void updateSW(true);
-    },
-    onRegisteredSW(_swUrl, registration) {
-      void registration?.update();
-    },
-  });
-
-  window.addEventListener("focus", () => {
-    void navigator.serviceWorker?.ready
-      .then((registration) => registration.update())
-      .catch(() => undefined);
-  });
-}
+// Keep the installed icon, but retire stale app-shell caching.
+void cleanupAppWorkers();
 
 // Candidates completing the PreAppliCheck should never see any browser-level
 // "install app" prompt (mini-infobar, address-bar icon prompt, etc.). Suppress
@@ -115,4 +76,22 @@ if (
   });
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+async function startApp() {
+  if (localStorage.getItem(SIGN_OUT_PENDING)) {
+    const result = await signOutImmediately();
+    if (result.error) {
+      const root = document.getElementById("root");
+      if (root) root.textContent = "You are signed out. Reconnect and reopen to sign in.";
+      return;
+    }
+    localStorage.removeItem(SIGN_OUT_PENDING);
+  }
+  window.addEventListener("storage", event => {
+    if (event.key === SIGN_OUT_PENDING && event.newValue === "1") {
+      void supabase.auth.signOut({ scope: "local" }).finally(() => window.location.replace("/admin/login"));
+    }
+  });
+  const root = document.getElementById("root");
+  if (root) createRoot(root).render(<App />);
+}
+void startApp();

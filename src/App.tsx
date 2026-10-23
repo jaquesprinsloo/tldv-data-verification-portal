@@ -8,6 +8,7 @@ import { InstallAppButton } from "@/components/shared/InstallAppButton";
 import ImpersonationBanner from "@/components/shared/ImpersonationBanner";
 import ClientFacingIdleGuard from "@/components/shared/ClientFacingIdleGuard";
 import PresenceTracker from "@/components/shared/PresenceTracker";
+import { cleanupAppWorkers } from "@/lib/appWorkerCleanup";
 
 const LAZY_RELOAD_KEY = "app_lazy_chunk_reload_at";
 
@@ -28,12 +29,7 @@ function lazy<T extends ComponentType<any>>(factory: () => Promise<{ default: T 
       if (Date.now() - last > 10000) {
         sessionStorage.setItem(LAZY_RELOAD_KEY, String(Date.now()));
         try {
-          const regs = await navigator.serviceWorker?.getRegistrations();
-          await Promise.all((regs ?? []).map((r) => r.unregister()));
-          if ("caches" in window) {
-            const keys = await caches.keys();
-            await Promise.all(keys.map((k) => caches.delete(k)));
-          }
+          await cleanupAppWorkers();
         } catch { /* ignore */ }
         window.location.reload();
         return new Promise<{ default: T }>(() => {});

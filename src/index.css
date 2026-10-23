@@ -209,7 +209,7 @@ All colors MUST be HSL.
 }
 
 /* Desktop portal selection: all seven destinations occupy two compact rows. */
-@media (min-width: 1024px) {
+@media (min-width: 768px) and (orientation: landscape), (min-width: 1024px) {
   .portal-selection.portal-selection {
     min-height: 100dvh;
     padding: 20px 0;
@@ -259,6 +259,7 @@ All colors MUST be HSL.
 
   .portal-selection-card.portal-selection-card h2 {
     font-size: 18px;
+    line-height: 1.25;
     overflow-wrap: break-word;
   }
 
@@ -268,17 +269,31 @@ All colors MUST be HSL.
   }
 }
 
-@media (min-width: 1024px) and (max-height: 740px) {
+@media (min-width: 768px) and (max-height: 740px) and (orientation: landscape) {
   .portal-selection.portal-selection { padding: 12px 0; }
-  .portal-selection-heading.portal-selection-heading { margin-top: 52px; margin-bottom: 24px; font-size: 24px; }
+  .portal-selection-heading.portal-selection-heading { margin-top: 52px; margin-bottom: 20px; font-size: 24px; }
   .portal-selection-grid.portal-selection-grid { gap: 12px; }
-  .portal-selection-card.portal-selection-card { padding: 18px 12px 12px; }
-  .portal-selection-card-content.portal-selection-card-content > * + * { margin-top: 8px; }
-  .portal-selection-icon.portal-selection-icon { width: 48px; height: 48px; padding: 6px; }
+  .portal-selection-card.portal-selection-card { padding: 14px 10px 8px; }
+  .portal-selection-card-content.portal-selection-card-content > * + * { margin-top: 6px; }
+  .portal-selection-icon.portal-selection-icon { width: 40px; height: 40px; padding: 4px; }
   .portal-selection-icon.portal-selection-icon img,
   .portal-selection-icon.portal-selection-icon svg { width: 32px; height: 32px; }
   .portal-selection-card.portal-selection-card h2 { font-size: 16px; }
-  .portal-selection-card.portal-selection-card p { font-size: 12px; }
+  .portal-selection-card.portal-selection-card p { font-size: 12px; line-height: 1.25; }
+}
+
+@media (min-width: 768px) and (max-height: 560px) and (orientation: landscape) {
+  .portal-selection-heading.portal-selection-heading { font-size: 20px; margin-bottom: 18px; }
+  .portal-selection-card.portal-selection-card { padding: 16px 8px 8px; }
+  .portal-selection-card-content.portal-selection-card-content > * + * { margin-top: 6px; }
+  .portal-selection-icon.portal-selection-icon { width: 32px; height: 32px; }
+  .portal-selection-icon.portal-selection-icon img,
+  .portal-selection-icon.portal-selection-icon svg { width: 24px; height: 24px; }
+  .portal-selection-card.portal-selection-card p { display: none; }
+}
+
+@media (min-width: 768px) and (max-width: 850px) and (max-height: 740px) and (orientation: landscape) {
+  .portal-selection-card.portal-selection-card p { display: none; }
 }
 
 /* View-only documents (client-facing profiles): never printable. */
