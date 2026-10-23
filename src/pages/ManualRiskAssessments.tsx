@@ -4153,7 +4153,7 @@ function ClientAccountDialog({
     const all = selected.size === 0 ? [...source, ...mirrorRows] : source;
     if (!all.length) { toast.error("No rows to export"); return; }
     const wsData = [
-      ["Client", "Order #", "Submitted Date", "Sent Date", "First Name", "Surname", "ID Number", "Invoiced", "Invoice #", "Discount", "PTVS", "Source"],
+      ["Client", "Order #", "Submitted Date", "Sent Date", "First Name", "Surname", "ID Number", "Discount"],
       ...all.map((r) => [
         r.isMirror ? r.mirrorFrom ?? "" : clientName,
         r.orderNumber,
@@ -4162,11 +4162,9 @@ function ClientAccountDialog({
         r.firstName,
         r.surname,
         r.idNumber,
-        r.invoicedAt ? new Date(r.invoicedAt).toLocaleDateString() : "",
-        r.invoiceNumber ?? "",
-        r.isTldvInternal ? "100% (TLDV internal)" : "",
-        r.isPtvsDiscount ? "PTVS discount" : "",
-        r.isMirror ? "PTVS mirror (not counted)" : "Account check",
+        r.isTldvInternal
+          ? "Pre Employment report on record - 100% discount on Risk Assessment applies"
+          : "No Pre Employment on record - 100% discount on Risk Assessment does not apply",
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
