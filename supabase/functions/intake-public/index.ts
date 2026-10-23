@@ -2,6 +2,7 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { z } from 'npm:zod@3';
 import { LOGO_BASE64 } from './logo.ts';
+import { isSubmissionAccount } from './accountRules.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const ADMIN_CC = 'admin@tldv.co.za';
@@ -166,7 +167,7 @@ Deno.serve(async (req) => {
         .select('id, client_name')
         .order('client_name', { ascending: true });
       if (error) throw new Error(error.message);
-      return new Response(JSON.stringify({ clients: data ?? [] }), {
+      return new Response(JSON.stringify({ clients: (data ?? []).filter((c) => isSubmissionAccount(c.client_name)) }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -205,7 +206,7 @@ Deno.serve(async (req) => {
       .select('id, client_name')
       .eq('id', input.client_id)
       .single();
-    if (!client) {
+    if (!client || !isSubmissionAccount(client.client_name)) {
       return new Response(JSON.stringify({ error: 'Unknown store selected' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
