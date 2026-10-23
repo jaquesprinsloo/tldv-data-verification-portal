@@ -492,7 +492,7 @@ const AdminPortalDashboard = () => {
       </div>
 
       {/* Main Content - Portals */}
-      <div className={`min-h-screen flex items-center justify-center py-6 sm:py-8 pb-12 ${
+      <div className={`portal-selection min-h-screen flex items-center justify-center py-6 sm:py-8 pb-12 ${
         !hasSeenAnimation ? "transition-all duration-1000" : ""
       } ${isAnimating ? "opacity-0" : "opacity-100"}`}>
         <div className="container mx-auto px-3 sm:px-4 max-w-6xl relative">
@@ -527,7 +527,7 @@ const AdminPortalDashboard = () => {
             </button>
           </div>
           
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white text-center mb-6 sm:mb-8 md:mb-12 mt-12 sm:mt-8">
+          <h1 className="portal-selection-heading text-2xl sm:text-3xl md:text-4xl font-bold text-white text-center mb-6 sm:mb-8 md:mb-12 mt-12 sm:mt-8">
             {hasFullAccess ? "Master Profile - Portal Selection" : "Portal Selection"}
           </h1>
 
@@ -545,7 +545,7 @@ const AdminPortalDashboard = () => {
               </div>
             </div>
           ) : (
-          <div className={`grid grid-cols-1 sm:grid-cols-2 ${hasFullAccess ? 'xl:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-4 md:gap-6`}>
+          <div className="portal-selection-grid grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
             {orderedPortals.map((portal, index) => {
               const hasAccess = hasFullAccess || (!portal.requiresMasterAdmin && hasPermission(portal.permissionKey));
               
@@ -559,7 +559,7 @@ const AdminPortalDashboard = () => {
                   onDrop={(e) => handleDrop(e, index)}
                   onDragEnd={handleDragEnd}
                   onClick={() => handlePortalClick(portal)}
-                  className={`p-3 sm:p-5 md:p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-2 sm:border-[3px] ${
+                  className={`portal-selection-card p-3 sm:p-5 md:p-8 cursor-pointer transition-all duration-500 hover:scale-105 bg-black border-2 sm:border-[3px] ${
                     hasAccess 
                       ? 'border-red-600 hover:border-red-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.5)]' 
                       : 'border-gray-600 hover:border-gray-500'
@@ -584,15 +584,15 @@ const AdminPortalDashboard = () => {
                       <Lock className="w-3 h-3 sm:w-5 sm:h-5 text-gray-500" />
                     </div>
                   )}
-                  <div className="flex flex-col items-center text-center space-y-2 sm:space-y-3 md:space-y-4">
+                  <div className="portal-selection-card-content flex flex-col items-center text-center space-y-2 sm:space-y-3 md:space-y-4">
                     {portal.key === "candex-pre-screening" ? (
-                      <div className={`p-2 sm:p-3 md:p-4 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
+                      <div className={`portal-selection-icon p-2 sm:p-3 md:p-4 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
                         hasAccess ? 'bg-white border-red-600' : 'bg-gray-600/30 border-gray-600'
                       }`}>
                         <img src={preapplicheckLogo} alt="PreAppliCheck" className="w-14 h-14 sm:w-20 sm:h-20 md:w-28 md:h-28 object-contain" />
                       </div>
                     ) : (
-                      <div className={`p-3 sm:p-4 md:p-6 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
+                      <div className={`portal-selection-icon p-3 sm:p-4 md:p-6 rounded-full border-2 shadow-[0_0_20px_rgba(239,68,68,0.4)] ${
                         hasAccess 
                           ? 'bg-red-600/30 border-red-600' 
                           : 'bg-gray-600/30 border-gray-600'
