@@ -38,6 +38,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RecipientPicker, ClientAddressBookDialog, type MrRecipient } from "@/components/manual-risk/AddressBook";
 import { AddressBookTab } from "@/components/manual-risk/AddressBookTab";
 import IntakeTab from "@/components/manual-risk/IntakeTab";
+import { AddAccountDialog } from "@/components/manual-risk/AddAccountDialog";
+import { includeInvoicedAccountChecks } from "../../supabase/functions/intake-public/accountRules";
 import { MrDashboardTab } from "@/components/manual-risk/MrDashboardTab";
 import SupplierReconTab from "@/components/manual-risk/SupplierReconTab";
 import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk/MrInvoicedTab";
@@ -432,6 +434,7 @@ export default function ManualRiskAssessments() {
   // Client-facing profiles get a read-only view: no costing, no invoicing,
   // no supplier reports and no ability to create or change submissions.
   const [clientFacing, setClientFacing] = useState(false);
+  const [addAccountOpen, setAddAccountOpen] = useState(false);
   const [isMasterAdmin, setIsMasterAdmin] = useState(false);
 
 
@@ -521,12 +524,16 @@ export default function ManualRiskAssessments() {
         qc.invalidateQueries({ queryKey: ["mra-client-dash-cands"], refetchType: "active" });
         qc.invalidateQueries({ queryKey: ["mra-employee-check-records"], refetchType: "active" });
         qc.invalidateQueries({ queryKey: ["mra-candidates"], refetchType: "active" });
+        qc.invalidateQueries({ queryKey: ["mra-clients"], refetchType: "active" });
+        qc.invalidateQueries({ queryKey: ["mra-accounts-all-cands"], refetchType: "active" });
+        qc.invalidateQueries({ queryKey: ["mra-account-cands"], refetchType: "active" });
       }, 3000);
     };
     const channel = supabase
       .channel("mra-page-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_submissions" }, bump)
       .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_candidates" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "manual_risk_clients" }, bump)
       .subscribe();
     return () => { if (timer) clearTimeout(timer); supabase.removeChannel(channel); };
   }, [allowed, qc]);
@@ -735,7 +742,7 @@ export default function ManualRiskAssessments() {
           <div className="flex items-center gap-3 mb-1">
             <ClipboardList className="h-6 w-6 text-red-600" />
             <h1 className="text-2xl font-bold tracking-tight">Risk Assessments</h1>
-            <Badge variant="outline" className="border-slate-300 text-slate-600">View only</Badge>
+            <Button variant="outline" className="ml-auto" onClick={() => setAddAccountOpen(true)}><Plus className="mr-2 h-4 w-4" />Add account</Button>
           </div>
           <p className="text-sm text-muted-foreground mb-6">
             Screening overview, account search, released reports and indemnities. Every sign in,
@@ -745,7 +752,7 @@ export default function ManualRiskAssessments() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList>
               <TabsTrigger value="dashboard"><LayoutDashboard className="h-4 w-4 mr-2" />Dashboard</TabsTrigger>
-              <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />In Progress</TabsTrigger>
+              <TabsTrigger value="submissions"><FileText className="h-4 w-4 mr-2" />Pending</TabsTrigger>
               <TabsTrigger value="accounts"><Users className="h-4 w-4 mr-2" />Accounts</TabsTrigger>
               <TabsTrigger value="employee-check"><FileSpreadsheet className="h-4 w-4 mr-2" />Employee Check</TabsTrigger>
 
@@ -813,6 +820,9 @@ export default function ManualRiskAssessments() {
           </Tabs>
 
         </main>
+        <AddAccountDialog open={addAccountOpen} onOpenChange={setAddAccountOpen} onCreated={() => {
+          void qc.invalidateQueries({ queryKey: ["mra-clients"] });
+        }} />
       </div>
     );
   }
@@ -3362,14 +3372,14 @@ function AccountsTab({
   // checks (per-candidate) and honor override_client_id when grouping them.
   // Invoiced checks live in the Invoiced tab and must not appear here.
   const { data: allCandidates = [] } = useQuery<Candidate[]>({
-    queryKey: ["mra-accounts-all-cands", liveSubIds.join(",")],
+    queryKey: ["mra-accounts-all-cands", liveSubIds.join(","), clientFacing],
     enabled: liveSubIds.length > 0,
     queryFn: async () => {
       const all: Candidate[] = [];
       for (let from = 0; ; from += 1000) {
-        const { data, error } = await sb.from("manual_risk_candidates")
-          .select("*").in("submission_id", liveSubIds).is("invoice_batch_id", null)
-          .range(from, from + 999);
+        let query = sb.from("manual_risk_candidates").select("*").in("submission_id", liveSubIds);
+        if (!includeInvoicedAccountChecks(clientFacing)) query = query.is("invoice_batch_id", null);
+        const { data, error } = await query.range(from, from + 999);
         if (error) throw error;
         all.push(...((data ?? []) as Candidate[]));
         if (!data || data.length < 1000) break;
@@ -3877,18 +3887,16 @@ function ClientAccountDialog({
   // and (b) those moved into this account via override_client_id from other subs.
   const ownSubIds = useMemo(() => ownSubs.map((s) => s.id), [ownSubs]);
   const { data: candidates = [] } = useQuery<Candidate[]>({
-    queryKey: ["mra-account-cands", groupKey, ownSubIds.join(",")],
+    queryKey: ["mra-account-cands", groupKey, ownSubIds.join(","), clientFacing],
     queryFn: async () => {
       // Own submissions' candidates (paged — a historical account can hold well
       // over the 1000-row single-request cap).
       const own: Candidate[] = [];
       if (ownSubIds.length > 0) {
         for (let from = 0; ; from += 1000) {
-          const { data, error } = await sb.from("manual_risk_candidates")
-            .select("*").in("submission_id", ownSubIds)
-            .is("invoice_batch_id", null)
-            .order("sort_order", { ascending: true })
-            .range(from, from + 999);
+          let query = sb.from("manual_risk_candidates").select("*").in("submission_id", ownSubIds);
+          if (!includeInvoicedAccountChecks(clientFacing)) query = query.is("invoice_batch_id", null);
+          const { data, error } = await query.order("sort_order", { ascending: true }).range(from, from + 999);
           if (error) throw error;
           own.push(...((data ?? []) as Candidate[]));
           if (!data || data.length < 1000) break;
@@ -3897,9 +3905,9 @@ function ClientAccountDialog({
       // Candidates moved INTO this account from other submissions.
       let moved: Candidate[] = [];
       if (groupKey !== "__unassigned__") {
-        const { data, error } = await sb.from("manual_risk_candidates")
-          .select("*").eq("override_client_id", groupKey)
-          .is("invoice_batch_id", null);
+        let query = sb.from("manual_risk_candidates").select("*").eq("override_client_id", groupKey);
+        if (!includeInvoicedAccountChecks(clientFacing)) query = query.is("invoice_batch_id", null);
+        const { data, error } = await query;
         if (error) throw error;
         moved = data as Candidate[];
       }

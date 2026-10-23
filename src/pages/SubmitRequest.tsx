@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle2, ChevronLeft, ChevronRight, FileUp, Loader2, Trash2, Users } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, FileUp, Loader2, Trash2, Users, Search, Plus } from "lucide-react";
+import { AddAccountDialog } from "@/components/manual-risk/AddAccountDialog";
+import { isSubmissionAccount } from "../../supabase/functions/intake-public/accountRules";
 import preApplicheckLogo from "@/assets/preapplicheck-logo-mark.png";
 import { parseSaId, parseBatchCsv, storeSlug, type IntakeCandidate } from "@/components/manual-risk/intakeLogic";
 
@@ -28,6 +30,18 @@ export default function SubmitRequest() {
   const navigate = useNavigate();
 
   const [stores, setStores] = useState<Store[]>([]);
+  const [accountSearch, setAccountSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [addAccountOpen, setAddAccountOpen] = useState(false);
+  const [canAddAccount, setCanAddAccount] = useState(false);
+  useEffect(() => {
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+      setCanAddAccount((data ?? []).some((r) => r.role === "client_facing" || r.role === "master_admin"));
+    })();
+  }, []);
   const [storeChosen, setStoreChosen] = useState<string>("");
   const [storesLoading, setStoresLoading] = useState(true);
   const [storesError, setStoresError] = useState<string | null>(null);
@@ -52,7 +66,7 @@ export default function SubmitRequest() {
       try {
         const { data, error } = await supabase.functions.invoke("intake-public", { body: { action: "directory" } });
         if (error) throw error;
-        const list: Store[] = data?.clients ?? [];
+        const list: Store[] = (data?.clients ?? []).filter((s: Store) => isSubmissionAccount(s.client_name));
         setStores(list);
         // Preselect via ?store=<slug> or ?client=<uuid>
         const params = new URLSearchParams(search);
@@ -280,28 +294,38 @@ export default function SubmitRequest() {
                 </p>
               </div>
               {storesError && <p className="text-sm text-red-600">{storesError}</p>}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => setSearchOpen((value) => !value)}><Search className="mr-2 h-4 w-4" />Search accounts</Button>
+                {canAddAccount && <Button onClick={() => setAddAccountOpen(true)}><Plus className="mr-2 h-4 w-4" />Add account</Button>}
+              </div>
+              {searchOpen && <Input autoFocus aria-label="Search accounts" placeholder="Search account name" className="min-h-11 text-base" value={accountSearch} onChange={(e) => setAccountSearch(e.target.value)} />}
               {storesLoading ? (
                 <div className="flex items-center justify-center py-8 text-muted-foreground">
                   <Loader2 className="h-5 w-5 mr-2 animate-spin" /> Loading stores…
                 </div>
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {stores.map((s) => (
-                    <button
+                  {stores.filter((s) => s.client_name.toLowerCase().includes(accountSearch.trim().toLowerCase())).map((s) => (
+                    <Button variant="outline"
                       key={s.id}
                       onClick={() => { setStoreChosen(s.id); setStep(2); }}
-                      className={`min-h-[44px] rounded-lg border px-4 py-3 text-left text-sm transition-colors ${storeChosen === s.id ? "border-red-600 bg-red-50 font-medium" : "hover:border-red-300 hover:bg-muted/50"}`}
+                      className={`min-h-11 h-auto justify-start whitespace-normal px-4 py-3 text-left ${storeChosen === s.id ? "border-primary bg-accent font-medium" : ""}`}
                     >
                       {s.client_name}
-                    </button>
+                    </Button>
                   ))}
                   {stores.length === 0 && <p className="text-sm text-muted-foreground">No stores are currently loaded.</p>}
+                  {stores.length > 0 && !stores.some((s) => s.client_name.toLowerCase().includes(accountSearch.trim().toLowerCase())) && <p className="text-sm text-muted-foreground">No accounts match your search.</p>}
                 </div>
               )}
             </CardContent>
           </Card>
         )}
 
+        <AddAccountDialog open={addAccountOpen} onOpenChange={setAddAccountOpen} onCreated={(account) => {
+          setStores((list) => [...list, account].sort((a, b) => a.client_name.localeCompare(b.client_name)));
+          setStoreChosen(account.id); setAccountSearch(""); setStep(2);
+        }} />
         {/* Step 2: submitter */}
         {step === 2 && (
           <Card>
