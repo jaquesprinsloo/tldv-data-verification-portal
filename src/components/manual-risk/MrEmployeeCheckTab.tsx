@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Upload, FileSpreadsheet, CheckCircle2, XCircle, Download, Loader2, Search } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle2, XCircle, Download, Loader2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -68,7 +68,7 @@ export function MrEmployeeCheckTab({
   const [busy, setBusy] = useState(false);
   const [fileName, setFileName] = useState("");
   const [search, setSearch] = useState("");
-  const [shown, setShown] = useState(100);
+  const [peoplePage, setPeoplePage] = useState(0);
 
 
 
@@ -309,6 +309,11 @@ export function MrEmployeeCheckTab({
     });
   }, [records, search, clientById]);
 
+  const peoplePageCount = Math.max(1, Math.ceil(people.length / 10));
+  const currentPeoplePage = Math.min(peoplePage, peoplePageCount - 1);
+  const visiblePeople = people.slice(currentPeoplePage * 10, (currentPeoplePage + 1) * 10);
+  const selectablePeople = visiblePeople.filter((r) => r.sub?.sent_at);
+
   const downloadPeople = () => {
     const header = ["First name", "Surname", "ID number", "Passport number", "Account", "Order", "Screened on"];
     const csv = [header, ...people.map((r) => [
@@ -341,9 +346,9 @@ export function MrEmployeeCheckTab({
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <Input
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setShown(100); logSearch(e.target.value); }}
+            onChange={(e) => { setSearch(e.target.value); setPeoplePage(0); logSearch(e.target.value); }}
             placeholder="Search name, surname, ID number or passport number"
-            className="max-w-md"
+            className="max-w-md min-h-11 text-base"
           />
           <Badge variant="outline">{people.length} of {records.length} person(s)</Badge>
           <Button variant="outline" onClick={downloadPeople} disabled={!people.length}>
@@ -370,7 +375,7 @@ export function MrEmployeeCheckTab({
             )}
           >
             <Download className="h-4 w-4 mr-2" />
-            {busyKey === "people-all" ? "Preparing…" : "Download all shown"}
+            {busyKey === "people-all" ? "Preparing…" : "Download all results"}
           </Button>
         </div>
         {isLoading ? (
@@ -379,16 +384,20 @@ export function MrEmployeeCheckTab({
           </p>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="max-h-80 overflow-auto" role="region" aria-label="Screening records" tabIndex={0}>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10">
                       <Checkbox
-                        checked={pickedPeople.size > 0 && people.slice(0, shown).every((r) => pickedPeople.has(r.id))}
-                        onCheckedChange={(v) => setPickedPeople(
-                          v ? new Set(people.slice(0, shown).map((r) => r.id)) : new Set(),
-                        )}
+                        aria-label="Select this page"
+                        disabled={!selectablePeople.length}
+                        checked={selectablePeople.length > 0 && selectablePeople.every((r) => pickedPeople.has(r.id))}
+                        onCheckedChange={(v) => setPickedPeople((previous) => {
+                          const next = new Set(previous);
+                          selectablePeople.forEach((r) => { if (v) next.add(r.id); else next.delete(r.id); });
+                          return next;
+                        })}
                       />
                     </TableHead>
                     <TableHead>First name</TableHead>
@@ -408,7 +417,7 @@ export function MrEmployeeCheckTab({
                         Nobody on record matches that search.
                       </TableCell>
                     </TableRow>
-                  ) : people.slice(0, shown).map((r) => (
+                  ) : visiblePeople.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell>
                         <Checkbox
@@ -448,13 +457,20 @@ export function MrEmployeeCheckTab({
                 </TableBody>
               </Table>
             </div>
-            {people.length > shown && (
-              <div className="pt-3">
-                <Button variant="outline" onClick={() => setShown((n) => n + 200)}>
-                  Show more ({people.length - shown} left)
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3">
+              <span className="text-sm text-muted-foreground" aria-live="polite">
+                {people.length ? `${currentPeoplePage * 10 + 1}–${currentPeoplePage * 10 + visiblePeople.length} of ${people.length}` : "0 results"}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" className="min-h-11 min-w-11" title="Previous page" aria-label="Previous records page" disabled={currentPeoplePage === 0} onClick={() => setPeoplePage(currentPeoplePage - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm">Page {currentPeoplePage + 1} of {peoplePageCount}</span>
+                <Button variant="outline" size="icon" className="min-h-11 min-w-11" title="Next page" aria-label="Next records page" disabled={currentPeoplePage + 1 >= peoplePageCount} onClick={() => setPeoplePage(currentPeoplePage + 1)}>
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
-            )}
+            </div>
           </>
         )}
       </Card>
