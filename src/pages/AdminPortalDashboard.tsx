@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { logIfClientFacing } from "@/lib/clientAudit";
+import { signOutImmediately } from "@/lib/portalSignOut";
 import { Card } from "@/components/ui/card";
 import { FileText, Users, ClipboardCheck, Lock, FileCheck, GripVertical, ShieldCheck, Bug, ClipboardList, Radio } from "lucide-react";
 import { PermissionKey } from "@/hooks/usePermissions";
@@ -301,15 +302,13 @@ const AdminPortalDashboard = () => {
 
   const handleSignOut = async () => {
     setIsExiting(true);
-    sessionStorage.removeItem('portal_animation_played');
-    sessionStorage.removeItem('user_is_master_admin');
-    sessionStorage.removeItem('user_display_name');
-    
-    setTimeout(async () => {
-      await logIfClientFacing("logout", "Signed out of the portal");
-      await supabase.auth.signOut();
-      navigate("/admin/login");
-    }, 2000);
+    // Audit is best-effort and must never postpone removal of credentials.
+    void logIfClientFacing("logout", "Signed out of the portal");
+    try {
+      await signOutImmediately();
+    } finally {
+      navigate("/admin/login", { replace: true });
+    }
   };
 
   // Only block on auth + portal init. Don't block on permissions — cards render with lock icons until access resolves.
@@ -521,6 +520,7 @@ const AdminPortalDashboard = () => {
             </button>
             <button
               onClick={handleSignOut}
+              disabled={isExiting}
               className="px-3 sm:px-6 py-2 sm:py-3 text-sm sm:text-base bg-red-600/20 border-2 border-red-600 text-white rounded-lg hover:bg-red-600/40 hover:shadow-[0_0_20px_rgba(239,68,68,0.6)] transition-all duration-300"
             >
               Sign Out
