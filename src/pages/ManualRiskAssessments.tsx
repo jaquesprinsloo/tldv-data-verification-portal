@@ -5053,8 +5053,8 @@ function ClientFolderSyncCard({
     setProgress({ done: targets.length, total: targets.length, current: "" });
     setRunning(false);
     qc.invalidateQueries({ queryKey: ["mra-submissions"] });
-    if (failed) toast.warning(`Client folder sync finished: ${ok} copied, ${failed} failed`);
-    else toast.success(`Client folder sync finished: ${ok} file(s) copied`);
+    if (failed) toast.warning(`OneDrive sync finished: ${ok} copied, ${failed} failed`);
+    else toast.success(`OneDrive sync finished: ${ok} file(s) copied`);
   };
 
   const outstanding = pending.reports + pending.sharedReports + pending.indemnities + pending.sharedIndemnities;
@@ -5077,7 +5077,7 @@ function ClientFolderSyncCard({
         </div>
         <Button size="sm" variant="outline" onClick={run} disabled={running || outstanding === 0}>
           {running ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-          Copy existing submissions to client folders
+          Copy missing files to OneDrive
         </Button>
       </div>
       {log.length > 0 && (
