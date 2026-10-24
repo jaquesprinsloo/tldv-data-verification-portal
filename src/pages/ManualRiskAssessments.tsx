@@ -4967,23 +4967,42 @@ function ClientFolderSyncCard({
       setProgress({ done: i, total: targets.length, current: s.order_number });
       const update: Record<string, any> = {};
 
-      // Indemnities
+      // Indemnities — each file should exist in both the internal and the
+      // client-shared OneDrive folders; copy whichever side is missing.
       const files = (s.indemnity_files ?? []) as IndemnityFile[];
       let filesChanged = false;
       const nextFiles: IndemnityFile[] = [];
       for (const f of files) {
-        if (f.shared_onedrive_item_id) { nextFiles.push(f); continue; }
+        if (f.onedrive_item_id && f.shared_onedrive_item_id) { nextFiles.push(f); continue; }
         try {
           const { data, error } = await supabase.storage.from("manual-risk-indemnities").download(f.path);
           if (error || !data) throw error ?? new Error("Download failed");
-          const od = await uploadToOneDrive({
-            fileName: f.name, base64: await blobToBase64(data),
-            contentType: f.content_type || "application/pdf",
-            clientName: client?.client_name, orderNumber: s.order_number,
-            kind: "indemnity", shared: true,
-          });
-          nextFiles.push({ ...f, shared_onedrive_web_url: od.webUrl, shared_onedrive_item_id: od.itemId });
-          filesChanged = true; ok++;
+          const base64 = await blobToBase64(data);
+          const next = { ...f };
+          if (!next.onedrive_item_id) {
+            const od = await uploadToOneDrive({
+              fileName: f.name, base64,
+              contentType: f.content_type || "application/pdf",
+              clientName: client?.client_name, orderNumber: s.order_number,
+              kind: "indemnity",
+            });
+            next.onedrive_web_url = od.webUrl;
+            next.onedrive_item_id = od.itemId;
+            ok++;
+          }
+          if (!next.shared_onedrive_item_id) {
+            const od = await uploadToOneDrive({
+              fileName: f.name, base64,
+              contentType: f.content_type || "application/pdf",
+              clientName: client?.client_name, orderNumber: s.order_number,
+              kind: "indemnity", shared: true,
+            });
+            next.shared_onedrive_web_url = od.webUrl;
+            next.shared_onedrive_item_id = od.itemId;
+            ok++;
+          }
+          nextFiles.push(next);
+          filesChanged = true;
         } catch (e) {
           failed++; nextFiles.push(f);
           setLog((l) => [...l, `${s.order_number} — indemnity "${f.name}": ${(e as Error).message}`]);
@@ -4991,20 +5010,35 @@ function ClientFolderSyncCard({
       }
       if (filesChanged) update.indemnity_files = nextFiles;
 
-      // Background report (only for submissions that were sent to the client)
-      if (s.sent_at && !s.report_shared_onedrive_item_id) {
+      // Background report (only for submissions that were sent to the client) —
+      // copy whichever side (internal / client-shared) is missing.
+      if (s.sent_at && (!s.report_onedrive_item_id || !s.report_shared_onedrive_item_id)) {
         try {
           const { blob } = await buildSentReportBlob(s.id, clients, userName, { encrypted: true });
-          const od = await uploadToOneDrive({
-            fileName: `PreAppliCheck-Report-${s.order_number}.pdf`,
-            base64: await blobToBase64(blob), contentType: "application/pdf",
-            clientName: client?.client_name, orderNumber: s.order_number,
-            kind: "report", shared: true,
-          });
-          update.report_shared_onedrive_web_url = od.webUrl;
-          update.report_shared_onedrive_item_id = od.itemId;
-          update.report_shared_onedrive_path = od.fullPath;
-          ok++;
+          const base64 = await blobToBase64(blob);
+          const fileName = `PreAppliCheck-Report-${s.order_number}.pdf`;
+          if (!s.report_onedrive_item_id) {
+            const od = await uploadToOneDrive({
+              fileName, base64, contentType: "application/pdf",
+              clientName: client?.client_name, orderNumber: s.order_number,
+              kind: "report",
+            });
+            update.report_onedrive_web_url = od.webUrl;
+            update.report_onedrive_item_id = od.itemId;
+            update.report_onedrive_path = od.fullPath;
+            ok++;
+          }
+          if (!s.report_shared_onedrive_item_id) {
+            const od = await uploadToOneDrive({
+              fileName, base64, contentType: "application/pdf",
+              clientName: client?.client_name, orderNumber: s.order_number,
+              kind: "report", shared: true,
+            });
+            update.report_shared_onedrive_web_url = od.webUrl;
+            update.report_shared_onedrive_item_id = od.itemId;
+            update.report_shared_onedrive_path = od.fullPath;
+            ok++;
+          }
         } catch (e) {
           failed++;
           setLog((l) => [...l, `${s.order_number} — report: ${(e as Error).message}`]);
