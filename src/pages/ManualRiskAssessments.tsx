@@ -4936,22 +4936,27 @@ function ClientFolderSyncCard({
   };
 
   const pending = useMemo(() => {
-    let reports = 0, indemnities = 0;
+    let reports = 0, sharedReports = 0, indemnities = 0, sharedIndemnities = 0;
     for (const s of submissions) {
-      if (s.sent_at && !s.report_shared_onedrive_item_id) reports++;
-      for (const f of (s.indemnity_files ?? [])) if (!f.shared_onedrive_item_id) indemnities++;
+      if (s.sent_at && !s.report_onedrive_item_id) reports++;
+      if (s.sent_at && !s.report_shared_onedrive_item_id) sharedReports++;
+      for (const f of (s.indemnity_files ?? [])) {
+        if (!f.onedrive_item_id) indemnities++;
+        if (!f.shared_onedrive_item_id) sharedIndemnities++;
+      }
     }
-    return { reports, indemnities };
+    return { reports, sharedReports, indemnities, sharedIndemnities };
   }, [submissions]);
 
   const run = async () => {
     if (sharedSync.running) { toast.info("A copy is already running"); return; }
     const targets = submissions.filter((s) =>
-      (s.sent_at && !s.report_shared_onedrive_item_id) ||
-      (s.indemnity_files ?? []).some((f) => !f.shared_onedrive_item_id),
+      (s.sent_at && (!s.report_onedrive_item_id || !s.report_shared_onedrive_item_id)) ||
+      (s.indemnity_files ?? []).some((f) => !f.onedrive_item_id || !f.shared_onedrive_item_id),
     );
-    if (!targets.length) { toast.info("Client folders are already up to date"); return; }
-    if (!confirm(`Copy ${pending.reports} report(s) and ${pending.indemnities} indemnity file(s) into the client-shared OneDrive folders?`)) return;
+    if (!targets.length) { toast.info("Everything is already on OneDrive"); return; }
+    const total = pending.reports + pending.sharedReports + pending.indemnities + pending.sharedIndemnities;
+    if (!confirm(`Copy ${total} missing file(s) to OneDrive (internal and client-shared folders)?`)) return;
 
     setRunning(true); setLog([]);
     let ok = 0, failed = 0;
