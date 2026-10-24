@@ -5057,17 +5057,17 @@ function ClientFolderSyncCard({
     else toast.success(`Client folder sync finished: ${ok} file(s) copied`);
   };
 
-  const outstanding = pending.reports + pending.indemnities;
+  const outstanding = pending.reports + pending.sharedReports + pending.indemnities + pending.sharedIndemnities;
   return (
     <Card className="p-4 mb-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-semibold text-sm">Client-shared OneDrive folders</p>
+          <p className="font-semibold text-sm">OneDrive sync check</p>
           <p className="text-xs text-muted-foreground">
-            PreAppliCheck / ClientShared / [Client] / [Order] — background report + indemnities only (no supplier reports).
+            Every released report and every indemnity should exist on OneDrive twice — in the internal folder and in the client-shared folder.
             {outstanding > 0
-              ? ` ${pending.reports} report(s) and ${pending.indemnities} indemnity file(s) still to copy.`
-              : " All submissions are synced."}
+              ? ` ${outstanding} file(s) still to copy (${pending.reports + pending.sharedReports} report copies, ${pending.indemnities + pending.sharedIndemnities} indemnity copies).`
+              : " All submissions are fully synced to OneDrive."}
           </p>
           {progress && (
             <p className="text-xs mt-1">
