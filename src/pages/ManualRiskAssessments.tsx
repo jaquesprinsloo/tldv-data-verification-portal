@@ -4936,22 +4936,27 @@ function ClientFolderSyncCard({
   };
 
   const pending = useMemo(() => {
-    let reports = 0, indemnities = 0;
+    let reports = 0, sharedReports = 0, indemnities = 0, sharedIndemnities = 0;
     for (const s of submissions) {
-      if (s.sent_at && !s.report_shared_onedrive_item_id) reports++;
-      for (const f of (s.indemnity_files ?? [])) if (!f.shared_onedrive_item_id) indemnities++;
+      if (s.sent_at && !s.report_onedrive_item_id) reports++;
+      if (s.sent_at && !s.report_shared_onedrive_item_id) sharedReports++;
+      for (const f of (s.indemnity_files ?? [])) {
+        if (!f.onedrive_item_id) indemnities++;
+        if (!f.shared_onedrive_item_id) sharedIndemnities++;
+      }
     }
-    return { reports, indemnities };
+    return { reports, sharedReports, indemnities, sharedIndemnities };
   }, [submissions]);
 
   const run = async () => {
     if (sharedSync.running) { toast.info("A copy is already running"); return; }
     const targets = submissions.filter((s) =>
-      (s.sent_at && !s.report_shared_onedrive_item_id) ||
-      (s.indemnity_files ?? []).some((f) => !f.shared_onedrive_item_id),
+      (s.sent_at && (!s.report_onedrive_item_id || !s.report_shared_onedrive_item_id)) ||
+      (s.indemnity_files ?? []).some((f) => !f.onedrive_item_id || !f.shared_onedrive_item_id),
     );
-    if (!targets.length) { toast.info("Client folders are already up to date"); return; }
-    if (!confirm(`Copy ${pending.reports} report(s) and ${pending.indemnities} indemnity file(s) into the client-shared OneDrive folders?`)) return;
+    if (!targets.length) { toast.info("Everything is already on OneDrive"); return; }
+    const total = pending.reports + pending.sharedReports + pending.indemnities + pending.sharedIndemnities;
+    if (!confirm(`Copy ${total} missing file(s) to OneDrive (internal and client-shared folders)?`)) return;
 
     setRunning(true); setLog([]);
     let ok = 0, failed = 0;
@@ -4962,23 +4967,42 @@ function ClientFolderSyncCard({
       setProgress({ done: i, total: targets.length, current: s.order_number });
       const update: Record<string, any> = {};
 
-      // Indemnities
+      // Indemnities — each file should exist in both the internal and the
+      // client-shared OneDrive folders; copy whichever side is missing.
       const files = (s.indemnity_files ?? []) as IndemnityFile[];
       let filesChanged = false;
       const nextFiles: IndemnityFile[] = [];
       for (const f of files) {
-        if (f.shared_onedrive_item_id) { nextFiles.push(f); continue; }
+        if (f.onedrive_item_id && f.shared_onedrive_item_id) { nextFiles.push(f); continue; }
         try {
           const { data, error } = await supabase.storage.from("manual-risk-indemnities").download(f.path);
           if (error || !data) throw error ?? new Error("Download failed");
-          const od = await uploadToOneDrive({
-            fileName: f.name, base64: await blobToBase64(data),
-            contentType: f.content_type || "application/pdf",
-            clientName: client?.client_name, orderNumber: s.order_number,
-            kind: "indemnity", shared: true,
-          });
-          nextFiles.push({ ...f, shared_onedrive_web_url: od.webUrl, shared_onedrive_item_id: od.itemId });
-          filesChanged = true; ok++;
+          const base64 = await blobToBase64(data);
+          const next = { ...f };
+          if (!next.onedrive_item_id) {
+            const od = await uploadToOneDrive({
+              fileName: f.name, base64,
+              contentType: f.content_type || "application/pdf",
+              clientName: client?.client_name, orderNumber: s.order_number,
+              kind: "indemnity",
+            });
+            next.onedrive_web_url = od.webUrl;
+            next.onedrive_item_id = od.itemId;
+            ok++;
+          }
+          if (!next.shared_onedrive_item_id) {
+            const od = await uploadToOneDrive({
+              fileName: f.name, base64,
+              contentType: f.content_type || "application/pdf",
+              clientName: client?.client_name, orderNumber: s.order_number,
+              kind: "indemnity", shared: true,
+            });
+            next.shared_onedrive_web_url = od.webUrl;
+            next.shared_onedrive_item_id = od.itemId;
+            ok++;
+          }
+          nextFiles.push(next);
+          filesChanged = true;
         } catch (e) {
           failed++; nextFiles.push(f);
           setLog((l) => [...l, `${s.order_number} — indemnity "${f.name}": ${(e as Error).message}`]);
@@ -4986,20 +5010,35 @@ function ClientFolderSyncCard({
       }
       if (filesChanged) update.indemnity_files = nextFiles;
 
-      // Background report (only for submissions that were sent to the client)
-      if (s.sent_at && !s.report_shared_onedrive_item_id) {
+      // Background report (only for submissions that were sent to the client) —
+      // copy whichever side (internal / client-shared) is missing.
+      if (s.sent_at && (!s.report_onedrive_item_id || !s.report_shared_onedrive_item_id)) {
         try {
           const { blob } = await buildSentReportBlob(s.id, clients, userName, { encrypted: true });
-          const od = await uploadToOneDrive({
-            fileName: `PreAppliCheck-Report-${s.order_number}.pdf`,
-            base64: await blobToBase64(blob), contentType: "application/pdf",
-            clientName: client?.client_name, orderNumber: s.order_number,
-            kind: "report", shared: true,
-          });
-          update.report_shared_onedrive_web_url = od.webUrl;
-          update.report_shared_onedrive_item_id = od.itemId;
-          update.report_shared_onedrive_path = od.fullPath;
-          ok++;
+          const base64 = await blobToBase64(blob);
+          const fileName = `PreAppliCheck-Report-${s.order_number}.pdf`;
+          if (!s.report_onedrive_item_id) {
+            const od = await uploadToOneDrive({
+              fileName, base64, contentType: "application/pdf",
+              clientName: client?.client_name, orderNumber: s.order_number,
+              kind: "report",
+            });
+            update.report_onedrive_web_url = od.webUrl;
+            update.report_onedrive_item_id = od.itemId;
+            update.report_onedrive_path = od.fullPath;
+            ok++;
+          }
+          if (!s.report_shared_onedrive_item_id) {
+            const od = await uploadToOneDrive({
+              fileName, base64, contentType: "application/pdf",
+              clientName: client?.client_name, orderNumber: s.order_number,
+              kind: "report", shared: true,
+            });
+            update.report_shared_onedrive_web_url = od.webUrl;
+            update.report_shared_onedrive_item_id = od.itemId;
+            update.report_shared_onedrive_path = od.fullPath;
+            ok++;
+          }
         } catch (e) {
           failed++;
           setLog((l) => [...l, `${s.order_number} — report: ${(e as Error).message}`]);
@@ -5014,21 +5053,21 @@ function ClientFolderSyncCard({
     setProgress({ done: targets.length, total: targets.length, current: "" });
     setRunning(false);
     qc.invalidateQueries({ queryKey: ["mra-submissions"] });
-    if (failed) toast.warning(`Client folder sync finished: ${ok} copied, ${failed} failed`);
-    else toast.success(`Client folder sync finished: ${ok} file(s) copied`);
+    if (failed) toast.warning(`OneDrive sync finished: ${ok} copied, ${failed} failed`);
+    else toast.success(`OneDrive sync finished: ${ok} file(s) copied`);
   };
 
-  const outstanding = pending.reports + pending.indemnities;
+  const outstanding = pending.reports + pending.sharedReports + pending.indemnities + pending.sharedIndemnities;
   return (
     <Card className="p-4 mb-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-semibold text-sm">Client-shared OneDrive folders</p>
+          <p className="font-semibold text-sm">OneDrive sync check</p>
           <p className="text-xs text-muted-foreground">
-            PreAppliCheck / ClientShared / [Client] / [Order] — background report + indemnities only (no supplier reports).
+            Every released report and every indemnity should exist on OneDrive twice — in the internal folder and in the client-shared folder.
             {outstanding > 0
-              ? ` ${pending.reports} report(s) and ${pending.indemnities} indemnity file(s) still to copy.`
-              : " All submissions are synced."}
+              ? ` ${outstanding} file(s) still to copy (${pending.reports + pending.sharedReports} report copies, ${pending.indemnities + pending.sharedIndemnities} indemnity copies).`
+              : " All submissions are fully synced to OneDrive."}
           </p>
           {progress && (
             <p className="text-xs mt-1">
@@ -5038,7 +5077,7 @@ function ClientFolderSyncCard({
         </div>
         <Button size="sm" variant="outline" onClick={run} disabled={running || outstanding === 0}>
           {running ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-          Copy existing submissions to client folders
+          Copy missing files to OneDrive
         </Button>
       </div>
       {log.length > 0 && (
