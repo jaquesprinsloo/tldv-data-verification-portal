@@ -12,6 +12,7 @@ import {
 import { CHECK_META, isPlaceholderCandidate } from "@/lib/manualRiskPdf";
 import { usePricing, priceMap, candidateBilling, money } from "@/components/manual-risk/pricing";
 import { BarChart3, Percent, FileText, Users, Link2, TrendingUp } from "lucide-react";
+import { readAllPages } from "@/lib/paginatedRead";
 
 const sb = supabase as any;
 
@@ -86,38 +87,33 @@ export function MrDashboardTab({
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  const { data: candidates = [], isLoading } = useQuery<Cand[]>({
+  const { data: candidates = [], isLoading, isError: candidatesError } = useQuery<Cand[]>({
     queryKey: ["mra-dashboard-cands"],
     queryFn: async () => {
       // Page through all rows — PostgREST caps a single select at 1000 rows.
       const cols = "id, submission_id, override_client_id, invoice_batch_id, is_tldv_internal, is_ptvs_discount, id_number, surname, first_name";
-      const all: Cand[] = [];
-      for (let from = 0; ; from += 1000) {
-        const { data, error } = await sb
+      const all = await readAllPages<Cand>((from, to) => sb
           .from("manual_risk_candidates")
           .select(cols)
-          .range(from, from + 999);
-        if (error) throw error;
-        all.push(...((data ?? []) as Cand[]));
-        if (!data || data.length < 1000) break;
-      }
+          .order("id", { ascending: true })
+          .range(from, to));
       return all.filter((c) => !isPlaceholderCandidate(c as any));
     },
   });
 
   // Supplier statement lines (reconciliation)
-  const { data: reconLines = [] } = useQuery<{ matched_candidate_id: string | null; check_key: string | null; match_status: string; supplier_created_at: string | null; created_at: string }[]>({
+  const { data: reconLines = [], isLoading: reconLoading, isError: reconError } = useQuery<{ matched_candidate_id: string | null; check_key: string | null; match_status: string; supplier_created_at: string | null; created_at: string }[]>({
     queryKey: ["mra-dashboard-recon-lines"],
     queryFn: async () => {
-      const { data, error } = await sb
+      return readAllPages((from, to) => sb
         .from("manual_risk_supplier_lines")
-        .select("matched_candidate_id, check_key, match_status, supplier_created_at, created_at");
-      if (error) throw error;
-      return (data ?? []) as any[];
+        .select("matched_candidate_id, check_key, match_status, supplier_created_at, created_at")
+        .order("id", { ascending: true })
+        .range(from, to));
     },
   });
 
-  const { data: pricingRows = [] } = usePricing();
+  const { data: pricingRows = [], isLoading: pricingLoading, isError: pricingError } = usePricing();
   const pm = useMemo(() => priceMap(pricingRows), [pricingRows]);
 
   const subById = useMemo(() => new Map(submissions.map((s) => [s.id, s])), [submissions]);
@@ -238,7 +234,9 @@ export function MrDashboardTab({
     const rows = new Map<string, Row>();
     const get = (k: string) => {
       if (!rows.has(k)) rows.set(k, { key: k, qty: 0, expectedCost: 0, gross: 0, charged: 0, discount: 0, reconQty: 0, reconCost: 0 });
-      return rows.get(k)!;
+      const existing = rows.get(k);
+      if (existing) return existing;
+      throw new Error("Missing profitability row");
     };
 
     for (const c of scoped) {
@@ -333,7 +331,8 @@ export function MrDashboardTab({
           checks: 0, invoiced: 0, discounted: 0,
         });
       }
-      const g = m.get(effId)!;
+      const g = m.get(effId);
+      if (!g) continue;
       g.checks += 1;
       if (c.invoice_batch_id || sub?.invoiced_at) g.invoiced += 1;
 
@@ -355,6 +354,13 @@ export function MrDashboardTab({
     setFromDate(start.toISOString().slice(0, 10));
     setToDate(now.toISOString().slice(0, 10));
   };
+
+  if (candidatesError || reconError || pricingError) {
+    return <p role="alert" className="p-4 text-destructive">Dashboard totals could not be loaded. Please refresh to try again.</p>;
+  }
+  if (isLoading || reconLoading || pricingLoading) {
+    return <p role="status" className="p-4 text-muted-foreground">Loading dashboard totals…</p>;
+  }
 
   return (
     <div className="space-y-4">

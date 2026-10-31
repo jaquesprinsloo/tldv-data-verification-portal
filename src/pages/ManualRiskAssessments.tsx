@@ -521,6 +521,8 @@ export default function ManualRiskAssessments() {
       timer = setTimeout(() => {
         timer = null;
         qc.invalidateQueries({ queryKey: ["mra-submissions"], refetchType: "active" });
+        qc.invalidateQueries({ queryKey: ["mra-dashboard-cands"], refetchType: "active" });
+        qc.invalidateQueries({ queryKey: ["mra-dashboard-recon-lines"], refetchType: "active" });
         qc.invalidateQueries({ queryKey: ["mra-client-dash-cands"], refetchType: "active" });
         qc.invalidateQueries({ queryKey: ["mra-employee-check-records"], refetchType: "active" });
         qc.invalidateQueries({ queryKey: ["mra-candidates"], refetchType: "active" });

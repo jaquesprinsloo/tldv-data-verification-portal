@@ -343,6 +343,7 @@ export default function SupplierReconTab() {
       setFile(null);
       setForm({ name: "", period_start: "", period_end: "", supplier_invoice_number: "", supplier_invoice_total: "", notes: "" });
       qc.invalidateQueries({ queryKey: ["mra-supplier-batches"] });
+      qc.invalidateQueries({ queryKey: ["mra-dashboard-recon-lines"] });
       setOpenBatchId((batch as any).id);
     } catch (e: any) {
       toast.error(e.message ?? "Import failed");
@@ -357,6 +358,7 @@ export default function SupplierReconTab() {
     if (error) { toast.error(error.message); return; }
     toast.success("Batch deleted");
     qc.invalidateQueries({ queryKey: ["mra-supplier-batches"] });
+    qc.invalidateQueries({ queryKey: ["mra-dashboard-recon-lines"] });
   };
 
   if (openBatchId) {
@@ -683,6 +685,7 @@ function BatchDetail({
       }
       toast.success(changed ? `Re-matched ${changed} line(s)` : "No changes — everything already matched");
       qc.invalidateQueries({ queryKey: ["mra-supplier-lines", batchId] });
+      qc.invalidateQueries({ queryKey: ["mra-dashboard-recon-lines"] });
     } catch (e: any) {
       toast.error(e.message ?? "Re-match failed");
     } finally {
