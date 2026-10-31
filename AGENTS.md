@@ -1,4 +1,5 @@
 # Project architecture
+- Manual-risk dashboard reads candidates and supplier statement lines through stable, ID-ordered pagination and refreshes reconciliation after statement changes; partial reads must never appear as financial totals.
 - Explicit portal sign-out clears this device's credentials synchronously and records durable logout intent before awaiting network work; startup completes pending logout before rendering to prevent close/reopen races.
 - Installed-app metadata is manifest-only; retain the same-path Workbox retirement worker for one release cycle to evict stale app shells without touching messaging workers or examiner IndexedDB drafts.
 - Examiner education uses a dedicated private resource table and storage bucket; master admins manage materials, while examiner-role sessions read only shared resources, enforced by RLS.
