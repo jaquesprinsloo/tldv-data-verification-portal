@@ -1,5 +1,5 @@
 - [x] Add master Examiner Portal and active profile list.
-- [ ] Correct dashboard statement pagination and verify counts, supplier costs and profitability against all saved statement rows.
+- [x] Correct dashboard statement pagination; verified all 1,843 lines, 913 matched candidates and 50 without matches. Supplier cost R78,059, charges R106,810 and profit R28,751 agree with saved records and current pricing; pagination regression tests pass.
 - [x] Move single/batch selection before store selection; verified both paths, back navigation preserving data, store-specific preselection and phone layout without sending requests.
 - [x] Add dashboard return throughout the shared submission page; verified signed-in single/batch display, batch-to-store and return without window closure. Current injected session is master, so customer-session entry remains unverified.
 - [x] Add private shared education/training/interview library and examiner access.
