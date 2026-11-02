@@ -1,7 +1,7 @@
 # Project architecture
 - Manual-risk dashboard reads candidates and supplier statement lines through stable, ID-ordered pagination and refreshes reconciliation after statement changes; partial reads must never appear as financial totals.
 - Explicit portal sign-out clears this device's credentials synchronously and records durable logout intent before awaiting network work; startup completes pending logout before rendering to prevent close/reopen races.
-- Installed-app metadata is manifest-only; retain the same-path Workbox retirement worker for one release cycle to evict stale app shells without touching messaging workers or examiner IndexedDB drafts.
+- Installed app uses a vite-plugin-pwa generateSW shell registered only via appWorkerCleanup.registerAppWorker (refused in dev/preview/iframe/?sw=off); navigations are NetworkFirst with cached index.html fallback so examiners can open offline drafts without signal while releases appear immediately online; never cache API/auth traffic.
 - Examiner education uses a dedicated private resource table and storage bucket; master admins manage materials, while examiner-role sessions read only shared resources, enforced by RLS.
 - Active examiner profile listings use a master-only server function joining current examiner-role profiles to unbanned login accounts; appointment examiner name lists are not login profiles.
 ## Guided intake flow

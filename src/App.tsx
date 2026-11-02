@@ -26,7 +26,7 @@ function lazy<T extends ComponentType<any>>(factory: () => Promise<{ default: T 
       throw new Error("Lazy module resolved without default export");
     } catch (err) {
       const last = Number(sessionStorage.getItem(LAZY_RELOAD_KEY) ?? "0");
-      if (Date.now() - last > 10000) {
+      if (navigator.onLine && Date.now() - last > 10000) {
         sessionStorage.setItem(LAZY_RELOAD_KEY, String(Date.now()));
         try {
           await cleanupAppWorkers();
