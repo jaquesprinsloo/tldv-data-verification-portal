@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { cleanupAppWorkers } from "./lib/appWorkerCleanup";
+import { cleanupAppWorkers, registerAppWorker } from "./lib/appWorkerCleanup";
 import { supabase } from "./integrations/supabase/client";
 import { SIGN_OUT_PENDING, signOutImmediately } from "./lib/portalSignOut";
 import App from "./App.tsx";
@@ -29,6 +29,8 @@ const recoverFromStaleClient = async () => {
     return;
   }
 
+  // With no signal, reloading would only show the browser's offline page.
+  if (!navigator.onLine) return;
   sessionStorage.setItem(STALE_CLIENT_RECOVERY_KEY, String(Date.now()));
   await cleanupAppWorkers();
   window.location.replace(`${window.location.origin}/`);
@@ -59,8 +61,8 @@ const isCandidateRoute =
 
 const isPrivacyPolicyRoute = window.location.pathname === "/privacy-policy";
 
-// Keep the installed icon, but retire stale app-shell caching.
-void cleanupAppWorkers();
+// Offline app shell (network-first pages) so examiners can open the app with no signal.
+void registerAppWorker();
 
 // Candidates completing the PreAppliCheck should never see any browser-level
 // "install app" prompt (mini-infobar, address-bar icon prompt, etc.). Suppress
