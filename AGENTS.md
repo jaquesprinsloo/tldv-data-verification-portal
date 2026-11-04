@@ -1,5 +1,6 @@
 # Project architecture
 - Manual-risk dashboard reads candidates and supplier statement lines through stable, ID-ordered pagination and refreshes reconciliation after statement changes; partial reads must never appear as financial totals.
+- PTVS pending reads use stable pagination and locally scope orders rather than placing all submission IDs in a URL; original and PTVS invoice links remain independent to support consolidated cost-sharing invoices.
 - Explicit portal sign-out clears this device's credentials synchronously and records durable logout intent before awaiting network work; startup completes pending logout before rendering to prevent close/reopen races.
 - Installed app uses a vite-plugin-pwa generateSW shell registered only via appWorkerCleanup.registerAppWorker (refused in dev/preview/iframe/?sw=off); navigations are NetworkFirst with cached index.html fallback so examiners can open offline drafts without signal while releases appear immediately online; never cache API/auth traffic.
 - Examiner education uses a dedicated private resource table and storage bucket; master admins manage materials, while examiner-role sessions read only shared resources, enforced by RLS.
