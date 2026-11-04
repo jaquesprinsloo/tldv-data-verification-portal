@@ -3390,6 +3390,29 @@ function AccountsTab({
     },
   });
 
+  // PTVS-discount checks still awaiting the PTVS consolidated invoice — independent
+  // of whether the original account has already been invoiced.
+  const { data: ptvsPendingCands = [] } = useQuery<Candidate[]>({
+    queryKey: ["mra-ptvs-mirror", "count", liveSubIds.join(",")],
+    enabled: !clientFacing && liveSubIds.length > 0,
+    queryFn: async () => {
+      const all: Candidate[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb.from("manual_risk_candidates")
+          .select("id, submission_id, override_client_id, id_number, first_name, surname")
+          .in("submission_id", liveSubIds)
+          .eq("is_ptvs_discount", true)
+          .is("ptvs_invoice_batch_id", null)
+          .order("id")
+          .range(from, from + 999);
+        if (error) throw error;
+        all.push(...((data ?? []) as Candidate[]));
+        if (!data || data.length < 1000) break;
+      }
+      return all.filter((c) => !isPlaceholderCandidate(c));
+    },
+  });
+
   // How many historical (archive) candidates sit under each account.
   const { data: archiveCountByClient = new Map<string, number>() } = useQuery<Map<string, number>>({
     queryKey: ["mra-accounts-archive-counts", archiveSubs.length],
@@ -3469,11 +3492,10 @@ function AccountsTab({
     const ptvs = findPtvsClient(clients);
     let ptvsMirrored = 0;
     if (ptvs) {
-      for (const c of allCandidates) {
+      for (const c of ptvsPendingCands) {
         const sub = subMap.get(c.submission_id);
-        if (!sub) continue;
+        if (!sub || !sub.sent_at) continue;
         if (windowActive && !inWindow(sub)) continue;
-        if (!(c as any).is_ptvs_discount) continue;
         const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
         if (effId !== ptvs.id) ptvsMirrored += 1;
       }
@@ -3494,7 +3516,7 @@ function AccountsTab({
       if (sortByRegular && a.isRegular !== b.isRegular) return a.isRegular ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-  }, [allCandidates, submissions, clients, sortByRegular, windowActive, fromDate, toDate, dateBasis, archiveCountByClient]);
+  }, [allCandidates, ptvsPendingCands, submissions, clients, sortByRegular, windowActive, fromDate, toDate, dateBasis, archiveCountByClient]);
 
   const visibleGroups = useMemo(
     () => (filterRegular ? groups.filter((g) => g.isRegular) : groups),
