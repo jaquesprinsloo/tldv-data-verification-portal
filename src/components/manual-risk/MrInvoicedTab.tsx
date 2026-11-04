@@ -114,8 +114,8 @@ export function MrInvoicedTab({
     queryFn: async () => {
       const { data, error } = await sb
         .from("manual_risk_candidates")
-        .select("id, submission_id, invoice_batch_id, id_number, surname, first_name, is_tldv_internal, is_ptvs_discount")
-        .not("invoice_batch_id", "is", null);
+        .select("id, submission_id, invoice_batch_id, ptvs_invoice_batch_id, id_number, surname, first_name, is_tldv_internal, is_ptvs_discount")
+        .or("invoice_batch_id.not.is.null,ptvs_invoice_batch_id.not.is.null");
       if (error) throw error;
       return (data as BatchCand[]).filter((c) => !isPlaceholderCandidate(c as any));
     },
@@ -123,10 +123,15 @@ export function MrInvoicedTab({
 
   const candsByBatch = useMemo(() => {
     const m = new Map<string, BatchCand[]>();
+    const add = (id: string | null | undefined, c: BatchCand) => {
+      if (!id) return;
+      if (!m.has(id)) m.set(id, []);
+      m.get(id)!.push(c);
+    };
     for (const c of invoicedCands) {
-      if (!c.invoice_batch_id) continue;
-      if (!m.has(c.invoice_batch_id)) m.set(c.invoice_batch_id, []);
-      m.get(c.invoice_batch_id)!.push(c);
+      add(c.invoice_batch_id, c);
+      // Same check can also sit on a separate PTVS consolidated invoice.
+      add((c as any).ptvs_invoice_batch_id, c);
     }
     return m;
   }, [invoicedCands]);
@@ -237,6 +242,11 @@ export function MrInvoicedTab({
         .update({ invoice_batch_id: null })
         .eq("invoice_batch_id", batch.id);
       if (cErr) throw cErr;
+      const { error: pErr } = await sb.from("manual_risk_candidates")
+        .update({ ptvs_invoice_batch_id: null })
+        .eq("ptvs_invoice_batch_id", batch.id);
+      if (pErr) throw pErr;
+      qc.invalidateQueries?.({ queryKey: ["mra-ptvs-mirror"] });
       if (!keepFile) {
         if (batch.invoice_file_path) {
           await supabase.storage.from("invoices").remove([batch.invoice_file_path]);
