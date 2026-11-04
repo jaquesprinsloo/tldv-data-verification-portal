@@ -1,0 +1,3 @@
+ALTER TABLE public.manual_risk_candidates ADD COLUMN IF NOT EXISTS ptvs_invoice_batch_id uuid REFERENCES public.manual_risk_invoice_batches(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_mrc_ptvs_invoice_batch ON public.manual_risk_candidates(ptvs_invoice_batch_id);
+COMMENT ON COLUMN public.manual_risk_candidates.ptvs_invoice_batch_id IS 'Separate PTVS consolidated invoice for PTVS-discount checks, independent of the original account invoice_batch_id.';

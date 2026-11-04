@@ -29,6 +29,13 @@
       "when": 1792727613728,
       "tag": "0003_client_facing_create_risk_account",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793806942379,
+      "tag": "0004_ptvs_invoice_batch",
+      "breakpoints": true
     }
   ]
 }
