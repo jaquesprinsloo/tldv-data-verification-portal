@@ -246,7 +246,7 @@ export function MrInvoicedTab({
         .update({ ptvs_invoice_batch_id: null })
         .eq("ptvs_invoice_batch_id", batch.id);
       if (pErr) throw pErr;
-      qc.invalidateQueries?.({ queryKey: ["mra-ptvs-mirror"] });
+      qc.invalidateQueries({ queryKey: ["mra-ptvs-mirror"] });
       if (!keepFile) {
         if (batch.invoice_file_path) {
           await supabase.storage.from("invoices").remove([batch.invoice_file_path]);
