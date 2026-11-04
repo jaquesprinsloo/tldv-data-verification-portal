@@ -40,6 +40,7 @@ import { AddressBookTab } from "@/components/manual-risk/AddressBookTab";
 import IntakeTab from "@/components/manual-risk/IntakeTab";
 import { AddAccountDialog } from "@/components/manual-risk/AddAccountDialog";
 import { includeInvoicedAccountChecks } from "../../supabase/functions/intake-public/accountRules";
+import { readPendingPtvsCandidates } from "@/lib/ptvsPendingCandidates";
 import { MrDashboardTab } from "@/components/manual-risk/MrDashboardTab";
 import SupplierReconTab from "@/components/manual-risk/SupplierReconTab";
 import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk/MrInvoicedTab";
@@ -3396,19 +3397,13 @@ function AccountsTab({
     queryKey: ["mra-ptvs-mirror", "count", liveSubIds.join(",")],
     enabled: !clientFacing && liveSubIds.length > 0,
     queryFn: async () => {
-      const all: Candidate[] = [];
-      for (let from = 0; ; from += 1000) {
-        const { data, error } = await sb.from("manual_risk_candidates")
-          .select("id, submission_id, override_client_id, id_number, first_name, surname")
-          .in("submission_id", liveSubIds)
+      const all = await readPendingPtvsCandidates<Candidate>((from, to) =>
+        sb.from("manual_risk_candidates")
+          .select("*")
           .eq("is_ptvs_discount", true)
           .is("ptvs_invoice_batch_id", null)
           .order("id")
-          .range(from, from + 999);
-        if (error) throw error;
-        all.push(...((data ?? []) as Candidate[]));
-        if (!data || data.length < 1000) break;
-      }
+          .range(from, to), liveSubIds);
       return all.filter((c) => !isPlaceholderCandidate(c));
     },
   });
@@ -3959,18 +3954,16 @@ function ClientAccountDialog({
   const colCount = clientFacing ? 9 : mode === "live" ? 11 : 10;
   const [indemnityFor, setIndemnityFor] = useState<{ orderNumber: string; files: IndemnityFileRef[] } | null>(null);
   const sentSubIdsAll = useMemo(() => submissions.map((s) => s.id), [submissions]);
-  const { data: mirrorCandidates = [] } = useQuery<Candidate[]>({
+  const { data: mirrorCandidates = [], isPending: mirrorLoading, error: mirrorError, refetch: retryMirror } = useQuery<Candidate[]>({
     queryKey: ["mra-ptvs-mirror", groupKey, sentSubIdsAll.join(",")],
     enabled: isPtvsAccount && sentSubIdsAll.length > 0,
-    queryFn: async () => {
-      const { data, error } = await sb.from("manual_risk_candidates")
+    queryFn: () => readPendingPtvsCandidates<Candidate>((from, to) =>
+      sb.from("manual_risk_candidates")
         .select("*")
-        .in("submission_id", sentSubIdsAll)
         .is("ptvs_invoice_batch_id", null)
-        .eq("is_ptvs_discount", true);
-      if (error) throw error;
-      return data as Candidate[];
-    },
+        .eq("is_ptvs_discount", true)
+        .order("id")
+        .range(from, to), sentSubIdsAll),
   });
 
   const rows: AccountRow[] = useMemo(() => {
@@ -4039,7 +4032,7 @@ function ClientAccountDialog({
       .filter((c) => !isPlaceholderCandidate(c))
       .map((c) => {
         const s = subById.get(c.submission_id);
-        if (!s || !s.sent_at) return null;
+        if (!s || !s.sent_at || (s as any).is_archive) return null;
         const effId = (c as any).override_client_id ?? s.client_id ?? "__unassigned__";
         if (effId === groupKey) return null; // already a real row here
         const basisTs = new Date(dateBasis === "submitted" ? s.created_at : s.sent_at).getTime();
@@ -4469,6 +4462,14 @@ function ClientAccountDialog({
             )}
           </DialogDescription>
         </DialogHeader>
+
+        {isPtvsAccount && mirrorLoading && <p className="text-sm text-muted-foreground" role="status">Loading PTVS checks…</p>}
+        {isPtvsAccount && mirrorError && (
+          <div role="alert" className="flex items-center gap-3 text-sm text-destructive">
+            PTVS checks could not be loaded.
+            <Button variant="outline" size="sm" onClick={() => void retryMirror()}><RefreshCw className="mr-2 h-4 w-4" />Retry</Button>
+          </div>
+        )}
 
         <div className="inline-flex rounded-md border p-1 mb-3 w-fit">
           <Button
