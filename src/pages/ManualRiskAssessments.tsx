@@ -3390,6 +3390,29 @@ function AccountsTab({
     },
   });
 
+  // PTVS-discount checks still awaiting the PTVS consolidated invoice — independent
+  // of whether the original account has already been invoiced.
+  const { data: ptvsPendingCands = [] } = useQuery<Candidate[]>({
+    queryKey: ["mra-ptvs-mirror", "count", liveSubIds.join(",")],
+    enabled: !clientFacing && liveSubIds.length > 0,
+    queryFn: async () => {
+      const all: Candidate[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await sb.from("manual_risk_candidates")
+          .select("id, submission_id, override_client_id, id_number, first_name, surname")
+          .in("submission_id", liveSubIds)
+          .eq("is_ptvs_discount", true)
+          .is("ptvs_invoice_batch_id", null)
+          .order("id")
+          .range(from, from + 999);
+        if (error) throw error;
+        all.push(...((data ?? []) as Candidate[]));
+        if (!data || data.length < 1000) break;
+      }
+      return all.filter((c) => !isPlaceholderCandidate(c));
+    },
+  });
+
   // How many historical (archive) candidates sit under each account.
   const { data: archiveCountByClient = new Map<string, number>() } = useQuery<Map<string, number>>({
     queryKey: ["mra-accounts-archive-counts", archiveSubs.length],
@@ -3469,11 +3492,10 @@ function AccountsTab({
     const ptvs = findPtvsClient(clients);
     let ptvsMirrored = 0;
     if (ptvs) {
-      for (const c of allCandidates) {
+      for (const c of ptvsPendingCands) {
         const sub = subMap.get(c.submission_id);
-        if (!sub) continue;
+        if (!sub || !sub.sent_at) continue;
         if (windowActive && !inWindow(sub)) continue;
-        if (!(c as any).is_ptvs_discount) continue;
         const effId: string = (c as any).override_client_id ?? sub.client_id ?? "__unassigned__";
         if (effId !== ptvs.id) ptvsMirrored += 1;
       }
@@ -3494,7 +3516,7 @@ function AccountsTab({
       if (sortByRegular && a.isRegular !== b.isRegular) return a.isRegular ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-  }, [allCandidates, submissions, clients, sortByRegular, windowActive, fromDate, toDate, dateBasis, archiveCountByClient]);
+  }, [allCandidates, ptvsPendingCands, submissions, clients, sortByRegular, windowActive, fromDate, toDate, dateBasis, archiveCountByClient]);
 
   const visibleGroups = useMemo(
     () => (filterRegular ? groups.filter((g) => g.isRegular) : groups),
@@ -3944,7 +3966,7 @@ function ClientAccountDialog({
       const { data, error } = await sb.from("manual_risk_candidates")
         .select("*")
         .in("submission_id", sentSubIdsAll)
-        .is("invoice_batch_id", null)
+        .is("ptvs_invoice_batch_id", null)
         .eq("is_ptvs_discount", true);
       if (error) throw error;
       return data as Candidate[];
@@ -4073,9 +4095,15 @@ function ClientAccountDialog({
   }, [highlightCandidateId, rows]);
 
   const toggleAll = () => {
-    if (selected.size === rows.length) setSelected(new Set());
-    else setSelected(new Set(rows.map((r) => r.candidateId)));
+    const allIds = [...rows, ...mirrorRows].map((r) => r.candidateId);
+    if (selected.size === allIds.length) setSelected(new Set());
+    else setSelected(new Set(allIds));
   };
+  // PTVS mirror rows are invoiced separately (PTVS consolidated invoice).
+  const selectedMirrorIds = useMemo(
+    () => mirrorRows.filter((r) => selected.has(r.candidateId)).map((r) => r.candidateId),
+    [mirrorRows, selected],
+  );
   const toggleOne = (candId: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -4242,7 +4270,7 @@ function ClientAccountDialog({
   const [uploading, setUploading] = useState(false);
 
   const markInvoiced = async () => {
-    if (!selectedCandidateIds.length) { toast.error("Select at least one check first"); return; }
+    if (!selectedCandidateIds.length && !selectedMirrorIds.length) { toast.error("Select at least one check first"); return; }
     if (!invoiceNumber.trim()) { toast.error("Enter the invoice reference"); return; }
     setUploading(true);
     let batchId: string | null = null;
@@ -4286,13 +4314,25 @@ function ClientAccountDialog({
       }
 
       // 3. Move the selected checks onto the batch (out of this account view).
-      const { error } = await sb
-        .from("manual_risk_candidates")
-        .update({ invoice_batch_id: batchId })
-        .in("id", selectedCandidateIds);
-      if (error) throw error;
+      if (selectedCandidateIds.length) {
+        const { error } = await sb
+          .from("manual_risk_candidates")
+          .update({ invoice_batch_id: batchId })
+          .in("id", selectedCandidateIds);
+        if (error) throw error;
+      }
+      // PTVS mirror checks get their own PTVS invoice; the original account's
+      // invoice is untouched.
+      if (selectedMirrorIds.length) {
+        const { error } = await sb
+          .from("manual_risk_candidates")
+          .update({ ptvs_invoice_batch_id: batchId })
+          .in("id", selectedMirrorIds);
+        if (error) throw error;
+      }
 
-      toast.success(`${selectedCandidateIds.length} check(s) invoiced under ${invoiceNumber.trim()}`);
+      toast.success(`${selectedCandidateIds.length + selectedMirrorIds.length} check(s) invoiced under ${invoiceNumber.trim()}`);
+      qc.invalidateQueries({ queryKey: ["mra-ptvs-mirror"] });
       setInvoiceOpen(false);
       setInvoiceFile(null);
       setInvoiceNumber("");
@@ -4521,7 +4561,7 @@ function ClientAccountDialog({
               <Button
                 className="bg-red-600 hover:bg-red-700"
                 onClick={() => setInvoiceOpen(true)}
-                disabled={!selectedCandidateIds.length}
+                disabled={!selectedCandidateIds.length && !selectedMirrorIds.length}
                 title="Batch the selected checks under one invoice reference and move them to the Invoiced tab"
               >
                 <FileText className="h-4 w-4 mr-2" /> Invoice Selected Checks
@@ -4580,7 +4620,7 @@ function ClientAccountDialog({
 
                   <TableHead className="w-10">
                     <Checkbox
-                      checked={rows.length > 0 && selected.size === rows.length}
+                      checked={rows.length + mirrorRows.length > 0 && selected.size === rows.length + mirrorRows.length}
                       onCheckedChange={toggleAll}
                     />
                   </TableHead>
@@ -4743,8 +4783,8 @@ function ClientAccountDialog({
               {mirrorRows.length > 0 && (
                 <TableRow className="bg-amber-50/60">
                   <TableCell colSpan={11} className="text-xs font-medium text-amber-800">
-                    PTVS discount mirror — {mirrorRows.length} check(s) from other accounts, shown for invoicing only.
-                    They stay counted under their own account and are not included in this account's totals.
+                    PTVS discount mirror — {mirrorRows.length} check(s) from other accounts awaiting the PTVS invoice.
+                    They stay here until invoiced to PTVS, even if already invoiced in their own account.
                   </TableCell>
                 </TableRow>
               )}
@@ -4754,7 +4794,12 @@ function ClientAccountDialog({
                   id={`cand-row-${r.candidateId}`}
                   className={highlightCandidateId === r.candidateId ? "bg-amber-100 ring-1 ring-amber-400" : "bg-amber-50/30"}
                 >
-                  <TableCell />
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(r.candidateId)}
+                      onCheckedChange={() => toggleOne(r.candidateId)}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
                   <TableCell className="text-xs">{new Date(r.submittedAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
@@ -4864,7 +4909,7 @@ function ClientAccountDialog({
             <DialogHeader>
               <DialogTitle>Invoice selected checks</DialogTitle>
               <DialogDescription>
-                {selectedCandidateIds.length} check(s) for {clientName} will move to the Invoiced tab as one batch
+                {selectedCandidateIds.length + selectedMirrorIds.length} check(s) for {clientName} will move to the Invoiced tab as one batch
                 under this invoice reference. The attachment is filed in OneDrive under
                 {" "}<span className="font-mono text-[11px]">/PreAppliCheck/ManualRiskAssessments/{clientName}/Invoices/{invoiceNumber || "{Invoice #}"}</span>.
               </DialogDescription>

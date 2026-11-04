@@ -1181,6 +1181,7 @@ export type Database = {
           passport_number: string | null
           pdp_notes: string | null
           pdp_result: string | null
+          ptvs_invoice_batch_id: string | null
           qualification_notes: string | null
           qualification_result: string | null
           report_matched_at: string | null
@@ -1227,6 +1228,7 @@ export type Database = {
           passport_number?: string | null
           pdp_notes?: string | null
           pdp_result?: string | null
+          ptvs_invoice_batch_id?: string | null
           qualification_notes?: string | null
           qualification_result?: string | null
           report_matched_at?: string | null
@@ -1273,6 +1275,7 @@ export type Database = {
           passport_number?: string | null
           pdp_notes?: string | null
           pdp_result?: string | null
+          ptvs_invoice_batch_id?: string | null
           qualification_notes?: string | null
           qualification_result?: string | null
           report_matched_at?: string | null
@@ -1305,6 +1308,13 @@ export type Database = {
             columns: ["override_client_id"]
             isOneToOne: false
             referencedRelation: "manual_risk_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manual_risk_candidates_ptvs_invoice_batch_id_fkey"
+            columns: ["ptvs_invoice_batch_id"]
+            isOneToOne: false
+            referencedRelation: "manual_risk_invoice_batches"
             referencedColumns: ["id"]
           },
           {

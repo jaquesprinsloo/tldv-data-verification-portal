@@ -33,12 +33,12 @@ export default defineConfig(({ mode }) => ({
         runtimeCaching: [
           {
             urlPattern: ({ request, url }) =>
-              request.mode === "navigate" && url.origin === self.location.origin && !url.pathname.startsWith("/~oauth"),
+              request.mode === "navigate" && url.origin === (globalThis as any).location.origin && !url.pathname.startsWith("/~oauth"),
             handler: "NetworkFirst",
             options: {
               cacheName: "app-pages",
               networkTimeoutSeconds: 4,
-              plugins: [{ handlerDidError: async () => (await caches.match("/index.html", { ignoreSearch: true })) ?? Response.error() }],
+              plugins: [{ handlerDidError: async () => (await (globalThis as any).caches.match("/index.html", { ignoreSearch: true })) ?? Response.error() }],
             },
           },
         ],
