@@ -4539,7 +4539,7 @@ function ClientAccountDialog({
               <Button
                 className="bg-red-600 hover:bg-red-700"
                 onClick={() => setInvoiceOpen(true)}
-                disabled={!selectedCandidateIds.length}
+                disabled={!selectedCandidateIds.length && !selectedMirrorIds.length}
                 title="Batch the selected checks under one invoice reference and move them to the Invoiced tab"
               >
                 <FileText className="h-4 w-4 mr-2" /> Invoice Selected Checks
@@ -4598,7 +4598,7 @@ function ClientAccountDialog({
 
                   <TableHead className="w-10">
                     <Checkbox
-                      checked={rows.length > 0 && selected.size === rows.length}
+                      checked={rows.length + mirrorRows.length > 0 && selected.size === rows.length + mirrorRows.length}
                       onCheckedChange={toggleAll}
                     />
                   </TableHead>
@@ -4761,8 +4761,8 @@ function ClientAccountDialog({
               {mirrorRows.length > 0 && (
                 <TableRow className="bg-amber-50/60">
                   <TableCell colSpan={11} className="text-xs font-medium text-amber-800">
-                    PTVS discount mirror — {mirrorRows.length} check(s) from other accounts, shown for invoicing only.
-                    They stay counted under their own account and are not included in this account's totals.
+                    PTVS discount mirror — {mirrorRows.length} check(s) from other accounts awaiting the PTVS invoice.
+                    They stay here until invoiced to PTVS, even if already invoiced in their own account.
                   </TableCell>
                 </TableRow>
               )}
@@ -4772,7 +4772,12 @@ function ClientAccountDialog({
                   id={`cand-row-${r.candidateId}`}
                   className={highlightCandidateId === r.candidateId ? "bg-amber-100 ring-1 ring-amber-400" : "bg-amber-50/30"}
                 >
-                  <TableCell />
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(r.candidateId)}
+                      onCheckedChange={() => toggleOne(r.candidateId)}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{r.orderNumber}</TableCell>
                   <TableCell className="text-xs">{new Date(r.submittedAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-xs">{new Date(r.sentAt).toLocaleDateString()}</TableCell>
@@ -4882,7 +4887,7 @@ function ClientAccountDialog({
             <DialogHeader>
               <DialogTitle>Invoice selected checks</DialogTitle>
               <DialogDescription>
-                {selectedCandidateIds.length} check(s) for {clientName} will move to the Invoiced tab as one batch
+                {selectedCandidateIds.length + selectedMirrorIds.length} check(s) for {clientName} will move to the Invoiced tab as one batch
                 under this invoice reference. The attachment is filed in OneDrive under
                 {" "}<span className="font-mono text-[11px]">/PreAppliCheck/ManualRiskAssessments/{clientName}/Invoices/{invoiceNumber || "{Invoice #}"}</span>.
               </DialogDescription>
