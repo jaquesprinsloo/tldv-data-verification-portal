@@ -3944,7 +3944,7 @@ function ClientAccountDialog({
       const { data, error } = await sb.from("manual_risk_candidates")
         .select("*")
         .in("submission_id", sentSubIdsAll)
-        .is("invoice_batch_id", null)
+        .is("ptvs_invoice_batch_id", null)
         .eq("is_ptvs_discount", true);
       if (error) throw error;
       return data as Candidate[];
@@ -4073,9 +4073,15 @@ function ClientAccountDialog({
   }, [highlightCandidateId, rows]);
 
   const toggleAll = () => {
-    if (selected.size === rows.length) setSelected(new Set());
-    else setSelected(new Set(rows.map((r) => r.candidateId)));
+    const allIds = [...rows, ...mirrorRows].map((r) => r.candidateId);
+    if (selected.size === allIds.length) setSelected(new Set());
+    else setSelected(new Set(allIds));
   };
+  // PTVS mirror rows are invoiced separately (PTVS consolidated invoice).
+  const selectedMirrorIds = useMemo(
+    () => mirrorRows.filter((r) => selected.has(r.candidateId)).map((r) => r.candidateId),
+    [mirrorRows, selected],
+  );
   const toggleOne = (candId: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -4242,7 +4248,7 @@ function ClientAccountDialog({
   const [uploading, setUploading] = useState(false);
 
   const markInvoiced = async () => {
-    if (!selectedCandidateIds.length) { toast.error("Select at least one check first"); return; }
+    if (!selectedCandidateIds.length && !selectedMirrorIds.length) { toast.error("Select at least one check first"); return; }
     if (!invoiceNumber.trim()) { toast.error("Enter the invoice reference"); return; }
     setUploading(true);
     let batchId: string | null = null;
@@ -4286,13 +4292,25 @@ function ClientAccountDialog({
       }
 
       // 3. Move the selected checks onto the batch (out of this account view).
-      const { error } = await sb
-        .from("manual_risk_candidates")
-        .update({ invoice_batch_id: batchId })
-        .in("id", selectedCandidateIds);
-      if (error) throw error;
+      if (selectedCandidateIds.length) {
+        const { error } = await sb
+          .from("manual_risk_candidates")
+          .update({ invoice_batch_id: batchId })
+          .in("id", selectedCandidateIds);
+        if (error) throw error;
+      }
+      // PTVS mirror checks get their own PTVS invoice; the original account's
+      // invoice is untouched.
+      if (selectedMirrorIds.length) {
+        const { error } = await sb
+          .from("manual_risk_candidates")
+          .update({ ptvs_invoice_batch_id: batchId })
+          .in("id", selectedMirrorIds);
+        if (error) throw error;
+      }
 
-      toast.success(`${selectedCandidateIds.length} check(s) invoiced under ${invoiceNumber.trim()}`);
+      toast.success(`${selectedCandidateIds.length + selectedMirrorIds.length} check(s) invoiced under ${invoiceNumber.trim()}`);
+      qc.invalidateQueries({ queryKey: ["mra-ptvs-mirror"] });
       setInvoiceOpen(false);
       setInvoiceFile(null);
       setInvoiceNumber("");
