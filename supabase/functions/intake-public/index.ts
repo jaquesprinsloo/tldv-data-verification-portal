@@ -120,6 +120,12 @@ const LookupSchema = z.object({
 
 const DirectorySchema = z.object({ action: z.literal('directory') });
 
+const UploadUrlSchema = z.object({
+  action: z.literal('upload_url'),
+  file_name: z.string().trim().min(1).max(200),
+});
+const ALLOWED_EXT = /\.(pdf|png|jpe?g|webp|heic|docx?)$/i;
+
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -151,6 +157,28 @@ Deno.serve(async (req) => {
     if (!raw || typeof raw.action !== 'string') {
       return new Response(JSON.stringify({ error: 'Invalid request body' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ── Signed one-time upload URL for intake documents ─────────────────
+    if (raw.action === 'upload_url') {
+      const parsed = UploadUrlSchema.safeParse(raw);
+      if (!parsed.success || !ALLOWED_EXT.test(parsed.data.file_name)) {
+        return new Response(JSON.stringify({ error: 'Unsupported file' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const safeName = parsed.data.file_name.replace(/[^\w.\-]+/g, '_').slice(-120);
+      const path = `intake/${crypto.randomUUID()}/${Date.now()}_${safeName}`;
+      const { data, error } = await supabaseAdmin.storage
+        .from('manual-risk-indemnities').createSignedUploadUrl(path);
+      if (error || !data) {
+        return new Response(JSON.stringify({ error: 'Could not prepare upload' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ path: data.path, token: data.token }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 

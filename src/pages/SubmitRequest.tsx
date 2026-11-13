@@ -174,13 +174,15 @@ export default function SubmitRequest() {
     }
     setSubmitting(true);
     try {
-      const folder = crypto.randomUUID();
       const paths: string[] = [];
       for (const f of files) {
-        const safeName = f.name.replace(/[^\w.\-]+/g, "_");
-        const path = `intake/${folder}/${Date.now()}_${crypto.randomUUID().slice(0, 8)}_${safeName}`;
-        const { error: upErr } = await sb.storage.from(INDEMNITY_BUCKET).upload(path, f, {
-          contentType: f.type || "application/pdf", upsert: false,
+        const { data: up, error: upUrlErr } = await supabase.functions.invoke("intake-public", {
+          body: { action: "upload_url", file_name: f.name },
+        });
+        if (upUrlErr || !up?.path || !up?.token) throw new Error(`"${f.name}" could not be uploaded: ${up?.error || "please try again"}`);
+        const path = up.path as string;
+        const { error: upErr } = await sb.storage.from(INDEMNITY_BUCKET).uploadToSignedUrl(path, up.token, f, {
+          contentType: f.type || "application/pdf",
         });
         if (upErr) throw new Error(`"${f.name}" could not be uploaded: ${upErr.message}`);
         paths.push(path);

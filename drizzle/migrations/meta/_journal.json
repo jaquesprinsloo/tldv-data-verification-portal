@@ -36,6 +36,13 @@
       "when": 1793806942379,
       "tag": "0004_ptvs_invoice_batch",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794542635323,
+      "tag": "0005_tighten_settings_and_storage_rules",
+      "breakpoints": true
     }
   ]
 }
