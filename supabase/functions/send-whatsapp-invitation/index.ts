@@ -62,27 +62,32 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Twilio credentials not configured");
     }
 
-    const body: WhatsAppInvitationRequest = await req.json();
-    const rawPhone = body.phone || body.phoneNumber;
-
-    if (!rawPhone) {
-      throw new Error("Missing phone number");
+    const body = await req.json().catch(() => ({}));
+    const token = typeof body?.token === "string" ? body.token : "";
+    if (!/^[a-f0-9]{32}$/.test(token)) {
+      throw new Error("Missing invitation");
     }
-
-    // Build the message: prefer caller-provided `message`, else build employee invite text
-    let message = body.message;
-    if (!message) {
-      const { employeeNumber, firstName, lastName, token, otp } = body;
-      if (!employeeNumber || !firstName || !token || !otp) {
-        throw new Error("Missing required fields for employee invitation");
-      }
-      const baseUrl = SUPABASE_URL?.replace("supabase.co", "lovable.app") || "https://tldv-employee-portal.lovable.app";
-      const registrationUrl = `${baseUrl}/employee/register?token=${token}`;
-      message = `Hello ${firstName} ${lastName ?? ""}!\n\nYou have been approved to join as an employee. Please complete your registration using the following details:\n\n📋 *Employee Number:* ${employeeNumber}\n🔑 *OTP Code:* ${otp}\n\nClick here to register: ${registrationUrl}\n\nThis invitation is valid for 7 days.\n\n- TLDV Team`;
+    // Phone number and message are derived server-side from the stored invitation.
+    const { data: inv } = await supabaseAdmin
+      .from("candex_invitations")
+      .select("candidate_name, candidate_phone, token, status")
+      .eq("token", token)
+      .maybeSingle();
+    if (!inv || !inv.candidate_phone || !["sent", "opened"].includes(inv.status)) {
+      throw new Error("Invitation not found");
     }
+    const rawPhone: string = String(inv.candidate_phone);
+    const portalUrl = `https://portal.tldv.co.za/preapplicheck-apply?token=${inv.token}`;
+    const firstName = String(inv.candidate_name || "").trim().split(/\s+/)[0]?.slice(0, 60) || "there";
+    const message = body?.reminder === true
+      ? `Reminder: You've been invited to complete a PreAppliCheck. Please click here to begin: ${portalUrl}`
+      : `Hi ${firstName}, you've been invited to complete a PreAppliCheck. Please click here to begin: ${portalUrl}`;
 
     // Format phone number for WhatsApp (ensure it has country code)
     let formattedPhone = rawPhone.replace(/\s+/g, "").replace(/[^\d+]/g, "");
+    if (!/^\+?\d{9,15}$/.test(formattedPhone)) {
+      throw new Error("Invalid phone number");
+    }
     if (!formattedPhone.startsWith("+")) {
       // Assume South African number if no country code
       if (formattedPhone.startsWith("0")) {
@@ -97,7 +102,7 @@ const handler = async (req: Request): Promise<Response> => {
       .replace(/\s+/g, "")
       .replace(/[^\d+]/g, "");
 
-    console.log(`Sending WhatsApp invitation to ${formattedPhone}`);
+    console.log("Sending WhatsApp invitation");
 
     // Send WhatsApp message via Twilio
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;

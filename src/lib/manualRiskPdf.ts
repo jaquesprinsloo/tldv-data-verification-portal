@@ -616,7 +616,7 @@ export async function generateManualRiskPdf(input: ManualRiskReportInput): Promi
   }
 
   pdfDoc.encrypt({
-    ownerPassword: "TLDV0011",
+    ownerPassword: Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) => b.toString(16).padStart(2, "0")).join(""),
     permissions: {
       printing: true,
       copying: true,

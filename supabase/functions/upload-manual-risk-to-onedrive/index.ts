@@ -107,6 +107,40 @@ Deno.serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
+      if (!roles.includes("master_admin")) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Only master admins can delete OneDrive copies" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      if (typeof deleteItemId !== "string" || !/^[A-Za-z0-9!_\-]{1,200}$/.test(deleteItemId)) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid itemId" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      // Only files inside the app's own PreAppliCheck folders may be deleted.
+      const metaRes = await gatewayFetch(
+        `/me/drive/items/${encodeURIComponent(deleteItemId)}?$select=id,file,parentReference`,
+        { method: "GET" },
+        LOVABLE_API_KEY,
+        ONEDRIVE_API_KEY,
+      );
+      if (metaRes.status === 404) {
+        return new Response(
+          JSON.stringify({ success: true, deleted: true, itemId: deleteItemId }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const meta = await metaRes.json().catch(() => null);
+      const parentPath = decodeURIComponent(String(meta?.parentReference?.path || ""));
+      const inAppTree = /\/root:\/PreAppliCheck\/(ManualRiskAssessments|ClientShared)\//.test(parentPath + "/");
+      if (!metaRes.ok || !meta?.file || !inAppTree) {
+        return new Response(
+          JSON.stringify({ success: false, error: "This OneDrive item cannot be deleted from the portal" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
       const delRes = await gatewayFetch(
         `/me/drive/items/${encodeURIComponent(deleteItemId)}`,
         { method: "DELETE" },

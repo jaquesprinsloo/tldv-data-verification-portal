@@ -15,9 +15,7 @@ const ALLOWED_LINK_HOSTS = [
 ];
 
 const RequestSchema = z.object({
-  email: z.string().email().max(255),
-  candidateName: z.string().min(1).max(255),
-  invitationLink: z.string().url().max(500),
+  token: z.string().regex(/^[a-f0-9]{32}$/),
 });
 
 const handler = async (req: Request): Promise<Response> => {
@@ -62,7 +60,28 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const { email, candidateName, invitationLink } = parsed.data;
+    // Recipient, name and link are derived server-side from the stored invitation.
+    const { data: inv } = await supabaseAdmin
+      .from("candex_invitations")
+      .select("candidate_name, candidate_email, token, status")
+      .eq("token", parsed.data.token)
+      .maybeSingle();
+    if (!inv || !inv.candidate_email || !["sent", "opened"].includes(inv.status)) {
+      return new Response(
+        JSON.stringify({ error: "Invitation not found" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    const emailCheck = z.string().email().max(255).safeParse(inv.candidate_email);
+    if (!emailCheck.success) {
+      return new Response(
+        JSON.stringify({ error: "Invitation email is invalid" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+    const email = emailCheck.data;
+    const candidateName = String(inv.candidate_name || "Candidate").slice(0, 255);
+    const invitationLink = `https://portal.tldv.co.za/preapplicheck-apply?token=${inv.token}`;
 
     // Restrict invitation link to allow-listed hosts to prevent phishing relay
     let linkHost = "";
@@ -198,7 +217,7 @@ Powered by True Lie Detectors &amp; Vetting
     });
 
     await client.close();
-    console.log("CanDex invitation email sent to", email);
+    console.log("CanDex invitation email sent");
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

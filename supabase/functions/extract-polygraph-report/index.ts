@@ -29,12 +29,22 @@ async function uploadPhotoToStorage(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+    const allowed: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg", "image/gif": "gif", "image/webp": "webp" };
+    const ext = allowed[String(mimeType).toLowerCase()];
+    if (!ext) { console.error("Photo upload rejected: unsupported type"); return null; }
+    if (typeof photoBase64 !== "string" || photoBase64.length > 14_000_000) { console.error("Photo upload rejected: too large"); return null; }
     const bytes = base64ToBytes(photoBase64);
-    const ext = mimeType.split("/")[1] || "png";
-    const fileName = `candidate-photos/${candidateIdNumber}-${Date.now()}.${ext}`;
+    if (bytes.length > 10 * 1024 * 1024) { console.error("Photo upload rejected: too large"); return null; }
+    const isPng = bytes[0] === 0x89 && bytes[1] === 0x50;
+    const isJpg = bytes[0] === 0xff && bytes[1] === 0xd8;
+    const isGif = bytes[0] === 0x47 && bytes[1] === 0x49;
+    const isWebp = bytes[8] === 0x57 && bytes[9] === 0x45;
+    if (!(isPng || isJpg || isGif || isWebp)) { console.error("Photo upload rejected: not an image"); return null; }
+    const safeId = String(candidateIdNumber).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) || "unknown";
+    const fileName = `candidate-photos/${safeId}-${Date.now()}.${ext}`;
     const { error } = await supabase.storage
       .from("polygraph-reports")
-      .upload(fileName, bytes, { contentType: mimeType, upsert: true });
+      .upload(fileName, bytes, { contentType: mimeType, upsert: false });
     if (error) {
       console.error("Photo upload error:", error);
       return null;
@@ -694,7 +704,7 @@ Return via tool only.`;
     if (!normalized.candidate.contactNumber || !String(normalized.candidate.contactNumber).trim()) {
       const fallback = extractContactNumberFallback(docText);
       if (fallback) {
-        console.log(`Contact number recovered via regex fallback: ${fallback}`);
+        console.log("Contact number recovered via regex fallback");
         normalized.candidate.contactNumber = fallback;
       }
     }

@@ -3265,6 +3265,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _can_inspect_user: { Args: { _user_id: string }; Returns: boolean }
       assign_user_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

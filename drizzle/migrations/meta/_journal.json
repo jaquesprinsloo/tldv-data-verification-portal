@@ -43,6 +43,13 @@
       "when": 1794542635323,
       "tag": "0005_tighten_settings_and_storage_rules",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794796943218,
+      "tag": "0006_restrict_role_lookup_functions",
+      "breakpoints": true
     }
   ]
 }

@@ -64,14 +64,20 @@ export default function SubmitRequest() {
   useEffect(() => {
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("intake-public", { body: { action: "directory" } });
-        if (error) throw error;
-        const list: Store[] = (data?.clients ?? []).filter((s: Store) => isSubmissionAccount(s.client_name));
-        setStores(list);
         // Preselect via ?store=<slug> or ?client=<uuid>
         const params = new URLSearchParams(search);
         const storeParam = (params.get("store") ?? "").toLowerCase();
         const clientParam = params.get("client") ?? "";
+        const body: Record<string, string> = { action: "directory" };
+        if (storeParam) body.store = storeParam;
+        if (/^[0-9a-f-]{36}$/i.test(clientParam)) body.client = clientParam;
+        const { data, error } = await supabase.functions.invoke("intake-public", { body });
+        if (error) throw error;
+        const list: Store[] = (data?.clients ?? []).filter((s: Store) => isSubmissionAccount(s.client_name));
+        setStores(list);
+        if (data?.requires_link) {
+          setStoresError("Please use the store link you were sent, or sign in to the portal, to choose a store.");
+        }
         const match = list.find((s) => s.id === clientParam)
           ?? list.find((s) => storeSlug(s.client_name) === storeParam);
         if (match) setStoreChosen(match.id);

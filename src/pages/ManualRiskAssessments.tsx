@@ -1,3 +1,4 @@
+import DOMPurify from "dompurify";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type * as React from "react";
 import { useNavigate } from "react-router-dom";
@@ -1319,7 +1320,7 @@ function TermsSettingsTab({ userId }: { userId: string }) {
   useEffect(() => {
     (async () => {
       const { data } = await sb.from("manual_risk_settings").select("*").limit(1).maybeSingle();
-      const val = data?.terms_and_conditions ?? "";
+      const val = DOMPurify.sanitize(data?.terms_and_conditions ?? "");
       setTerms(val);
       if (editorRef.current) editorRef.current.innerHTML = val;
       setLoading(false);
@@ -1328,7 +1329,7 @@ function TermsSettingsTab({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (!loading && editorRef.current && editorRef.current.innerHTML !== terms) {
-      editorRef.current.innerHTML = terms;
+      editorRef.current.innerHTML = DOMPurify.sanitize(terms);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);
@@ -1336,18 +1337,18 @@ function TermsSettingsTab({ userId }: { userId: string }) {
   const exec = (cmd: string, value?: string) => {
     editorRef.current?.focus();
     document.execCommand(cmd, false, value);
-    if (editorRef.current) setTerms(editorRef.current.innerHTML);
+    if (editorRef.current) setTerms(DOMPurify.sanitize(editorRef.current.innerHTML));
   };
 
   const save = async () => {
     const { data: existing } = await sb.from("manual_risk_settings").select("id").limit(1).maybeSingle();
     if (existing?.id) {
       const { error } = await sb.from("manual_risk_settings")
-        .update({ terms_and_conditions: terms, updated_by: userId }).eq("id", existing.id);
+        .update({ terms_and_conditions: DOMPurify.sanitize(terms), updated_by: userId }).eq("id", existing.id);
       if (error) { toast.error(error.message); return; }
     } else {
       const { error } = await sb.from("manual_risk_settings")
-        .insert({ terms_and_conditions: terms, updated_by: userId });
+        .insert({ terms_and_conditions: DOMPurify.sanitize(terms), updated_by: userId });
       if (error) { toast.error(error.message); return; }
     }
     toast.success("Disclaimer saved");
@@ -1374,7 +1375,7 @@ function TermsSettingsTab({ userId }: { userId: string }) {
           ref={editorRef}
           contentEditable={!loading}
           suppressContentEditableWarning
-          onInput={(e) => setTerms((e.target as HTMLDivElement).innerHTML)}
+          onInput={(e) => setTerms(DOMPurify.sanitize((e.target as HTMLDivElement).innerHTML))}
           className="min-h-[280px] p-3 text-sm focus:outline-none prose prose-sm max-w-none [&_*]:my-1"
           style={{ textAlign: "justify" }}
           data-placeholder="Enter the disclaimer shown at the bottom of the report..."

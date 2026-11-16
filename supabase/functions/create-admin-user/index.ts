@@ -113,7 +113,7 @@ serve(async (req) => {
           user_metadata: { full_name: `${firstName} ${lastName}` },
         });
         if (updErr || !updated?.user) throw updErr || new Error("Failed to reuse existing login");
-        console.log(`Reusing orphaned login for ${email} (${existingId})`);
+        console.log(`Reusing orphaned login (${existingId})`);
         createData = { user: updated.user } as any;
         createError = null;
       } else {
@@ -126,7 +126,7 @@ serve(async (req) => {
       throw new Error("Failed to create user");
     }
 
-    console.log(`User created: ${email}, user ID: ${createData!.user!.id}, role: ${role}`);
+    console.log(`User created: ${createData!.user!.id}, role: ${role}`);
 
     // Assign role directly using service role (we've already verified caller is master admin)
     const { error: roleInsertError } = await supabaseAdmin
@@ -266,7 +266,7 @@ serve(async (req) => {
       console.log("RESEND_API_KEY not configured, skipping credentials email");
     }
 
-    console.log(`Successfully created ${role} user: ${email}`);
+    console.log(`Successfully created ${role} user`);
 
     return new Response(
       JSON.stringify({ 

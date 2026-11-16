@@ -46,13 +46,33 @@ serve(async (req) => {
       });
     }
 
-    const { uploadId, fileUrl, fileName } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const uploadId = typeof body?.uploadId === 'string' ? body.uploadId : '';
+    if (!/^[0-9a-f-]{36}$/i.test(uploadId)) {
+      return new Response(JSON.stringify({ error: 'Invalid upload' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    // The file link comes from the stored upload, never from the request.
+    const { data: upload } = await supabase
+      .from('pending_polygraph_uploads')
+      .select('id, original_file_url, uploaded_by, status')
+      .eq('id', uploadId)
+      .maybeSingle();
+    if (!upload) {
+      return new Response(JSON.stringify({ error: 'Upload not found' }), {
+        status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (!roles.includes('master_admin') && upload.uploaded_by !== userData.user.id) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const fileUrl = upload.original_file_url;
 
-    console.log('Converting document to PDF:', fileName);
+    console.log('Converting document to PDF');
 
-    // For Word documents, we update the record to use the original file as the "PDF"
-    // In production, you would integrate with a conversion service like CloudConvert
-    
     const { error: updateError } = await supabase
       .from('pending_polygraph_uploads')
       .update({

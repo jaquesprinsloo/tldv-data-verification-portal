@@ -56,14 +56,31 @@ Deno.serve(async (req) => {
       bookingReference?: string;
     };
 
-    const toClean = (to || []).map((e) => String(e).trim()).filter((e) => e.includes('@'));
+    // Emails may only be sent for a booking that exists in the system.
+    const ref = String(bookingReference || '').trim();
+    if (!ref || ref.length > 100) return json({ error: 'Booking reference required' }, 400);
+    const { data: booking } = await admin
+      .from('booking_confirmations').select('id').eq('booking_reference', ref).maybeSingle();
+    if (!booking) return json({ error: 'Booking not found' }, 400);
+
+    const EMAIL_RE = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
+    const toClean = Array.isArray(to) ? to.map((e) => String(e).trim()).filter((e) => e.length <= 254 && EMAIL_RE.test(e)) : [];
     if (!toClean.length) return json({ error: 'No valid recipient email addresses' }, 400);
-    const ccClean = (cc || []).map((e) => String(e).trim()).filter((e) => e.includes('@'));
+    const ccClean = Array.isArray(cc) ? cc.map((e) => String(e).trim()).filter((e) => e.length <= 254 && EMAIL_RE.test(e)) : [];
+    if (toClean.length + ccClean.length > 10) return json({ error: 'Too many recipients' }, 400);
+    if (subject && String(subject).length > 300) return json({ error: 'Subject too long' }, 400);
+    if (html && String(html).length > 200_000) return json({ error: 'Message too long' }, 400);
+    if (ics && String(ics).length > 20_000) return json({ error: 'Calendar invite too large' }, 400);
+    if (pdfBase64 && (String(pdfBase64).length > 14_000_000 || !String(pdfBase64).startsWith('JVBER'))) {
+      return json({ error: 'Attachment must be a PDF under 10 MB' }, 400);
+    }
+    if (ics && !String(ics).startsWith('BEGIN:VCALENDAR')) return json({ error: 'Invalid calendar invite' }, 400);
+    console.log(`Booking confirmation send by ${userData.user.id} for booking ${booking.id} to ${toClean.length} recipient(s)`);
 
     const attachments: any[] = [];
     if (pdfBase64) {
       attachments.push({
-        filename: filename || `Booking Confirmation ${bookingReference || ''}.pdf`.trim(),
+        filename: (String(filename || `Booking Confirmation ${ref}`).replace(/[^\w .\-()]/g, '').slice(0, 120).replace(/\.pdf$/i, '') + '.pdf'),
         content: pdfBase64,
       });
     }

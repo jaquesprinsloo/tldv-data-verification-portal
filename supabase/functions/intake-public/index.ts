@@ -118,7 +118,26 @@ const LookupSchema = z.object({
   email: z.string().trim().email().max(255),
 });
 
-const DirectorySchema = z.object({ action: z.literal('directory') });
+const DirectorySchema = z.object({
+  action: z.literal('directory'),
+  store: z.string().trim().max(120).optional(),
+  client: z.string().uuid().optional(),
+});
+
+function storeSlug(clientName: string): string {
+  return (clientName ?? '').toLowerCase().replace(/^cash\s+crusaders\s+/, '').replace(/[^a-z0-9]+/g, '');
+}
+
+/** True only for a signed-in portal user holding a role (staff / client-facing). */
+async function isPortalUser(req: Request): Promise<boolean> {
+  const auth = req.headers.get('Authorization') ?? '';
+  const token = auth.replace(/^Bearer\s+/i, '');
+  if (!token) return false;
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data?.user) return false;
+  const { data: roles } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', data.user.id).limit(1);
+  return (roles ?? []).length > 0;
+}
 
 const UploadUrlSchema = z.object({
   action: z.literal('upload_url'),
@@ -190,12 +209,25 @@ Deno.serve(async (req) => {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      const portalUser = await isPortalUser(req);
+      const wantStore = (parsed.data.store ?? '').toLowerCase();
+      const wantClient = parsed.data.client ?? '';
+      if (!portalUser && !wantStore && !wantClient) {
+        // Public visitors only see the single store their shared link names.
+        return new Response(JSON.stringify({ clients: [], requires_link: true }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       const { data, error } = await supabaseAdmin
         .from('manual_risk_clients')
         .select('id, client_name')
         .order('client_name', { ascending: true });
       if (error) throw new Error(error.message);
-      return new Response(JSON.stringify({ clients: (data ?? []).filter((c) => isSubmissionAccount(c.client_name)) }), {
+      let clients = (data ?? []).filter((c) => isSubmissionAccount(c.client_name));
+      if (!portalUser) {
+        clients = clients.filter((c) => (wantClient && c.id === wantClient) || (wantStore && storeSlug(c.client_name) === wantStore)).slice(0, 1);
+      }
+      return new Response(JSON.stringify({ clients }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -206,6 +238,11 @@ Deno.serve(async (req) => {
       if (!parsed.success) {
         return new Response(JSON.stringify({ error: 'Invalid request' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (!(await isPortalUser(req))) {
+        return new Response(JSON.stringify({ known: false, name: null }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       const email = parsed.data.email.toLowerCase();

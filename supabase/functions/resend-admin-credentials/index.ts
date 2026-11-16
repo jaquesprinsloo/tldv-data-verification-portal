@@ -175,7 +175,7 @@ serve(async (req) => {
       throw new Error("Failed to send password reset email");
     }
 
-    console.log(`Password reset email sent to ${email}`);
+    console.log("Password reset email sent");
 
     return new Response(
       JSON.stringify({ 

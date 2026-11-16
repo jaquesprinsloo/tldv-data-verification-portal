@@ -209,7 +209,8 @@ const ViewOriginalPdfButton = ({ pdfUrl, reportId, fileName }: { pdfUrl: string 
   };
 
   const handlePasswordSubmit = async () => {
-    if (password === 'TLDV0011') {
+    const { data: check } = await supabase.functions.invoke('verify-report-password', { body: { password } });
+    if ((check as any)?.ok === true) {
       setPasswordDialogOpen(false);
       setPassword("");
       setPasswordError(false);
