@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.39.3";
-import { renderWelcomeEmail } from "./welcome-email.ts";
+import { renderWelcomeEmail } from "../_shared/tldv-portal-email.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

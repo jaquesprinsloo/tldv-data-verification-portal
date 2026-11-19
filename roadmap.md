@@ -11,3 +11,5 @@
 - [x] Verify client-facing submission, master processing/release, internal/shared OneDrive copies, client search/download, and searchable history after invoicing using admin@tldv.co.za. Remove mock intake, submission, candidate, invoice batch, test-specific audit rows, uploaded consent, and both OneDrive folders; delivered test emails remain in the recipient mailbox.
 - [x] Make sign-out immediate and verify closing/reopening cannot restore the session.
 - [x] Fit portal cards in smaller desktop app windows and replace stale app-shell caching; worker cache-isolation test passes. Installed-device update confirmation awaits publishing.
+- [x] Match the admin password reset and one-time code emails to the welcome email.
+- [ ] Brand the sign-in page’s Forgot Password email once a managed email domain is configured.
