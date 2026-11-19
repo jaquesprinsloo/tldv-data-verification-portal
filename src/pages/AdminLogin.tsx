@@ -114,7 +114,7 @@ const AdminLogin = () => {
         if (error) throw error;
         if (data.user) await routeByRole(data.user.id);
       } else {
-        const { data, error } = await supabase.functions.invoke("send-login-otp", {
+        const { data, error } = await supabase.functions.invoke("portal-password-sign-in", {
           body: { email: normalizedEmail, password },
         });
         if (error) throw new Error("Could not complete sign-in. Please try again.");
