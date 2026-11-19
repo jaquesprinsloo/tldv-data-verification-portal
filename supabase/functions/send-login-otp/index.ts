@@ -1,9 +1,8 @@
 import { renderSignInCodeEmail } from "../_shared/tldv-portal-email.ts";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { z } from "npm:zod@3.22.4";
-import { createClient } from "npm:@supabase/supabase-js@2.49.4";
-
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.95.0";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 
 const RequestSchema = z.object({
   email: z.string().email().max(255),

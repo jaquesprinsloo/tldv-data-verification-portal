@@ -1,5 +1,5 @@
-import { createClient } from "npm:@supabase/supabase-js@2.39.3";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2.95.0";
+import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { renderPasswordResetEmail } from "../_shared/tldv-portal-email.ts";
 
 Deno.serve(async (req) => {
