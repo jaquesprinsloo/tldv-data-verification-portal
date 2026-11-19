@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -17,10 +17,12 @@ import {
 } from "recharts";
 import { CHECK_COLUMNS, CHECK_META, isPlaceholderCandidate, generateManualRiskPdf, type ManualRiskCandidatePdf } from "@/lib/manualRiskPdf";
 import { fetchArchiveOriginalReport } from "@/lib/archiveOriginalReport";
+import { isSubmissionAccount } from "../../../supabase/functions/intake-public/accountRules";
+import { buildStoreSubmissionLink } from "./intakeLogic";
 import { PdfPreview } from "@/pages/ManualRiskAssessments";
 import { toast } from "sonner";
 import {
-  Users, ShieldCheck, Clock, AlertTriangle, CheckCircle2, Building2, Activity, Eye, Loader2,
+  Users, ShieldCheck, Clock, AlertTriangle, CheckCircle2, Building2, Activity, Eye, Loader2, Copy,
 } from "lucide-react";
 
 const sb = supabase as any;
@@ -93,6 +95,22 @@ export function MrClientDashboardTab({
 }) {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [shareOpen, setShareOpen] = useState(false);
+  const [storeSearch, setStoreSearch] = useState("");
+  const shareableStores = clients.filter((client) => isSubmissionAccount(client.client_name));
+  const matchingStores = shareableStores.filter((client) =>
+    client.client_name.toLowerCase().includes(storeSearch.trim().toLowerCase()),
+  );
+
+  const copyStoreLink = async (store: { id: string; client_name: string }) => {
+    try {
+      await navigator.clipboard.writeText(buildStoreSubmissionLink(window.location.origin, store.id));
+      setShareOpen(false);
+      toast.success(`Submission link copied for ${store.client_name}`);
+    } catch {
+      toast.error("Could not copy the link");
+    }
+  };
 
   const qc = useQueryClient();
 
@@ -356,18 +374,36 @@ export function MrClientDashboardTab({
             <a href="/submit-request">
               <Button size="sm" className="bg-red-600 hover:bg-red-700">Open submission page</Button>
             </a>
-            <Button size="sm" variant="outline" onClick={async () => {
-              const link = `${window.location.origin}/submit-request`;
-              try {
-                await navigator.clipboard.writeText(link);
-                toast.success("Submission link copied — share it with store staff");
-              } catch {
-                toast.error("Could not copy the link");
-              }
+            <Button size="sm" variant="outline" className="min-h-11" onClick={() => {
+              setStoreSearch("");
+              setShareOpen(true);
             }}>Copy shareable link</Button>
           </div>
         </div>
       </Card>
+
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Copy a store submission link</DialogTitle>
+            <DialogDescription>Choose the store the link is for.</DialogDescription>
+          </DialogHeader>
+          <Input aria-label="Search stores" placeholder="Search stores" className="min-h-11 text-base"
+            value={storeSearch} onChange={(e) => setStoreSearch(e.target.value)} />
+          <div className="grid max-h-[45dvh] gap-2 overflow-y-auto p-1">
+            {matchingStores.map((store) => (
+              <Button key={store.id} variant="outline" onClick={() => void copyStoreLink(store)}
+                className="h-auto min-h-11 min-w-0 justify-between gap-2 whitespace-normal text-left">
+                <span className="min-w-0 break-words">{store.client_name}</span>
+                <Copy aria-hidden="true" className="h-4 w-4 shrink-0" />
+              </Button>
+            ))}
+            {matchingStores.length === 0 && <p className="text-sm text-muted-foreground">
+              {shareableStores.length === 0 ? "No stores are available to share." : "No stores match your search."}
+            </p>}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Kpi label="Candidates screened" value={stats.total} icon={<Users className="h-5 w-5" />} tone="blue"

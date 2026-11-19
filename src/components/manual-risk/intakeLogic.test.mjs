@@ -7,6 +7,7 @@ import {
   buildCsiRows,
   parseBatchCsv,
   storeSlug,
+  buildStoreSubmissionLink,
   CSI_HEADERS,
 } from "./intakeLogic.ts";
 
@@ -91,4 +92,10 @@ describe("store share-link slugs", () => {
   test("drops the Cash Crusaders brand from the slug", () => {
     expect(storeSlug("Cash Crusaders Makhado Crossing")).toBe("makhadocrossing");
   });
+});
+
+test("the copied submission link identifies exactly the selected store", () => {
+  const storeId = "42111316-6908-4a9d-95dd-4566b1efca93";
+  expect(buildStoreSubmissionLink("https://portal.tldv.co.za", storeId))
+    .toBe(`https://portal.tldv.co.za/submit-request?client=${storeId}`);
 });

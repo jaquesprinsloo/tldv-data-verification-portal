@@ -125,3 +125,10 @@ export function storeSlug(clientName: string): string {
     .replace(/^cash\s+crusaders\s+/, "")
     .replace(/[^a-z0-9]+/g, "");
 }
+
+/** Use the account ID rather than a name slug so renames and duplicate names don't break links. */
+export function buildStoreSubmissionLink(origin: string, clientId: string): string {
+  const link = new URL("/submit-request", origin);
+  link.searchParams.set("client", clientId);
+  return link.href;
+}
