@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,7 @@ export const ProfileManagement = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [selectedRole, setSelectedRole] = useState<"admin" | "master_admin" | "examiner" | "client_facing">("admin");
   // Activity trail of a single profile (sign ins, searches, downloads).
   const [trailFor, setTrailFor] = useState<Profile | null>(null);
@@ -136,6 +138,7 @@ export const ProfileManagement = () => {
 
   const handleCreateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPasswordError("");
     
     if (emailStatus === "taken") {
       toast.error("This email is already in use. Please choose a different email.");
@@ -171,13 +174,19 @@ export const ProfileManagement = () => {
         }
       });
 
-      // Handle both non-2xx errors and "soft" errors returned as 200
-      const responseError = response.error ? ((response.data as any)?.error || response.error.message) : (response.data as any)?.error;
-      if (responseError) {
-        if (responseError.includes("already been registered") || responseError.includes("already exists")) {
+      // The SDK keeps non-2xx response bodies on the error, not in data.
+      const result: { error?: unknown; code?: unknown } | null = response.error instanceof FunctionsHttpError
+        ? await response.error.context.json().catch(() => null)
+        : response.data;
+      const responseError = typeof result?.error === "string" ? result.error : "";
+      if (response.error || responseError || result?.code === "weak_password") {
+        if (result?.code === "weak_password" || /password is known to be weak|password is too weak/i.test(responseError)) {
+          setPasswordError("This password was rejected as unsafe. Choose a new, unique password, then update Confirm Password and try again.");
+          document.getElementById("password")?.focus();
+        } else if (responseError.includes("already been registered") || responseError.includes("already exists")) {
           toast.error("A user with this email address already exists. Please use a different email.");
         } else {
-          toast.error(responseError);
+          toast.error(responseError || "Could not create the profile. Please try again.");
         }
         return;
       }
@@ -356,19 +365,31 @@ export const ProfileManagement = () => {
                 <Input
                   id="password"
                   type="password"
+                  autoComplete="new-password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setPasswordError("");
+                  }}
+                  aria-invalid={!!passwordError}
+                  aria-describedby={passwordError ? "create-profile-password-error" : undefined}
                   required
                   minLength={8}
                   className="bg-black border-red-600 text-white"
                   placeholder="Minimum 8 characters"
                 />
+                {passwordError && (
+                  <p id="create-profile-password-error" role="alert" className="mt-1 text-sm text-destructive">
+                    {passwordError}
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="confirmPassword" className="text-white">Confirm Password</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
