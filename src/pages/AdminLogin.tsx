@@ -157,10 +157,10 @@ const AdminLogin = () => {
   const showPasswordField = !isResetPassword && (step === "password" || isSignUp);
 
   return (
-    <main className="dark min-h-svh flex items-center justify-center bg-background px-4 py-6 text-foreground">
+    <main className="dark min-h-svh flex items-center justify-center bg-black px-4 py-6 text-foreground">
       <div className="flex w-full max-w-md flex-col items-center gap-5">
         <img src={tldvLogo} alt="TLDV Logo" className="h-auto w-full max-w-[260px]" />
-        <Card className="w-full border-primary/60">
+        <Card className="w-full bg-black border-primary/60">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">TLDV Portal</CardTitle>
             <CardDescription>{description}</CardDescription>

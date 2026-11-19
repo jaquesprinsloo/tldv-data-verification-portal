@@ -81,10 +81,10 @@ const AdminResetPassword = () => {
   };
 
   return (
-    <div className="dark min-h-svh flex items-center justify-center bg-background p-4 text-foreground">
+    <div className="dark min-h-svh flex items-center justify-center bg-black p-4 text-foreground">
       <div className="flex flex-col items-center gap-5 w-full max-w-md">
         <img src={tldvLogo} alt="TLDV Logo" className="h-auto w-full max-w-[260px]" />
-        <Card className="w-full border-primary/60">
+        <Card className="w-full bg-black border-primary/60">
           <CardHeader className="text-center">
             {complete && <CircleCheck className="mx-auto mb-2 h-9 w-9 text-primary" aria-hidden="true" />}
             <CardTitle className="text-2xl" aria-live="polite">{complete ? "Password updated" : "Reset password"}</CardTitle>
