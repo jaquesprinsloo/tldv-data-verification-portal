@@ -3,9 +3,11 @@ import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { z } from "npm:zod@3.22.4";
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
+import { portalSignInStep } from "./sign-in-policy.ts";
 
 const RequestSchema = z.object({
   email: z.string().email().max(255),
+  password: z.string().min(1).max(1024),
 });
 
 const jsonResponse = (body: unknown, status = 200) =>
@@ -24,38 +26,33 @@ const handler = async (req: Request): Promise<Response> => {
     if (!parsed.success) {
       return jsonResponse({ error: "Invalid request parameters" }, 400);
     }
+    const { password } = parsed.data;
     const email = parsed.data.email.trim().toLowerCase();
+    const url = Deno.env.get("SUPABASE_URL") ?? "";
+    const options = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } };
+    const passwordClient = createClient(url, Deno.env.get("SUPABASE_ANON_KEY") ?? "", options);
+    const { data: login, error: loginError } = await passwordClient.auth.signInWithPassword({ email, password });
+    if (loginError || !login.session || !login.user) {
+      return jsonResponse({ error: loginError?.status === 429 ? "Too many attempts. Wait a moment and try again." : "The email address or password is incorrect." });
+    }
 
     const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      url,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      options,
     );
-
-    // Generic response prevents account enumeration
-    const generic = { success: true };
-
-    // Resolve the profile for this email (must exist and be an active portal profile)
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("id, full_name, email")
-      .ilike("email", email)
-      .maybeSingle();
-
-    if (!profile?.id) {
-      console.log("send-login-otp: no profile for requested address");
-      return jsonResponse(generic);
-    }
-
-    const { data: roleRows } = await supabaseAdmin
+    const { data: roleRows, error: roleError } = await supabaseAdmin
       .from("user_roles")
       .select("role")
-      .eq("user_id", profile.id);
-    const roles = (roleRows || []).map((r: any) => r.role as string);
-    const allowed = ["client_facing", "admin", "master_admin", "examiner"];
-    if (!roles.some((r) => allowed.includes(r))) {
-      console.log("send-login-otp: profile has no portal role");
-      return jsonResponse(generic);
+      .eq("user_id", login.user.id);
+    const step = portalSignInStep((roleRows ?? []).map(row => row.role));
+    if (!roleError && step === "session") {
+      return jsonResponse({ step, access_token: login.session.access_token, refresh_token: login.session.refresh_token });
     }
+    // Never give the browser the password-only session for a client-facing profile.
+    const { error: revokeError } = await passwordClient.auth.signOut({ scope: "local" });
+    if (roleError || revokeError) return jsonResponse({ error: "Could not complete sign-in. Please try again." });
+    if (step === "denied") return jsonResponse({ error: "This account does not have access to the portal." });
 
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "magiclink",
@@ -84,12 +81,13 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    const name = (profile.full_name || "").trim() || "Portal User";
+    const { data: profile } = await supabaseAdmin.from("profiles").select("full_name").eq("id", login.user.id).maybeSingle();
+    const name = profile?.full_name?.trim() || "Portal User";
 
     const message = renderSignInCodeEmail(name, code);
     await client.send({
       from: GMAIL_EMAIL,
-      to: profile.email || email,
+      to: login.user.email || email,
       subject: "Your TLDV sign-in code",
       html: message.html,
       content: message.text,
@@ -98,7 +96,7 @@ const handler = async (req: Request): Promise<Response> => {
     await client.close();
     console.log("send-login-otp: code emailed successfully");
 
-    return jsonResponse(generic);
+    return jsonResponse({ step: "code" });
   } catch (error: any) {
     console.error("send-login-otp failed:", error?.message || error);
     return jsonResponse({ error: "Failed to send sign-in code" }, 500);

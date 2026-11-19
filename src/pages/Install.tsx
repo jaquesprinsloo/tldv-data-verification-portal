@@ -1,20 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
-import { Download, CheckCircle2, Monitor, Smartphone, Apple, Chrome } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Download, CheckCircle2, Monitor, Smartphone, Apple } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import tldvLogo from "@/assets/tldv-logo-primary.png";
 
 const Install = () => {
   const { isInstallable, isInstalled, installApp } = usePWAInstall();
   const navigate = useNavigate();
-
-  const handleInstall = async () => {
-    const success = await installApp();
-    if (success) {
-      // Optionally redirect after installation
-    }
-  };
+  const [params] = useSearchParams();
+  const afterPasswordSetup = params.get("setup") === "complete";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center p-4">
@@ -34,20 +29,20 @@ const Install = () => {
               <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">App Installed!</h3>
               <p className="text-muted-foreground mb-4">
-                The TLDV Portal is now installed. You can find it on your desktop or in your applications.
+                Close this browser page, open TLDV from your desktop, Start menu, taskbar, or applications, then sign in there.
               </p>
-              <Button onClick={() => navigate("/admin/login")}>
+              {!afterPasswordSetup && <Button onClick={() => navigate("/admin/login")}>
                 Go to Admin Portal
-              </Button>
+              </Button>}
             </div>
           ) : isInstallable ? (
             <div className="text-center py-8">
               <Download className="h-16 w-16 text-primary mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">Ready to Install</h3>
               <p className="text-muted-foreground mb-6">
-                Click the button below to install the app. It will appear as an icon on your desktop/taskbar.
+                Install the app, then open TLDV from your desktop, Start menu, or applications to sign in.
               </p>
-              <Button size="lg" onClick={handleInstall} className="gap-2">
+              <Button size="lg" onClick={installApp} className="gap-2">
                 <Download className="h-5 w-5" />
                 Install TLDV Portal
               </Button>
@@ -64,12 +59,13 @@ const Install = () => {
               <div className="border rounded-lg p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <Monitor className="h-6 w-6 text-blue-500" />
-                  <h4 className="font-semibold">Windows / Mac (Chrome or Edge)</h4>
+                  <h4 className="font-semibold">Windows / Mac</h4>
                 </div>
                 <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-                  <li>Look for the install icon <Chrome className="inline h-4 w-4" /> in the address bar (right side)</li>
-                  <li>Click "Install" or "Install app"</li>
-                  <li>The app will be added to your desktop and Start menu/Dock</li>
+                  <li>Open <a href="https://portal.tldv.co.za/install" className="underline">portal.tldv.co.za/install</a> in Edge or Chrome.</li>
+                  <li><strong>Edge:</strong> Open the three-dot menu → Apps → Install TLDV or Install this site as an app.</li>
+                  <li><strong>Chrome:</strong> Use the install icon in the address bar, or open the three-dot menu → Cast, save and share → Install page as app.</li>
+                  <li>After installation, close this browser page and open TLDV from your desktop, Start menu, or applications.</li>
                 </ol>
               </div>
 
@@ -99,11 +95,11 @@ const Install = () => {
                 </ol>
               </div>
 
-              <div className="text-center pt-4">
+              {!afterPasswordSetup && <div className="text-center pt-4">
                 <Button variant="outline" onClick={() => navigate("/admin/login")}>
                   Continue to Admin Portal
                 </Button>
-              </div>
+              </div>}
             </div>
           )}
         </CardContent>

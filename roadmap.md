@@ -13,3 +13,5 @@
 - [x] Fit portal cards in smaller desktop app windows and replace stale app-shell caching; worker cache-isolation test passes. Installed-device update confirmation awaits publishing.
 - [x] Match the admin password reset and one-time code emails to the welcome email.
 - [ ] Brand the sign-in page’s Forgot Password email once a managed email domain is configured.
+- [ ] Confirm password setup and guide users to install and reopen the desktop app.
+- [ ] Start sign-in with a blank email field and require password before the client-facing email code.

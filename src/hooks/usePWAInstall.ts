@@ -12,7 +12,8 @@ export const usePWAInstall = () => {
 
   useEffect(() => {
     // Check if already installed
-    if (window.matchMedia("(display-mode: standalone)").matches) {
+    if (window.matchMedia("(display-mode: standalone), (display-mode: fullscreen), (display-mode: window-controls-overlay)").matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true) {
       setIsInstalled(true);
       return;
     }
@@ -55,6 +56,9 @@ export const usePWAInstall = () => {
     } catch (error) {
       console.error("Error installing PWA:", error);
       return false;
+    } finally {
+      setIsInstallable(false);
+      setDeferredPrompt(null);
     }
   };
 
