@@ -1,12 +1,12 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "npm:@supabase/supabase-js@2.39.3";
+import { renderWelcomeEmail } from "./welcome-email.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -164,79 +164,25 @@ serve(async (req) => {
 
         // Generate one-time recovery link so the user sets their own password.
         // Never email the plaintext password.
-        let recoveryLink = `${siteUrl}/admin/login`;
+        let recoveryLink: string | undefined;
         try {
           const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
             type: 'recovery',
             email,
             options: { redirectTo: `${siteUrl}/admin/reset-password` },
-          } as any);
-          if (!linkErr && (linkData as any)?.properties?.action_link) {
-            recoveryLink = (linkData as any).properties.action_link;
-          }
+          });
+          if (!linkErr) recoveryLink = linkData?.properties?.action_link;
         } catch (linkGenErr) {
           console.error('Failed to generate recovery link:', linkGenErr);
         }
 
-        const emailHtml = `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background-color: #000; padding: 20px; text-align: center; }
-              .header h1 { color: #dc2626; margin: 0; }
-              .content { padding: 30px; background-color: #f9f9f9; }
-              .credentials-box { background-color: #fff; border: 2px solid #dc2626; padding: 20px; margin: 20px 0; border-radius: 5px; }
-              .credential-item { margin: 10px 0; padding: 10px; background-color: #f5f5f5; border-radius: 3px; }
-              .credential-label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
-              .credential-value { font-size: 16px; color: #000; margin-top: 5px; font-family: monospace; }
-              .warning { background-color: #fef2f2; border: 1px solid #dc2626; padding: 15px; border-radius: 5px; margin: 20px 0; }
-              .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-              .button { display: inline-block; background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-top: 20px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1>TLDV Data Verification Portal</h1>
-              </div>
-              <div class="content">
-                <h2>Welcome, ${firstName} ${lastName}!</h2>
-                <p>Your <strong>${roleDisplay}</strong> account has been created. Use the secure link below to set your password and sign in:</p>
-                
-                <div class="credentials-box">
-                  <h3 style="margin-top: 0; color: #dc2626;">Your Account</h3>
-                  <div class="credential-item">
-                    <div class="credential-label">Email Address</div>
-                    <div class="credential-value">${email}</div>
-                  </div>
-                  <div class="credential-item">
-                    <div class="credential-label">Role</div>
-                    <div class="credential-value">${roleDisplay}</div>
-                  </div>
-                </div>
-                
-                <div class="warning">
-                  <strong>🔐 Set Your Password:</strong>
-                  <p style="margin-bottom: 0;">For your security, your password is not sent by email. Click the button below to set your own password. This link is single-use and will expire shortly.</p>
-                </div>
-                
-                <center>
-                  <a href="${recoveryLink}" class="button">Set Password &amp; Sign In</a>
-                </center>
-                
-                <p style="margin-top: 30px;">If you have any questions, please contact the master administrator.</p>
-              </div>
-              <div class="footer">
-                <p>This is an automated message from TLDV Data Verification Portal.</p>
-                <p>Please do not reply to this email.</p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `;
+        const welcomeEmail = renderWelcomeEmail({
+          name: `${firstName} ${lastName}`,
+          email,
+          role: roleDisplay,
+          link: recoveryLink || `${siteUrl}/admin/login`,
+          hasSetupLink: Boolean(recoveryLink),
+        });
 
         const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -248,7 +194,7 @@ serve(async (req) => {
             from: "TLDV Portal <noreply@tldv.co.za>",
             to: [email],
             subject: `Your TLDV ${roleDisplay} Account Has Been Created`,
-            html: emailHtml,
+            ...welcomeEmail,
           }),
         });
 
