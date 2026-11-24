@@ -22,8 +22,9 @@ import { buildStoreSubmissionLink } from "./intakeLogic";
 import { PdfPreview } from "@/pages/ManualRiskAssessments";
 import { toast } from "sonner";
 import {
-  Users, ShieldCheck, Clock, AlertTriangle, CheckCircle2, Building2, Activity, Eye, Loader2, Copy,
+  Users, ShieldCheck, Clock, AlertTriangle, CheckCircle2, Building2, Activity, Eye, Loader2, Copy, Volume2,
 } from "lucide-react";
+import { DashboardAudioGuide, type DashboardGuideTarget } from "./DashboardAudioGuide";
 
 const sb = supabase as any;
 
@@ -57,11 +58,13 @@ const ADVERSE: Record<string, string[]> = {
 };
 
 function Kpi({
-  label, value, sub, icon, tone = "slate", onClick,
+  label, value, sub, icon, tone = "slate", onClick, highlight = false, guideTarget,
 }: {
   label: string; value: string | number; sub?: string; icon: React.ReactNode;
   tone?: "slate" | "emerald" | "amber" | "rose" | "blue";
   onClick?: () => void;
+  highlight?: boolean;
+  guideTarget?: string;
 }) {
   const ring =
     tone === "emerald" ? "bg-emerald-50 text-emerald-700 ring-emerald-100" :
@@ -71,7 +74,8 @@ function Kpi({
     "bg-slate-100 text-slate-700 ring-slate-200";
   return (
     <Card
-      className={`p-5 border-slate-200/80 shadow-sm hover:shadow-md transition-shadow ${onClick ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""}`}
+      data-guide-target={guideTarget}
+      className={`p-5 border-slate-200/80 shadow-sm hover:shadow-md transition-shadow ${onClick ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""} ${highlight ? "guide-spotlight" : ""}`}
       onClick={onClick}
       role={onClick ? "button" : undefined}
     >
@@ -97,6 +101,8 @@ export function MrClientDashboardTab({
   const [toDate, setToDate] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
   const [storeSearch, setStoreSearch] = useState("");
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideTarget, setGuideTarget] = useState<DashboardGuideTarget | null>(null);
   const shareableStores = clients.filter((client) => isSubmissionAccount(client.client_name));
   const matchingStores = shareableStores.filter((client) =>
     client.client_name.toLowerCase().includes(storeSearch.trim().toLowerCase()),
@@ -334,8 +340,14 @@ export function MrClientDashboardTab({
   };
 
   return (
-    <div className="space-y-5">
-      <Card className="p-4 border-slate-200/80">
+    <div
+      data-guide-target="overview"
+      className={`space-y-5 ${guideOpen ? "pb-24" : ""} ${guideTarget === "overview" ? "guide-spotlight p-2 -m-2" : ""}`}
+    >
+      <Card
+        data-guide-target="date-filters"
+        className={`p-4 border-slate-200/80 ${guideTarget === "date-filters" ? "guide-spotlight" : ""}`}
+      >
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <Label className="text-xs">From</Label>
@@ -354,13 +366,27 @@ export function MrClientDashboardTab({
             )}
           </div>
           <div className="flex-1" />
-          <p className="text-xs text-muted-foreground">
-            {isLoading ? "Loading screening data…" : `${rangedSubs.length} submission(s) in view`}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs text-muted-foreground">
+              {isLoading ? "Loading screening data…" : `${rangedSubs.length} submission(s) in view`}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant={guideOpen ? "default" : "outline"}
+              onClick={() => setGuideOpen((v) => !v)}
+              className="gap-1.5"
+            >
+              <Volume2 className="h-4 w-4" />
+              {guideOpen ? "Stop guide" : "Dashboard guide"}
+            </Button>
+          </div>
         </div>
       </Card>
 
-      <Card className="p-4 border-slate-200/80 bg-slate-50/60">
+      <Card
+        className={`p-4 border-slate-200/80 bg-slate-50/60 ${guideTarget === "open-submission" || guideTarget === "copy-link" ? "border-primary/40" : ""}`}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="font-medium text-sm flex items-center gap-2">
@@ -372,12 +398,26 @@ export function MrClientDashboardTab({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <a href="/submit-request">
-              <Button size="sm" className="bg-red-600 hover:bg-red-700">Open submission page</Button>
+              <Button
+                size="sm"
+                data-guide-target="open-submission"
+                className={`bg-red-600 hover:bg-red-700 ${guideTarget === "open-submission" ? "guide-spotlight-button" : ""}`}
+              >
+                Open submission page
+              </Button>
             </a>
-            <Button size="sm" variant="outline" className="min-h-11" onClick={() => {
-              setStoreSearch("");
-              setShareOpen(true);
-            }}>Copy shareable link</Button>
+            <Button
+              size="sm"
+              variant="outline"
+              data-guide-target="copy-link"
+              className={`min-h-11 ${guideTarget === "copy-link" ? "guide-spotlight-button" : ""}`}
+              onClick={() => {
+                setStoreSearch("");
+                setShareOpen(true);
+              }}
+            >
+              Copy shareable link
+            </Button>
           </div>
         </div>
       </Card>
@@ -405,7 +445,10 @@ export function MrClientDashboardTab({
         </DialogContent>
       </Dialog>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div
+        data-guide-target="kpi-cards"
+        className={`grid gap-4 sm:grid-cols-2 xl:grid-cols-5 ${guideTarget === "kpi-cards" ? "guide-spotlight p-2 -m-2" : ""}`}
+      >
         <Kpi label="Candidates screened" value={stats.total} icon={<Users className="h-5 w-5" />} tone="blue"
           sub={`${stats.accounts} account(s)`} />
         <Kpi label="Completed" value={stats.completedCands} icon={<CheckCircle2 className="h-5 w-5" />} tone="emerald"
@@ -413,10 +456,13 @@ export function MrClientDashboardTab({
         <Kpi label="Still in progress" value={stats.pendingChecks} icon={<Clock className="h-5 w-5" />} tone="amber"
           sub="Awaiting verification feedback" onClick={() => setListView("pending")} />
         <Kpi label="Risk identified" value={stats.flagged} icon={<AlertTriangle className="h-5 w-5" />} tone="rose"
+          guideTarget="kpi-risk-cards"
+          highlight={guideTarget === "kpi-risk-cards"}
           sub={stats.supersededCount
             ? `Adverse finding — excludes ${stats.supersededCount} redone & cleared`
             : "Candidates with an adverse finding"} onClick={() => setListView("flagged")} />
         <Kpi label="ID not valid" value={stats.idInvalid} icon={<ShieldCheck className="h-5 w-5" />} tone="slate"
+          highlight={guideTarget === "kpi-risk-cards"}
           sub={stats.supersededCount
             ? `Invalid or deceased — excludes ${stats.supersededCount} redone & cleared`
             : "Invalid or deceased on Home Affairs"} onClick={() => setListView("idInvalid")} />
@@ -424,7 +470,10 @@ export function MrClientDashboardTab({
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <Card className="p-5 border-slate-200/80">
+        <Card
+          data-guide-target="chart-progress"
+          className={`p-5 border-slate-200/80 ${guideTarget === "chart-progress" ? "guide-spotlight" : ""}`}
+        >
           <div className="flex items-center gap-2 mb-4">
             <Activity className="h-4 w-4 text-red-600" />
             <h3 className="font-semibold">Progress by check type</h3>
@@ -443,7 +492,10 @@ export function MrClientDashboardTab({
           </div>
         </Card>
 
-        <Card className="p-5 border-slate-200/80">
+        <Card
+          data-guide-target="chart-accounts"
+          className={`p-5 border-slate-200/80 ${guideTarget === "chart-accounts" ? "guide-spotlight" : ""}`}
+        >
           <div className="flex items-center gap-2 mb-4">
             <Building2 className="h-4 w-4 text-red-600" />
             <h3 className="font-semibold">Busiest accounts</h3>
@@ -466,7 +518,10 @@ export function MrClientDashboardTab({
         </Card>
       </div>
 
-      <Card className="p-5 border-slate-200/80">
+      <Card
+        data-guide-target="in-progress-table"
+        className={`p-5 border-slate-200/80 ${guideTarget === "in-progress-table" ? "guide-spotlight" : ""}`}
+      >
         <div className="flex items-center gap-2 mb-3">
           <Clock className="h-4 w-4 text-amber-600" />
           <h3 className="font-semibold">Checks still in progress</h3>
@@ -576,6 +631,12 @@ export function MrClientDashboardTab({
           )}
         </DialogContent>
       </Dialog>
+
+      <DashboardAudioGuide
+        open={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        onActiveTargetChange={setGuideTarget}
+      />
     </div>
   );
 }

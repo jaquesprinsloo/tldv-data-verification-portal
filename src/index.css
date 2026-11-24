@@ -145,7 +145,7 @@ All colors MUST be HSL.
 /* ===== Mobile form element sizing ===== */
 @media (max-width: 640px) {
   /* Make all inputs, selects, textareas, and buttons touch-friendly */
-  input:not([type="checkbox"]):not([type="radio"]),
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
   textarea,
   select,
   [role="combobox"],
@@ -300,5 +300,41 @@ All colors MUST be HSL.
 @media print {
   .no-print {
     display: none !important;
+  }
+}
+
+/* Interactive audio guide spotlight */
+@keyframes guideSpotlightPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px hsl(var(--primary)), 0 0 0 6px hsl(var(--primary) / 0.22), 0 12px 28px -8px hsl(var(--primary) / 0.28);
+  }
+  50% {
+    box-shadow: 0 0 0 3px hsl(var(--primary)), 0 0 0 10px hsl(var(--primary) / 0.12), 0 16px 34px -6px hsl(var(--primary) / 0.36);
+  }
+}
+
+.guide-spotlight {
+  position: relative;
+  z-index: 20;
+  border-color: hsl(var(--primary)) !important;
+  border-radius: var(--radius);
+  animation: guideSpotlightPulse 1.8s ease-in-out infinite;
+  transition: box-shadow 250ms ease, border-color 250ms ease, transform 250ms ease;
+  scroll-margin-top: 96px;
+}
+
+.guide-spotlight-button {
+  position: relative;
+  z-index: 20;
+  animation: guideSpotlightPulse 1.6s ease-in-out infinite;
+  transition: box-shadow 250ms ease, transform 250ms ease;
+  scroll-margin-top: 96px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-spotlight,
+  .guide-spotlight-button {
+    animation: none;
+    box-shadow: 0 0 0 3px hsl(var(--primary)), 0 0 0 6px hsl(var(--primary) / 0.2);
   }
 }
