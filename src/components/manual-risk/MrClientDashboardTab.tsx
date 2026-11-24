@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -24,7 +24,11 @@ import { toast } from "sonner";
 import {
   Users, ShieldCheck, Clock, AlertTriangle, CheckCircle2, Building2, Activity, Eye, Loader2, Copy, Volume2,
 } from "lucide-react";
-import { DashboardAudioGuide, type DashboardGuideTarget } from "./DashboardAudioGuide";
+import {
+  DashboardAudioGuide,
+  type DashboardDemoAction,
+  type DashboardGuideTarget,
+} from "./DashboardAudioGuide";
 
 const sb = supabase as any;
 
@@ -58,12 +62,13 @@ const ADVERSE: Record<string, string[]> = {
 };
 
 function Kpi({
-  label, value, sub, icon, tone = "slate", onClick, highlight = false, guideTarget,
+  label, value, sub, icon, tone = "slate", onClick, highlight = false, demoClick = false, guideTarget,
 }: {
   label: string; value: string | number; sub?: string; icon: React.ReactNode;
   tone?: "slate" | "emerald" | "amber" | "rose" | "blue";
   onClick?: () => void;
   highlight?: boolean;
+  demoClick?: boolean;
   guideTarget?: string;
 }) {
   const ring =
@@ -75,7 +80,7 @@ function Kpi({
   return (
     <Card
       data-guide-target={guideTarget}
-      className={`p-5 border-slate-200/80 shadow-sm hover:shadow-md transition-shadow ${onClick ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""} ${highlight ? "guide-spotlight" : ""}`}
+      className={`p-5 border-slate-200/80 shadow-sm hover:shadow-md transition-shadow ${onClick ? "cursor-pointer hover:ring-2 hover:ring-slate-300" : ""} ${highlight ? "guide-spotlight" : ""} ${demoClick ? "guide-demo-click" : ""}`}
       onClick={onClick}
       role={onClick ? "button" : undefined}
     >
@@ -103,6 +108,8 @@ export function MrClientDashboardTab({
   const [storeSearch, setStoreSearch] = useState("");
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideTarget, setGuideTarget] = useState<DashboardGuideTarget | null>(null);
+  const [guideDemoAction, setGuideDemoAction] = useState<DashboardDemoAction | null>(null);
+  const demoOwnedDialogRef = useRef<null | "share" | "flagged">(null);
   const shareableStores = clients.filter((client) => isSubmissionAccount(client.client_name));
   const matchingStores = shareableStores.filter((client) =>
     client.client_name.toLowerCase().includes(storeSearch.trim().toLowerCase()),
@@ -241,6 +248,29 @@ export function MrClientDashboardTab({
   const [listView, setListView] = useState<null | "pending" | "flagged" | "idInvalid">(null);
   const [reportPreview, setReportPreview] = useState<{ blob: Blob; title: string } | null>(null);
   const [previewingSub, setPreviewingSub] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (guideOpen && guideDemoAction === "open-share-dialog") {
+      if (demoOwnedDialogRef.current === "flagged") setListView(null);
+      setStoreSearch("");
+      setShareOpen(true);
+      demoOwnedDialogRef.current = "share";
+      return;
+    }
+    if (guideOpen && guideDemoAction === "open-flagged-dialog") {
+      if (demoOwnedDialogRef.current === "share") setShareOpen(false);
+      setListView("flagged");
+      demoOwnedDialogRef.current = "flagged";
+      return;
+    }
+    if (demoOwnedDialogRef.current === "share") {
+      setShareOpen(false);
+      demoOwnedDialogRef.current = null;
+    } else if (demoOwnedDialogRef.current === "flagged") {
+      setListView(null);
+      demoOwnedDialogRef.current = null;
+    }
+  }, [guideOpen, guideDemoAction]);
 
   // Renders the exact report that was sent for the candidate's submission,
   // using the same unencrypted in-app preview the Accounts tab uses.
@@ -410,7 +440,7 @@ export function MrClientDashboardTab({
               size="sm"
               variant="outline"
               data-guide-target="copy-link"
-              className={`min-h-11 ${guideTarget === "copy-link" ? "guide-spotlight-button" : ""}`}
+              className={`min-h-11 ${guideTarget === "copy-link" ? "guide-spotlight-button" : ""} ${guideDemoAction === "click-copy-link" ? "guide-demo-click" : ""}`}
               onClick={() => {
                 setStoreSearch("");
                 setShareOpen(true);
@@ -422,8 +452,23 @@ export function MrClientDashboardTab({
         </div>
       </Card>
 
-      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md">
+      <Dialog
+        open={shareOpen}
+        onOpenChange={(open) => {
+          setShareOpen(open);
+          if (!open && demoOwnedDialogRef.current === "share") {
+            demoOwnedDialogRef.current = null;
+          }
+        }}
+      >
+        <DialogContent
+          className="w-[calc(100%-2rem)] sm:max-w-md"
+          onInteractOutside={(e) => {
+            if ((e.target as HTMLElement | null)?.closest('[data-guide-player="true"]')) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Copy a store submission link</DialogTitle>
             <DialogDescription>Choose the store the link is for.</DialogDescription>
@@ -458,6 +503,7 @@ export function MrClientDashboardTab({
         <Kpi label="Risk identified" value={stats.flagged} icon={<AlertTriangle className="h-5 w-5" />} tone="rose"
           guideTarget="kpi-risk-cards"
           highlight={guideTarget === "kpi-risk-cards"}
+          demoClick={guideDemoAction === "click-risk-card"}
           sub={stats.supersededCount
             ? `Adverse finding — excludes ${stats.supersededCount} redone & cleared`
             : "Candidates with an adverse finding"} onClick={() => setListView("flagged")} />
@@ -560,8 +606,25 @@ export function MrClientDashboardTab({
         </div>
       </Card>
 
-      <Dialog open={listView !== null} onOpenChange={(open) => { if (!open) setListView(null); }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <Dialog
+        open={listView !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setListView(null);
+            if (demoOwnedDialogRef.current === "flagged") {
+              demoOwnedDialogRef.current = null;
+            }
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-2xl max-h-[80vh] overflow-y-auto"
+          onInteractOutside={(e) => {
+            if ((e.target as HTMLElement | null)?.closest('[data-guide-player="true"]')) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>
               {listView === "pending" && `Candidates still in progress (${stats.pendingChecks})`}
@@ -636,6 +699,7 @@ export function MrClientDashboardTab({
         open={guideOpen}
         onClose={() => setGuideOpen(false)}
         onActiveTargetChange={setGuideTarget}
+        onDemoActionChange={setGuideDemoAction}
       />
     </div>
   );

@@ -3,12 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Pause, Play, RotateCcw, SkipBack, SkipForward, Volume2, X } from "lucide-react";
 import dashboardExplainerAudio from "@/assets/dashboard-explainer.m4a.asset.json";
 import {
+  DASHBOARD_GUIDE_DEMO_CUES,
   DASHBOARD_GUIDE_STEPS,
+  getActiveDemoAction,
   getActiveGuideStep,
+  type DashboardDemoAction,
   type DashboardGuideTarget,
 } from "./dashboardGuideSteps";
 
-export type { DashboardGuideTarget };
+export type { DashboardDemoAction, DashboardGuideTarget };
 
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -21,10 +24,12 @@ export function DashboardAudioGuide({
   open,
   onClose,
   onActiveTargetChange,
+  onDemoActionChange,
 }: {
   open: boolean;
   onClose: () => void;
   onActiveTargetChange: (target: DashboardGuideTarget | null) => void;
+  onDemoActionChange: (action: DashboardDemoAction | null) => void;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -33,6 +38,9 @@ export function DashboardAudioGuide({
   const [ended, setEnded] = useState(false);
 
   const activeStep = open ? getActiveGuideStep(DASHBOARD_GUIDE_STEPS, currentTime) : null;
+  const activeDemoAction = open
+    ? getActiveDemoAction(DASHBOARD_GUIDE_DEMO_CUES, currentTime)
+    : null;
   const activeIndex = activeStep
     ? DASHBOARD_GUIDE_STEPS.findIndex((s) => s.target === activeStep.target)
     : -1;
@@ -40,6 +48,10 @@ export function DashboardAudioGuide({
   useEffect(() => {
     onActiveTargetChange(open && !ended ? activeStep?.target ?? null : null);
   }, [open, ended, activeStep?.target, onActiveTargetChange]);
+
+  useEffect(() => {
+    onDemoActionChange(open && !ended ? activeDemoAction : null);
+  }, [open, ended, activeDemoAction, onDemoActionChange]);
 
   useEffect(() => {
     if (!open || ended || !activeStep) return;
@@ -116,7 +128,8 @@ export function DashboardAudioGuide({
     <div
       role="region"
       aria-label="Dashboard audio guide player"
-      className="fixed bottom-4 left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-2xl -translate-x-1/2 rounded-xl border border-primary/40 bg-zinc-950/95 px-4 py-3 text-white shadow-2xl backdrop-blur"
+      data-guide-player="true"
+      className="pointer-events-auto fixed bottom-4 left-1/2 z-[60] w-[calc(100%-1.5rem)] max-w-2xl -translate-x-1/2 rounded-xl border border-primary/40 bg-zinc-950/95 px-4 py-3 text-white shadow-2xl backdrop-blur"
     >
       <audio
         ref={audioRef}
@@ -132,6 +145,10 @@ export function DashboardAudioGuide({
         onEnded={() => {
           setIsPlaying(false);
           setEnded(true);
+          onActiveTargetChange(null);
+          onDemoActionChange(null);
+          onClose();
+          window.scrollTo({ top: 0, behavior: "smooth" });
         }}
       />
 

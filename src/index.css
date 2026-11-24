@@ -331,9 +331,49 @@ All colors MUST be HSL.
   scroll-margin-top: 96px;
 }
 
+@keyframes guideDemoClick {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes guideDemoRipple {
+  0% {
+    opacity: 0.75;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+.guide-demo-click {
+  position: relative;
+  animation: guideDemoClick 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.guide-demo-click::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 3px solid hsl(var(--primary));
+  pointer-events: none;
+  animation: guideDemoRipple 0.75s ease-out forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .guide-spotlight,
-  .guide-spotlight-button {
+  .guide-spotlight-button,
+  .guide-demo-click,
+  .guide-demo-click::after {
     animation: none;
     box-shadow: 0 0 0 3px hsl(var(--primary)), 0 0 0 6px hsl(var(--primary) / 0.2);
   }

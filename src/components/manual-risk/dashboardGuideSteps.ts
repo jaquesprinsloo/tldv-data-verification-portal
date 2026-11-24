@@ -16,6 +16,18 @@ export type GuideStep = {
   end: number;
 };
 
+export type DashboardDemoAction =
+  | "click-copy-link"
+  | "open-share-dialog"
+  | "click-risk-card"
+  | "open-flagged-dialog";
+
+export type GuideDemoCue = {
+  action: DashboardDemoAction;
+  start: number;
+  end: number;
+};
+
 export const DASHBOARD_GUIDE_STEPS: GuideStep[] = [
   { target: "overview", label: "Dashboard overview", start: 0, end: 8.0 },
   { target: "date-filters", label: "Date range & presets", start: 8.0, end: 19.8 },
@@ -28,6 +40,13 @@ export const DASHBOARD_GUIDE_STEPS: GuideStep[] = [
   { target: "in-progress-table", label: "Checks still in progress", start: 63.2, end: 75.0 },
 ];
 
+export const DASHBOARD_GUIDE_DEMO_CUES: GuideDemoCue[] = [
+  { action: "click-copy-link", start: 26.2, end: 27.0 },
+  { action: "open-share-dialog", start: 27.0, end: 31.8 },
+  { action: "click-risk-card", start: 44.8, end: 45.6 },
+  { action: "open-flagged-dialog", start: 45.6, end: 49.8 },
+];
+
 export function getActiveGuideStep(steps: GuideStep[], currentTime: number): GuideStep | null {
   if (!Number.isFinite(currentTime) || currentTime < 0) return steps[0] ?? null;
   for (let i = steps.length - 1; i >= 0; i--) {
@@ -35,4 +54,17 @@ export function getActiveGuideStep(steps: GuideStep[], currentTime: number): Gui
     if (step && currentTime >= step.start) return step;
   }
   return steps[0] ?? null;
+}
+
+export function getActiveDemoAction(
+  cues: GuideDemoCue[],
+  currentTime: number,
+): DashboardDemoAction | null {
+  if (!Number.isFinite(currentTime) || currentTime < 0) return null;
+  for (const cue of cues) {
+    if (currentTime >= cue.start && currentTime < cue.end) {
+      return cue.action;
+    }
+  }
+  return null;
 }
