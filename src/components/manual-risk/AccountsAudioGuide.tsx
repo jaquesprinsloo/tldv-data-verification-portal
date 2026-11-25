@@ -57,7 +57,11 @@ export function AccountsAudioGuide({
   useEffect(() => {
     if (!open || ended || !activeStep || activeStep.target.startsWith("demo-")) return;
     const el = document.querySelector<HTMLElement>(`[data-guide-target="${activeStep.target}"]`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Keep the column headings visible rather than centering the entire account list.
+    if (el) el.scrollIntoView({
+      behavior: "smooth",
+      block: activeStep.target === "accounts-columns" ? "start" : "center",
+    });
   }, [open, ended, activeStep?.target]);
 
   useEffect(() => {
