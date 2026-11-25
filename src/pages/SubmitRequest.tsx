@@ -7,11 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle2, ChevronLeft, ChevronRight, FileUp, Loader2, Trash2, Users, Search, Plus } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, FileUp, Loader2, Play, Trash2, Users, Search, Plus, Volume2, X } from "lucide-react";
 import { AddAccountDialog } from "@/components/manual-risk/AddAccountDialog";
+import { SubmissionAudioGuide } from "@/components/manual-risk/SubmissionAudioGuide";
+import type { SubmissionDemoAction, SubmissionGuideStep } from "@/components/manual-risk/submissionGuideSteps";
 import { isSubmissionAccount } from "../../supabase/functions/intake-public/accountRules";
 import preApplicheckLogo from "@/assets/preapplicheck-logo-mark.png";
-import { parseSaId, parseBatchCsv, storeSlug, type IntakeCandidate } from "@/components/manual-risk/intakeLogic";
+import { buildOrderNumberBase, parseSaId, parseBatchCsv, storeSlug, type IntakeCandidate } from "@/components/manual-risk/intakeLogic";
 
 const sb = supabase as any;
 const INDEMNITY_BUCKET = "manual-risk-indemnities";
@@ -24,6 +26,16 @@ const emptyCandidate = (): CandidateRow => ({
   key: crypto.randomUUID(), id_number: "", surname: "", first_name: "",
   gender: null, date_of_birth: null, genderExplicit: false,
 });
+
+const DEMO_CANDIDATE: CandidateRow = {
+  key: "demo-candidate",
+  id_number: "9001015009087",
+  first_name: "Thabo",
+  surname: "Mokoena",
+  gender: "M",
+  date_of_birth: "1990-01-01",
+  genderExplicit: false,
+};
 
 export default function SubmitRequest() {
   const { search } = useLocation();
@@ -59,6 +71,10 @@ export default function SubmitRequest() {
 
   const [result, setResult] = useState<{ order_number: string } | null>(null);
   const [finished, setFinished] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [promptDismissed, setPromptDismissed] = useState(false);
+  const [guideStep, setGuideStep] = useState<SubmissionGuideStep | null>(null);
+  const [guideDemoAction, setGuideDemoAction] = useState<SubmissionDemoAction | null>(null);
 
   // Load the directory of loaded stores once.
   useEffect(() => {
@@ -241,6 +257,28 @@ export default function SubmitRequest() {
   const stepTitles = ["Submission", "Store", "Your details", "Candidates", "Done"];
   const chosenStore = useMemo(() => stores.find((s) => s.id === storeChosen), [stores, storeChosen]);
 
+  const isGuiding = guideOpen && !!guideStep;
+  const activeTarget = isGuiding ? guideStep.target : null;
+  const displayStep = isGuiding ? guideStep.formStep : step;
+  const displayMode = isGuiding && guideStep.formStep === 4 ? "single" : mode;
+  const displaySingleRow = isGuiding && guideStep.formStep === 4 ? (singleRow ?? DEMO_CANDIDATE) : singleRow;
+  const displayResult = isGuiding && guideStep.formStep === 5
+    ? (result ?? { order_number: buildOrderNumberBase(chosenStore?.client_name ?? "Sample Store") })
+    : result;
+
+  const exitGuideToStart = () => {
+    setGuideOpen(false);
+    setGuideStep(null);
+    setGuideDemoAction(null);
+    setStep(1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const startGuide = () => {
+    setPromptDismissed(true);
+    setGuideOpen(true);
+  };
+
   // Signed-in portal users can always return, even when the installed app omits a referrer.
   const canClose = canAddAccount || (typeof document !== "undefined" && document.referrer.startsWith(window.location.origin));
   const closeToDashboard = () => {
@@ -263,16 +301,25 @@ export default function SubmitRequest() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className={`min-h-screen bg-white flex flex-col ${guideOpen ? "pb-24" : ""}`}>
       {/* Header */}
-      <header className="border-b bg-white">
-        {canClose && (
-          <div className="max-w-3xl mx-auto px-4 pt-3">
+      <header data-guide-target="header" className={`border-b bg-white ${activeTarget === "header" ? "guide-spotlight" : ""}`}>
+        <div className="max-w-3xl mx-auto px-4 pt-3 flex items-center justify-between gap-2">
+          {canClose ? (
             <Button variant="outline" className="min-h-11" onClick={closeToDashboard}>
               <ChevronLeft className="h-4 w-4 mr-1" /> Back to dashboard
             </Button>
-          </div>
-        )}
+          ) : <span />}
+          <Button
+            type="button"
+            variant={guideOpen ? "default" : "outline"}
+            className="min-h-11 gap-1.5"
+            onClick={() => (guideOpen ? exitGuideToStart() : startGuide())}
+          >
+            <Volume2 className="h-4 w-4" />
+            {guideOpen ? "Stop guide" : "Audio guide"}
+          </Button>
+        </div>
         <div className="max-w-3xl mx-auto px-4 py-4 flex flex-col items-center gap-2">
           <img src={preApplicheckLogo} alt="PreAppliCheck" className="h-16 sm:h-20" />
           <p className="text-sm text-muted-foreground text-center">Background screening requests — Vetting driven by Intelligence</p>
@@ -280,12 +327,45 @@ export default function SubmitRequest() {
       </header>
 
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-6">
+        {!guideOpen && !promptDismissed && step === 1 && (
+          <div
+            role="region"
+            aria-label="Audio walkthrough prompt"
+            className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <Volume2 className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">First time submitting a check?</p>
+                <p className="text-xs text-muted-foreground">Listen to the 1-minute guided walkthrough with step-by-step highlights.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="button" size="sm" className="min-h-10 gap-1.5" onClick={startGuide}>
+                <Play className="h-3.5 w-3.5" /> Play guide
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                aria-label="Dismiss audio prompt"
+                className="h-10 w-10 text-muted-foreground"
+                onClick={() => setPromptDismissed(true)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Stepper */}
         <ol className="flex items-center justify-center gap-2 mb-8 text-sm">
           {stepTitles.map((t, i) => (
-            <li key={t} className={`flex items-center gap-2 ${i + 1 === step ? "font-semibold" : "text-muted-foreground"}`}>
-              <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full border text-xs ${i + 1 < step ? "bg-emerald-600 text-white border-emerald-600" : i + 1 === step ? "border-red-600 text-red-600" : "border-muted"}`}>
-                {i + 1 < step ? "✓" : i + 1}
+            <li key={t} className={`flex items-center gap-2 ${i + 1 === displayStep ? "font-semibold" : "text-muted-foreground"}`}>
+              <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full border text-xs ${i + 1 < displayStep ? "bg-emerald-600 text-white border-emerald-600" : i + 1 === displayStep ? "border-red-600 text-red-600" : "border-muted"}`}>
+                {i + 1 < displayStep ? "✓" : i + 1}
               </span>
               <span className="hidden sm:inline">{t}</span>
               {i < stepTitles.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
@@ -293,14 +373,18 @@ export default function SubmitRequest() {
           ))}
         </ol>
 
-                    {step === 1 && (
-              <Card>
+                    {displayStep === 1 && (
+              <Card data-guide-target="submission-type" className={activeTarget === "submission-type" ? "guide-spotlight" : ""}>
                 <CardContent className="pt-6 space-y-4 text-center">
                   <h2 className="text-lg font-semibold">How many candidates?</h2>
                   <p className="text-sm text-muted-foreground">Choose one candidate, or several in one request.</p>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <Button variant="outline" onClick={() => startSubmission("single")}
-                      className="min-h-[104px] h-auto flex-col gap-1 whitespace-normal border-2 px-4 py-4">
+                    <Button
+                      variant="outline"
+                      data-guide-target="single-submission"
+                      onClick={() => startSubmission("single")}
+                      className={`min-h-[104px] h-auto flex-col gap-1 whitespace-normal border-2 px-4 py-4 ${activeTarget === "single-submission" ? "guide-spotlight-button" : ""} ${guideDemoAction === "click-single" ? "guide-demo-click" : ""}`}
+                    >
                       <Users className="h-6 w-6 mx-auto mb-1 text-primary" />
                       <span className="font-medium text-sm">Single submission</span>
                       <p className="text-xs text-muted-foreground mt-1">One candidate</p>
@@ -318,8 +402,8 @@ export default function SubmitRequest() {
             )}
 
         {/* Step 2: store */}
-        {step === 2 && (
-          <Card>
+        {displayStep === 2 && (
+          <Card data-guide-target="store-selection" className={activeTarget === "store-selection" ? "guide-spotlight" : ""}>
             <CardContent className="pt-6 space-y-5">
               <div>
                 <h2 className="text-lg font-semibold mb-1">Which store is this submission for?</h2>
@@ -366,8 +450,8 @@ export default function SubmitRequest() {
           setStoreChosen(account.id); setAccountSearch(""); setStep(3);
         }} />
         {/* Step 3: submitter */}
-        {step === 3 && (
-          <Card>
+        {displayStep === 3 && (
+          <Card data-guide-target="submitter-details" className={activeTarget === "submitter-details" ? "guide-spotlight" : ""}>
             <CardContent className="pt-6 space-y-4">
               <div>
                 <h2 className="text-lg font-semibold mb-1">Your details</h2>
@@ -410,23 +494,24 @@ export default function SubmitRequest() {
         )}
 
         {/* Step 4: candidates */}
-        {step === 4 && (
+        {displayStep === 4 && (
           <div className="space-y-4">
 
 
-            {mode === "single" && singleRow && (
+            {displayMode === "single" && displaySingleRow && (
               <CandidateCard
                 title="Candidate details"
-                row={singleRow}
+                row={displaySingleRow}
+                highlighted={activeTarget === "candidate-details"}
                 onChange={(patch) => setSingle(patch)}
                 onGenderPick={(g) => {
-                  if (!singleRow) return;
-                  updateCandidate(singleRow.key, { gender: g, genderExplicit: true });
+                  if (!displaySingleRow) return;
+                  updateCandidate(displaySingleRow.key, { gender: g, genderExplicit: true });
                 }}
               />
             )}
 
-            {mode === "batch" && (
+            {displayMode === "batch" && (
               <>
                 <Card>
                   <CardContent className="pt-6 space-y-4">
@@ -475,9 +560,9 @@ export default function SubmitRequest() {
               </>
             )}
 
-            {mode && (
+            {displayMode && (
               <div className="space-y-4">
-                <Card>
+                <Card data-guide-target="documents-upload" className={activeTarget === "documents-upload" ? "guide-spotlight" : ""}>
                   <CardContent className="pt-6 space-y-4">
                     <div>
                       <h2 className="text-lg font-semibold mb-1">Documents</h2>
@@ -510,7 +595,10 @@ export default function SubmitRequest() {
 
                 <Card>
                   <CardContent className="pt-6 space-y-4">
-                    <label className="flex items-start gap-3 text-sm">
+                    <label
+                      data-guide-target="consent-box"
+                      className={`flex items-start gap-3 text-sm rounded-md p-2 -m-2 ${activeTarget === "consent-box" ? "guide-spotlight" : ""}`}
+                    >
                       <Checkbox className="mt-0.5" checked={consent} onCheckedChange={(v) => setConsent(!!v)} />
                       <span>
                         I confirm that all the relevant consent has been obtained from the candidate(s) listed above to
@@ -519,7 +607,12 @@ export default function SubmitRequest() {
                     </label>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <Button variant="outline" onClick={() => setStep(3)}><ChevronLeft className="h-4 w-4 mr-1" /> Back</Button>
-                      <Button className="bg-red-600 hover:bg-red-700 min-h-[44px]" disabled={submitting} onClick={() => void submitRequest()}>
+                      <Button
+                        data-guide-target="submit-button"
+                        className={`bg-red-600 hover:bg-red-700 min-h-[44px] ${activeTarget === "submit-button" ? "guide-spotlight-button" : ""} ${guideDemoAction === "click-submit" ? "guide-demo-click" : ""}`}
+                        disabled={submitting}
+                        onClick={() => void submitRequest()}
+                      >
                         {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                         {submitting ? "Submitting…" : "Submit request"}
                       </Button>
@@ -532,15 +625,15 @@ export default function SubmitRequest() {
         )}
 
         {/* Step 5: success */}
-        {step === 5 && result && (
-          <Card>
+        {displayStep === 5 && displayResult && (
+          <Card data-guide-target="confirmation-card" className={activeTarget === "confirmation-card" ? "guide-spotlight" : ""}>
             <CardContent className="pt-8 pb-8 text-center space-y-4">
               <CheckCircle2 className="h-14 w-14 mx-auto text-emerald-600" />
               <h2 className="text-xl font-bold">Request submitted</h2>
               <p className="text-sm text-muted-foreground">Your order number for {chosenStore?.client_name} is:</p>
-              <p className="text-2xl font-mono font-bold text-red-600 break-words">{result.order_number}</p>
+              <p className="text-2xl font-mono font-bold text-red-600 break-words">{displayResult.order_number}</p>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                A confirmation email has been sent to <strong>{submitter.email}</strong>. You will receive another
+                A confirmation email has been sent to <strong>{submitter.email || "your.email@store.co.za"}</strong>. You will receive another
                 email when the order is processed, and the report follows once the checks are complete.
               </p>
               <div className="flex flex-wrap justify-center gap-3 pt-2">
@@ -560,13 +653,22 @@ export default function SubmitRequest() {
           <a href="/privacy-policy" className="underline">Privacy Policy</a>
         </p>
       </footer>
+
+      <SubmissionAudioGuide
+        open={guideOpen}
+        onClose={exitGuideToStart}
+        onComplete={exitGuideToStart}
+        onActiveStepChange={setGuideStep}
+        onDemoActionChange={setGuideDemoAction}
+      />
     </div>
   );
 }
 
-function CandidateCard({ title, row, onChange, onGenderPick, onRemove }: {
+function CandidateCard({ title, row, highlighted, onChange, onGenderPick, onRemove }: {
   title: string;
   row: CandidateRow;
+  highlighted?: boolean;
   onChange: (patch: Partial<CandidateRow>) => void;
   onGenderPick: (g: "M" | "F") => void;
   onRemove?: () => void;
@@ -574,7 +676,7 @@ function CandidateCard({ title, row, onChange, onGenderPick, onRemove }: {
   const parsedId = parseSaId(row.id_number);
   const fromId = !!parsedId && !row.genderExplicit;
   return (
-    <Card>
+    <Card data-guide-target="candidate-details" className={highlighted ? "guide-spotlight" : ""}>
       <CardContent className="pt-5 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm">{title}</h3>
