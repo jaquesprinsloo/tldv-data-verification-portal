@@ -9,7 +9,7 @@ import * as XLSX from "xlsx";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { Home, Plus, FileDown, Mail, Trash2, Pencil, Upload, ClipboardList, Users, FileText, Download, Eye, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo2, RefreshCw } from "lucide-react";
-import { Star, ArrowRightLeft, Percent, FolderOpen, LayoutDashboard, ShieldAlert, Inbox } from "lucide-react";
+import { Star, ArrowRightLeft, Percent, FolderOpen, LayoutDashboard, ShieldAlert, Inbox, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +46,8 @@ import { MrDashboardTab } from "@/components/manual-risk/MrDashboardTab";
 import SupplierReconTab from "@/components/manual-risk/SupplierReconTab";
 import { MrInvoicedTab, uploadInvoiceToOneDrive } from "@/components/manual-risk/MrInvoicedTab";
 import { MrClientDashboardTab } from "@/components/manual-risk/MrClientDashboardTab";
+import { AccountsAudioGuide, type AccountsDemoAction, type AccountsGuideTarget } from "@/components/manual-risk/AccountsAudioGuide";
+import { AccountsGuideDemoModal } from "@/components/manual-risk/AccountsGuideDemoModal";
 import { IndemnityViewerDialog, type IndemnityFileRef } from "@/components/manual-risk/IndemnityViewerDialog";
 import { ArchiveImportTab } from "@/components/manual-risk/ArchiveImportTab";
 import DuplicateClientsDialog from "@/components/manual-risk/DuplicateClientsDialog";
@@ -3322,6 +3324,9 @@ function AccountsTab({
   const [openMode, setOpenMode] = useState<"live" | "archive">("live");
   const [highlightCandidateId, setHighlightCandidateId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideTarget, setGuideTarget] = useState<AccountsGuideTarget | null>(null);
+  const [guideDemoAction, setGuideDemoAction] = useState<AccountsDemoAction | null>(null);
   // Client-facing profiles keep an audit trail of what was searched.
   const logSearch = useRef(makeSearchLogger("candidates in Accounts")).current;
   const trimmedQuery = searchQuery.trim();
@@ -3577,13 +3582,30 @@ function AccountsTab({
 
   return (
     <Card className="p-4">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div
+        data-guide-target="accounts-overview"
+        className={`mb-4 flex flex-wrap items-center gap-3 rounded-lg transition-shadow ${
+          guideTarget === "accounts-overview" ? "guide-spotlight p-2" : ""
+        }`}
+      >
         <p className="text-sm text-muted-foreground">
           {clientFacing
             ? `${totalChecks} check(s) across ${groups.length} account(s). Search by name, surname or ID number to find a candidate.`
             : `${totalChecks} un-invoiced check(s) across ${groups.length} client account(s). Each candidate counts as one check — invoiced checks move to the Invoiced tab.`}
         </p>
         <div className="flex-1" />
+        {clientFacing && (
+          <Button
+            type="button"
+            size="sm"
+            variant={guideOpen ? "default" : "outline"}
+            onClick={() => setGuideOpen((v) => !v)}
+            className="gap-1.5"
+          >
+            <Volume2 className="h-4 w-4" />
+            {guideOpen ? "Stop guide" : "Accounts guide"}
+          </Button>
+        )}
         {!clientFacing && (
           <>
             <div className="flex items-center gap-2">
@@ -3696,18 +3718,58 @@ function AccountsTab({
         )}
       </div>
 
-      <div className="mb-4">
+      <div
+        data-guide-target="accounts-search"
+        className={`mb-4 rounded-lg transition-shadow ${
+          guideTarget === "accounts-search" ? "guide-spotlight p-2" : ""
+        }`}
+      >
         <Label htmlFor="account-search" className="text-sm">Search candidates</Label>
         <Input
           id="account-search"
           placeholder="Type name, surname, or ID number…"
-          value={searchQuery}
+          value={guideDemoAction === "demo-search-typing" ? "9004125182083" : searchQuery}
+          readOnly={guideDemoAction === "demo-search-typing"}
           onChange={(e) => {
             setSearchQuery(e.target.value);
             if (clientFacing) logSearch(e.target.value);
           }}
           className="mt-1"
         />
+        {guideDemoAction === "demo-search-typing" && (
+          <div className="mt-2 rounded-md border border-primary/40 bg-muted/30 p-2 text-xs">
+            <p className="mb-1.5 font-medium text-muted-foreground">Walkthrough example match (checks both Current &amp; Archive):</p>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="h-8">Candidate</TableHead>
+                    <TableHead className="h-8">ID number</TableHead>
+                    <TableHead className="h-8">Client</TableHead>
+                    <TableHead className="h-8">Source</TableHead>
+                    <TableHead className="h-8">Order #</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="py-1.5">Thabo Mokoena</TableCell>
+                    <TableCell className="py-1.5 font-mono">9004125182083</TableCell>
+                    <TableCell className="py-1.5">Sandton Flagship</TableCell>
+                    <TableCell className="py-1.5"><Badge className="bg-emerald-600 text-[10px]">Current</Badge></TableCell>
+                    <TableCell className="py-1.5 font-mono">ORD-2026-0412</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="py-1.5">Thabo Mokoena</TableCell>
+                    <TableCell className="py-1.5 font-mono">9004125182083</TableCell>
+                    <TableCell className="py-1.5">Sandton Flagship</TableCell>
+                    <TableCell className="py-1.5"><Badge variant="outline" className="text-[10px]">Archive</Badge></TableCell>
+                    <TableCell className="py-1.5 font-mono">ARC-2023-1184</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
         {searchActive && (
           <div className="mt-3 border rounded-md">
             <Table>
@@ -3766,18 +3828,28 @@ function AccountsTab({
             : "No regular accounts to show. Toggle 'Regulars only' off to see all accounts."}
         </div>
       ) : (
+        <div
+          data-guide-target="accounts-columns"
+          className={`overflow-x-auto rounded-lg transition-shadow ${
+            guideTarget === "accounts-columns" ? "guide-spotlight p-1" : ""
+          }`}
+        >
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Client</TableHead>
-              <TableHead className="text-center">Candidates (current)</TableHead>
-              <TableHead className="text-center">Historical (archive)</TableHead>
+              <TableHead className={`text-center ${guideTarget === "accounts-columns" ? "bg-primary/10 text-primary font-semibold" : ""}`}>
+                Candidates (current)
+              </TableHead>
+              <TableHead className={`text-center ${guideTarget === "accounts-columns" ? "bg-primary/10 text-primary font-semibold" : ""}`}>
+                Historical (archive)
+              </TableHead>
               {!clientFacing && <TableHead className="text-center">Discounted</TableHead>}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visibleGroups.map((g) => (
+            {visibleGroups.map((g, idx) => (
               <TableRow key={g.key}>
                 <TableCell className="font-medium">
                   <div className="flex items-center gap-2">
@@ -3787,8 +3859,8 @@ function AccountsTab({
                     )}
                   </div>
                 </TableCell>
-                <TableCell className="text-center">{g.checkCount}</TableCell>
-                <TableCell className="text-center">
+                <TableCell className={`text-center ${guideTarget === "accounts-columns" ? "bg-primary/5 font-semibold" : ""}`}>{g.checkCount}</TableCell>
+                <TableCell className={`text-center ${guideTarget === "accounts-columns" ? "bg-primary/5" : ""}`}>
                   {g.archiveCount
                     ? <Badge variant="outline" className="text-[10px]">{g.archiveCount}</Badge>
                     : <span className="text-xs text-muted-foreground">—</span>}
@@ -3815,10 +3887,15 @@ function AccountsTab({
                 )}
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="outline" onClick={() => {
-                      setOpenMode("live");
-                      setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key);
-                    }}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={idx === 0 && guideDemoAction === "click-open-account" ? "guide-demo-click" : undefined}
+                      onClick={() => {
+                        setOpenMode("live");
+                        setOpenClientId(g.key === "__unassigned__" ? "unassigned" : g.key);
+                      }}
+                    >
                       Open account
                     </Button>
                     {g.archiveCount > 0 && (
@@ -3835,6 +3912,7 @@ function AccountsTab({
             ))}
           </TableBody>
         </Table>
+        </div>
       )}
 
       {openClientId && (
@@ -3852,6 +3930,27 @@ function AccountsTab({
           initialMode={openMode}
           clientFacing={clientFacing}
         />
+      )}
+
+      {clientFacing && (
+        <>
+          <AccountsGuideDemoModal
+            guideOpen={guideOpen}
+            guideTarget={guideTarget}
+            demoAction={guideDemoAction}
+            onCloseGuide={() => {
+              setGuideOpen(false);
+              setGuideTarget(null);
+              setGuideDemoAction(null);
+            }}
+          />
+          <AccountsAudioGuide
+            open={guideOpen}
+            onClose={() => setGuideOpen(false)}
+            onActiveTargetChange={setGuideTarget}
+            onDemoActionChange={setGuideDemoAction}
+          />
+        </>
       )}
     </Card>
   );
